@@ -1,12 +1,11 @@
 # Configuration de déploiement Netlify.
 #
-# Le site est un fichier HTML unique, sans étape de compilation :
-# on le dit explicitement plutôt que de laisser Netlify deviner.
+# Le site est un fichier HTML unique, sans étape de compilation.
+# On n'indique aucune commande de build : Netlify comprend qu'il n'y
+# a rien à exécuter et se contente de publier le contenu du dossier.
 # Mettre ce réglage dans le dépôt plutôt que dans l'interface évite
 # qu'il diverge entre les aperçus de PR et la production.
 
 [build]
-  # Rien à compiler.
-  command = ""
   # Le site est servi depuis la racine du dépôt.
   publish = "."
