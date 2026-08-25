@@ -1,0 +1,12 @@
+# Permissions locales de Claude Code : propres à cette machine.
+.claude/settings.local.json
+
+# Fichiers temporaires
+*.tmp
+*.bak
+_ancien_*.txt
+
+# Système
+Thumbs.db
+desktop.ini
+.DS_Store
