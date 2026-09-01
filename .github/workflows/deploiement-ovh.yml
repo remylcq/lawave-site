@@ -35,6 +35,9 @@ jobs:
       - name: Récupérer le dépôt
         uses: actions/checkout@v4
 
+      - name: Installer lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+
       - name: Envoyer index.html sur OVH
         env:
           FTP_HOST: ${{ secrets.FTP_HOST }}
@@ -43,12 +46,24 @@ jobs:
         run: |
           set -euo pipefail
           echo "Envoi de index.html ($(wc -c < index.html) octets)"
-          # --ssl-reqd impose FTPS : le mot de passe ne circule jamais
-          # en clair. --fail fait échouer l'étape sur erreur serveur.
-          curl --fail --silent --show-error --ssl-reqd \
-               --user "$FTP_USER:$FTP_PASSWORD" \
-               --upload-file index.html \
-               "ftp://$FTP_HOST/www/index.html"
+          # curl échouait en « server response timeout » : sa
+          # négociation FTPS ne s'entend pas avec le serveur d'OVH.
+          # lftp gère ces particularités (mode passif, réutilisation
+          # de la session TLS sur le canal de données).
+          #
+          # « put » vise un seul fichier : contrairement à une
+          # synchronisation, il ne peut rien supprimer sur le serveur.
+          lftp -c "
+            set ftp:ssl-force true;
+            set ftp:ssl-protect-data true;
+            set ssl:verify-certificate yes;
+            set ftp:passive-mode true;
+            set net:timeout 20;
+            set net:max-retries 3;
+            set cmd:fail-exit true;
+            open -u '$FTP_USER','$FTP_PASSWORD' '$FTP_HOST';
+            put -O /www index.html;
+          "
 
       - name: Vérifier que le site sert bien la nouvelle version
         run: |
