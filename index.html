@@ -486,23 +486,42 @@
     background:none; border:none; color:var(--blue); font:inherit;
     text-decoration:underline; padding:0; cursor:pointer;
   }
+  /* Compacte dans la fiche profil, généreuse sur la page dédiée. */
   .collection-grid{
     display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
     gap:10px; margin-top:12px;
   }
-  .collection-item{cursor:pointer; text-align:left;}
+  .collection-grid.grande{
+    grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px;
+  }
+  @media (max-width:620px){
+    .collection-grid.grande{grid-template-columns:repeat(2,1fr); gap:10px;}
+  }
+  .collection-item{cursor:pointer; text-align:left; position:relative;}
   .collection-item img{
     width:100%; aspect-ratio:1/1; object-fit:cover; display:block;
     border:1px solid var(--line); border-radius:var(--radius-sm);
+    transition:transform .18s ease, border-color .18s ease;
   }
+  .collection-item:hover img{transform:translateY(-3px); border-color:var(--blue);}
   .collection-item .note{font-size:11px; color:#f5b301; margin-top:4px; display:block;}
-  .collection-onglets{display:flex; gap:8px; margin-top:6px;}
-  .collection-onglets button{
-    font-size:12px; font-weight:600; padding:6px 12px;
-    border:1px solid var(--line); border-radius:var(--radius-pill);
-    background:var(--bg-alt); color:var(--muted);
+  .collection-grid.grande .collection-item .note{font-size:15px;}
+  .collection-grid.grande .c-titre{
+    display:block; font-size:14px; font-weight:600; margin-top:8px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
-  .collection-onglets button.active{color:var(--ink); border-color:var(--blue); background:rgba(20,137,222,0.12);}
+  .collection-grid.grande .c-artiste{
+    display:block; font-size:12px; color:var(--muted);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  /* Repère discret sur les sorties enregistrées : les notées et les
+     enregistrées cohabitent dans une seule liste. */
+  .c-marque{
+    position:absolute; top:8px; right:8px; font-size:14px;
+    width:28px; height:28px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(5,7,10,0.7); backdrop-filter:blur(6px);
+  }
 
   /* ---------- PAGE ARTISTE ---------- */
   .artiste-entete{
@@ -757,31 +776,31 @@
   .challenge-dropdown .challenge-list{padding:0 14px 14px; margin:0;}
 
   /* ---------- CHALLENGES ---------- */
-  .challenge-list{display:flex; flex-direction:column; gap:6px; margin-bottom:8px;}
+  /* Onze défis : la liste doit rester compacte, sinon le volet ouvert
+     repousse tout le reste de la page vers le bas. Elle défile
+     au-delà de six entrées environ. */
+  .challenge-list{
+    display:flex; flex-direction:column; gap:3px; margin-bottom:4px;
+    max-height:250px; overflow-y:auto;
+  }
   .challenge-item{
-    background:var(--bg-alt); padding:11px 14px; display:flex; align-items:center; gap:12px;
-    border:1px solid var(--line); border-radius:var(--radius-sm);
-    transition:border-color .2s, opacity .2s;
+    background:transparent; padding:6px 10px; display:flex; align-items:center; gap:10px;
+    border:none; border-radius:var(--radius-sm);
+    transition:opacity .2s;
   }
-  .challenge-item .c-icone{
-    font-size:15px; width:26px; height:26px; flex-shrink:0;
-    display:flex; align-items:center; justify-content:center;
-    border-radius:50%; background:rgba(255,255,255,0.06);
-  }
-  .challenge-item .c-label{font-size:14px; flex:1; min-width:0; line-height:1.35;}
+  .challenge-item:nth-child(odd){background:rgba(255,255,255,0.03);}
+  .challenge-item .c-label{font-size:13px; flex:1; min-width:0; line-height:1.3;}
   .challenge-item .c-xp{
     font-size:11px; font-weight:700; color:var(--blue); white-space:nowrap;
-    padding:3px 9px; border-radius:var(--radius-pill);
-    background:rgba(20,137,222,0.12); flex-shrink:0;
+    flex-shrink:0;
   }
   .challenge-item .c-done{
-    font-size:13px; color:#8fe3ab; flex-shrink:0; font-weight:700;
+    font-size:12px; color:#8fe3ab; flex-shrink:0; font-weight:700;
   }
   /* Un défi accompli s'efface visuellement pour laisser la place à
      ceux qui restent à faire. */
-  .challenge-item.fait{opacity:.5; border-color:rgba(143,227,171,0.3);}
+  .challenge-item.fait{opacity:.45;}
   .challenge-item.fait .c-label{text-decoration:line-through; text-decoration-color:var(--muted);}
-  .challenge-item.fait .c-icone{background:rgba(143,227,171,0.15);}
 
   /* Progression du jour, dans l'en-tête du volet */
   .defis-progression{
@@ -1239,7 +1258,8 @@
       </div>
 
       <div id="collectionConnecte" style="display:none;">
-        <div class="collection-onglets" id="maCollectionOnglets"></div>
+        <p class="mono" id="maCollectionResume"
+           style="color:var(--muted); font-size:13px; margin:0 0 18px;"></p>
         <div id="maCollectionZone"></div>
       </div>
     </section>
@@ -3272,17 +3292,17 @@ async function saveProfile(){
 
 // ---- Communauté : XP, défis, forum ----
 const DAILY_CHALLENGES = [
-  { key: 'exploreCatalogue', label: 'Découvrir une sortie du catalogue', xp: 5, auto: true, icone: '💿' },
-  { key: 'noterSortie', label: 'Noter une sortie', xp: 5, auto: true, icone: '★' },
-  { key: 'enregistrerSortie', label: 'Enregistrer une sortie dans sa collection', xp: 5, auto: true, icone: '🔖' },
-  { key: 'visiterArtiste', label: 'Visiter la page d\'un artiste', xp: 5, auto: true, icone: '🎤' },
-  { key: 'decouvrirMembre', label: 'Consulter le profil d\'un membre', xp: 5, auto: true, icone: '👥' },
-  { key: 'postForum', label: 'Publier un message sur le forum', xp: 10, auto: true, icone: '💬' },
-  { key: 'commentForum', label: 'Commenter un post du forum', xp: 5, auto: true, icone: '↩️' },
-  { key: 'voterForum', label: 'Voter sur un post du forum', xp: 5, auto: true, icone: '▲' },
-  { key: 'reagirForum', label: 'Réagir à un post du forum', xp: 5, auto: true, icone: '🔥' },
-  { key: 'updateProfile', label: 'Mettre à jour son profil', xp: 5, auto: true, icone: '✎' },
-  { key: 'instaComment', label: 'Commenter notre dernier post Instagram', xp: 5, auto: false, icone: '📸' }
+  { key: 'exploreCatalogue', label: 'Découvrir une sortie du catalogue', xp: 5, auto: true },
+  { key: 'noterSortie', label: 'Noter une sortie', xp: 5, auto: true },
+  { key: 'enregistrerSortie', label: 'Enregistrer une sortie', xp: 5, auto: true },
+  { key: 'visiterArtiste', label: 'Visiter la page d\'un artiste', xp: 5, auto: true },
+  { key: 'decouvrirMembre', label: 'Consulter le profil d\'un membre', xp: 5, auto: true },
+  { key: 'postForum', label: 'Publier un message sur le forum', xp: 10, auto: true },
+  { key: 'commentForum', label: 'Commenter un post', xp: 5, auto: true },
+  { key: 'voterForum', label: 'Voter sur un post', xp: 5, auto: true },
+  { key: 'reagirForum', label: 'Réagir à un post', xp: 5, auto: true },
+  { key: 'updateProfile', label: 'Mettre à jour son profil', xp: 5, auto: true },
+  { key: 'instaComment', label: 'Commenter notre dernier post Instagram', xp: 5, auto: false }
 ];
 
 const ONBOARDING_CHALLENGES = [
@@ -3381,7 +3401,6 @@ function renderChallenges(){
 
     return `
       <div class="challenge-item${fait ? ' fait' : ''}">
-        <span class="c-icone">${c.icone || '•'}</span>
         <span class="c-label">${escapeHtml(c.label)}</span>
         ${action}
       </div>`;
@@ -4001,8 +4020,9 @@ async function viewProfile(userId){
     const posts = sesPosts || [];
 
     // Les notes sont déjà chargées avec le catalogue.
-    const notees = toutesLesNotes.filter(n => n.user_id === userId && n.rating).length;
-    const enregistrees = toutesLesNotes.filter(n => n.user_id === userId && n.saved).length;
+    const collectionTotal = toutesLesNotes.filter(
+      n => n.user_id === userId && (n.rating || n.saved)
+    ).length;
 
     const socials = user.socials || {};
     const socialLinks = Object.entries({instagram:'Instagram', twitter:'X', tiktok:'TikTok', spotify:'Spotify', appleMusic:'Apple Music', deezer:'Deezer'})
@@ -4022,18 +4042,10 @@ async function viewProfile(userId){
       ${socialLinks ? `<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:20px;">${socialLinks}</div>` : ''}
       <div class="hairline" style="margin:20px 0;"></div>
       <div style="text-align:left;">
-        <p class="eyebrow mono" style="margin-bottom:0;">Sa collection</p>
-        <div class="collection-onglets">
-          <button type="button" data-mode="notes" class="active"
-                  onclick="afficherCollection('${user.id}','notes')">
-            ${notees} notée${notees !== 1 ? 's' : ''}
-          </button>
-          <button type="button" data-mode="saved"
-                  onclick="afficherCollection('${user.id}','saved')">
-            ${enregistrees} enregistrée${enregistrees !== 1 ? 's' : ''}
-          </button>
-        </div>
-        <div id="collectionZone"></div>
+        <p class="eyebrow mono" style="margin-bottom:4px;">
+          Sa collection${collectionTotal ? ' · ' + collectionTotal : ''}
+        </p>
+        ${collectionHtml(user.id)}
       </div>
 
       <div class="hairline" style="margin:20px 0;"></div>
@@ -4043,8 +4055,6 @@ async function viewProfile(userId){
         ${posts.slice(0,5).map(p => `<div class="forum-comment">${escapeHtml(p.content) || '(image)'}</div>`).join('') || "<p style='color:var(--muted); font-size:13px;'>Aucun message pour l'instant.</p>"}
       </div>
     `;
-
-    afficherCollection(user.id, 'notes');
   }
   document.getElementById('viewProfileModal').classList.add('open');
 }
@@ -4772,21 +4782,15 @@ async function noterSortie(releaseId, valeur){
 
   await enregistrerMaNote(releaseId, { rating: valeur || null });
 
-  const sortie = catalogueData.find(s => s.id === releaseId);
-  const titre = sortie ? sortie.title : 'cette sortie';
-
+  // Pas de notification ici : les étoiles changent sous les yeux de
+  // la personne, le message ferait doublon. Seul le gain d'XP, qui
+  // n'est pas visible autrement, en déclenche une.
   if(valeur){
     // L'étoile choisie tressaute pour confirmer le clic.
     const etoiles = document.querySelectorAll('#modalNoteBloc .etoile');
     if(etoiles[valeur - 1]) etoiles[valeur - 1].classList.add('choisie');
 
-    notifier(valeur + ' étoile' + (valeur > 1 ? 's' : ''), {
-      type: 'info', icone: '★', detail: titre
-    });
-
     await awardXP('noterSortie', 5);
-  } else {
-    notifier('Note retirée', { type: 'info', icone: '☆', detail: titre });
   }
 }
 
@@ -4834,20 +4838,31 @@ function animerEnregistrement(){
 }
 
 
-// Collection d'un membre, affichée sur son profil.
-function collectionHtml(userId, mode){
+// Collection d'un membre : une seule liste réunissant les sorties
+// notées et les sorties enregistrées. Les séparer obligeait à
+// chercher dans deux endroits une même sortie souvent présente dans
+// les deux. Un repère signale celles qui sont enregistrées.
+//
+// « grande » réserve l'affichage généreux à la page dédiée : dans la
+// fiche profil, la place est comptée.
+function collectionHtml(userId, options){
+
+  const opt = options || {};
 
   const lignes = toutesLesNotes.filter(n =>
-    n.user_id === userId && (mode === 'notes' ? n.rating : n.saved)
+    n.user_id === userId && (n.rating || n.saved)
   );
 
   if(!lignes.length){
     return `<p style="color:var(--muted); font-size:13px;">
-              ${mode === 'notes' ? 'Aucune sortie notée.' : 'Aucune sortie enregistrée.'}
+              Aucune sortie dans la collection pour l'instant.
             </p>`;
   }
 
-  const cartes = lignes.map(ligne => {
+  // Les mieux notées d'abord, puis les enregistrées sans note.
+  const triees = [...lignes].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+
+  const cartes = triees.map(ligne => {
     const sortie = catalogueData.find(s => s.id === ligne.release_id);
     // Une sortie retirée du catalogue n'a plus de fiche à montrer.
     if(!sortie) return '';
@@ -4855,24 +4870,19 @@ function collectionHtml(userId, mode){
       <div class="collection-item" onclick="openCatalogueModal('${sortie.id}')">
         <img src="${escapeAttribute(safeUrl(sortie.cover))}"
              alt="${escapeAttribute(sortie.title)}" loading="lazy">
+        ${ligne.saved ? `<span class="c-marque" title="Enregistrée">🔖</span>` : ''}
+        ${opt.grande ? `
+          <span class="c-titre">${escapeHtml(sortie.title)}</span>
+          <span class="c-artiste">${escapeHtml(sortie.artist)}</span>` : ''}
         ${ligne.rating ? `<span class="note">${'★'.repeat(ligne.rating)}</span>` : ''}
       </div>`;
   }).filter(Boolean).join('');
 
   return cartes
-    ? `<div class="collection-grid">${cartes}</div>`
+    ? `<div class="collection-grid${opt.grande ? ' grande' : ''}">${cartes}</div>`
     : `<p style="color:var(--muted); font-size:13px;">
          Ces sorties ne sont plus au catalogue.
        </p>`;
-}
-
-
-function afficherCollection(userId, mode){
-  const zone = document.getElementById('collectionZone');
-  if(!zone) return;
-  zone.innerHTML = collectionHtml(userId, mode);
-  document.querySelectorAll('#viewProfileBody .collection-onglets button')
-    .forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
 }
 
 
@@ -4880,8 +4890,6 @@ function afficherCollection(userId, mode){
 //
 // Même contenu que la collection du profil, mais sur une page à soi,
 // atteignable depuis la navigation une fois connecté.
-
-let maCollectionMode = 'saved';
 
 async function renderMaCollection(){
 
@@ -4902,28 +4910,19 @@ async function renderMaCollection(){
   if(!catalogueData.length) await renderCatalogue();
   await chargerNotes();
 
-  const enregistrees = toutesLesNotes.filter(n => n.user_id === currentUser.id && n.saved).length;
-  const notees = toutesLesNotes.filter(n => n.user_id === currentUser.id && n.rating).length;
+  const miennes = toutesLesNotes.filter(
+    n => n.user_id === currentUser.id && (n.rating || n.saved)
+  );
+  const notees = miennes.filter(n => n.rating).length;
 
-  document.getElementById('maCollectionOnglets').innerHTML = `
-    <button type="button" data-mode="saved"
-            class="${maCollectionMode === 'saved' ? 'active' : ''}"
-            onclick="setMaCollectionMode('saved')">
-      🔖 ${enregistrees} enregistrée${enregistrees !== 1 ? 's' : ''}
-    </button>
-    <button type="button" data-mode="notes"
-            class="${maCollectionMode === 'notes' ? 'active' : ''}"
-            onclick="setMaCollectionMode('notes')">
-      ★ ${notees} notée${notees !== 1 ? 's' : ''}
-    </button>`;
+  document.getElementById('maCollectionResume').textContent =
+    miennes.length
+      ? miennes.length + ' sortie' + (miennes.length > 1 ? 's' : '') +
+        (notees ? ' · ' + notees + ' notée' + (notees > 1 ? 's' : '') : '')
+      : '';
 
   document.getElementById('maCollectionZone').innerHTML =
-    collectionHtml(currentUser.id, maCollectionMode);
-}
-
-function setMaCollectionMode(mode){
-  maCollectionMode = mode;
-  renderMaCollection();
+    collectionHtml(currentUser.id, { grande: true });
 }
 
 
