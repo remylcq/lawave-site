@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>La Wave — média musical</title>
+<!-- Rempli au chargement à partir du logo de l'en-tête, pour ne pas
+     dupliquer son image dans le fichier. -->
+<link rel="icon" id="faviconLaWave" href="data:,">
 <meta name="description" content="La Wave repère les sons et les artistes qui comptent avant qu'ils soient partout, sans se limiter à un seul genre.">
 
 <!-- Aperçu affiché quand un lien du site est partagé sur les réseaux.
@@ -82,7 +85,9 @@
     padding:14px 24px;
   }
   .nav-logo{display:flex; align-items:center; gap:10px;}
-  .nav-logo img{height:38px; width:auto;}
+  /* Le fichier du logo est carré alors que le mot-logo est large :
+     à 38 px de haut, la marque devenait illisible. */
+  .nav-logo img{height:52px; width:auto; display:block;}
   .nav-links{display:flex; gap:6px; align-items:center;}
   .nav-links button.navlink{
     background:transparent; border:1px solid transparent; padding:8px 16px;
@@ -127,13 +132,18 @@
 
   @media (max-width:760px){
     .nav-links{
-      position:fixed; top:66px; left:0; right:0; bottom:0;
+      position:fixed; top:72px; left:0; right:0; bottom:0;
       background:var(--bg); flex-direction:column; align-items:flex-start;
       padding:20px 24px; gap:18px; display:none; border-top:1px solid var(--line);
+      overflow-y:auto;
     }
     .nav-links.open{display:flex;}
-    .burger{display:block;}
+    /* Cible tactile confortable : 32 px était trop juste au doigt. */
+    .burger{display:flex; align-items:center; justify-content:center; width:44px; height:44px;}
     .nav-cta-wrap{display:none;}
+    .nav-inner{padding:10px 16px;}
+    .nav-logo img{height:44px;}
+    main{padding:0 16px;}
   }
 
   /* ---------- LAYOUT ---------- */
@@ -218,6 +228,11 @@
   .cat-grid{
     display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
     gap:10px;
+  }
+  /* Sur mobile, 220 px ne laissait qu'une pochette par ligne :
+     on en met deux pour parcourir le catalogue sans défiler autant. */
+  @media (max-width:620px){
+    .cat-grid{grid-template-columns:repeat(2,1fr); gap:8px;}
   }
   .cat-tile{
     background:var(--bg-alt); position:relative; overflow:hidden; cursor:pointer;
@@ -314,6 +329,84 @@
   .member-avatar img{width:100%; height:100%; object-fit:cover;}
   .member-pseudo{font-size:14px; font-weight:600;}
   .member-xp{font-size:11px; color:var(--muted);}
+
+  /* ---------- NOTIFICATIONS ---------- */
+  .notif-zone{
+    position:fixed; top:82px; right:20px; z-index:400;
+    display:flex; flex-direction:column; gap:10px;
+    pointer-events:none; max-width:330px;
+  }
+  .notif{
+    display:flex; align-items:flex-start; gap:12px; pointer-events:auto;
+    padding:14px 16px; border-radius:var(--radius);
+    background:rgba(13,17,22,0.92); border:1px solid var(--line);
+    box-shadow:0 12px 40px rgba(0,0,0,0.45);
+    backdrop-filter:blur(var(--glass-blur));
+    -webkit-backdrop-filter:blur(var(--glass-blur));
+    animation:notifEntre .32s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .notif.sortie{animation:notifSort .28s ease forwards;}
+  .notif-icone{font-size:20px; line-height:1.1; flex-shrink:0;}
+  .notif-texte{flex:1; min-width:0;}
+  .notif-titre{font-size:14px; font-weight:600; color:var(--ink); margin:0;}
+  .notif-detail{font-size:12px; color:var(--muted); margin:3px 0 0;}
+  .notif.xp{border-color:rgba(245,179,1,0.45);}
+  .notif.xp .notif-titre{color:#f5b301;}
+  .notif.succes{border-color:rgba(46,160,90,0.45);}
+  .notif.erreur{border-color:rgba(229,105,92,0.5);}
+  .notif-fermer{
+    background:none; border:none; color:var(--muted); font-size:15px;
+    padding:0 2px; line-height:1; flex-shrink:0;
+  }
+  .notif-fermer:hover{color:var(--ink);}
+
+  @keyframes notifEntre{
+    from{opacity:0; transform:translateX(28px) scale(.96);}
+    to{opacity:1; transform:translateX(0) scale(1);}
+  }
+  @keyframes notifSort{
+    to{opacity:0; transform:translateX(28px) scale(.96);}
+  }
+
+  /* Sur mobile, la pile passe en bas : le pouce y accède, et elle
+     ne masque pas l'en-tête. */
+  @media (max-width:620px){
+    .notif-zone{
+      top:auto; bottom:16px; left:16px; right:16px; max-width:none;
+    }
+    @keyframes notifEntre{
+      from{opacity:0; transform:translateY(24px) scale(.96);}
+      to{opacity:1; transform:translateY(0) scale(1);}
+    }
+    @keyframes notifSort{
+      to{opacity:0; transform:translateY(24px) scale(.96);}
+    }
+  }
+
+  /* ---------- ANIMATIONS ---------- */
+  .xp-bar-fill{transition:width .7s cubic-bezier(.2,.8,.3,1);}
+  .xp-card.gagne{animation:pulseXP .6s ease;}
+  @keyframes pulseXP{
+    0%{box-shadow:0 0 0 0 rgba(245,179,1,0.45);}
+    100%{box-shadow:0 0 0 16px rgba(245,179,1,0);}
+  }
+  .etoile.choisie{animation:etoilePop .35s cubic-bezier(.2,.9,.3,1.4);}
+  @keyframes etoilePop{
+    0%{transform:scale(1);} 45%{transform:scale(1.45);} 100%{transform:scale(1);}
+  }
+  .cat-tile{animation:tuileEntre .35s ease both;}
+  @keyframes tuileEntre{
+    from{opacity:0; transform:translateY(10px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+
+  /* Respecte le réglage système « réduire les animations ». */
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{
+      animation-duration:.01ms !important; animation-iteration-count:1 !important;
+      transition-duration:.01ms !important;
+    }
+  }
 
   /* ---------- NOTES ET COLLECTION ---------- */
   .note-moyenne{font-size:12px; color:var(--muted); margin-bottom:10px;}
@@ -768,7 +861,11 @@
     display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;
   }
   .footer-inner .mono{font-size:12px; color:var(--muted);}
-  .footer-admin-link{font-size:12px; color:var(--muted); border-bottom:1px dotted var(--muted);}
+  .footer-admin-link{
+    font-size:12px; color:var(--muted); border-bottom:1px dotted var(--muted);
+    /* Zone de clic confortable au doigt sans changer l'aspect. */
+    display:inline-block; padding:8px 0;
+  }
 </style>
 </head>
 <body>
@@ -3139,6 +3236,10 @@ async function awardXP(challengeKey, amount){
 
   ensureDailyChallenges(currentUser);
   if(currentUser.challenges[challengeKey]) return; // déjà fait aujourd'hui
+
+  const niveauAvant = levelForXP(currentUser.xp);
+  const badgeAvant = badgeForXP(currentUser.xp).name;
+
   currentUser.challenges[challengeKey] = true;
   currentUser.xp += amount;
   await saveCurrentProfile({
@@ -3152,6 +3253,44 @@ async function awardXP(challengeKey, amount){
 
   renderXP();
   renderChallenges();
+
+  // L'XP se gagnait jusqu'ici en silence : rien ne signalait le gain
+  // si la personne n'était pas sur la page Communauté.
+  const defi = DAILY_CHALLENGES.find(d => d.key === challengeKey);
+
+  notifier('+' + amount + ' XP', {
+    type: 'xp',
+    icone: '⚡',
+    detail: defi ? defi.label : 'Défi accompli'
+  });
+
+  const niveauApres = levelForXP(currentUser.xp);
+
+  if(niveauApres > niveauAvant){
+    const badge = badgeForXP(currentUser.xp);
+
+    // Le badge ne change qu'à certains paliers : annoncer un nouveau
+    // titre à chaque niveau laisserait croire à une distinction qui
+    // n'a pas bougé.
+    const nouveauBadge = badge.name !== badgeAvant;
+
+    notifier('Niveau ' + niveauApres + ' atteint', {
+      type: 'succes',
+      icone: nouveauBadge ? badge.icon : '🎉',
+      detail: nouveauBadge
+        ? 'Nouveau badge : ' + badge.name + '.'
+        : 'Continue comme ça.',
+      duree: 6500
+    });
+  }
+
+  // Petite impulsion sur la carte d'XP si elle est à l'écran.
+  const carte = document.querySelector('.xp-card');
+  if(carte){
+    carte.classList.remove('gagne');
+    void carte.offsetWidth; // force le redémarrage de l'animation
+    carte.classList.add('gagne');
+  }
 }
 
 async function renderCommunity(){
@@ -4139,6 +4278,70 @@ restoreSession();
 // un artiste ouvre directement la bonne page.
 lireAdresse();
 
+// ---------------- NOTIFICATIONS ----------------
+//
+// Messages passagers en haut à droite (en bas sur mobile). Servent
+// aux événements qui n'ont pas de zone de message dédiée : gain d'XP,
+// montée de niveau, note enregistrée.
+
+function zoneNotifications(){
+  let zone = document.getElementById('notifZone');
+  if(!zone){
+    zone = document.createElement('div');
+    zone.id = 'notifZone';
+    zone.className = 'notif-zone';
+    document.body.appendChild(zone);
+  }
+  return zone;
+}
+
+function notifier(titre, options){
+
+  const opt = options || {};
+  const zone = zoneNotifications();
+
+  const notif = document.createElement('div');
+  notif.className = 'notif ' + (opt.type || 'info');
+
+  notif.innerHTML = `
+    <span class="notif-icone">${opt.icone || '🔔'}</span>
+    <div class="notif-texte">
+      <p class="notif-titre">${escapeHtml(titre)}</p>
+      ${opt.detail ? `<p class="notif-detail">${escapeHtml(opt.detail)}</p>` : ''}
+    </div>
+    <button type="button" class="notif-fermer" aria-label="Fermer">✕</button>`;
+
+  const fermer = () => {
+    if(!notif.isConnected) return;
+    notif.classList.add('sortie');
+    // Laisse l'animation de sortie se jouer avant de retirer l'élément.
+    setTimeout(() => notif.remove(), 300);
+  };
+
+  notif.querySelector('.notif-fermer').addEventListener('click', fermer);
+  zone.appendChild(notif);
+
+  setTimeout(fermer, opt.duree || 4500);
+
+  // Au-delà de quatre, les plus anciennes s'effacent : la pile ne
+  // doit jamais recouvrir la page.
+  while(zone.children.length > 4){
+    zone.firstElementChild.remove();
+  }
+
+  return notif;
+}
+
+
+// Reprend le logo de l'en-tête comme icône d'onglet, plutôt que de
+// dupliquer son image dans le fichier.
+(function definirFavicon(){
+  const lien = document.getElementById('faviconLaWave');
+  const logo = document.querySelector('.nav-logo img');
+  if(lien && logo && logo.src) lien.href = logo.src;
+})();
+
+
 // ---------------- NOTES ET COLLECTION ----------------
 //
 // Chaque membre peut noter une sortie de 1 à 5 étoiles et l'enregistrer
@@ -4297,14 +4500,42 @@ async function enregistrerMaNote(releaseId, champs){
 
 
 async function noterSortie(releaseId, valeur){
+
   await enregistrerMaNote(releaseId, { rating: valeur || null });
-  if(valeur) await awardXP('noterSortie', 5);
+
+  const sortie = catalogueData.find(s => s.id === releaseId);
+  const titre = sortie ? sortie.title : 'cette sortie';
+
+  if(valeur){
+    // L'étoile choisie tressaute pour confirmer le clic.
+    const etoiles = document.querySelectorAll('#modalNoteBloc .etoile');
+    if(etoiles[valeur - 1]) etoiles[valeur - 1].classList.add('choisie');
+
+    notifier(valeur + ' étoile' + (valeur > 1 ? 's' : ''), {
+      type: 'info', icone: '★', detail: titre
+    });
+
+    await awardXP('noterSortie', 5);
+  } else {
+    notifier('Note retirée', { type: 'info', icone: '☆', detail: titre });
+  }
 }
 
 
 async function basculerEnregistrement(releaseId){
+
   const mienne = maNoteSur(releaseId);
-  await enregistrerMaNote(releaseId, { saved: !(mienne && mienne.saved) });
+  const nouvelEtat = !(mienne && mienne.saved);
+
+  await enregistrerMaNote(releaseId, { saved: nouvelEtat });
+
+  const sortie = catalogueData.find(s => s.id === releaseId);
+
+  notifier(nouvelEtat ? 'Ajoutée à ta collection' : 'Retirée de ta collection', {
+    type: nouvelEtat ? 'succes' : 'info',
+    icone: nouvelEtat ? '✓' : '−',
+    detail: sortie ? sortie.title : ''
+  });
 }
 
 
