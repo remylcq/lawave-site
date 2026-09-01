@@ -1,0 +1,65 @@
+# Publie le site sur l'hébergement OVH à chaque fusion dans main.
+#
+# Le site est un fichier unique : on l'envoie tel quel par FTPS, sans
+# étape de compilation. Volontairement, on n'utilise pas d'action de
+# synchronisation tierce — un simple envoi ne peut jamais supprimer
+# un fichier existant sur le serveur par effet de bord.
+#
+# Trois secrets à définir dans GitHub (Settings → Secrets and
+# variables → Actions) :
+#   FTP_HOST     ftp.cluster021.hosting.ovh.net
+#   FTP_USER     l'identifiant FTP vu dans l'espace OVH
+#   FTP_PASSWORD le mot de passe FTP
+
+name: Déploiement OVH
+
+on:
+  # Fusion dans main : mise en production.
+  push:
+    branches: [main]
+  # Permet aussi de relancer un déploiement à la main depuis l'onglet
+  # Actions, sans avoir à faire un commit.
+  workflow_dispatch:
+
+# Deux déploiements simultanés écriraient le même fichier : on laisse
+# le plus récent terminer et on annule celui d'avant.
+concurrency:
+  group: deploiement-ovh
+  cancel-in-progress: true
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Envoyer index.html sur OVH
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+          FTP_USER: ${{ secrets.FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "Envoi de index.html ($(wc -c < index.html) octets)"
+          # --ssl-reqd impose FTPS : le mot de passe ne circule jamais
+          # en clair. --fail fait échouer l'étape sur erreur serveur.
+          curl --fail --silent --show-error --ssl-reqd \
+               --user "$FTP_USER:$FTP_PASSWORD" \
+               --upload-file index.html \
+               "ftp://$FTP_HOST/www/index.html"
+
+      - name: Vérifier que le site sert bien la nouvelle version
+        run: |
+          set -euo pipefail
+          # Le cache serveur peut mettre quelques secondes à suivre.
+          sleep 10
+          attendu=$(wc -c < index.html)
+          servi=$(curl --silent --location --max-time 30 https://lawave.fr | wc -c)
+          echo "attendu : $attendu octets — servi : $servi octets"
+          if [ "$attendu" -ne "$servi" ]; then
+            echo "::error::Le site ne sert pas la version déployée."
+            exit 1
+          fi
+          echo "Déploiement confirmé."

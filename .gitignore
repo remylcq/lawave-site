@@ -1,5 +1,6 @@
-# Permissions locales de Claude Code : propres à cette machine.
-.claude/settings.local.json
+# Réglages locaux de Claude Code : propres à cette machine, et
+# fichiers temporaires qu'il y écrit au passage.
+.claude/
 
 # Fichiers temporaires
 *.tmp
@@ -10,3 +11,6 @@ _ancien_*.txt
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Copie de production, regeneree depuis main a la demande
+publication/
