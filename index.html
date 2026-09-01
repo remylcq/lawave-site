@@ -347,6 +347,13 @@
   .member-pseudo{font-size:14px; font-weight:600;}
   .member-xp{font-size:11px; color:var(--muted);}
 
+  .bienvenue-atout{
+    display:flex; align-items:center; gap:11px; font-size:14px;
+    color:var(--ink-soft); padding:11px 14px;
+    background:var(--bg-alt); border:1px solid var(--line);
+    border-radius:var(--radius-sm);
+  }
+
   /* ---------- NOTIFICATIONS ---------- */
   .notif-zone{
     position:fixed; top:82px; right:20px; z-index:400;
@@ -412,6 +419,26 @@
   .etoile.choisie{animation:etoilePop .35s cubic-bezier(.2,.9,.3,1.4);}
   @keyframes etoilePop{
     0%{transform:scale(1);} 45%{transform:scale(1.45);} 100%{transform:scale(1);}
+  }
+
+  /* Enregistrement d'une sortie : la pochette pulse et un repère
+     s'envole, pour que le geste se voie sans lire la notification. */
+  .modal-cover{position:relative;}
+  .modal-cover.enregistree{animation:coverEnregistree .55s ease;}
+  @keyframes coverEnregistree{
+    0%{transform:scale(1);}
+    35%{transform:scale(1.035); box-shadow:inset 0 0 0 3px var(--blue);}
+    100%{transform:scale(1);}
+  }
+  .repere-envol{
+    position:absolute; left:50%; top:50%; font-size:44px;
+    transform:translate(-50%,-50%); pointer-events:none;
+    animation:repereEnvol .9s cubic-bezier(.2,.8,.3,1) forwards;
+  }
+  @keyframes repereEnvol{
+    0%{opacity:0; transform:translate(-50%,-50%) scale(.5);}
+    30%{opacity:1; transform:translate(-50%,-50%) scale(1.15);}
+    100%{opacity:0; transform:translate(-50%,-190%) scale(.85);}
   }
   .cat-tile{animation:tuileEntre .35s ease both;}
   @keyframes tuileEntre{
@@ -724,14 +751,50 @@
   .challenge-dropdown .challenge-list{padding:0 14px 14px; margin:0;}
 
   /* ---------- CHALLENGES ---------- */
-  .challenge-list{display:flex; flex-direction:column; gap:10px; margin-bottom:8px;}
+  .challenge-list{display:flex; flex-direction:column; gap:6px; margin-bottom:8px;}
   .challenge-item{
-    background:var(--bg-alt); padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px;
+    background:var(--bg-alt); padding:11px 14px; display:flex; align-items:center; gap:12px;
     border:1px solid var(--line); border-radius:var(--radius-sm);
+    transition:border-color .2s, opacity .2s;
   }
-  .challenge-item .c-label{font-size:14px;}
-  .challenge-item .c-xp{font-size:12px; color:var(--blue); margin-left:8px;}
-  .challenge-item .c-done{font-size:12px; color:#8fe3ab;}
+  .challenge-item .c-icone{
+    font-size:15px; width:26px; height:26px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:50%; background:rgba(255,255,255,0.06);
+  }
+  .challenge-item .c-label{font-size:14px; flex:1; min-width:0; line-height:1.35;}
+  .challenge-item .c-xp{
+    font-size:11px; font-weight:700; color:var(--blue); white-space:nowrap;
+    padding:3px 9px; border-radius:var(--radius-pill);
+    background:rgba(20,137,222,0.12); flex-shrink:0;
+  }
+  .challenge-item .c-done{
+    font-size:13px; color:#8fe3ab; flex-shrink:0; font-weight:700;
+  }
+  /* Un défi accompli s'efface visuellement pour laisser la place à
+     ceux qui restent à faire. */
+  .challenge-item.fait{opacity:.5; border-color:rgba(143,227,171,0.3);}
+  .challenge-item.fait .c-label{text-decoration:line-through; text-decoration-color:var(--muted);}
+  .challenge-item.fait .c-icone{background:rgba(143,227,171,0.15);}
+
+  /* Progression du jour, dans l'en-tête du volet */
+  .defis-progression{
+    display:flex; align-items:center; gap:10px; margin-left:auto; margin-right:4px;
+  }
+  .defis-compteur{font-size:12px; color:var(--muted); white-space:nowrap;}
+  .defis-jauge{
+    width:64px; height:5px; border-radius:3px; overflow:hidden;
+    background:rgba(255,255,255,0.12); flex-shrink:0;
+  }
+  .defis-jauge span{
+    display:block; height:100%; background:var(--blue);
+    transition:width .6s cubic-bezier(.2,.8,.3,1);
+  }
+  .defis-tous-faits .defis-jauge span{background:#8fe3ab;}
+  @media (max-width:520px){
+    .defis-compteur{display:none;}
+    .defis-jauge{width:48px;}
+  }
   .challenge-item button{
     font-size:12px; font-weight:600; padding:7px 12px; border:1px solid var(--blue); color:var(--blue); background:transparent; border-radius:var(--radius-pill);
   }
@@ -796,7 +859,20 @@
   .comment-toggle:hover{color:var(--ink);}
   .forum-comments{display:none; flex-direction:column; gap:10px; margin-bottom:10px; padding-left:14px; border-left:2px solid var(--line);}
   .forum-comments.open{display:flex;}
-  .forum-comment{font-size:13px; color:var(--ink-soft);}
+  .forum-comment{
+    font-size:13px; color:var(--ink-soft);
+    display:flex; align-items:flex-start; gap:9px;
+  }
+  .fc-avatar{
+    width:26px; height:26px; border-radius:50%; flex-shrink:0; cursor:pointer;
+    object-fit:cover; border:1px solid var(--line); background:rgba(255,255,255,0.08);
+  }
+  .fc-initiale{
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:600; color:var(--ink-soft);
+  }
+  .fc-corps{flex:1; min-width:0;}
+  .fc-texte{display:block; margin-top:2px; white-space:pre-wrap; word-break:break-word;}
   .forum-comment .fc-name{color:var(--ink); font-weight:600; margin-right:6px;}
   .forum-comment-form{display:flex; gap:8px;}
   .forum-comment-form input{
@@ -902,6 +978,8 @@
       <button class="navlink" data-page="content">Contenu</button>
       <button class="navlink" data-page="about">À propos</button>
       <button class="navlink" data-page="community">Communauté</button>
+      <!-- Affiché uniquement une fois connecté (voir refreshAccountUI). -->
+      <button class="navlink" data-page="collection" id="navCollection" style="display:none;">Ma collection</button>
     </nav>
     <div class="account-zone">
       <button class="account-icon" id="accountIconBtn" onclick="toggleAccountMenu()" aria-label="Compte">
@@ -1134,6 +1212,33 @@
     </section>
   </section>
 
+  <!-- ================= MA COLLECTION ================= -->
+  <section id="page-collection" class="page">
+    <section>
+      <div class="section-head">
+        <div>
+          <span class="eyebrow mono">Ma collection</span>
+          <h2>Mes sorties</h2>
+          <p class="desc">
+            Les sorties que tu as enregistrées et celles que tu as notées.
+          </p>
+        </div>
+      </div>
+
+      <div id="collectionDeconnecte" class="empty-state" style="padding:40px 24px;">
+        Connecte-toi pour retrouver ici tes sorties enregistrées et tes notes.
+        <div style="margin-top:16px;">
+          <button class="btn btn-primary" onclick="openAuthModal('signup')">Créer un compte</button>
+        </div>
+      </div>
+
+      <div id="collectionConnecte" style="display:none;">
+        <div class="collection-onglets" id="maCollectionOnglets"></div>
+        <div id="maCollectionZone"></div>
+      </div>
+    </section>
+  </section>
+
   <!-- ================= COMMUNITY (DEMO) ================= -->
   <section id="page-community" class="page">
     <section>
@@ -1184,7 +1289,12 @@
         </details>
 
         <details class="challenge-dropdown" id="dailyDetails" open>
-          <summary><span class="eyebrow mono" style="margin:0;">Défis du jour</span><span class="new-dot" id="dailyNewDot">!</span><span class="chevron">⌄</span></summary>
+          <summary>
+            <span class="eyebrow mono" style="margin:0;">Défis du jour</span>
+            <span class="new-dot" id="dailyNewDot">!</span>
+            <span class="defis-progression" id="defisProgression"></span>
+            <span class="chevron">⌄</span>
+          </summary>
           <div class="challenge-list" id="challengeList"></div>
         </details>
 
@@ -1796,6 +1906,41 @@
 
 </main>
 
+<!-- Invitation affichée une seule fois, à la première visite -->
+<div class="modal-overlay" id="bienvenueModal" onclick="if(event.target===this) fermerBienvenue()">
+  <div class="modal-box" style="max-width:400px;">
+    <button class="modal-close" onclick="fermerBienvenue()">✕</button>
+    <div class="modal-body" style="text-align:center; padding:30px 26px 26px;">
+
+      <div style="font-size:38px; line-height:1; margin-bottom:14px;">🌊</div>
+
+      <h3 style="font-size:21px; margin:0 0 10px;">Bienvenue sur La Wave</h3>
+
+      <p style="font-size:14px; color:var(--ink-soft); margin:0 0 18px; line-height:1.5;">
+        Crée ton compte pour noter les sorties, te constituer une
+        collection et participer au forum.
+      </p>
+
+      <div style="display:flex; flex-direction:column; gap:10px; text-align:left; margin-bottom:22px;">
+        <span class="bienvenue-atout">★ <span>Noter les sorties du catalogue</span></span>
+        <span class="bienvenue-atout">🔖 <span>Enregistrer tes coups de cœur</span></span>
+        <span class="bienvenue-atout">💬 <span>Échanger sur le forum</span></span>
+      </div>
+
+      <button class="btn btn-primary" style="width:100%; justify-content:center;"
+              onclick="fermerBienvenue(); openAuthModal('signup')">
+        Créer mon compte
+      </button>
+
+      <button onclick="fermerBienvenue()"
+              style="background:none; border:none; color:var(--muted); font-size:13px; margin-top:12px;">
+        Plus tard
+      </button>
+
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="authModal" onclick="if(event.target===this) closeAuthModal()">
   <div class="modal-box" style="max-width:380px;">
     <button class="modal-close" onclick="closeAuthModal()">✕</button>
@@ -2281,6 +2426,7 @@ const BD = {
   if(pageId === 'about') renderAboutStats();
   if(pageId === 'content') renderContentVideos();
   if(pageId === 'community') renderCommunity();
+  if(pageId === 'collection') renderMaCollection();
   if(pageId === 'profile') renderProfileForm();
 }
 
@@ -2772,8 +2918,12 @@ async function getUsers(){
 }
 
 function ensureDailyChallenges(user){
+  if(!user) return;
+  // La remise à zéro se déduit de DAILY_CHALLENGES : ajouter un défi
+  // à la liste suffit, sans avoir à le répéter ici.
   if(!user.challenges || user.challenges.date !== todayStr()){
-    user.challenges = { date: todayStr(), postForum:false, commentForum:false, instaComment:false };
+    user.challenges = { date: todayStr() };
+    DAILY_CHALLENGES.forEach(d => { user.challenges[d.key] = false; });
   }
 }
 
@@ -2790,6 +2940,11 @@ document.addEventListener('click', (e)=>{
 function refreshAccountUI(){
   const loggedOut = document.getElementById('accDropLoggedOut');
   const loggedIn = document.getElementById('accDropLoggedIn');
+
+  // « Ma collection » n'a de sens qu'une fois connecté.
+  const navCollection = document.getElementById('navCollection');
+  if(navCollection) navCollection.style.display = currentUser ? '' : 'none';
+
   if(currentUser){
     loggedOut.style.display = 'none';
     loggedIn.style.display = 'block';
@@ -3146,12 +3301,17 @@ async function saveProfile(){
 
 // ---- Communauté : XP, défis, forum ----
 const DAILY_CHALLENGES = [
-  { key: 'postForum', label: 'Publier un message sur le forum', xp: 10, auto: true },
-  { key: 'commentForum', label: 'Commenter un post du forum', xp: 5, auto: true },
-  { key: 'exploreCatalogue', label: 'Découvrir une sortie du catalogue', xp: 5, auto: true },
-  { key: 'noterSortie', label: 'Noter une sortie du catalogue', xp: 5, auto: true },
-  { key: 'updateProfile', label: 'Mettre à jour son profil', xp: 5, auto: true },
-  { key: 'instaComment', label: 'Commenter notre dernier post Instagram', xp: 5, auto: false }
+  { key: 'exploreCatalogue', label: 'Découvrir une sortie du catalogue', xp: 5, auto: true, icone: '💿' },
+  { key: 'noterSortie', label: 'Noter une sortie', xp: 5, auto: true, icone: '★' },
+  { key: 'enregistrerSortie', label: 'Enregistrer une sortie dans sa collection', xp: 5, auto: true, icone: '🔖' },
+  { key: 'visiterArtiste', label: 'Visiter la page d\'un artiste', xp: 5, auto: true, icone: '🎤' },
+  { key: 'decouvrirMembre', label: 'Consulter le profil d\'un membre', xp: 5, auto: true, icone: '👥' },
+  { key: 'postForum', label: 'Publier un message sur le forum', xp: 10, auto: true, icone: '💬' },
+  { key: 'commentForum', label: 'Commenter un post du forum', xp: 5, auto: true, icone: '↩️' },
+  { key: 'voterForum', label: 'Voter sur un post du forum', xp: 5, auto: true, icone: '▲' },
+  { key: 'reagirForum', label: 'Réagir à un post du forum', xp: 5, auto: true, icone: '🔥' },
+  { key: 'updateProfile', label: 'Mettre à jour son profil', xp: 5, auto: true, icone: '✎' },
+  { key: 'instaComment', label: 'Commenter notre dernier post Instagram', xp: 5, auto: false, icone: '📸' }
 ];
 
 const ONBOARDING_CHALLENGES = [
@@ -3222,25 +3382,49 @@ function renderOnboarding(){
 }
 
 function renderChallenges(){
+
+  if(!currentUser) return;
   ensureDailyChallenges(currentUser);
+
   const list = document.getElementById('challengeList');
   if(!list) return;
-  list.innerHTML = DAILY_CHALLENGES.map(c => {
-    const done = currentUser.challenges[c.key];
-    let action;
-    if(done){
-      action = `<span class="c-done">✓ Fait</span>`;
-    } else if(c.auto){
-      action = `<span class="mono" style="font-size:11px; color:var(--muted);">Auto</span>`;
-    } else {
-      action = `<button onclick="declareChallenge('${c.key}')">J'ai fait ce défi</button>`;
-    }
+
+  const faits = DAILY_CHALLENGES.filter(c => currentUser.challenges[c.key]).length;
+  const total = DAILY_CHALLENGES.length;
+
+  // Les défis restants d'abord : la liste s'est allongée, on ne veut
+  // pas faire défiler pour trouver ce qu'il reste à faire.
+  const tries = [...DAILY_CHALLENGES].sort((a, b) =>
+    (currentUser.challenges[a.key] ? 1 : 0) - (currentUser.challenges[b.key] ? 1 : 0)
+  );
+
+  list.innerHTML = tries.map(c => {
+
+    const fait = !!currentUser.challenges[c.key];
+
+    const action = fait
+      ? `<span class="c-done" title="Fait">✓</span>`
+      : (c.auto
+          ? `<span class="c-xp">+${c.xp} XP</span>`
+          : `<button onclick="declareChallenge('${c.key}')">J'ai fait ce défi</button>`);
+
     return `
-      <div class="challenge-item">
-        <span class="c-label">${c.label} <span class="c-xp">+${c.xp} XP</span></span>
+      <div class="challenge-item${fait ? ' fait' : ''}">
+        <span class="c-icone">${c.icone || '•'}</span>
+        <span class="c-label">${escapeHtml(c.label)}</span>
         ${action}
       </div>`;
   }).join('');
+
+  // Progression du jour, affichée dans l'en-tête repliée du volet.
+  const entete = document.getElementById('defisProgression');
+  if(entete){
+    const pct = total ? Math.round((faits / total) * 100) : 0;
+    entete.innerHTML = `
+      <span class="defis-compteur">${faits}/${total} défis</span>
+      <span class="defis-jauge"><span style="width:${pct}%"></span></span>`;
+    entete.classList.toggle('defis-tous-faits', faits === total && total > 0);
+  }
 }
 
 async function declareChallenge(key){
@@ -3400,6 +3584,7 @@ async function getForumPosts(){
           authorId: c.author_id,
           authorPseudo: nomDe(c.author_id),
           authorRole: roleDe(c.author_id),
+          authorAvatar: (parId[c.author_id] && parId[c.author_id].avatar_url) || '',
           content: c.content,
           createdAt: c.created_at
         }))
@@ -3544,7 +3729,12 @@ async function toggleVote(postId, direction){
   const { error } = await (dejaAinsi
     ? BD.retirerVote(postId, uid)
     : BD.poserVote(postId, uid, valeur));
-  if(error) console.warn('⚠️ Vote non enregistré :', error.message);
+  if(error){
+    console.warn('⚠️ Vote non enregistré :', error.message);
+    return;
+  }
+
+  if(!dejaAinsi) await awardXP('voterForum', 5);
 }
 
 async function toggleReaction(postId, emoji){
@@ -3566,7 +3756,12 @@ async function toggleReaction(postId, emoji){
   const { error } = await (dejaReagi
     ? BD.retirerReaction(postId, uid, emoji)
     : BD.poserReaction(postId, uid, emoji));
-  if(error) console.warn('⚠️ Réaction non enregistrée :', error.message);
+  if(error){
+    console.warn('⚠️ Réaction non enregistrée :', error.message);
+    return;
+  }
+
+  if(!dejaReagi) await awardXP('reagirForum', 5);
 }
 
 function toggleCommentThread(postId){
@@ -3638,13 +3833,24 @@ function forumPostHtml(post){
   }).join('');
 
   const commentsOpen = openCommentThreads.has(post.id);
-  const comments = post.comments.map(c => `
-    <div class="forum-comment">
-      <span class="fc-name" onclick="viewProfile('${c.authorId}')">${escapeHtml(c.authorPseudo)}</span>
-      ${roleBadgeHtml(c.authorRole, 'small')}
-      ${escapeHtml(c.content)}
-    </div>
-  `).join('');
+  const comments = post.comments.map(c => {
+    const url = safeUrl(c.authorAvatar);
+    const photo = url
+      ? `<img class="fc-avatar" src="${escapeAttribute(url)}" alt=""
+              onclick="viewProfile('${c.authorId}')">`
+      : `<span class="fc-avatar fc-initiale"
+              onclick="viewProfile('${c.authorId}')">${escapeHtml(artistInitial(c.authorPseudo))}</span>`;
+
+    return `
+      <div class="forum-comment">
+        ${photo}
+        <div class="fc-corps">
+          <span class="fc-name" onclick="viewProfile('${c.authorId}')">${escapeHtml(c.authorPseudo)}</span>
+          ${roleBadgeHtml(c.authorRole, 'small')}
+          <span class="fc-texte">${escapeHtml(c.content)}</span>
+        </div>
+      </div>`;
+  }).join('');
   const commentForm = currentUser ? `
     <div class="forum-comment-form">
       <input type="text" id="comment-input-${post.id}" placeholder="Répondre...">
@@ -3800,6 +4006,10 @@ async function renderLeaderboard(){
 // ---- Profil visitable ----
 async function viewProfile(userId){
   if(!userId) return;
+
+  // Consulter son propre profil ne compte pas comme une découverte.
+  if(currentUser && userId !== currentUser.id) awardXP('decouvrirMembre', 5);
+
   const users = await getUsers();
   const user = users.find(u=>u.id===userId);
   const body = document.getElementById('viewProfileBody');
@@ -4352,6 +4562,35 @@ function notifier(titre, options){
 }
 
 
+// ---------------- INVITATION DE BIENVENUE ----------------
+//
+// Affichée une seule fois par navigateur, et seulement à un visiteur
+// non connecté. Le rappel est différé de quelques secondes : surgir
+// avant que la page ait fini de s'afficher donne l'impression d'une
+// publicité plutôt que d'une invitation.
+
+const CLE_BIENVENUE = 'lawave:bienvenueVue';
+
+function fermerBienvenue(){
+  document.getElementById('bienvenueModal').classList.remove('open');
+  try{ localStorage.setItem(CLE_BIENVENUE, '1'); }catch(e){ /* sans effet */ }
+}
+
+function proposerBienvenue(){
+
+  if(currentUser) return;
+  if(storageRead(CLE_BIENVENUE)) return;
+
+  // Une session en cours de restauration donnerait un faux négatif :
+  // on laisse le temps à restoreSession de se prononcer.
+  setTimeout(() => {
+    if(currentUser) return;
+    if(document.querySelector('.modal-overlay.open')) return; // ne pas empiler
+    document.getElementById('bienvenueModal').classList.add('open');
+  }, 3500);
+}
+
+
 // Reprend le logo de l'en-tête comme icône d'onglet, plutôt que de
 // dupliquer son image dans le fichier.
 (function definirFavicon(){
@@ -4555,6 +4794,32 @@ async function basculerEnregistrement(releaseId){
     icone: nouvelEtat ? '✓' : '−',
     detail: sortie ? sortie.title : ''
   });
+
+  if(nouvelEtat){
+    animerEnregistrement();
+    await awardXP('enregistrerSortie', 5);
+  }
+}
+
+
+// Confirmation visuelle de l'enregistrement : la pochette de la fiche
+// pulse et un repère s'envole vers le haut, pour que le geste se voie
+// même sans lire la notification.
+function animerEnregistrement(){
+
+  const cover = document.querySelector('#catalogueModal .modal-cover');
+  if(!cover) return;
+
+  cover.classList.remove('enregistree');
+  void cover.offsetWidth; // redémarre l'animation si on reclique vite
+  cover.classList.add('enregistree');
+
+  const repere = document.createElement('span');
+  repere.className = 'repere-envol';
+  repere.textContent = '🔖';
+  cover.appendChild(repere);
+
+  setTimeout(() => repere.remove(), 900);
 }
 
 
@@ -4595,8 +4860,59 @@ function afficherCollection(userId, mode){
   const zone = document.getElementById('collectionZone');
   if(!zone) return;
   zone.innerHTML = collectionHtml(userId, mode);
-  document.querySelectorAll('.collection-onglets button')
+  document.querySelectorAll('#viewProfileBody .collection-onglets button')
     .forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+}
+
+
+// ---- Page « Ma collection » ----
+//
+// Même contenu que la collection du profil, mais sur une page à soi,
+// atteignable depuis la navigation une fois connecté.
+
+let maCollectionMode = 'saved';
+
+async function renderMaCollection(){
+
+  const deconnecte = document.getElementById('collectionDeconnecte');
+  const connecte = document.getElementById('collectionConnecte');
+  if(!deconnecte || !connecte) return;
+
+  if(!currentUser){
+    deconnecte.style.display = 'block';
+    connecte.style.display = 'none';
+    return;
+  }
+
+  deconnecte.style.display = 'none';
+  connecte.style.display = 'block';
+
+  // Le catalogue porte les pochettes, les notes portent les liens.
+  if(!catalogueData.length) await renderCatalogue();
+  await chargerNotes();
+
+  const enregistrees = toutesLesNotes.filter(n => n.user_id === currentUser.id && n.saved).length;
+  const notees = toutesLesNotes.filter(n => n.user_id === currentUser.id && n.rating).length;
+
+  document.getElementById('maCollectionOnglets').innerHTML = `
+    <button type="button" data-mode="saved"
+            class="${maCollectionMode === 'saved' ? 'active' : ''}"
+            onclick="setMaCollectionMode('saved')">
+      🔖 ${enregistrees} enregistrée${enregistrees !== 1 ? 's' : ''}
+    </button>
+    <button type="button" data-mode="notes"
+            class="${maCollectionMode === 'notes' ? 'active' : ''}"
+            onclick="setMaCollectionMode('notes')">
+      ★ ${notees} notée${notees !== 1 ? 's' : ''}
+    </button>`;
+
+  document.getElementById('maCollectionZone').innerHTML =
+    collectionHtml(currentUser.id, maCollectionMode);
+}
+
+function setMaCollectionMode(mode){
+  maCollectionMode = mode;
+  renderMaCollection();
 }
 
 
@@ -4615,6 +4931,8 @@ async function ouvrirPageArtiste(handle, depuisAdresse){
 
   const corps = document.getElementById('artistePageBody');
   corps.innerHTML = `<div class="empty-state">Chargement...</div>`;
+
+  if(currentUser) awardXP('visiterArtiste', 5);
 
   // Le catalogue porte déjà les sorties publiées et visibles.
   if(!catalogueData.length) await renderCatalogue();
@@ -7957,6 +8275,14 @@ function showPostCanvas(canvas, sub){
   wrap.appendChild(dlBtn);
   document.getElementById('postVisualWrap').prepend(wrap);
 }
+
+
+// ---------------- DÉMARRAGE ----------------
+//
+// Placé en toute fin de script : cette invitation lit une constante
+// déclarée plus haut, et les const ne sont pas remontées comme le
+// sont les déclarations de fonction.
+proposerBienvenue();
 </script>
 </body>
 </html>
