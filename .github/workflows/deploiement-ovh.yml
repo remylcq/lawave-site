@@ -51,9 +51,19 @@ jobs:
           echo "--- 2. Le port 21 est-il joignable depuis GitHub ? ---"
           nc -z -w 10 "$FTP_HOST" 21 && echo "port 21 ouvert" || echo "ÉCHEC : port 21 injoignable"
 
-          echo "--- 3. Bannière du serveur et support de TLS ---"
-          curl -sv --max-time 20 --user "anonymous:diagnostic" "ftp://$FTP_HOST/" 2>&1 \
-            | grep -iE "^\* Connected|220|AUTH|530|denied|refused" | head -8 || true
+          echo "--- 3. Le serveur FTP envoie-t-il sa bannière ? (60 s) ---"
+          timeout 60 bash -c "exec 3<>/dev/tcp/$FTP_HOST/21; head -c 200 <&3" \
+            && echo "" || echo "AUCUNE bannière reçue en 60 s"
+
+          echo "--- 4. Le port 22 (SFTP) est-il ouvert ? ---"
+          nc -z -w 10 "$FTP_HOST" 22 && echo "port 22 ouvert" || echo "port 22 fermé"
+
+          echo "--- 5. Bannière SSH ---"
+          timeout 20 bash -c "exec 3<>/dev/tcp/$FTP_HOST/22; head -c 100 <&3" \
+            && echo "" || echo "aucune bannière SSH"
+
+          echo "--- 6. Port 21 sur le serveur web lui-même ---"
+          nc -z -w 10 lawave.fr 21 && echo "lawave.fr:21 ouvert" || echo "lawave.fr:21 fermé"
 
       - name: Envoyer index.html sur OVH
         env:
