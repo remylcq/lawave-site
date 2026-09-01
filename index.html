@@ -347,12 +347,6 @@
   .member-pseudo{font-size:14px; font-weight:600;}
   .member-xp{font-size:11px; color:var(--muted);}
 
-  .bienvenue-atout{
-    display:flex; align-items:center; gap:11px; font-size:14px;
-    color:var(--ink-soft); padding:11px 14px;
-    background:var(--bg-alt); border:1px solid var(--line);
-    border-radius:var(--radius-sm);
-  }
 
   /* ---------- NOTIFICATIONS ---------- */
   .notif-zone{
@@ -383,6 +377,18 @@
     padding:0 2px; line-height:1; flex-shrink:0;
   }
   .notif-fermer:hover{color:var(--ink);}
+  .notif-actions{display:flex; gap:8px; margin-top:11px; flex-wrap:wrap;}
+  .notif-action{
+    font-size:12px; font-weight:600; padding:7px 13px;
+    border-radius:var(--radius-pill); border:1px solid var(--line);
+    background:transparent; color:var(--ink-soft);
+  }
+  .notif-action:hover{color:var(--ink); border-color:var(--ink-soft);}
+  .notif-action.primaire{
+    background:var(--blue); border-color:var(--blue); color:#fff;
+  }
+  .notif-action.primaire:hover{background:var(--blue-deep); border-color:var(--blue-deep);}
+  .notif.invitation{border-color:rgba(20,137,222,0.5);}
 
   @keyframes notifEntre{
     from{opacity:0; transform:translateX(28px) scale(.96);}
@@ -1905,41 +1911,6 @@
   </section>
 
 </main>
-
-<!-- Invitation affichée une seule fois, à la première visite -->
-<div class="modal-overlay" id="bienvenueModal" onclick="if(event.target===this) fermerBienvenue()">
-  <div class="modal-box" style="max-width:400px;">
-    <button class="modal-close" onclick="fermerBienvenue()">✕</button>
-    <div class="modal-body" style="text-align:center; padding:30px 26px 26px;">
-
-      <div style="font-size:38px; line-height:1; margin-bottom:14px;">🌊</div>
-
-      <h3 style="font-size:21px; margin:0 0 10px;">Bienvenue sur La Wave</h3>
-
-      <p style="font-size:14px; color:var(--ink-soft); margin:0 0 18px; line-height:1.5;">
-        Crée ton compte pour noter les sorties, te constituer une
-        collection et participer au forum.
-      </p>
-
-      <div style="display:flex; flex-direction:column; gap:10px; text-align:left; margin-bottom:22px;">
-        <span class="bienvenue-atout">★ <span>Noter les sorties du catalogue</span></span>
-        <span class="bienvenue-atout">🔖 <span>Enregistrer tes coups de cœur</span></span>
-        <span class="bienvenue-atout">💬 <span>Échanger sur le forum</span></span>
-      </div>
-
-      <button class="btn btn-primary" style="width:100%; justify-content:center;"
-              onclick="fermerBienvenue(); openAuthModal('signup')">
-        Créer mon compte
-      </button>
-
-      <button onclick="fermerBienvenue()"
-              style="background:none; border:none; color:var(--muted); font-size:13px; margin-top:12px;">
-        Plus tard
-      </button>
-
-    </div>
-  </div>
-</div>
 
 <div class="modal-overlay" id="authModal" onclick="if(event.target===this) closeAuthModal()">
   <div class="modal-box" style="max-width:380px;">
@@ -4532,11 +4503,16 @@ function notifier(titre, options){
   const notif = document.createElement('div');
   notif.className = 'notif ' + (opt.type || 'info');
 
+  // Boutons optionnels, pour les messages qui appellent une action
+  // plutôt qu'une simple lecture.
+  const actions = opt.actions || [];
+
   notif.innerHTML = `
     <span class="notif-icone">${opt.icone || '🔔'}</span>
     <div class="notif-texte">
       <p class="notif-titre">${escapeHtml(titre)}</p>
       ${opt.detail ? `<p class="notif-detail">${escapeHtml(opt.detail)}</p>` : ''}
+      ${actions.length ? `<div class="notif-actions"></div>` : ''}
     </div>
     <button type="button" class="notif-fermer" aria-label="Fermer">✕</button>`;
 
@@ -4545,18 +4521,42 @@ function notifier(titre, options){
     notif.classList.add('sortie');
     // Laisse l'animation de sortie se jouer avant de retirer l'élément.
     setTimeout(() => notif.remove(), 300);
+    if(typeof opt.surFermeture === 'function') opt.surFermeture();
   };
+
+  if(actions.length){
+    const zoneActions = notif.querySelector('.notif-actions');
+    actions.forEach(action => {
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.className = 'notif-action' + (action.primaire ? ' primaire' : '');
+      bouton.textContent = action.label;
+      bouton.addEventListener('click', () => {
+        fermer();
+        if(typeof action.action === 'function') action.action();
+      });
+      zoneActions.appendChild(bouton);
+    });
+  }
 
   notif.querySelector('.notif-fermer').addEventListener('click', fermer);
   zone.appendChild(notif);
 
-  setTimeout(fermer, opt.duree || 4500);
+  // Une notification persistante attend une décision : elle ne
+  // disparaît pas d'elle-même.
+  if(!opt.persistant){
+    setTimeout(fermer, opt.duree || 4500);
+  }
 
   // Au-delà de quatre, les plus anciennes s'effacent : la pile ne
-  // doit jamais recouvrir la page.
+  // doit jamais recouvrir la page. Les persistantes sont épargnées.
   while(zone.children.length > 4){
-    zone.firstElementChild.remove();
+    const ancienne = [...zone.children].find(n => !n.classList.contains('persistante'));
+    if(!ancienne) break;
+    ancienne.remove();
   }
+
+  if(opt.persistant) notif.classList.add('persistante');
 
   return notif;
 }
@@ -4572,7 +4572,6 @@ function notifier(titre, options){
 const CLE_BIENVENUE = 'lawave:bienvenueVue';
 
 function fermerBienvenue(){
-  document.getElementById('bienvenueModal').classList.remove('open');
   try{ localStorage.setItem(CLE_BIENVENUE, '1'); }catch(e){ /* sans effet */ }
 }
 
@@ -4585,8 +4584,20 @@ function proposerBienvenue(){
   // on laisse le temps à restoreSession de se prononcer.
   setTimeout(() => {
     if(currentUser) return;
-    if(document.querySelector('.modal-overlay.open')) return; // ne pas empiler
-    document.getElementById('bienvenueModal').classList.add('open');
+
+    // Une notification latérale plutôt qu'une fenêtre : elle n'occupe
+    // pas l'écran et ne bloque pas la lecture du site.
+    notifier('Bienvenue sur La Wave', {
+      type: 'invitation',
+      icone: '🌊',
+      detail: 'Crée ton compte pour noter les sorties, te faire une collection et rejoindre le forum.',
+      persistant: true,
+      surFermeture: fermerBienvenue,
+      actions: [
+        { label: 'Créer mon compte', primaire: true, action: () => openAuthModal('signup') },
+        { label: 'Plus tard' }
+      ]
+    });
   }, 3500);
 }
 
