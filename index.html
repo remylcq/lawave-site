@@ -29,20 +29,65 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
+    /* ---------- FOND ---------- */
     --bg: #05070a;
-    --bg-alt: rgba(255,255,255,0.07);
+    --bg-alt: rgba(255,255,255,0.05);
     --bg-alt-solid: #0d1116;
+
+    /* ---------- TEXTE ---------- */
     --ink: #F4F5F6;
     --ink-soft: #C4C9D0;
     --muted: #838A92;
+
+    /* ---------- ACCENT ----------
+       Le bleu de la marque, plus deux dérivés : un clair pour les
+       reflets et les survols, un halo pour les lueurs. L'accent se
+       comporte comme une lumière, pas comme une peinture. */
     --blue: #1489DE;
     --blue-deep: #0C5A97;
-    --line: rgba(255,255,255,0.22);
+    --blue-bright: #4FB4FF;
+    --blue-glow: rgba(20,137,222,0.30);
     --danger: #E5695C;
+    --gold: #F5B301;
+    --green: #8FE3AB;
+
+    /* ---------- VERRE ----------
+       Une vitre n'a pas un contour uniforme : la lumière frappe son
+       arête haute et s'éteint vers le bas. D'où un dégradé de bordure
+       plutôt qu'une couleur unique, et deux opacités de trait. */
+    --line: rgba(255,255,255,0.10);
+    --line-strong: rgba(255,255,255,0.18);
+    --glass: rgba(255,255,255,0.055);
+    --glass-hi: rgba(255,255,255,0.09);
+    --glass-blur: 32px;
+    --glass-blur-sm: 18px;
+    --bord-verre: linear-gradient(180deg,
+      rgba(255,255,255,0.40) 0%,
+      rgba(255,255,255,0.10) 26%,
+      rgba(255,255,255,0.02) 58%,
+      rgba(255,255,255,0.14) 100%);
+
+    /* ---------- PROFONDEUR ----------
+       Deux ombres par niveau : une de contact, courte et dense, et
+       une d'ambiance, large et diffuse. Une seule des deux donne
+       l'autocollant posé à plat. */
+    --ombre-1: 0 1px 2px rgba(0,0,0,0.30), 0 6px 18px rgba(0,0,0,0.22);
+    --ombre-2: 0 2px 6px rgba(0,0,0,0.36), 0 16px 44px rgba(0,0,0,0.32);
+    --ombre-3: 0 6px 14px rgba(0,0,0,0.44), 0 30px 80px rgba(0,0,0,0.46);
+    --reflet-int: inset 0 1px 0 rgba(255,255,255,0.14);
+
+    /* ---------- FORME ---------- */
     --radius: 22px;
+    --radius-lg: 30px;
     --radius-sm: 13px;
     --radius-pill: 999px;
-    --glass-blur: 32px;
+
+    /* ---------- MOUVEMENT ----------
+       Une seule courbe pour tout le site : départ vif, arrivée
+       longue. C'est ce qui distingue un mouvement piloté d'une
+       interpolation linéaire. */
+    --ease: cubic-bezier(.16,1,.3,1);
+    --ease-out: cubic-bezier(.2,.8,.3,1);
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -57,12 +102,34 @@
     -webkit-font-smoothing:antialiased;
     line-height:1.5;
   }
+  /* Halos de couleur fixes, posés entre la photo de fond et le
+     contenu. Le verre a besoin de lumière à réfracter : sur un fond
+     uniformément sombre, un flou d'arrière-plan ne produit rien de
+     visible et les panneaux retombent en aplats gris. */
+  body::before{
+    content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(58vw 58vw at 10% -10%, rgba(20,137,222,0.22), transparent 62%),
+      radial-gradient(52vw 52vw at 94% 4%, rgba(79,180,255,0.13), transparent 60%),
+      radial-gradient(68vw 68vw at 50% 110%, rgba(12,90,151,0.24), transparent 66%);
+  }
+  /* Le contenu repasse au-dessus des halos. */
+  main, footer{position:relative; z-index:1;}
   h1,h2,h3,.display{
     font-family:'Space Grotesk', sans-serif;
     font-weight:700;
-    letter-spacing:-0.02em;
+    letter-spacing:-0.03em;
     margin:0;
+    /* Un titre clair sur fond sombre paraît plus gras qu'il ne l'est.
+       Le dégradé l'éteint légèrement vers le bas et lui rend sa
+       finesse, sans toucher au contraste du haut de la lettre. */
+    background:linear-gradient(180deg, #FFFFFF 0%, #C8D2DC 100%);
+    -webkit-background-clip:text; background-clip:text;
+    color:transparent;
   }
+  h1,.display{font-size:clamp(30px,5.2vw,52px); line-height:1.06;}
+  h2{font-size:clamp(23px,3.2vw,34px); line-height:1.12;}
+  h3{font-size:clamp(17px,2vw,20px); line-height:1.25;}
   .mono{
     font-family:'IBM Plex Mono', monospace;
     letter-spacing:0.02em;
@@ -84,6 +151,38 @@
     display:flex; align-items:center; justify-content:space-between;
     padding:14px 24px;
   }
+
+  /* Sur grand écran, la barre pleine largeur laisse place à une
+     capsule flottante : c'est elle qui porte le verre, l'en-tête
+     redevient transparent. En dessous de 761 px on n'y touche pas —
+     le menu déroulant se positionne par rapport à l'en-tête et à son
+     backdrop-filter, qui doivent rester exactement tels quels. */
+  @media (min-width:761px){
+    header.site-nav{
+      background:transparent; border-bottom:none;
+      backdrop-filter:none; -webkit-backdrop-filter:none;
+      padding:12px 24px 0;
+    }
+    .nav-inner{
+      position:relative; padding:6px 10px 6px 18px;
+      border-radius:var(--radius-pill);
+      background:rgba(9,12,17,0.55);
+      backdrop-filter:blur(var(--glass-blur)) saturate(180%);
+      -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(180%);
+      box-shadow:var(--ombre-2), var(--reflet-int);
+    }
+    /* Bordure en dégradé, dessinée dans un masque en anneau : une
+       bordure CSS ordinaire ne peut pas varier sur son pourtour. */
+    .nav-inner::after{
+      content:''; position:absolute; inset:0; border-radius:inherit;
+      padding:1px; pointer-events:none;
+      background:var(--bord-verre);
+      -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite:xor;
+      mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite:exclude;
+    }
+  }
   .nav-logo{display:flex; align-items:center; gap:10px;}
   /* Le fichier du logo est carré alors que le mot-logo est large et
      entouré de vide : il faut une hauteur généreuse pour que la
@@ -96,18 +195,24 @@
     border-radius:var(--radius-pill);
     transition:color .2s, background .2s, border-color .2s;
   }
-  .nav-links button.navlink:hover{color:var(--ink); background:rgba(255,255,255,0.05);}
+  .nav-links button.navlink:hover{color:var(--ink); background:rgba(255,255,255,0.06);}
+  /* La page courante est une pastille éclairée de l'intérieur plutôt
+     qu'un simple aplat plus clair. */
   .nav-links button.navlink.active{
-    color:var(--ink); background:rgba(255,255,255,0.12);
-    border-color:rgba(255,255,255,0.2);
-    backdrop-filter:blur(var(--glass-blur)) saturate(180%);
-    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(180%);
+    color:var(--ink);
+    background:linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06));
+    border-color:rgba(255,255,255,0.16);
+    box-shadow:var(--reflet-int), 0 2px 10px rgba(0,0,0,0.28);
   }
   .nav-cta{
-    background:var(--blue); color:#fff; font-size:13px; font-weight:600;
-    padding:9px 16px; border:none; border-radius:var(--radius);
+    background:linear-gradient(180deg, var(--blue-bright), var(--blue) 55%, var(--blue-deep));
+    color:#fff; font-size:13px; font-weight:600;
+    padding:10px 18px; border:none; border-radius:var(--radius-pill);
+    box-shadow:0 2px 10px rgba(0,0,0,0.30), 0 0 24px var(--blue-glow), var(--reflet-int);
+    transition:filter .25s var(--ease), box-shadow .25s var(--ease), transform .25s var(--ease);
   }
-  .nav-cta:hover{background:var(--blue-deep);}
+  .nav-cta:hover{filter:brightness(1.12); box-shadow:0 3px 14px rgba(0,0,0,0.34), 0 0 34px var(--blue-glow), var(--reflet-int);}
+  .nav-cta:active{transform:translateY(1px);}
   .burger{display:none; background:none; border:none; font-size:22px; color:var(--ink);}
 
   .account-zone{position:relative;}
@@ -175,28 +280,78 @@
   section.tight{padding:40px 0;}
   .hairline{border-top:none;}
 
+  /* Le sur-titre devient une pastille de verre : il annonce la
+     section au lieu de flotter comme une ligne de texte isolée. */
   .eyebrow{
     font-family:'IBM Plex Mono', monospace;
-    font-size:12px; letter-spacing:0.12em; text-transform:uppercase;
-    color:var(--blue); margin-bottom:14px; display:block;
+    font-size:11px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--blue-bright); margin-bottom:16px;
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 13px 6px 11px; border-radius:var(--radius-pill);
+    background:rgba(20,137,222,0.10);
+    border:1px solid rgba(20,137,222,0.26);
+    box-shadow:var(--reflet-int), 0 0 22px rgba(20,137,222,0.14);
+  }
+  .eyebrow::before{
+    content:''; width:6px; height:6px; border-radius:50%;
+    background:var(--blue-bright); flex-shrink:0;
+    box-shadow:0 0 9px var(--blue-bright);
   }
 
   /* ---------- HERO ---------- */
   .hero-logo-only{
     display:flex; align-items:center; justify-content:center;
-    padding:72px 0 12px;
+    padding:88px 0 16px; position:relative;
   }
-  .hero-logo-only img{width:260px; max-width:55%;}
+  /* Lueur derrière le mot-logo : elle détache la marque du fond et
+     donne un centre lumineux au bloc d'accueil. La respiration est
+     très lente — assez pour que la page paraisse vivante, pas assez
+     pour qu'on la regarde. */
+  .hero-logo-only::before{
+    content:''; position:absolute; left:50%; top:50%;
+    width:min(680px,92vw); aspect-ratio:1/1; transform:translate(-50%,-50%);
+    pointer-events:none;
+    background:radial-gradient(closest-side,
+      rgba(20,137,222,0.26), rgba(20,137,222,0.07) 55%, transparent 72%);
+    animation:respire 9s var(--ease-out) infinite alternate;
+  }
+  @keyframes respire{
+    from{opacity:.72; transform:translate(-50%,-50%) scale(.94);}
+    to{opacity:1; transform:translate(-50%,-50%) scale(1.06);}
+  }
+  .hero-logo-only img{width:290px; max-width:58%; position:relative;}
 
   .btn{
     display:inline-flex; align-items:center; gap:8px;
-    padding:13px 22px; border-radius:var(--radius); font-size:14px; font-weight:600;
-    border:1px solid var(--ink);
+    padding:13px 22px; border-radius:var(--radius-pill); font-size:14px; font-weight:600;
+    border:1px solid var(--line-strong);
+    transition:filter .25s var(--ease), box-shadow .25s var(--ease),
+               border-color .25s var(--ease), color .25s var(--ease),
+               background .25s var(--ease), transform .25s var(--ease);
   }
-  .btn-primary{background:var(--blue); color:#fff; border-color:var(--blue);}
-  .btn-primary:hover{background:var(--blue-deep); border-color:var(--blue-deep);}
-  .btn-ghost{background:transparent; color:var(--ink);}
-  .btn-ghost:hover{border-color:var(--blue); color:var(--blue);}
+  .btn:active{transform:translateY(1px);}
+  /* Bouton principal : un dégradé vertical et une lueur portée, pour
+     qu'il paraisse allumé plutôt que peint. */
+  .btn-primary{
+    background:linear-gradient(180deg, var(--blue-bright), var(--blue) 55%, var(--blue-deep));
+    color:#fff; border-color:rgba(255,255,255,0.18);
+    box-shadow:0 2px 10px rgba(0,0,0,0.30), 0 0 26px var(--blue-glow), var(--reflet-int);
+  }
+  .btn-primary:hover{
+    filter:brightness(1.12);
+    box-shadow:0 4px 16px rgba(0,0,0,0.34), 0 0 38px var(--blue-glow), var(--reflet-int);
+  }
+  /* Bouton secondaire : une vitre, pas un contour blanc. */
+  .btn-ghost{
+    background:var(--glass); color:var(--ink);
+    backdrop-filter:blur(var(--glass-blur-sm)) saturate(160%);
+    -webkit-backdrop-filter:blur(var(--glass-blur-sm)) saturate(160%);
+    box-shadow:var(--reflet-int), var(--ombre-1);
+  }
+  .btn-ghost:hover{
+    background:var(--glass-hi); border-color:rgba(79,180,255,0.45);
+    color:#fff; box-shadow:var(--reflet-int), var(--ombre-2), 0 0 24px rgba(20,137,222,0.16);
+  }
 
   @media (max-width:760px){
     .hero-logo-only{padding:48px 0 8px;}
@@ -206,13 +361,22 @@
   .social-row{
     display:flex; justify-content:center; gap:16px; margin-bottom:48px;
   }
+  /* 44 px : cible tactile minimale. 38 px passait sous le seuil. */
   .social-icon{
-    width:38px; height:38px; border:1px solid var(--line); border-radius:50%;
+    width:44px; height:44px; border:1px solid var(--line); border-radius:50%;
     display:flex; align-items:center; justify-content:center; color:var(--ink-soft);
-    transition:color .15s, border-color .15s;
+    background:var(--glass);
+    backdrop-filter:blur(var(--glass-blur-sm)) saturate(160%);
+    -webkit-backdrop-filter:blur(var(--glass-blur-sm)) saturate(160%);
+    box-shadow:var(--reflet-int), var(--ombre-1);
+    transition:color .25s var(--ease), border-color .25s var(--ease),
+               transform .25s var(--ease), box-shadow .25s var(--ease);
   }
-  .social-icon svg{width:17px; height:17px;}
-  .social-icon:hover{color:var(--blue); border-color:var(--blue);}
+  .social-icon svg{width:18px; height:18px;}
+  .social-icon:hover{
+    color:#fff; border-color:rgba(79,180,255,0.5); transform:translateY(-3px);
+    box-shadow:var(--reflet-int), var(--ombre-2), 0 0 26px rgba(20,137,222,0.28);
+  }
 
   /* ---------- NEWS CARD ---------- */
   .news-header{text-align:center; margin-bottom:32px;}
@@ -244,7 +408,7 @@
   /* ---------- CATALOGUE GRID ---------- */
   .cat-grid{
     display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
-    gap:10px;
+    gap:16px;
   }
   /* Sur mobile, 220 px ne laissait qu'une pochette par ligne :
      on en met deux pour parcourir le catalogue sans défiler autant. */
@@ -254,13 +418,21 @@
   .cat-tile{
     background:var(--bg-alt); position:relative; overflow:hidden; cursor:pointer;
     border:1px solid var(--line); border-radius:var(--radius);
+    transition:transform .4s var(--ease), box-shadow .4s var(--ease);
+  }
+  /* La tuile se soulève et s'éclaire : c'est le seul endroit du site
+     où l'ombre change de niveau au survol, ce qui rend la pochette
+     saisissable. */
+  .cat-tile:hover{
+    transform:translateY(-6px);
+    box-shadow:var(--ombre-3), var(--reflet-int), 0 0 40px rgba(20,137,222,0.20);
   }
   .cat-cover{aspect-ratio:1/1; overflow:hidden; background:rgba(255,255,255,0.06);}
   .cat-cover img{
     width:100%; height:100%; object-fit:cover;
-    transition:transform .35s ease;
+    transition:transform .55s var(--ease);
   }
-  .cat-tile:hover .cat-cover img{transform:scale(1.08);}
+  .cat-tile:hover .cat-cover img{transform:scale(1.07);}
   .cat-num{font-size:11px; color:var(--blue); display:block; margin-bottom:6px;}
   .cat-title{font-size:15px; font-weight:600; margin:0 0 2px;}
   .cat-artist{font-size:13px; color:var(--ink-soft); margin:0;}
@@ -274,19 +446,35 @@
   }
 
   /* ---------- MODAL ---------- */
+  /* Le fond de page se trouble derrière la fenêtre : elle se lit
+     alors comme posée devant le site, et non incrustée dedans. */
   .modal-overlay{
-    display:none; position:fixed; inset:0; background:rgba(16,19,21,0.55);
+    display:none; position:fixed; inset:0; background:rgba(4,6,9,0.58);
+    backdrop-filter:blur(10px) saturate(120%);
+    -webkit-backdrop-filter:blur(10px) saturate(120%);
     z-index:200; align-items:center; justify-content:center; padding:24px;
   }
-  .modal-overlay.open{display:flex;}
+  .modal-overlay.open{display:flex; animation:voileEntre .3s var(--ease);}
+  @keyframes voileEntre{from{opacity:0;} to{opacity:1;}}
   .modal-box{
-    background:rgba(8,10,14,0.78);
-    backdrop-filter:blur(var(--glass-blur)) saturate(140%);
-    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(140%);
-    max-width:420px; width:100%; position:relative;
+    background:rgba(10,13,18,0.72);
+    backdrop-filter:blur(var(--glass-blur)) saturate(170%);
+    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(170%);
+    max-width:440px; width:100%; position:relative;
     border:1px solid rgba(255,255,255,0.16);
-    border-radius:var(--radius);
+    border-radius:var(--radius-lg);
     overflow:hidden;
+    /* Sur un écran bas — portable posé, mobile en paysage — la
+       pochette carrée poussait le bas de la fiche hors de l'écran,
+       sans moyen d'y accéder. */
+    max-height:calc(100dvh - 48px);
+    overflow-y:auto;
+  }
+  .modal-cover{max-height:min(46vh, 440px);}
+  .modal-overlay.open .modal-box{animation:fenetreEntre .42s var(--ease);}
+  @keyframes fenetreEntre{
+    from{opacity:0; transform:translateY(14px) scale(.97);}
+    to{opacity:1; transform:translateY(0) scale(1);}
   }
   .type-choice{display:flex; gap:8px; flex-wrap:wrap;}
   /* Spécificité volontairement plus forte que .field label, qui met
@@ -610,16 +798,24 @@
     display:block; font-size:12px; font-weight:600; text-transform:uppercase;
     letter-spacing:.06em; color:var(--ink-soft); margin-bottom:8px;
   }
+  /* Les champs se creusent au lieu de se soulever : une saisie est un
+     réceptacle, pas un panneau posé sur la page. D'où le fond plus
+     sombre que son entourage et l'ombre portée vers l'intérieur. */
   .field input[type=text], .field input[type=url], .field input[type=email], .field input[type=password], .field input[type=date], .field select, .field textarea{
-    width:100%; padding:12px 14px; border:1px solid rgba(255,255,255,0.22); border-radius:var(--radius-sm);
-    background:rgba(255,255,255,0.07); font-size:14px; font-family:inherit; color:var(--ink);
+    width:100%; padding:13px 15px; border:1px solid rgba(255,255,255,0.09); border-radius:var(--radius-sm);
+    background:rgba(0,0,0,0.26); font-size:14px; font-family:inherit; color:var(--ink);
+    box-shadow:inset 0 1px 3px rgba(0,0,0,0.34), inset 0 -1px 0 rgba(255,255,255,0.05);
+    transition:border-color .25s var(--ease), background .25s var(--ease), box-shadow .25s var(--ease);
+  }
+  .field input:hover, .field select:hover, .field textarea:hover{
+    border-color:rgba(255,255,255,0.16);
   }
   /* La liste déroulante d'un <select> est dessinée par le système :
      sans couleurs explicites, le texte clair du site se retrouvait
      sur le fond blanc natif, donc illisible. */
   .field select{
     appearance:none; -webkit-appearance:none;
-    background-color:var(--bg-alt);
+    background-color:rgba(0,0,0,0.26);
     background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%238a9199' d='M1 1.5 6 6.5l5-5'/%3E%3C/svg%3E");
     background-repeat:no-repeat;
     background-position:right 14px center;
@@ -656,8 +852,9 @@
   /* ---------- ADMIN ---------- */
   .admin-gate{max-width:360px; margin:60px auto; text-align:center;}
   .admin-gate input{
-    width:100%; padding:12px 14px; border:1px solid rgba(255,255,255,0.22); border-radius:var(--radius-sm);
-    margin:8px 0; font-size:14px; background:rgba(255,255,255,0.07); color:var(--ink); font-family:inherit;
+    width:100%; padding:13px 15px; border:1px solid rgba(255,255,255,0.09); border-radius:var(--radius-sm);
+    margin:8px 0; font-size:14px; background:rgba(0,0,0,0.26); color:var(--ink); font-family:inherit;
+    box-shadow:inset 0 1px 3px rgba(0,0,0,0.34), inset 0 -1px 0 rgba(255,255,255,0.05);
   }
   .admin-gate input::placeholder{color:var(--muted);}
   .admin-tabs{
@@ -828,8 +1025,9 @@
   /* ---------- FORUM ---------- */
   .forum-new{display:flex; flex-direction:column; gap:12px; margin-bottom:24px;}
   .forum-new textarea{
-    width:100%; padding:12px 14px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.06);
+    width:100%; padding:13px 15px; border:1px solid rgba(255,255,255,0.09); background:rgba(0,0,0,0.26);
     color:var(--ink); font-family:inherit; font-size:14px; resize:vertical; border-radius:var(--radius-sm);
+    box-shadow:inset 0 1px 3px rgba(0,0,0,0.34), inset 0 -1px 0 rgba(255,255,255,0.05);
   }
   .forum-new .btn{align-self:flex-end;}
   .forum-new-actions{display:flex; align-items:center; justify-content:space-between; gap:12px;}
@@ -924,17 +1122,58 @@
   .auth-panel{display:none;}
   .auth-panel.active{display:block;}
 
-  /* ---------- GLASS SHEEN ---------- */
-  .modal-box, .cat-tile, .admin-row, .forum-post, .xp-card,
-  .challenge-dropdown, .news-cover, .content-thumb{
-    position:relative; overflow:hidden;
-    box-shadow:0 12px 40px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.12);
+  /* ---------- VERRE ----------
+     Trois couches font une vitre : un fond translucide, un reflet
+     spéculaire en haut à gauche, et une arête lumineuse sur le
+     pourtour. Les tuiles qui portent une pochette pleine largeur ne
+     reçoivent que l'arête — un voile clair par-dessus délaverait
+     l'artwork, ce que faisait l'ancienne version. */
+  .modal-box, .admin-row, .forum-post, .xp-card, .challenge-dropdown,
+  .cat-tile, .news-cover, .content-thumb, .member-card, .empty-state, .notif{
+    position:relative;
   }
-  .modal-box::before, .cat-tile::before, .admin-row::before, .forum-post::before,
-  .xp-card::before, .account-dropdown::before, .challenge-dropdown::before{
+  .modal-box, .admin-row, .forum-post, .xp-card, .challenge-dropdown,
+  .cat-tile, .news-cover, .content-thumb, .member-card{
+    overflow:hidden;
+    box-shadow:var(--ombre-2), var(--reflet-int);
+    /* L'arête en dégradé remplace le trait uni : les garder tous les
+       deux donnerait un bord de deux pixels. Le survol peut toujours
+       repeindre cette bordure pour signaler l'état. */
+    border-color:transparent;
+  }
+
+  /* Arête lumineuse : un anneau d'un pixel rempli d'un dégradé, puis
+     évidé au masque. Une bordure CSS ordinaire ne sait pas varier
+     sur son pourtour, or c'est précisément ce qui fait lire une
+     surface comme du verre plutôt que comme un rectangle cerné. */
+  .modal-box::after, .admin-row::after, .forum-post::after, .xp-card::after,
+  .challenge-dropdown::after, .account-dropdown::after, .cat-tile::after,
+  .member-card::after, .news-cover::after, .content-thumb::after{
+    content:''; position:absolute; inset:0; border-radius:inherit;
+    padding:1px; pointer-events:none; z-index:2;
+    background:var(--bord-verre);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite:exclude;
+  }
+
+  /* Reflet spéculaire, réservé aux panneaux sans image de fond. */
+  .modal-box::before, .admin-row::before, .forum-post::before,
+  .xp-card::before, .account-dropdown::before, .challenge-dropdown::before,
+  .member-card::before{
     content:''; position:absolute; inset:0; pointer-events:none; z-index:1;
     border-radius:inherit;
-    background:linear-gradient(155deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0) 38%);
+    background:linear-gradient(152deg, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0) 42%);
+  }
+
+  /* Surfaces réellement translucides. Le flou d'arrière-plan coûte
+     cher à composer : on le réserve aux panneaux peu nombreux à
+     l'écran, jamais aux listes qui se comptent par dizaines. */
+  .xp-card, .challenge-dropdown, .empty-state{
+    background:var(--glass);
+    backdrop-filter:blur(var(--glass-blur-sm)) saturate(150%);
+    -webkit-backdrop-filter:blur(var(--glass-blur-sm)) saturate(150%);
   }
 
   /* ---------- CROP ---------- */
