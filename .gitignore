@@ -14,3 +14,7 @@ desktop.ini
 
 # Copie de production, regeneree depuis main a la demande
 publication/
+
+# Configuration des serveurs MCP : contient une cle d'API personnelle.
+# Le depot est public, ce fichier ne doit jamais y arriver.
+.mcp.json
