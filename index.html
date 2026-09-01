@@ -85,9 +85,10 @@
     padding:14px 24px;
   }
   .nav-logo{display:flex; align-items:center; gap:10px;}
-  /* Le fichier du logo est carré alors que le mot-logo est large :
-     à 38 px de haut, la marque devenait illisible. */
-  .nav-logo img{height:52px; width:auto; display:block;}
+  /* Le fichier du logo est carré alors que le mot-logo est large et
+     entouré de vide : il faut une hauteur généreuse pour que la
+     marque soit lisible. */
+  .nav-logo img{height:66px; width:auto; display:block;}
   .nav-links{display:flex; gap:6px; align-items:center;}
   .nav-links button.navlink{
     background:transparent; border:1px solid transparent; padding:8px 16px;
@@ -131,18 +132,34 @@
   .account-dropdown button:hover{color:var(--ink); background:rgba(255,255,255,0.06);}
 
   @media (max-width:760px){
+    /* Le backdrop-filter de l'en-tête crée un bloc conteneur pour les
+       descendants en position:fixed : ce menu se positionne donc par
+       rapport à l'en-tête, pas à l'écran. Les décalages se comptent
+       en pourcentage de sa hauteur, ce qui s'adapte tout seul si la
+       taille du logo change. */
     .nav-links{
-      position:fixed; top:72px; left:0; right:0; bottom:0;
-      background:var(--bg); flex-direction:column; align-items:flex-start;
-      padding:20px 24px; gap:18px; display:none; border-top:1px solid var(--line);
+      position:fixed;
+      top:100%;                      /* juste sous l'en-tête */
+      left:0; right:0;
+      height:100vh;                  /* repli si dvh non géré */
+      height:calc(100dvh - 100%);    /* écran moins l'en-tête */
+      background:var(--bg); flex-direction:column; align-items:stretch;
+      padding:22px 18px; gap:8px; display:none;
+      border-top:1px solid var(--line);
       overflow-y:auto;
     }
     .nav-links.open{display:flex;}
+    /* Chaque entrée occupe toute la largeur : plus facile à viser
+       qu'une pastille centrée sur son texte. */
+    .nav-links button.navlink{
+      width:100%; text-align:left; padding:14px 16px; font-size:16px;
+      border-radius:var(--radius-sm);
+    }
     /* Cible tactile confortable : 32 px était trop juste au doigt. */
     .burger{display:flex; align-items:center; justify-content:center; width:44px; height:44px;}
     .nav-cta-wrap{display:none;}
-    .nav-inner{padding:10px 16px;}
-    .nav-logo img{height:44px;}
+    .nav-inner{padding:8px 16px;}
+    .nav-logo img{height:56px;}
     main{padding:0 16px;}
   }
 
