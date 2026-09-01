@@ -315,6 +315,50 @@
   .member-pseudo{font-size:14px; font-weight:600;}
   .member-xp{font-size:11px; color:var(--muted);}
 
+  /* ---------- NOTES ET COLLECTION ---------- */
+  .note-moyenne{font-size:12px; color:var(--muted); margin-bottom:10px;}
+  .note-moyenne strong{color:var(--ink); font-size:14px;}
+  .etoiles{display:inline-flex; gap:2px; vertical-align:middle;}
+  .etoile{
+    background:none; border:none; padding:0 1px; font-size:24px; line-height:1;
+    color:var(--line); cursor:pointer; transition:color .12s, transform .12s;
+  }
+  .etoile.pleine{color:#f5b301;}
+  .etoile:hover{transform:scale(1.15);}
+  .etoiles.lecture .etoile{cursor:default; font-size:15px;}
+  .etoiles.lecture .etoile:hover{transform:none;}
+  .note-actions{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:10px;}
+  .btn-enregistrer{
+    display:inline-flex; align-items:center; gap:7px; white-space:nowrap;
+    font-size:13px; font-weight:600; padding:9px 15px;
+    border:1px solid var(--line); border-radius:var(--radius-pill);
+    background:var(--bg-alt); color:var(--ink-soft);
+  }
+  .btn-enregistrer:hover{border-color:var(--blue); color:var(--ink);}
+  .btn-enregistrer.actif{border-color:var(--blue); color:var(--blue); background:rgba(20,137,222,0.12);}
+  .note-invite{font-size:13px; color:var(--muted);}
+  .note-invite button{
+    background:none; border:none; color:var(--blue); font:inherit;
+    text-decoration:underline; padding:0; cursor:pointer;
+  }
+  .collection-grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
+    gap:10px; margin-top:12px;
+  }
+  .collection-item{cursor:pointer; text-align:left;}
+  .collection-item img{
+    width:100%; aspect-ratio:1/1; object-fit:cover; display:block;
+    border:1px solid var(--line); border-radius:var(--radius-sm);
+  }
+  .collection-item .note{font-size:11px; color:#f5b301; margin-top:4px; display:block;}
+  .collection-onglets{display:flex; gap:8px; margin-top:6px;}
+  .collection-onglets button{
+    font-size:12px; font-weight:600; padding:6px 12px;
+    border:1px solid var(--line); border-radius:var(--radius-pill);
+    background:var(--bg-alt); color:var(--muted);
+  }
+  .collection-onglets button.active{color:var(--ink); border-color:var(--blue); background:rgba(20,137,222,0.12);}
+
   /* ---------- PAGE ARTISTE ---------- */
   .artiste-entete{
     display:flex; gap:24px; align-items:center; flex-wrap:wrap; margin-bottom:12px;
@@ -1736,6 +1780,12 @@
   ></p>
 
   <div class="listen-row" id="modalListenRow"></div>
+
+  <div class="hairline" style="margin:20px 0 16px;"></div>
+
+  <!-- Note moyenne de la communauté, puis la note du visiteur -->
+  <div class="note-moyenne" id="modalNoteMoyenne"></div>
+  <div id="modalNoteBloc"></div>
 </div>
   </div>
 </div>
@@ -2018,6 +2068,36 @@ const BD = {
   supprimerSignalement(id){
     return supabaseClient.from('bug_reports')
       .delete().eq('id', id).select();
+  },
+
+
+  // ---------- NOTES ET COLLECTION ----------
+
+  // Toutes les notes du site : sert à calculer les moyennes sans
+  // multiplier les requêtes. Le volume reste modeste.
+  toutesLesNotes(){
+    return supabaseClient.from('release_ratings').select('*');
+  },
+
+  notesDeLUtilisateur(userId){
+    return supabaseClient.from('release_ratings')
+      .select('*').eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+  },
+
+  // Une seule ligne par membre et par sortie : elle porte la note
+  // et l'enregistrement.
+  enregistrerNote(champs){
+    return supabaseClient.from('release_ratings')
+      .upsert({ ...champs, updated_at: new Date().toISOString() },
+              { onConflict: 'user_id,release_id' })
+      .select();
+  },
+
+  supprimerNote(userId, releaseId){
+    return supabaseClient.from('release_ratings')
+      .delete().eq('user_id', userId).eq('release_id', releaseId)
+      .select();
   },
 
 
@@ -2953,6 +3033,7 @@ const DAILY_CHALLENGES = [
   { key: 'postForum', label: 'Publier un message sur le forum', xp: 10, auto: true },
   { key: 'commentForum', label: 'Commenter un post du forum', xp: 5, auto: true },
   { key: 'exploreCatalogue', label: 'Découvrir une sortie du catalogue', xp: 5, auto: true },
+  { key: 'noterSortie', label: 'Noter une sortie du catalogue', xp: 5, auto: true },
   { key: 'updateProfile', label: 'Mettre à jour son profil', xp: 5, auto: true },
   { key: 'instaComment', label: 'Commenter notre dernier post Instagram', xp: 5, auto: false }
 ];
@@ -3053,6 +3134,9 @@ async function declareChallenge(key){
 }
 
 async function awardXP(challengeKey, amount){
+  // Plusieurs appelants ne vérifient pas la connexion avant d'appeler.
+  if(!currentUser) return;
+
   ensureDailyChallenges(currentUser);
   if(currentUser.challenges[challengeKey]) return; // déjà fait aujourd'hui
   currentUser.challenges[challengeKey] = true;
@@ -3061,6 +3145,11 @@ async function awardXP(challengeKey, amount){
     xp: currentUser.xp,
     challenges: currentUser.challenges
   }).catch(()=>{});
+
+  // Une déconnexion pendant l'enregistrement laisserait currentUser
+  // à null : l'affichage n'a plus rien à mettre à jour.
+  if(!currentUser) return;
+
   renderXP();
   renderChallenges();
 }
@@ -3572,6 +3661,10 @@ async function viewProfile(userId){
 
     const posts = sesPosts || [];
 
+    // Les notes sont déjà chargées avec le catalogue.
+    const notees = toutesLesNotes.filter(n => n.user_id === userId && n.rating).length;
+    const enregistrees = toutesLesNotes.filter(n => n.user_id === userId && n.saved).length;
+
     const socials = user.socials || {};
     const socialLinks = Object.entries({instagram:'Instagram', twitter:'X', tiktok:'TikTok', spotify:'Spotify', appleMusic:'Apple Music', deezer:'Deezer'})
       .map(([key,label]) => [safeUrl(socials[key]), label])
@@ -3589,11 +3682,30 @@ async function viewProfile(userId){
       ${user.bio ? `<p style="font-size:14px; color:var(--ink-soft); margin-bottom:16px; white-space:pre-wrap;">${escapeHtml(user.bio)}</p>` : ''}
       ${socialLinks ? `<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:20px;">${socialLinks}</div>` : ''}
       <div class="hairline" style="margin:20px 0;"></div>
+      <div style="text-align:left;">
+        <p class="eyebrow mono" style="margin-bottom:0;">Sa collection</p>
+        <div class="collection-onglets">
+          <button type="button" data-mode="notes" class="active"
+                  onclick="afficherCollection('${user.id}','notes')">
+            ${notees} notée${notees !== 1 ? 's' : ''}
+          </button>
+          <button type="button" data-mode="saved"
+                  onclick="afficherCollection('${user.id}','saved')">
+            ${enregistrees} enregistrée${enregistrees !== 1 ? 's' : ''}
+          </button>
+        </div>
+        <div id="collectionZone"></div>
+      </div>
+
+      <div class="hairline" style="margin:20px 0;"></div>
+
       <p class="eyebrow mono" style="text-align:left;">${posts.length} message${posts.length !== 1 ? 's' : ''} sur le forum</p>
       <div style="text-align:left; max-height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;">
         ${posts.slice(0,5).map(p => `<div class="forum-comment">${escapeHtml(p.content) || '(image)'}</div>`).join('') || "<p style='color:var(--muted); font-size:13px;'>Aucun message pour l'instant.</p>"}
       </div>
     `;
+
+    afficherCollection(user.id, 'notes');
   }
   document.getElementById('viewProfileModal').classList.add('open');
 }
@@ -3821,9 +3933,10 @@ async function renderCatalogue(){
     // RÉCUPÉRER LES SORTIES VALIDÉES
     // ==========================================
 
-    // Les photos viennent des profils artistes : on les charge
-    // avant de construire les fiches.
+    // Les photos viennent des profils artistes, les moyennes des
+    // notes : on charge les deux avant de construire les fiches.
     await loadArtists();
+    await chargerNotes();
 
     const { data, error } = await BD.sortiesPubliees();
 
@@ -4026,6 +4139,217 @@ restoreSession();
 // un artiste ouvre directement la bonne page.
 lireAdresse();
 
+// ---------------- NOTES ET COLLECTION ----------------
+//
+// Chaque membre peut noter une sortie de 1 à 5 étoiles et l'enregistrer
+// dans sa collection. Une seule ligne par membre et par sortie porte
+// les deux : on peut donc enregistrer sans noter, ou noter sans
+// enregistrer.
+
+let toutesLesNotes = [];
+
+async function chargerNotes(){
+  const { data, error } = await BD.toutesLesNotes();
+  if(error){
+    // Table absente ou inaccessible : le site continue de tourner,
+    // simplement sans notes.
+    console.warn('⚠️ Notes indisponibles :', error.message);
+    toutesLesNotes = [];
+    return;
+  }
+  toutesLesNotes = data || [];
+}
+
+function moyenneDeLaSortie(releaseId){
+  const notes = toutesLesNotes
+    .filter(n => n.release_id === releaseId && n.rating)
+    .map(n => n.rating);
+
+  if(!notes.length) return null;
+
+  return {
+    moyenne: notes.reduce((a, b) => a + b, 0) / notes.length,
+    nombre: notes.length
+  };
+}
+
+function maNoteSur(releaseId){
+  if(!currentUser) return null;
+  return toutesLesNotes.find(
+    n => n.release_id === releaseId && n.user_id === currentUser.id
+  ) || null;
+}
+
+// Étoiles en lecture seule, pour les moyennes et les collections.
+function etoilesLectureHtml(valeur){
+  let html = '<span class="etoiles lecture">';
+  for(let i = 1; i <= 5; i++){
+    html += `<span class="etoile${i <= Math.round(valeur) ? ' pleine' : ''}">★</span>`;
+  }
+  return html + '</span>';
+}
+
+// Bloc de notation affiché dans la fiche d'une sortie.
+function renderNoteBloc(releaseId){
+
+  const moyenneEl = document.getElementById('modalNoteMoyenne');
+  const blocEl = document.getElementById('modalNoteBloc');
+  if(!moyenneEl || !blocEl) return;
+
+  const stats = moyenneDeLaSortie(releaseId);
+
+  moyenneEl.innerHTML = stats
+    ? `${etoilesLectureHtml(stats.moyenne)}
+       <strong>${stats.moyenne.toFixed(1)}</strong> · ${stats.nombre} avis`
+    : `Aucune note pour l'instant.`;
+
+  if(!currentUser){
+    blocEl.innerHTML = `
+      <p class="note-invite">
+        <button type="button" onclick="closeCatalogueModal(); openAuthModal('login')">
+          Connecte-toi
+        </button> pour noter cette sortie et l'enregistrer.
+      </p>`;
+    return;
+  }
+
+  const mienne = maNoteSur(releaseId);
+  const note = (mienne && mienne.rating) || 0;
+  const enregistre = !!(mienne && mienne.saved);
+
+  let etoiles = '<span class="etoiles">';
+  for(let i = 1; i <= 5; i++){
+    etoiles += `<button type="button" class="etoile${i <= note ? ' pleine' : ''}"
+                  title="${i} sur 5"
+                  onclick="noterSortie('${releaseId}', ${i})">★</button>`;
+  }
+  etoiles += '</span>';
+
+  blocEl.innerHTML = `
+    <div class="note-actions">
+      ${etoiles}
+      ${note ? `<button type="button" class="note-invite"
+                        style="border:none; background:none;"
+                        onclick="noterSortie('${releaseId}', 0)">Retirer ma note</button>` : ''}
+      <button type="button"
+              class="btn-enregistrer${enregistre ? ' actif' : ''}"
+              onclick="basculerEnregistrement('${releaseId}')">
+        ${enregistre ? '✓ Enregistrée' : '＋ Enregistrer'}
+      </button>
+    </div>`;
+}
+
+
+// Écrit la note, met à jour l'affichage, puis recharge en arrière-plan.
+async function enregistrerMaNote(releaseId, champs){
+
+  if(!currentUser) return;
+
+  const mienne = maNoteSur(releaseId) || {
+    user_id: currentUser.id,
+    release_id: releaseId,
+    rating: null,
+    saved: false
+  };
+
+  const nouvelle = { ...mienne, ...champs };
+
+  // Plus de note ni d'enregistrement : la ligne n'a plus de raison
+  // d'exister.
+  if(!nouvelle.rating && !nouvelle.saved){
+    const { error } = await BD.supprimerNote(currentUser.id, releaseId);
+    if(error){
+      console.warn('⚠️ Note non supprimée :', error.message);
+      return;
+    }
+    toutesLesNotes = toutesLesNotes.filter(
+      n => !(n.release_id === releaseId && n.user_id === currentUser.id)
+    );
+    renderNoteBloc(releaseId);
+    return;
+  }
+
+  const { data, error } = await BD.enregistrerNote({
+    user_id: currentUser.id,
+    release_id: releaseId,
+    rating: nouvelle.rating,
+    saved: nouvelle.saved
+  });
+
+  if(error){
+    console.warn('⚠️ Note non enregistrée :', error.message);
+    return;
+  }
+
+  if(!data || data.length === 0){
+    console.warn('⚠️ Note refusée par les droits de la base.');
+    return;
+  }
+
+  // Remplace la ligne en mémoire par celle renvoyée par la base.
+  toutesLesNotes = toutesLesNotes.filter(
+    n => !(n.release_id === releaseId && n.user_id === currentUser.id)
+  );
+  toutesLesNotes.push(data[0]);
+
+  renderNoteBloc(releaseId);
+}
+
+
+async function noterSortie(releaseId, valeur){
+  await enregistrerMaNote(releaseId, { rating: valeur || null });
+  if(valeur) await awardXP('noterSortie', 5);
+}
+
+
+async function basculerEnregistrement(releaseId){
+  const mienne = maNoteSur(releaseId);
+  await enregistrerMaNote(releaseId, { saved: !(mienne && mienne.saved) });
+}
+
+
+// Collection d'un membre, affichée sur son profil.
+function collectionHtml(userId, mode){
+
+  const lignes = toutesLesNotes.filter(n =>
+    n.user_id === userId && (mode === 'notes' ? n.rating : n.saved)
+  );
+
+  if(!lignes.length){
+    return `<p style="color:var(--muted); font-size:13px;">
+              ${mode === 'notes' ? 'Aucune sortie notée.' : 'Aucune sortie enregistrée.'}
+            </p>`;
+  }
+
+  const cartes = lignes.map(ligne => {
+    const sortie = catalogueData.find(s => s.id === ligne.release_id);
+    // Une sortie retirée du catalogue n'a plus de fiche à montrer.
+    if(!sortie) return '';
+    return `
+      <div class="collection-item" onclick="openCatalogueModal('${sortie.id}')">
+        <img src="${escapeAttribute(safeUrl(sortie.cover))}"
+             alt="${escapeAttribute(sortie.title)}" loading="lazy">
+        ${ligne.rating ? `<span class="note">${'★'.repeat(ligne.rating)}</span>` : ''}
+      </div>`;
+  }).filter(Boolean).join('');
+
+  return cartes
+    ? `<div class="collection-grid">${cartes}</div>`
+    : `<p style="color:var(--muted); font-size:13px;">
+         Ces sorties ne sont plus au catalogue.
+       </p>`;
+}
+
+
+function afficherCollection(userId, mode){
+  const zone = document.getElementById('collectionZone');
+  if(!zone) return;
+  zone.innerHTML = collectionHtml(userId, mode);
+  document.querySelectorAll('.collection-onglets button')
+    .forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+}
+
+
 // ---------------- PAGE ARTISTE ----------------
 //
 // Rassemble tout ce qu'on sait d'un artiste : son profil (photo,
@@ -4197,6 +4521,8 @@ document.getElementById(
     : '';
   document.getElementById('modalListenRow').innerHTML =
     listenIconsHtml(item.listenLinks);
+
+  renderNoteBloc(item.id);
 
   document.getElementById('catalogueModal').classList.add('open');
 
