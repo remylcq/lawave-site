@@ -36,7 +36,24 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Installer lftp
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp netcat-openbsd
+
+      # Étape de diagnostic : dit où ça coince sans jamais afficher
+      # d'identifiant. Les secrets sont masqués par GitHub, mais on
+      # évite quand même de les faire transiter dans les traces.
+      - name: Diagnostic de la connexion
+        env:
+          FTP_HOST: ${{ secrets.FTP_HOST }}
+        run: |
+          echo "--- 1. Le nom d'hôte se résout-il ? ---"
+          getent hosts "$FTP_HOST" || echo "ÉCHEC : nom d'hôte introuvable (FTP_HOST est-il correct ?)"
+
+          echo "--- 2. Le port 21 est-il joignable depuis GitHub ? ---"
+          nc -z -w 10 "$FTP_HOST" 21 && echo "port 21 ouvert" || echo "ÉCHEC : port 21 injoignable"
+
+          echo "--- 3. Bannière du serveur et support de TLS ---"
+          curl -sv --max-time 20 --user "anonymous:diagnostic" "ftp://$FTP_HOST/" 2>&1 \
+            | grep -iE "^\* Connected|220|AUTH|530|denied|refused" | head -8 || true
 
       - name: Envoyer index.html sur OVH
         env:
