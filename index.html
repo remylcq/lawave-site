@@ -371,8 +371,10 @@
   /* Sur mobile, la pile passe en bas : le pouce y accède, et elle
      ne masque pas l'en-tête. */
   @media (max-width:620px){
+    /* Décalé au-dessus du badge « Powered by Netlify », qui occupe
+       le coin inférieur droit et masquait le texte des messages. */
     .notif-zone{
-      top:auto; bottom:16px; left:16px; right:16px; max-width:none;
+      top:auto; bottom:74px; left:16px; right:16px; max-width:none;
     }
     @keyframes notifEntre{
       from{opacity:0; transform:translateY(24px) scale(.96);}
