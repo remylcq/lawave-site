@@ -267,6 +267,11 @@
   }
   section{padding:64px 0;}
   section.tight{padding:40px 0;}
+  /* Chaque page est elle-même une <section> : sans cette reprise,
+     elle ajoutait 64 px au-dessus du premier contenu, en plus de la
+     marge propre à ce contenu. La capsule de navigation flotte déjà
+     avec son propre dégagement, l'écart n'a pas à être doublé. */
+  section.page{padding-top:28px;}
   .hairline{border-top:none;}
 
   /* Sur-titre de section : un simple repère typographique. Il situe,
@@ -282,7 +287,7 @@
   /* ---------- HERO ---------- */
   .hero-logo-only{
     display:flex; align-items:center; justify-content:center;
-    padding:88px 0 16px;
+    padding:24px 0 12px;
   }
   .hero-logo-only img{width:290px; max-width:58%;}
 
@@ -316,13 +321,16 @@
   }
 
   @media (max-width:760px){
-    .hero-logo-only{padding:48px 0 8px;}
+    .hero-logo-only{padding:16px 0 8px;}
   }
 
   /* ---------- SOCIAL ROW ---------- */
   .social-row{
-    display:flex; justify-content:center; gap:16px; margin-bottom:48px;
+    display:flex; justify-content:center; gap:16px; margin-bottom:28px;
   }
+  /* Sur l'accueil, la première actu suit directement les réseaux :
+     inutile d'y ajouter le dégagement complet d'une section. */
+  #page-home > section:first-of-type{padding-top:24px;}
   /* 44 px : cible tactile minimale. 38 px passait sous le seuil. */
   .social-icon{
     width:44px; height:44px; border:1px solid var(--line); border-radius:50%;
