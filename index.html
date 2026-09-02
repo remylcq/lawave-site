@@ -1536,9 +1536,10 @@
           <div id="forumImagePreview" class="forum-image-preview"></div>
           <div class="forum-new-actions">
             <button type="button" class="forum-attach-btn" onclick="document.getElementById('forumImageInput').click()">📷 Ajouter une image</button>
-            <input type="file" id="forumImageInput" accept="image/*" style="display:none;" onchange="attachForumImage(this)">
+            <input type="file" id="forumImageInput" accept="image/png,image/jpeg,image/webp" style="display:none;" onchange="attachForumImage(this)">
             <button class="btn btn-primary" onclick="submitForumPost()">Publier</button>
           </div>
+          <div class="form-msg" id="forumImageMsg"></div>
         </div>
 
         <div class="forum-sort">
@@ -1977,84 +1978,79 @@
       <form id="adminAddForm" novalidate>
 
         <div class="field">
-          <label for="admin-title">
-            Titre du morceau
-          </label>
-
-          <input
-            type="text"
-            id="admin-title"
-            maxlength="120"
-          >
+          <label for="admin-title">Titre du morceau</label>
+          <input type="text" id="admin-title" maxlength="120">
         </div>
 
-
         <div class="field">
-          <label for="admin-artist">
-            Nom d'artiste
-          </label>
-
-          <input
-            type="text"
-            id="admin-artist"
-            maxlength="120"
-          >
+          <label for="admin-artist">Nom d'artiste</label>
+          <input type="text" id="admin-artist" maxlength="120">
         </div>
 
+        <div class="field">
+          <label for="admin-instagram">Instagram de l'artiste</label>
+          <input type="text" id="admin-instagram" placeholder="@pseudo ou lien complet">
+          <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
+            Sert de clé d'identité : son profil artiste est créé
+            automatiquement s'il n'existe pas encore.
+          </p>
+        </div>
 
         <div class="field">
-
-          <label>
-            Cover (recadrée automatiquement en carré)
-          </label>
-
-          <div
-            class="cover-drop"
-            id="adminCoverDrop"
-          >
+          <label>Cover (recadrée automatiquement en carré)</label>
+          <div class="cover-drop" id="adminCoverDrop">
             <span id="adminCoverDropText">
               Cliquer pour choisir un fichier
             </span>
           </div>
-
           <input
             type="file"
             id="admin-cover-input"
             accept="image/png,image/jpeg,image/webp"
             style="display:none;"
           >
-
         </div>
-
 
         <div class="field">
-
-          <label for="admin-link">
-            Lien d'écoute
-            (Spotify, SoundCloud, YouTube...)
-          </label>
-
-          <input
-            type="text"
-            id="admin-link"
-            placeholder="https://"
-          >
-
+          <label>Type de sortie</label>
+          <div class="type-choice">
+            <label>
+              <input type="radio" name="admin-release-type" value="Single" checked>
+              Single
+            </label>
+            <label>
+              <input type="radio" name="admin-release-type" value="Projet">
+              Projet
+            </label>
+          </div>
         </div>
 
+        <div class="field">
+          <label>Liens d'écoute</label>
+          <p style="font-size:12px; color:var(--muted); margin:-2px 0 12px;">
+            Au moins un. Seules les plateformes renseignées
+            apparaîtront sur la fiche.
+          </p>
+          <input type="text" id="admin-spotify" placeholder="Spotify" style="margin-bottom:10px;">
+          <input type="text" id="admin-deezer" placeholder="Deezer" style="margin-bottom:10px;">
+          <input type="text" id="admin-apple" placeholder="Apple Music" style="margin-bottom:10px;">
+          <input type="text" id="admin-youtube" placeholder="YouTube">
+        </div>
 
-        <button
-          class="btn btn-primary"
-          type="submit"
-        >
+        <div class="field">
+          <label for="admin-release-date">Date de sortie</label>
+          <input type="date" id="admin-release-date">
+          <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
+            Une date future programme la sortie : elle n'apparaîtra
+            dans le catalogue qu'à cette date.
+          </p>
+        </div>
+
+        <button class="btn btn-primary" type="submit">
           Publier au catalogue
         </button>
 
-        <div
-          class="form-msg"
-          id="adminAddMsg"
-        ></div>
-
+        <div class="form-msg" id="adminAddMsg"></div>
         <div id="postVisualWrap"></div>
 
       </form>
@@ -3856,9 +3852,35 @@ async function submitForumPost(){
   if(document.getElementById('onboardingList')) renderOnboarding();
 }
 
+// Taille maximale d'une image de post. Au-delà, l'envoi vers le
+// bucket est lent et le fichier pèse sur le quota pour rien : une
+// capture ou une photo compressée tient largement dans cette limite.
+const FORUM_IMAGE_MAX_OCTETS = 5 * 1024 * 1024;
+
 function attachForumImage(input){
   const file = input.files[0];
   if(!file) return;
+
+  // Ce sélecteur était le seul du site sans contrôle : l'attribut
+  // accept ne fait que filtrer la boîte de dialogue, il n'empêche
+  // ni un glisser-déposer ni un fichier renommé.
+  const autorises = ['image/png', 'image/jpeg', 'image/webp'];
+
+  if(!autorises.includes(file.type)){
+    alerteForumImage("Seules les images JPG, PNG et WEBP sont acceptées.");
+    input.value = '';
+    return;
+  }
+
+  if(file.size > FORUM_IMAGE_MAX_OCTETS){
+    const mo = (file.size / 1024 / 1024).toFixed(1);
+    alerteForumImage("Image trop lourde (" + mo + " Mo) : 5 Mo maximum.");
+    input.value = '';
+    return;
+  }
+
+  alerteForumImage('');
+
   const reader = new FileReader();
   reader.onload = (e)=>{
     forumImageDataUrl = e.target.result;
@@ -3867,6 +3889,14 @@ function attachForumImage(input){
     preview.innerHTML = `<img src="${forumImageDataUrl}"><button type="button" onclick="clearForumImage()">✕</button>`;
   };
   reader.readAsDataURL(file);
+}
+
+// Message affiché sous la zone de rédaction du forum.
+function alerteForumImage(texte){
+  const zone = document.getElementById('forumImageMsg');
+  if(!zone) return;
+  zone.textContent = texte || '';
+  zone.className = texte ? 'form-msg err' : 'form-msg';
 }
 function clearForumImage(){
   forumImageDataUrl = null;
@@ -8266,56 +8296,119 @@ adminCoverInput.addEventListener('change', ()=>{
   reader.readAsDataURL(file);
 });
 
+// Ajout manuel : publie directement dans le catalogue Supabase.
+//
+// Historique : cette fonction écrivait dans localStorage alors que le
+// catalogue lit Supabase. Elle affichait « Publié » sans que rien
+// n'apparaisse nulle part.
+//
+// La RLS n'autorise l'insertion qu'en statut « pending » et sans
+// numéro de catalogue — y compris pour l'équipe. On insère donc la
+// sortie en attente, puis on la valide avec le circuit habituel, qui
+// lui attribue son numéro. Une sortie ajoutée à la main suit ainsi
+// exactement le même chemin qu'une soumission d'artiste.
 document.getElementById('adminAddForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
+
+  if(!isAdmin) return;
+
   const msg = document.getElementById('adminAddMsg');
   const submitBtn = e.target.querySelector('button[type=submit]');
 
   const title = document.getElementById('admin-title').value.trim();
   const artist = document.getElementById('admin-artist').value.trim();
-  const link = document.getElementById('admin-link').value.trim();
+  const releaseDate = document.getElementById('admin-release-date').value;
 
-  if(!title || !artist || !link || !adminCoverDataUrl){
-    msg.textContent = "Merci de remplir tous les champs et d'ajouter une cover.";
+  const instagram = normalizeInstagramUrl(
+    document.getElementById('admin-instagram').value
+  );
+
+  const typeCoche = document.querySelector(
+    'input[name="admin-release-type"]:checked'
+  );
+  const releaseType = typeCoche ? typeCoche.value : 'Single';
+
+  const lire = (id) =>
+    document.getElementById(id).value.trim() || null;
+
+  const liens = {
+    spotify_url: lire('admin-spotify'),
+    deezer_url: lire('admin-deezer'),
+    apple_music_url: lire('admin-apple'),
+    youtube_url: lire('admin-youtube')
+  };
+
+  const premierLien =
+    liens.spotify_url || liens.deezer_url ||
+    liens.apple_music_url || liens.youtube_url || '';
+
+  if(!title || !artist || !instagram || !releaseDate || !premierLien || !adminCoverDataUrl){
+    msg.textContent =
+      "Titre, artiste, Instagram, date de sortie, cover et au moins " +
+      "un lien d'écoute sont obligatoires.";
     msg.className = 'form-msg err';
     return;
   }
 
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Publication en cours...';
-  msg.textContent = '';
-  msg.className = 'form-msg';
+  msg.className = 'form-msg ok';
 
   try{
-    const nextNum = (await getItem('lawave:catalogue:counter')) || 0;
-    const catalogNum = nextNum + 1;
-    await setItem('lawave:catalogue:counter', catalogNum);
 
-    const validator = currentAdminName || 'Équipe La Wave';
-    const catId = 'cat_' + Date.now();
-    const catEntry = {
-      id: catId, catalogNum, title, artist, link,
-      cover: adminCoverDataUrl,
-      publishedAt: new Date().toISOString(),
-      validatedBy: validator
-    };
-    await setItem('lawave:catalogueItem:' + catId, catEntry);
-    const catIndex = await getIndex('lawave:catalogue:index');
-    catIndex.push(catId);
-    await setIndex('lawave:catalogue:index', catIndex);
+    submitBtn.textContent = 'Envoi de la cover...';
+    msg.textContent = 'Envoi de la cover...';
 
-    renderCatalogue();
-    generatePostVisual(catEntry, catalogNum);
+    const coverUrl = await Fichiers.envoyer(
+      dataUrlToBlob(adminCoverDataUrl),
+      Fichiers.nommer(artist, title)
+    );
+
+    const handle = instagramHandle(instagram);
+    await ensureArtistProfile(handle, instagram, artist);
+
+    submitBtn.textContent = 'Enregistrement...';
+    msg.textContent = 'Enregistrement...';
+
+    // L'équipe peut relire ses propres insertions, contrairement au
+    // public : on récupère l'identifiant pour enchaîner la validation.
+    const { data, error } = await supabaseClient
+      .from('submissions')
+      .insert({
+        artist_name: artist,
+        track_title: title,
+        listen_url: premierLien,
+        contact_email: null,
+        cover_url: coverUrl,
+        instagram_url: instagram,
+        artist_handle: handle,
+        release_date: releaseDate,
+        release_type: releaseType,
+        ...liens,
+        status: 'pending'
+      })
+      .select()
+      .single();
+
+    if(error) throw error;
+
+    submitBtn.textContent = 'Publication...';
+    msg.textContent = 'Publication...';
+
+    // Réutilise le circuit de validation : numéro de catalogue,
+    // rafraîchissement des listes et du catalogue public.
+    await approveSubmission(data.id);
 
     msg.textContent = '✅ Publié dans le catalogue.';
     msg.className = 'form-msg ok';
+
     e.target.reset();
     adminCoverDataUrl = null;
     adminCoverDrop.classList.remove('has-file');
     adminCoverDrop.innerHTML = `<span>Cliquer pour choisir un fichier</span>`;
+
   } catch(err){
     console.error('Erreur lors de la publication', err);
-    msg.textContent = "Échec de la publication : " + err.message + " — ceci nécessite que le stockage du site fonctionne.";
+    msg.textContent = "Échec de la publication : " + (err.message || err);
     msg.className = 'form-msg err';
   } finally {
     submitBtn.disabled = false;
