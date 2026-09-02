@@ -158,7 +158,9 @@
       padding:12px 24px 0;
     }
     .nav-inner{
-      position:relative; padding:6px 10px 6px 18px;
+      /* Le logo et la pastille de compte touchaient presque le bord de
+         la capsule : elle a besoin de respirer sur ses deux extrémités. */
+      position:relative; padding:6px 18px 6px 28px;
       border-radius:var(--radius-pill);
       background:rgba(9,12,17,0.55);
       backdrop-filter:blur(var(--glass-blur)) saturate(180%);
@@ -215,6 +217,16 @@
   }
   .account-icon svg{width:18px; height:18px;}
   .account-icon:hover{color:var(--blue); border-color:var(--blue);}
+  /* Une fois connecté, la pastille porte la photo du profil : elle
+     confirme d'un coup d'œil qui est connecté, ce qu'une silhouette
+     générique ne dit pas. Sans photo, l'initiale du pseudo. */
+  .account-icon.connecte{
+    padding:0; overflow:hidden;
+    border-color:rgba(255,255,255,0.28);
+    background:rgba(255,255,255,0.06);
+  }
+  .account-icon img{width:100%; height:100%; object-fit:cover; display:block;}
+  .account-initiale{font-size:14px; font-weight:600; color:var(--ink);}
   .account-dropdown{
     display:none; position:absolute; top:46px; right:0; min-width:190px;
     background:rgba(8,10,14,0.78); border:1px solid rgba(255,255,255,0.16); z-index:150;
@@ -2395,13 +2407,6 @@
           Continuer avec Spotify
         </button>
 
-        <button type="button" class="fournisseur" onclick="connexionFournisseur('apple')">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M17.05 12.5c0-2.1 1.7-3.1 1.8-3.2-1-1.4-2.5-1.6-3-1.7-1.3-.1-2.5.8-3.2.8-.6 0-1.7-.7-2.8-.7-1.4 0-2.7.8-3.5 2.1-1.5 2.6-.4 6.4 1.1 8.5.7 1 1.5 2.1 2.6 2.1 1 0 1.4-.7 2.7-.7s1.6.7 2.7.7c1.1 0 1.8-1 2.5-2 .8-1.1 1.1-2.2 1.1-2.3 0 0-2-.8-2-3.6zM15 5.2c.6-.7 1-1.7.9-2.7-.9 0-2 .6-2.6 1.3-.6.6-1.1 1.6-.9 2.6 1 .1 2-.5 2.6-1.2z"/>
-          </svg>
-          Continuer avec Apple
-        </button>
-
         <div class="form-msg" id="authFournisseurMsg"></div>
       </div>
 
@@ -3595,9 +3600,43 @@ document.addEventListener('click', (e)=>{
   }
 });
 
+// Silhouette affichée tant que personne n'est connecté. Conservée ici
+// parce que le bouton est reconstruit à chaque changement d'état.
+const ICONE_COMPTE_SVG =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">' +
+  '<circle cx="12" cy="8.5" r="3.4"/>' +
+  '<path d="M4.5 20c1.4-3.6 4.3-5.5 7.5-5.5s6.1 1.9 7.5 5.5"/></svg>';
+
+
+function refreshAccountIcon(){
+
+  const bouton = document.getElementById('accountIconBtn');
+
+  if(!bouton) return;
+
+  if(!currentUser){
+    bouton.classList.remove('connecte');
+    bouton.innerHTML = ICONE_COMPTE_SVG;
+    bouton.setAttribute('aria-label', 'Compte');
+    return;
+  }
+
+  const photo = safeUrl(currentUser.avatar);
+
+  bouton.classList.add('connecte');
+  bouton.setAttribute('aria-label', 'Compte de ' + currentUser.pseudo);
+
+  bouton.innerHTML = photo
+    ? `<img src="${escapeAttribute(photo)}" alt="">`
+    : `<span class="account-initiale">${escapeHtml(artistInitial(currentUser.pseudo))}</span>`;
+}
+
+
 function refreshAccountUI(){
   const loggedOut = document.getElementById('accDropLoggedOut');
   const loggedIn = document.getElementById('accDropLoggedIn');
+
+  refreshAccountIcon();
 
   // « Ma collection » n'a de sens qu'une fois connecté.
   const navCollection = document.getElementById('navCollection');
