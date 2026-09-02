@@ -752,14 +752,6 @@
   }
   .content-thumb:hover .play{background:rgba(16,19,21,0.15);}
 
-  /* ---------- DIAGNOSTIC ---------- */
-  .diag-box{
-    border:1px dashed rgba(229,105,92,0.4); border-radius:var(--radius);
-    background:rgba(229,105,92,0.06); padding:18px 20px; margin-bottom:36px;
-  }
-  .diag-head{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px;}
-  .diag-desc{font-size:13px; color:var(--ink-soft); margin:0;}
-
   /* ---------- FORM ---------- */
   .form-wrap{max-width:640px;}
   .field{margin-bottom:20px;}
@@ -1476,9 +1468,6 @@
   <!-- ================= COMMUNITY (DEMO) ================= -->
   <section id="page-community" class="page">
     <section>
-      <div class="demo-banner">
-        Les messages, commentaires et profils du forum sont visibles par tous les visiteurs du site.
-      </div>
       <div class="section-head">
         <div>
           <span class="eyebrow mono">Espace communauté — démo</span>
@@ -1950,104 +1939,83 @@
     </h3>
 
     <p class="desc" style="margin-bottom:20px;">
-      Cette fonction reste disponible pour ajouter manuellement une sortie.
+      Publie directement au catalogue, sans passer par la file des
+      soumissions. Mêmes champs que le formulaire public : la fiche
+      obtenue est identique à celle d'une sortie validée à la main.
     </p>
-
-    <div class="diag-box">
-      <div class="diag-head">
-        <span class="eyebrow mono" style="margin:0;">
-          Diagnostic
-        </span>
-
-        <button
-          type="button"
-          class="btn btn-ghost"
-          style="padding:8px 14px; font-size:13px;"
-          onclick="testStorageConnection()"
-        >
-          Tester le stockage
-        </button>
-      </div>
-
-      <p class="diag-desc">
-        Test du stockage actuellement utilisé par certaines anciennes fonctions du site.
-      </p>
-
-      <div
-        class="form-msg"
-        id="storageTestResult"
-      ></div>
-    </div>
-
 
     <div class="form-wrap" style="margin-bottom:8px;">
 
       <form id="adminAddForm" novalidate>
 
         <div class="field">
-          <label for="admin-title">
-            Titre du morceau
-          </label>
-
-          <input
-            type="text"
-            id="admin-title"
-            maxlength="120"
-          >
+          <label for="admin-title">Titre du morceau</label>
+          <input type="text" id="admin-title" maxlength="120">
         </div>
 
-
         <div class="field">
-          <label for="admin-artist">
-            Nom d'artiste
-          </label>
-
-          <input
-            type="text"
-            id="admin-artist"
-            maxlength="120"
-          >
+          <label for="admin-artist">Nom d'artiste</label>
+          <input type="text" id="admin-artist" maxlength="120">
         </div>
 
+        <div class="field">
+          <label for="admin-instagram">Instagram de l'artiste</label>
+          <input type="text" id="admin-instagram" placeholder="@pseudo ou lien complet">
+          <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
+            Sert de clé au profil d'artiste : c'est lui qui rattache
+            cette sortie aux autres du même artiste, et qui réutilise
+            la photo déjà réglée par l'équipe.
+          </p>
+        </div>
 
         <div class="field">
-
-          <label>
-            Cover (recadrée automatiquement en carré)
-          </label>
-
-          <div
-            class="cover-drop"
-            id="adminCoverDrop"
-          >
-            <span id="adminCoverDropText">
-              Cliquer pour choisir un fichier
-            </span>
+          <label>Cover (recadrée automatiquement en carré)</label>
+          <div class="cover-drop" id="adminCoverDrop">
+            <span id="adminCoverDropText">Cliquer pour choisir un fichier</span>
           </div>
-
-          <input
-            type="file"
-            id="admin-cover-input"
-            accept="image/png,image/jpeg,image/webp"
-            style="display:none;"
-          >
-
+          <input type="file" id="admin-cover-input" accept="image/png,image/jpeg,image/webp" style="display:none;">
         </div>
 
+        <div class="field">
+          <label>Type de sortie</label>
+          <div class="type-choice">
+            <label>
+              <input type="radio" name="admin-release-type" value="Single" checked>
+              Single
+            </label>
+            <label>
+              <input type="radio" name="admin-release-type" value="Projet">
+              Projet
+            </label>
+          </div>
+        </div>
 
         <div class="field">
+          <label>Liens d'écoute</label>
+          <p style="font-size:12px; color:var(--muted); margin:-2px 0 12px;">
+            Seules les plateformes renseignées apparaîtront sur la fiche.
+          </p>
+          <input type="text" id="admin-spotify" placeholder="Spotify" style="margin-bottom:10px;">
+          <input type="text" id="admin-deezer" placeholder="Deezer" style="margin-bottom:10px;">
+          <input type="text" id="admin-apple" placeholder="Apple Music" style="margin-bottom:10px;">
+          <input type="text" id="admin-youtube" placeholder="YouTube">
+        </div>
 
-          <label for="admin-link">
-            Lien d'écoute
-            (Spotify, SoundCloud, YouTube...)
+        <div class="field">
+          <label for="admin-release-date">Date de sortie</label>
+          <input type="date" id="admin-release-date">
+          <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
+            Une date à venir programme la sortie : elle apparaîtra
+            d'elle-même dans le catalogue ce jour-là.
+          </p>
+        </div>
+
+        <div class="field">
+          <label for="admin-email">
+            Email de contact
+            <span style="text-transform:none; letter-spacing:normal; font-weight:400; color:var(--muted);">— facultatif</span>
           </label>
-
-          <input
-            type="text"
-            id="admin-link"
-            placeholder="https://"
-          >
-
+          <input type="text" id="admin-email" placeholder="Laisser vide si l'équipe ajoute la sortie elle-même">
         </div>
 
 
@@ -2712,36 +2680,6 @@ function storageWrite(key, valeur){
   }catch(err){
     // Quota dépassé, ou navigation privée sur certains navigateurs.
     throw new Error('Écriture impossible (' + key + ') : ' + err.message);
-  }
-}
-
-// Test isolé : écrit puis relit une donnée de quelques octets, pour
-// savoir si le stockage fonctionne dans cet environnement précis.
-async function testStorageConnection(){
-  const resultEl = document.getElementById('storageTestResult');
-  resultEl.style.display = 'block';
-  resultEl.textContent = 'Test en cours...';
-  resultEl.className = 'form-msg';
-
-  const testKey = 'lawave:diag:' + Date.now();
-  const testValue = { ping: 'pong', at: new Date().toISOString() };
-
-  try{
-    storageWrite(testKey, testValue);
-    const relu = storageRead(testKey);
-    localStorage.removeItem(testKey);
-
-    if(!relu || relu.ping !== 'pong'){
-      resultEl.textContent = "⚠️ L'écriture a réussi mais la relecture ne correspond pas à ce qui a été envoyé.";
-      resultEl.className = 'form-msg err';
-      return;
-    }
-
-    resultEl.textContent = '✅ Le stockage fonctionne correctement (écriture et lecture confirmées).';
-    resultEl.className = 'form-msg ok';
-  } catch(err){
-    resultEl.textContent = '❌ Échec réel du stockage : ' + err.message;
-    resultEl.className = 'form-msg err';
   }
 }
 
@@ -8274,56 +8212,177 @@ adminCoverInput.addEventListener('change', ()=>{
   reader.readAsDataURL(file);
 });
 
+// Lit les quatre liens d'écoute d'un formulaire, en s'appuyant sur la
+// liste des plateformes plutôt qu'en recopiant leurs noms : ajouter une
+// plateforme à LISTEN_PLATFORMS suffit alors à la faire prendre en
+// compte ici aussi.
+function collectListenUrlsFrom(prefixe){
+
+  const urls = {};
+  let premier = '';
+
+  LISTEN_PLATFORMS.forEach(plateforme => {
+
+    const champ =
+      document.getElementById(prefixe + plateforme.key);
+
+    const url = champ ? champ.value.trim() : '';
+
+    urls[plateforme.column] = url || null;
+
+    if(!premier && url){
+      premier = url;
+    }
+  });
+
+  return { urls, premier };
+}
+
+
 document.getElementById('adminAddForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
+
   const msg = document.getElementById('adminAddMsg');
   const submitBtn = e.target.querySelector('button[type=submit]');
 
-  const title = document.getElementById('admin-title').value.trim();
-  const artist = document.getElementById('admin-artist').value.trim();
-  const link = document.getElementById('admin-link').value.trim();
+  const lire = (id) => document.getElementById(id).value.trim();
 
-  if(!title || !artist || !link || !adminCoverDataUrl){
-    msg.textContent = "Merci de remplir tous les champs et d'ajouter une cover.";
+  const title = lire('admin-title');
+  const artist = lire('admin-artist');
+  const email = lire('admin-email');
+
+  const releaseDate =
+    document.getElementById('admin-release-date').value;
+
+  const instagram =
+    normalizeInstagramUrl(lire('admin-instagram'));
+
+  const liens = collectListenUrlsFrom('admin-');
+  const link = liens.premier;
+
+  const typeCoche =
+    document.querySelector('input[name="admin-release-type"]:checked');
+
+  const releaseType = typeCoche ? typeCoche.value : 'Single';
+
+  if(!title || !artist || !instagram || !link || !releaseDate || !adminCoverDataUrl){
+    msg.textContent =
+      "Il manque le titre, le nom d'artiste, l'Instagram, la date de sortie, au moins un lien d'écoute ou la cover.";
     msg.className = 'form-msg err';
     return;
   }
 
   submitBtn.disabled = true;
-  submitBtn.textContent = 'Publication en cours...';
+  submitBtn.textContent = 'Envoi de la cover...';
   msg.textContent = '';
   msg.className = 'form-msg';
 
   try{
-    const nextNum = (await getItem('lawave:catalogue:counter')) || 0;
-    const catalogNum = nextNum + 1;
-    await setItem('lawave:catalogue:counter', catalogNum);
 
-    const validator = currentAdminName || 'Équipe La Wave';
-    const catId = 'cat_' + Date.now();
-    const catEntry = {
-      id: catId, catalogNum, title, artist, link,
-      cover: adminCoverDataUrl,
-      publishedAt: new Date().toISOString(),
-      validatedBy: validator
-    };
-    await setItem('lawave:catalogueItem:' + catId, catEntry);
-    const catIndex = await getIndex('lawave:catalogue:index');
-    catIndex.push(catId);
-    await setIndex('lawave:catalogue:index', catIndex);
+    // La cover part dans le bucket, comme pour une soumission
+    // publique : une image en base64 dans la table ferait grossir
+    // chaque lecture du catalogue.
+    const coverUrl = await Fichiers.envoyer(
+      dataUrlToBlob(adminCoverDataUrl),
+      Fichiers.nommer(artist, title)
+    );
 
-    renderCatalogue();
-    generatePostVisual(catEntry, catalogNum);
+    const handle = instagramHandle(instagram);
 
-    msg.textContent = '✅ Publié dans le catalogue.';
+    await ensureArtistProfile(handle, instagram, artist);
+
+    submitBtn.textContent = 'Enregistrement...';
+
+    // Insertion en « pending » puis validation immédiate. Les règles
+    // d'accès n'autorisent l'écriture que dans cet état, administrateur
+    // compris : c'est la validation qui attribue le numéro de catalogue
+    // et fait apparaître la sortie.
+    const { error: insertError } = await BD.creerSortie({
+      artist_name: artist,
+      track_title: title,
+      listen_url: link,
+      contact_email: email,
+      cover_url: coverUrl,
+      instagram_url: instagram,
+      artist_handle: handle,
+      release_date: releaseDate,
+      release_type: releaseType,
+      ...liens.urls,
+      status: 'pending'
+    });
+
+    if(insertError){
+      throw insertError;
+    }
+
+    // L'insertion ne renvoie pas la ligne créée : on la retrouve parmi
+    // les sorties en attente, triées de la plus récente à la plus
+    // ancienne.
+    const {
+      data: enAttente,
+      error: listError
+    } = await BD.sortiesEnAttente();
+
+    if(listError){
+      throw listError;
+    }
+
+    const ligne = (enAttente || []).find(s =>
+      s.track_title === title && s.artist_name === artist
+    );
+
+    if(!ligne){
+      throw new Error(
+        "Sortie enregistrée mais introuvable en attente — valide-la depuis l'onglet Soumissions."
+      );
+    }
+
+    submitBtn.textContent = 'Publication...';
+
+    await approveSubmission(ligne.id);
+
+    // approveSubmission signale ses erreurs dans la ligne concernée et
+    // ne les propage pas : on relit la sortie pour savoir si elle est
+    // réellement passée, plutôt que d'annoncer un succès à l'aveugle.
+    const { data: publiee } = await BD.sortie(ligne.id);
+
+    if(!publiee || publiee.status !== 'approved'){
+      throw new Error(
+        "La sortie est enregistrée mais la validation n'a pas abouti — reprends-la depuis l'onglet Soumissions."
+      );
+    }
+
+    if(publiee.catalog_number){
+      // Le visuel est dessiné à partir de l'image locale et non de
+      // l'URL du bucket : une image d'une autre origine bloquerait
+      // l'export du canvas.
+      generatePostVisual(
+        { title, artist, cover: adminCoverDataUrl },
+        publiee.catalog_number
+      );
+    }
+
+    const programmee =
+      releaseDate > new Date().toLocaleDateString('sv-SE');
+
+    msg.textContent =
+      programmee
+        ? '✅ Sortie enregistrée et programmée pour le ' +
+          formatFrDate(releaseDate) +
+          " — elle apparaîtra d'elle-même dans le catalogue ce jour-là."
+        : '✅ Publiée dans le catalogue.';
+
     msg.className = 'form-msg ok';
+
     e.target.reset();
     adminCoverDataUrl = null;
     adminCoverDrop.classList.remove('has-file');
     adminCoverDrop.innerHTML = `<span>Cliquer pour choisir un fichier</span>`;
+
   } catch(err){
     console.error('Erreur lors de la publication', err);
-    msg.textContent = "Échec de la publication : " + err.message + " — ceci nécessite que le stockage du site fonctionne.";
+    msg.textContent =
+      'Échec de la publication : ' + (err.message || err);
     msg.className = 'form-msg err';
   } finally {
     submitBtn.disabled = false;
