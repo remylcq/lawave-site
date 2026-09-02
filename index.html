@@ -905,9 +905,34 @@
     font-size:12px; font-weight:600; color:var(--ink-soft);
   }
   .recherche-vignette img{width:100%; height:100%; object-fit:cover;}
-  .recherche-pseudo{color:var(--muted); font-size:12px;}
-  .recherche-nouveau{color:var(--blue-bright); font-weight:600;}
   .recherche-vide{font-size:13px; color:var(--muted); padding:8px 10px;}
+
+  /* « Nouvel artiste » vit dans la barre elle-même plutôt qu'en pied
+     de liste : il reste au même endroit quel que soit le nombre de
+     résultats, et ne se retrouve jamais poussé hors de vue. */
+  .recherche-barre{position:relative;}
+  .recherche-barre input{padding-right:152px;}
+  .recherche-ajout{
+    position:absolute; right:6px; top:50%; transform:translateY(-50%);
+    font-size:12px; font-weight:600; white-space:nowrap;
+    padding:8px 13px; border-radius:var(--radius-pill);
+    border:1px solid rgba(20,137,222,0.40);
+    background:rgba(20,137,222,0.14); color:var(--blue-bright);
+    transition:background .2s var(--ease), border-color .2s var(--ease),
+               color .2s var(--ease);
+  }
+  .recherche-ajout:hover{
+    background:var(--blue); border-color:var(--blue); color:#fff;
+  }
+  /* Sur mobile, le bouton mangeait la moitié du champ : il repasse
+     dessous, sur toute la largeur. */
+  @media (max-width:520px){
+    .recherche-barre input{padding-right:15px;}
+    .recherche-ajout{
+      position:static; transform:none;
+      display:block; width:100%; margin-top:8px;
+    }
+  }
 
   /* ---------- ADMIN : LIGNES DÉPLIABLES ----------
      Confirmations affichées dans la page : un navigateur peut
@@ -1361,12 +1386,20 @@
           </div>
           <div class="field">
             <label for="f-artist-recherche">Artiste</label>
-            <input
-              type="text"
-              id="f-artist-recherche"
-              placeholder="Tape un nom d'artiste"
-              autocomplete="off"
-              oninput="onRechercheArtisteInput()">
+            <div class="recherche-barre">
+              <input
+                type="text"
+                id="f-artist-recherche"
+                placeholder="Tape un nom d'artiste"
+                autocomplete="off"
+                oninput="onRechercheArtisteInput()">
+              <button
+                type="button"
+                class="recherche-ajout"
+                onclick="choisirNouvelArtiste()">
+                ＋ Nouvel artiste
+              </button>
+            </div>
             <div id="f-artist-resultats" class="recherche-resultats"></div>
             <p style="font-size:12px; color:var(--muted); margin:8px 0 0;">
               Si l'artiste a déjà une sortie sur La Wave, choisis-le : sa
@@ -4489,11 +4522,15 @@ function rechercherArtistes(){
 
   const requete = champ.value.trim().toLowerCase();
 
+  // Correspondance par le début du nom affiché, et sur lui seul. Une
+  // recherche « contient » sur le pseudo Instagram faisait remonter
+  // girlsloveromsii dès la lettre e : l'artiste ne s'écrit pas ainsi.
   const trouves = requete
     ? Object.values(artistsByHandle)
         .filter(profil =>
-          String(profil.display_name || '').toLowerCase().includes(requete) ||
-          String(profil.instagram_handle || '').toLowerCase().includes(requete)
+          String(profil.display_name || profil.instagram_handle || '')
+            .toLowerCase()
+            .startsWith(requete)
         )
         .sort((a, b) =>
           String(a.display_name || a.instagram_handle)
@@ -4518,24 +4555,17 @@ function rechercherArtistes(){
               : escapeHtml(artistInitial(nom))
           }
         </span>
-        <span style="min-width:0;">
-          ${escapeHtml(nom)}
-          <span class="recherche-pseudo">@${escapeHtml(profil.instagram_handle)}</span>
-        </span>
+        <span style="min-width:0;">${escapeHtml(nom)}</span>
       </button>`;
   }).join('');
 
-  const aucun =
-    requete && trouves.length === 0
-      ? `<p class="recherche-vide">Aucun artiste connu sous ce nom.</p>`
-      : '';
-
-  zone.innerHTML = lignes + aucun + `
-    <button type="button"
-            class="recherche-resultat recherche-nouveau"
-            onclick="choisirNouvelArtiste()">
-      ＋ Ajouter un nouvel artiste
-    </button>`;
+  zone.innerHTML =
+    lignes ||
+    (requete
+      ? `<p class="recherche-vide">
+           Aucun artiste ne commence par « ${escapeHtml(champ.value.trim())} ».
+         </p>`
+      : '');
 }
 
 
@@ -8041,6 +8071,22 @@ async function loadArtistProfiles(){
              </div>
 
              <div class="field">
+               <label for="artist-email-${h}">Email de contact</label>
+               <input
+                 type="text"
+                 id="artist-email-${h}"
+                 placeholder="Laisser vide pour effacer"
+                 data-initial="${escapeAttribute((emails[h] || [])[0] || '')}"
+                 value="${escapeAttribute((emails[h] || [])[0] || '')}">
+               <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
+                 L'adresse est portée par les sorties, pas par le profil.
+                 La modifier ici la remplace sur
+                 ${nombre > 1 ? 'ses ' + nombre + ' sorties' : 'sa sortie'} —
+                 le champ n'est envoyé que s'il a été touché.
+               </p>
+             </div>
+
+             <div class="field">
                <label>Réseaux de l'artiste</label>
                <p style="font-size:12px; color:var(--muted); margin:-2px 0 12px;">
                  Ces liens pointent vers ses pages, pas vers un morceau :
@@ -8223,6 +8269,16 @@ async function enregistrerArtiste(ancienHandle){
 
   const nouveauHandle = instagramHandle(instagram);
 
+  // L'email n'est repris que si l'équipe l'a réellement modifié :
+  // le champ n'affiche qu'une des adresses possibles de l'artiste.
+  const champEmail =
+    document.getElementById('artist-email-' + ancienHandle);
+
+  const email = champEmail ? champEmail.value.trim() : '';
+
+  const emailModifie =
+    !!champEmail && email !== (champEmail.dataset.initial || '');
+
   closeConfirmPanel('artist-edit-' + ancienHandle);
   setRowMessage(msgId, 'Enregistrement...', 'ok');
 
@@ -8280,21 +8336,35 @@ async function enregistrerArtiste(ancienHandle){
       return;
     }
 
-    // Le pseudo a changé : les sorties doivent suivre, sinon elles
-    // perdent le lien avec leur artiste et donc sa photo.
+    // Deux choses vivent sur les sorties et non sur le profil : le
+    // pseudo, sans lequel elles perdent le lien avec leur artiste et
+    // donc sa photo, et l'email de contact.
+    const majSorties = {};
+
     if(nouveauHandle !== ancienHandle){
+      majSorties.artist_handle = nouveauHandle;
+      majSorties.instagram_url = instagram;
+    }
+
+    // Uniquement si l'équipe y a touché : renvoyer la valeur affichée
+    // écraserait les adresses distinctes des autres sorties du même
+    // artiste, dont une seule est reprise dans le champ.
+    if(emailModifie){
+      majSorties.contact_email = email || null;
+    }
+
+    if(Object.keys(majSorties).length > 0){
 
       const { error: erreurSorties } = await BD.majSortiesDArtiste(
         ancienHandle,
-        { artist_handle: nouveauHandle, instagram_url: instagram }
+        majSorties
       );
 
       if(erreurSorties){
         setRowMessage(
           msgId,
-          'Profil renommé, mais ses sorties n\'ont pas suivi (' +
-          erreurSorties.message + '). Elles afficheront son initiale ' +
-          'tant que ce n\'est pas corrigé.',
+          'Profil enregistré, mais ses sorties n\'ont pas suivi (' +
+          erreurSorties.message + ').',
           'err'
         );
         await refreshAfterArtistChange();
@@ -8304,12 +8374,15 @@ async function enregistrerArtiste(ancienHandle){
 
     await refreshAfterArtistChange();
 
+    const repercute = [
+      nouveauHandle !== ancienHandle ? 'le nouveau pseudo' : '',
+      emailModifie ? 'la nouvelle adresse' : ''
+    ].filter(Boolean).join(' et ');
+
     setRowMessage(
       'artistsActionMsg',
       '✅ Profil mis à jour' +
-      (nouveauHandle !== ancienHandle
-        ? ' — ses sorties ont suivi le nouveau pseudo.'
-        : '.'),
+      (repercute ? ' — ses sorties ont suivi ' + repercute + '.' : '.'),
       'ok'
     );
 
