@@ -930,31 +930,18 @@
     .carte-zone{grid-template-columns:1fr; gap:24px;}
   }
   .carte-plan{position:relative;}
-  #carteSvg{width:100%; height:auto; display:block; overflow:visible;}
-
-  /* Le fond pointillé : chaque point est une commune de la grille, pas
-     un tracé. C'est ce qui donne la trame sans dessiner de frontière. */
-  .carte-point{fill:rgba(255,255,255,0.22);}
-
-  /* Une ville qui compte au moins un artiste. Le halo est un second
-     cercle sous le premier : il pulse sans déformer le point lui-même,
-     donc sans faire bouger la cible du clic. */
-  .carte-ville{cursor:pointer;}
-  .carte-halo{
-    fill:var(--blue-bright); opacity:.18;
-    transform-box:fill-box; transform-origin:center;
-    animation:carteBattement 3.2s var(--ease-out) infinite;
+  #carteCanvas{
+    width:100%; display:block; touch-action:none; cursor:grab;
   }
-  .carte-anneau{fill:none; stroke:var(--blue-bright); stroke-width:.22;}
-  .carte-coeur{fill:#fff;}
-  .carte-ville:hover .carte-halo{opacity:.34;}
-  .carte-ville:hover .carte-anneau{stroke-width:.34;}
-  .carte-ville.active .carte-halo{opacity:.42;}
-  .carte-ville.active .carte-anneau{stroke-width:.4;}
-  @keyframes carteBattement{
-    0%, 100%{transform:scale(1);}
-    50%{transform:scale(1.45);}
+  #carteCanvas.saisie{cursor:grabbing;}
+  .carte-aide{
+    position:absolute; left:0; bottom:0; margin:0;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--muted); pointer-events:none;
+    opacity:.65; transition:opacity .4s var(--ease);
   }
+  .carte-plan:hover .carte-aide{opacity:0;}
 
   .carte-panneau{
     border-radius:var(--radius); padding:20px 22px;
@@ -984,6 +971,9 @@
   .carte-vignette img{width:100%; height:100%; object-fit:cover;}
   .carte-sorties{display:block; font-size:12px; color:var(--muted);}
   .carte-invite{font-size:14px; color:var(--muted); line-height:1.6;}
+  .carte-retour{
+    font-size:12px; padding:8px 14px; margin-bottom:14px;
+  }
 
   /* ---------- RECHERCHE D'ARTISTE ----------
      Une liste déroulante affichait tous les artistes d'emblée : elle
@@ -1526,8 +1516,8 @@
 
       <div class="carte-zone">
         <div class="carte-plan">
-          <svg id="carteSvg" viewBox="-3 -3 68 66" role="img"
-               aria-label="Carte de France des artistes"></svg>
+          <canvas id="carteCanvas" aria-hidden="true"></canvas>
+          <p class="carte-aide">Fais glisser pour faire pivoter</p>
         </div>
         <aside class="carte-panneau" id="cartePanneau"></aside>
       </div>
@@ -2993,7 +2983,9 @@ const BD = {
   if(pageId === 'admin'){ autoOpenAdminIfAllowed(); renderForumModeration(); }
   if(pageId === 'about') renderAboutStats();
   if(pageId === 'content') renderContentVideos();
-  if(pageId === 'carte') renderCarte();
+  // La carte tourne en boucle d'animation : on la coupe dès qu'on
+  // quitte la page, sinon elle consomme du processeur en arrière-plan.
+  if(pageId === 'carte') renderCarte(); else arreterCarte();
   if(pageId === 'community') renderCommunity();
   if(pageId === 'collection') renderMaCollection();
   if(pageId === 'profile') renderProfileForm();
@@ -6093,31 +6085,308 @@ function projeterSurCarte(lon, lat){
 }
 
 
-let cartePointillesHtml = '';
+// ---- Rendu 3D ----
+//
+// La carte est un plan incliné vu en perspective, pas une image plate.
+// Le relief vient de trois choses : l'inclinaison, une division
+// perspective qui grossit les points proches, et des marqueurs posés
+// au-dessus du plan sur une tige. Une rotation lente sur l'axe
+// vertical fait respirer l'ensemble.
+//
+// Tout tient en canvas 2D : 1 668 points ne justifient pas WebGL, et
+// aucune bibliothèque n'est chargée.
+const CARTE_3D = {
+  // 35° : assez pour que le relief se voie, assez peu pour que la
+  // silhouette reste reconnaissable. Au-delà de 50° la France s'écrase
+  // en une tache et on ne la lit plus.
+  inclinaison: 0.61,
+  focale: 300,         // plus la valeur est basse, plus la fuite est marquée
+  amplitude: 0.17,     // balancement automatique, en radians
+  periode: 24000,      // durée d'un aller-retour, en millisecondes
+  hauteurMarqueur: 11  // longueur de la tige, en unités de grille
+};
 
-function fondPointilleHtml(){
+// `var` et non `let` : goTo appelle arreterCarte dès le démarrage,
+// pour couper l'animation quand on ouvre une autre page. Or ce code
+// vit plus bas dans le script — avec `let`, la lecture tomberait dans
+// la zone morte temporelle, l'erreur remonterait au niveau racine et
+// interromprait tout ce qui suit. `var` vaut undefined avant son
+// initialisation, ce que le garde de arreterCarte accepte.
+var carteAnim = null;
+let carteRotation = 0;      // rotation appliquée par l'utilisateur
+let carteSaisie = null;     // position du pointeur pendant un glisser
+let carteSurvol = -1;
+let carteEcran = [];        // position à l'écran de chaque ville, pour le clic
 
-  if(cartePointillesHtml) return cartePointillesHtml;
 
-  const cercles = [];
+function carteMouvementReduit(){
+  return window.matchMedia &&
+         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+
+// Projette un point de la grille (colonne, ligne) vers l'écran.
+function projeter3D(u, v, elevation, etat){
+
+  // Centrage sur la grille, puis rotation autour de l'axe vertical.
+  const x0 = u - CARTE.COLONNES / 2;
+  const z0 = v - 30;
+
+  const x1 = x0 * Math.cos(etat.angle) + z0 * Math.sin(etat.angle);
+  const z1 = -x0 * Math.sin(etat.angle) + z0 * Math.cos(etat.angle);
+
+  // Inclinaison : ce qui s'éloigne monte à l'écran et recule en
+  // profondeur.
+  const y2 = -z1 * Math.sin(CARTE_3D.inclinaison) - (elevation || 0);
+  const z2 = z1 * Math.cos(CARTE_3D.inclinaison);
+
+  const echelle = CARTE_3D.focale / (CARTE_3D.focale + z2);
+
+  return {
+    x: etat.cx + x1 * echelle * etat.zoom,
+    y: etat.cy + y2 * echelle * etat.zoom,
+    echelle
+  };
+}
+
+
+let cartePointsGrille = null;
+
+function pointsGrille(){
+
+  if(cartePointsGrille) return cartePointsGrille;
+
+  const points = [];
 
   FRANCE_POINTILLES.split(' ').forEach(bloc => {
-
     const [ligne, plages] = bloc.split(':');
     const r = Number(ligne);
-
     plages.split(',').forEach(plage => {
       const bornes = plage.split('-').map(Number);
-      const debut = bornes[0];
       const fin = bornes.length > 1 ? bornes[1] : bornes[0];
-      for(let c = debut; c <= fin; c++){
-        cercles.push(`<circle class="carte-point" cx="${c}" cy="${r}" r="0.34"/>`);
-      }
+      for(let c = bornes[0]; c <= fin; c++) points.push([c, r]);
     });
   });
 
-  cartePointillesHtml = cercles.join('');
-  return cartePointillesHtml;
+  cartePointsGrille = points;
+  return points;
+}
+
+
+function dessinerCarte(temps){
+
+  const canvas = document.getElementById('carteCanvas');
+  if(!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const largeur = canvas.clientWidth;
+  const hauteur = Math.round(largeur * 0.80);
+
+  const ratio = Math.min(window.devicePixelRatio || 1, 2);
+
+  if(canvas.width !== Math.round(largeur * ratio)){
+    canvas.width = Math.round(largeur * ratio);
+    canvas.height = Math.round(hauteur * ratio);
+    canvas.style.height = hauteur + 'px';
+  }
+
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  ctx.clearRect(0, 0, largeur, hauteur);
+
+  const balancement = carteMouvementReduit()
+    ? 0
+    : Math.sin((temps / CARTE_3D.periode) * Math.PI * 2) * CARTE_3D.amplitude;
+
+  const etat = {
+    angle: balancement + carteRotation,
+    cx: largeur / 2,
+    cy: hauteur * 0.52,
+    zoom: largeur / 78
+  };
+
+  // ---- Fond pointillé, du plus lointain au plus proche ----
+  const points = pointsGrille()
+    .map(([c, r]) => {
+      const p = projeter3D(c, r, 0, etat);
+      return { p, profondeur: p.echelle };
+    })
+    .sort((a, b) => a.profondeur - b.profondeur);
+
+  points.forEach(({ p }) => {
+    // Un point proche est plus gros et plus clair : c'est ce couple
+    // qui donne la profondeur, davantage que la perspective elle-même.
+    const t = (p.echelle - 0.72) / 0.55;
+    const force = Math.max(0.08, Math.min(1, t));
+    ctx.globalAlpha = 0.10 + force * 0.34;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(0.5, p.echelle * etat.zoom * 0.17), 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.globalAlpha = 1;
+
+  // ---- Villes ----
+  carteEcran = [];
+
+  const villes = carteVilles.map((ville, index) => {
+    const g = projeterSurCarte(ville.lon, ville.lat);
+    return {
+      index, ville,
+      base: projeter3D(g.x, g.y, 0, etat),
+      tete: projeter3D(g.x, g.y, CARTE_3D.hauteurMarqueur, etat)
+    };
+  }).sort((a, b) => a.base.echelle - b.base.echelle);
+
+  const pulsation = carteMouvementReduit()
+    ? 0.5
+    : ((temps % 2000) / 2000);
+
+  villes.forEach(({ index, ville, base, tete }) => {
+
+    const actif = index === carteVilleActive;
+    const survole = index === carteSurvol;
+    const k = base.echelle * etat.zoom;
+
+    // Anneaux au sol : deux ondes décalées, comme un signal qui part
+    // du point. Elles restent sur le plan, donc elles se déforment
+    // avec lui — c'est ce qui les rattache à la carte.
+    [0, 0.5].forEach(decalage => {
+      const phase = (pulsation + decalage) % 1;
+      ctx.globalAlpha = (1 - phase) * (actif ? 0.55 : 0.32);
+      ctx.strokeStyle = '#4FB4FF';
+      ctx.lineWidth = Math.max(0.8, k * 0.05);
+      ctx.beginPath();
+      ctx.ellipse(
+        base.x, base.y,
+        k * (0.25 + phase * 1.5),
+        k * (0.25 + phase * 1.5) * Math.cos(CARTE_3D.inclinaison),
+        0, 0, Math.PI * 2
+      );
+      ctx.stroke();
+    });
+
+    // Tige jusqu'à la tête du marqueur.
+    ctx.globalAlpha = actif || survole ? 0.85 : 0.5;
+    ctx.strokeStyle = '#4FB4FF';
+    ctx.lineWidth = Math.max(0.8, k * 0.035);
+    ctx.beginPath();
+    ctx.moveTo(base.x, base.y);
+    ctx.lineTo(tete.x, tete.y);
+    ctx.stroke();
+
+    // Tête : un disque blanc cerné de bleu, d'autant plus gros que la
+    // ville compte d'artistes.
+    const rayon = k * (0.16 + Math.min(ville.artistes.length - 1, 3) * 0.03) *
+                  (actif || survole ? 1.3 : 1);
+
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(79,180,255,0.28)';
+    ctx.beginPath();
+    ctx.arc(tete.x, tete.y, rayon * 2.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#4FB4FF';
+    ctx.beginPath();
+    ctx.arc(tete.x, tete.y, rayon * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(tete.x, tete.y, rayon, 0, Math.PI * 2);
+    ctx.fill();
+
+    carteEcran.push({ index, x: tete.x, y: tete.y, rayon: Math.max(14, rayon * 3) });
+  });
+
+  ctx.globalAlpha = 1;
+}
+
+
+function boucleCarte(temps){
+  dessinerCarte(temps || 0);
+  carteAnim = requestAnimationFrame(boucleCarte);
+}
+
+
+function demarrerCarte(){
+  if(carteAnim) return;
+  carteAnim = requestAnimationFrame(boucleCarte);
+}
+
+
+function arreterCarte(){
+  if(!carteAnim) return;
+  cancelAnimationFrame(carteAnim);
+  carteAnim = null;
+}
+
+
+function villeSousLePointeur(evenement){
+
+  const canvas = document.getElementById('carteCanvas');
+  const cadre = canvas.getBoundingClientRect();
+  const x = evenement.clientX - cadre.left;
+  const y = evenement.clientY - cadre.top;
+
+  let meilleure = -1;
+  let distanceMin = Infinity;
+
+  carteEcran.forEach(cible => {
+    const d = Math.hypot(cible.x - x, cible.y - y);
+    if(d < cible.rayon && d < distanceMin){
+      distanceMin = d;
+      meilleure = cible.index;
+    }
+  });
+
+  return meilleure;
+}
+
+
+function brancherCarte(){
+
+  const canvas = document.getElementById('carteCanvas');
+  if(!canvas || canvas.dataset.branche) return;
+
+  canvas.dataset.branche = '1';
+
+  canvas.addEventListener('pointerdown', (e) => {
+    carteSaisie = { x: e.clientX, angle: carteRotation, bouge: false };
+    canvas.classList.add('saisie');
+  });
+
+  window.addEventListener('pointermove', (e) => {
+
+    if(carteSaisie){
+      const ecart = e.clientX - carteSaisie.x;
+      if(Math.abs(ecart) > 3) carteSaisie.bouge = true;
+      // Bridé : au-delà, la France sortirait du cadre et la carte
+      // deviendrait inutilisable.
+      carteRotation = Math.max(-0.8, Math.min(0.8, carteSaisie.angle + ecart / 260));
+      return;
+    }
+
+    if(!document.getElementById('page-carte').classList.contains('active')) return;
+
+    const trouvee = villeSousLePointeur(e);
+    if(trouvee !== carteSurvol){
+      carteSurvol = trouvee;
+      canvas.style.cursor = trouvee >= 0 ? 'pointer' : 'grab';
+    }
+  }, { passive: true });
+
+  window.addEventListener('pointerup', () => {
+    if(carteSaisie) canvas.classList.remove('saisie');
+    carteSaisie = null;
+  });
+
+  // Un glisser ne doit pas ouvrir la ville qu'on a effleurée en cours
+  // de route : seul un clic sans déplacement compte.
+  canvas.addEventListener('click', (e) => {
+    const trouvee = villeSousLePointeur(e);
+    if(trouvee >= 0) ouvrirVilleCarte(trouvee);
+  });
 }
 
 
@@ -6152,13 +6421,15 @@ function villesDeLaCarte(){
 
 
 let carteVilles = [];
+let carteVilleActive = -1;
+
 
 async function renderCarte(){
 
-  const svg = document.getElementById('carteSvg');
+  const canvas = document.getElementById('carteCanvas');
   const panneau = document.getElementById('cartePanneau');
 
-  if(!svg || !panneau) return;
+  if(!canvas || !panneau) return;
 
   // Les sorties servent à compter celles de chaque artiste ; les
   // profils portent la ville.
@@ -6166,27 +6437,21 @@ async function renderCarte(){
   await loadArtists();
 
   carteVilles = villesDeLaCarte();
+  carteVilleActive = -1;
 
-  const marqueurs = carteVilles.map((ville, index) => {
+  brancherCarte();
+  demarrerCarte();
 
-    const p = projeterSurCarte(ville.lon, ville.lat);
-    const rayon = 0.55 + Math.min(ville.artistes.length - 1, 3) * 0.12;
+  panneauToutesLesVilles();
+}
 
-    return `
-      <g class="carte-ville" id="carte-ville-${index}"
-         onclick="ouvrirVilleCarte(${index})"
-         role="button" tabindex="0"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();ouvrirVilleCarte(${index});}">
-        <title>${escapeHtml(ville.nom)} — ${ville.artistes.length} artiste${ville.artistes.length > 1 ? 's' : ''}</title>
-        <circle class="carte-halo"   cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${(rayon * 2.6).toFixed(2)}"/>
-        <circle class="carte-anneau" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${(rayon * 1.6).toFixed(2)}"/>
-        <circle class="carte-coeur"  cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${rayon.toFixed(2)}"/>
-      </g>`;
-  }).join('');
 
-  svg.innerHTML =
-    `<g>${fondPointilleHtml()}</g>` +
-    `<g>${marqueurs}</g>`;
+function panneauToutesLesVilles(){
+
+  const panneau = document.getElementById('cartePanneau');
+  if(!panneau) return;
+
+  carteVilleActive = -1;
 
   if(carteVilles.length === 0){
     panneau.innerHTML = `
@@ -6200,15 +6465,26 @@ async function renderCarte(){
 
   const total = carteVilles.reduce((n, v) => n + v.artistes.length, 0);
 
+  // La liste double la carte au clavier : le canvas n'est pas
+  // navigable, ces boutons le sont.
   panneau.innerHTML = `
     <h3>${carteVilles.length} ville${carteVilles.length > 1 ? 's' : ''}</h3>
     <span class="carte-compte">
       ${total} artiste${total > 1 ? 's' : ''} localisé${total > 1 ? 's' : ''}
     </span>
-    <p class="carte-invite">
-      Clique sur un point de la carte pour voir les artistes qui en
-      viennent.
-    </p>`;
+    ${
+      carteVilles.map((ville, index) => `
+        <button type="button" class="carte-artiste"
+                onclick="ouvrirVilleCarte(${index})">
+          <span class="carte-vignette">📍</span>
+          <span style="min-width:0;">
+            ${escapeHtml(ville.nom)}
+            <span class="carte-sorties">
+              ${ville.artistes.length} artiste${ville.artistes.length > 1 ? 's' : ''}
+            </span>
+          </span>
+        </button>`).join('')
+    }`;
 }
 
 
@@ -6219,11 +6495,7 @@ function ouvrirVilleCarte(index){
 
   if(!ville || !panneau) return;
 
-  document.querySelectorAll('.carte-ville.active')
-    .forEach(g => g.classList.remove('active'));
-
-  const marqueur = document.getElementById('carte-ville-' + index);
-  if(marqueur) marqueur.classList.add('active');
+  carteVilleActive = index;
 
   const lignes = ville.artistes.map(profil => {
 
@@ -6255,6 +6527,10 @@ function ouvrirVilleCarte(index){
   }).join('');
 
   panneau.innerHTML = `
+    <button type="button" class="btn btn-ghost carte-retour"
+            onclick="panneauToutesLesVilles()">
+      ← Toutes les villes
+    </button>
     <h3>${escapeHtml(ville.nom)}</h3>
     <span class="carte-compte">
       ${ville.artistes.length} artiste${ville.artistes.length > 1 ? 's' : ''}
