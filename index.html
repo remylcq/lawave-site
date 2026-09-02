@@ -921,6 +921,70 @@
   .post-canvas-wrap{text-align:center; margin-top:14px;}
   #postCanvas{border:1px solid var(--line); max-width:260px; width:100%;}
 
+  /* ---------- CARTE DE FRANCE ---------- */
+  .carte-zone{
+    display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);
+    gap:32px; align-items:start;
+  }
+  @media (max-width:860px){
+    .carte-zone{grid-template-columns:1fr; gap:24px;}
+  }
+  .carte-plan{position:relative;}
+  #carteSvg{width:100%; height:auto; display:block; overflow:visible;}
+
+  /* Le fond pointillé : chaque point est une commune de la grille, pas
+     un tracé. C'est ce qui donne la trame sans dessiner de frontière. */
+  .carte-point{fill:rgba(255,255,255,0.22);}
+
+  /* Une ville qui compte au moins un artiste. Le halo est un second
+     cercle sous le premier : il pulse sans déformer le point lui-même,
+     donc sans faire bouger la cible du clic. */
+  .carte-ville{cursor:pointer;}
+  .carte-halo{
+    fill:var(--blue-bright); opacity:.18;
+    transform-box:fill-box; transform-origin:center;
+    animation:carteBattement 3.2s var(--ease-out) infinite;
+  }
+  .carte-anneau{fill:none; stroke:var(--blue-bright); stroke-width:.22;}
+  .carte-coeur{fill:#fff;}
+  .carte-ville:hover .carte-halo{opacity:.34;}
+  .carte-ville:hover .carte-anneau{stroke-width:.34;}
+  .carte-ville.active .carte-halo{opacity:.42;}
+  .carte-ville.active .carte-anneau{stroke-width:.4;}
+  @keyframes carteBattement{
+    0%, 100%{transform:scale(1);}
+    50%{transform:scale(1.45);}
+  }
+
+  .carte-panneau{
+    border-radius:var(--radius); padding:20px 22px;
+    background:var(--glass); position:relative; overflow:hidden;
+    box-shadow:var(--ombre-2), var(--reflet-int);
+    backdrop-filter:blur(var(--glass-blur-sm)) saturate(150%);
+    -webkit-backdrop-filter:blur(var(--glass-blur-sm)) saturate(150%);
+    min-height:180px;
+  }
+  .carte-panneau h3{font-size:19px; margin-bottom:2px;}
+  .carte-panneau .carte-compte{
+    font-size:12px; color:var(--muted); display:block; margin-bottom:16px;
+  }
+  .carte-artiste{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    padding:10px; border:1px solid transparent; border-radius:var(--radius-sm);
+    background:transparent; color:var(--ink-soft); font-size:14px;
+    transition:background .2s var(--ease), color .2s var(--ease);
+  }
+  .carte-artiste:hover{background:var(--glass-hi); color:var(--ink);}
+  .carte-vignette{
+    width:38px; height:38px; border-radius:50%; overflow:hidden; flex-shrink:0;
+    border:1px solid var(--line); background:rgba(255,255,255,0.06);
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; font-weight:600; color:var(--ink-soft);
+  }
+  .carte-vignette img{width:100%; height:100%; object-fit:cover;}
+  .carte-sorties{display:block; font-size:12px; color:var(--muted);}
+  .carte-invite{font-size:14px; color:var(--muted); line-height:1.6;}
+
   /* ---------- RECHERCHE D'ARTISTE ----------
      Une liste déroulante affichait tous les artistes d'emblée : elle
      grandit avec le catalogue et oblige à parcourir. Ici rien ne
@@ -950,6 +1014,7 @@
     font-size:12px; font-weight:600; color:var(--ink-soft);
   }
   .recherche-vignette img{width:100%; height:100%; object-fit:cover;}
+  .recherche-pseudo{color:var(--muted); font-size:12px; margin-left:6px;}
   .recherche-vide{font-size:13px; color:var(--muted); padding:8px 10px;}
 
   /* Bascule afficher/masquer d'une vidéo, dans l'onglet Contenu. */
@@ -1347,6 +1412,7 @@
       <button class="navlink" data-page="submit">Soumettre une sortie</button>
       <button class="navlink" data-page="content">Contenu</button>
       <button class="navlink" data-page="about">À propos</button>
+      <button class="navlink" data-page="carte">Carte</button>
       <button class="navlink" data-page="community">Communauté</button>
       <!-- Affiché uniquement une fois connecté (voir refreshAccountUI). -->
       <button class="navlink" data-page="collection" id="navCollection" style="display:none;">Ma collection</button>
@@ -1441,6 +1507,30 @@
         ← Retour au catalogue
       </button>
       <div id="artistePageBody"></div>
+    </section>
+  </section>
+
+  <!-- ================= CARTE ================= -->
+  <section id="page-carte" class="page">
+    <section>
+      <div class="section-head">
+        <div>
+          <span class="eyebrow mono">Sur le territoire</span>
+          <h2>La carte des artistes</h2>
+          <p class="desc">
+            D'où viennent les artistes repérés par La Wave. Clique sur
+            une ville pour voir qui en est originaire.
+          </p>
+        </div>
+      </div>
+
+      <div class="carte-zone">
+        <div class="carte-plan">
+          <svg id="carteSvg" viewBox="-3 -3 68 66" role="img"
+               aria-label="Carte de France des artistes"></svg>
+        </div>
+        <aside class="carte-panneau" id="cartePanneau"></aside>
+      </div>
     </section>
   </section>
 
@@ -2903,6 +2993,7 @@ const BD = {
   if(pageId === 'admin'){ autoOpenAdminIfAllowed(); renderForumModeration(); }
   if(pageId === 'about') renderAboutStats();
   if(pageId === 'content') renderContentVideos();
+  if(pageId === 'carte') renderCarte();
   if(pageId === 'community') renderCommunity();
   if(pageId === 'collection') renderMaCollection();
   if(pageId === 'profile') renderProfileForm();
@@ -5959,6 +6050,219 @@ async function renderMaCollection(){
 }
 
 
+// ---------------- CARTE DE FRANCE ----------------
+//
+// La silhouette est une grille de points, pas un tracé : c'est ce qui
+// donne la trame pointillée sans dessiner de frontière, et sans
+// charger de bibliothèque de cartographie.
+//
+// Elle a été calculée une fois à partir du découpage officiel des
+// régions, puis encodée par plages : « ligne:début-fin,colonne ». Les
+// 1 668 points tiennent ainsi en 615 caractères, et le navigateur n'a
+// plus aucun test d'appartenance à faire au chargement.
+const FRANCE_POINTILLES =
+  '1:29-32 2:29-33 3:29-35 4:29-37 5:29-39 6:28-39,42 7:27-42 8:24-42 ' +
+  '9:14-16,23-44 10:14-16,23-46,48 11:15-20,22-49 12:15-51,53 13:15-56 ' +
+  '14:7-8,15-55 15:3-9,16-54 16:2-54 17:4-54 18:4-53 19:3-53 20:6-53 ' +
+  '21:9-53 22:10,12-53 23:8,11-51 24:13-50 25:12,14-49 26:13-48 27:14-48 ' +
+  '28:14-47 29:16-47,49-50 30:17-46,48-50 31:18-51 32:17-51 33:17-50 ' +
+  '34:17-51 35:17,19-51 36:17-51 37:17-49 38:17-50 39:17-51 40:17-50 ' +
+  '41:17-50 42:17-51 43:16-54 44:16-53 45:16-53 46:16-51 ' +
+  '47:15-37,41-42,44-50 48:16-20,22-35,45-49 49:17-34,47 50:19-34 ' +
+  '51:21-24,26-34 52:29-34,60-61 53:31-33,59-61 54:59-61 55:58-61 ' +
+  '56:59-61 57:59-61 58:59-61 59:60';
+
+// Projection équirectangulaire centrée sur 46,5° N. À l'échelle de la
+// France la déformation est invisible, et elle a l'avantage d'être
+// réversible en deux multiplications — ce qui permet de placer une
+// ville sur la même grille que les points du fond.
+const CARTE = {
+  LON_MIN: -5.104,
+  LON_MAX: 9.56,
+  LAT_MAX: 51.088,
+  COLONNES: 62
+};
+CARTE.K = Math.cos(46.5 * Math.PI / 180);
+CARTE.PAS = ((CARTE.LON_MAX - CARTE.LON_MIN) * CARTE.K) / CARTE.COLONNES;
+
+function projeterSurCarte(lon, lat){
+  return {
+    x: ((Number(lon) - CARTE.LON_MIN) * CARTE.K) / CARTE.PAS,
+    y: (CARTE.LAT_MAX - Number(lat)) / CARTE.PAS
+  };
+}
+
+
+let cartePointillesHtml = '';
+
+function fondPointilleHtml(){
+
+  if(cartePointillesHtml) return cartePointillesHtml;
+
+  const cercles = [];
+
+  FRANCE_POINTILLES.split(' ').forEach(bloc => {
+
+    const [ligne, plages] = bloc.split(':');
+    const r = Number(ligne);
+
+    plages.split(',').forEach(plage => {
+      const bornes = plage.split('-').map(Number);
+      const debut = bornes[0];
+      const fin = bornes.length > 1 ? bornes[1] : bornes[0];
+      for(let c = debut; c <= fin; c++){
+        cercles.push(`<circle class="carte-point" cx="${c}" cy="${r}" r="0.34"/>`);
+      }
+    });
+  });
+
+  cartePointillesHtml = cercles.join('');
+  return cartePointillesHtml;
+}
+
+
+// Regroupe les artistes par ville : plusieurs artistes d'une même
+// commune partagent un seul point, sinon leurs marqueurs se
+// recouvriraient exactement.
+function villesDeLaCarte(){
+
+  const villes = {};
+
+  Object.values(artistsByHandle).forEach(profil => {
+
+    const lat = Number(profil.latitude);
+    const lon = Number(profil.longitude);
+
+    if(!profil.ville || !isFinite(lat) || !isFinite(lon)) return;
+
+    const cle = profil.ville.toLowerCase() + '|' + lat.toFixed(3) + '|' + lon.toFixed(3);
+
+    if(!villes[cle]){
+      villes[cle] = { nom: profil.ville, lat, lon, artistes: [] };
+    }
+
+    villes[cle].artistes.push(profil);
+  });
+
+  return Object.values(villes).sort((a, b) =>
+    b.artistes.length - a.artistes.length ||
+    a.nom.localeCompare(b.nom)
+  );
+}
+
+
+let carteVilles = [];
+
+async function renderCarte(){
+
+  const svg = document.getElementById('carteSvg');
+  const panneau = document.getElementById('cartePanneau');
+
+  if(!svg || !panneau) return;
+
+  // Les sorties servent à compter celles de chaque artiste ; les
+  // profils portent la ville.
+  if(!catalogueData.length) await renderCatalogue();
+  await loadArtists();
+
+  carteVilles = villesDeLaCarte();
+
+  const marqueurs = carteVilles.map((ville, index) => {
+
+    const p = projeterSurCarte(ville.lon, ville.lat);
+    const rayon = 0.55 + Math.min(ville.artistes.length - 1, 3) * 0.12;
+
+    return `
+      <g class="carte-ville" id="carte-ville-${index}"
+         onclick="ouvrirVilleCarte(${index})"
+         role="button" tabindex="0"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();ouvrirVilleCarte(${index});}">
+        <title>${escapeHtml(ville.nom)} — ${ville.artistes.length} artiste${ville.artistes.length > 1 ? 's' : ''}</title>
+        <circle class="carte-halo"   cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${(rayon * 2.6).toFixed(2)}"/>
+        <circle class="carte-anneau" cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${(rayon * 1.6).toFixed(2)}"/>
+        <circle class="carte-coeur"  cx="${p.x.toFixed(2)}" cy="${p.y.toFixed(2)}" r="${rayon.toFixed(2)}"/>
+      </g>`;
+  }).join('');
+
+  svg.innerHTML =
+    `<g>${fondPointilleHtml()}</g>` +
+    `<g>${marqueurs}</g>`;
+
+  if(carteVilles.length === 0){
+    panneau.innerHTML = `
+      <p class="carte-invite">
+        Aucun artiste localisé pour l'instant. L'équipe renseigne leur
+        ville depuis l'espace équipe, onglet <strong>Artistes</strong> —
+        ils apparaissent alors ici.
+      </p>`;
+    return;
+  }
+
+  const total = carteVilles.reduce((n, v) => n + v.artistes.length, 0);
+
+  panneau.innerHTML = `
+    <h3>${carteVilles.length} ville${carteVilles.length > 1 ? 's' : ''}</h3>
+    <span class="carte-compte">
+      ${total} artiste${total > 1 ? 's' : ''} localisé${total > 1 ? 's' : ''}
+    </span>
+    <p class="carte-invite">
+      Clique sur un point de la carte pour voir les artistes qui en
+      viennent.
+    </p>`;
+}
+
+
+function ouvrirVilleCarte(index){
+
+  const ville = carteVilles[index];
+  const panneau = document.getElementById('cartePanneau');
+
+  if(!ville || !panneau) return;
+
+  document.querySelectorAll('.carte-ville.active')
+    .forEach(g => g.classList.remove('active'));
+
+  const marqueur = document.getElementById('carte-ville-' + index);
+  if(marqueur) marqueur.classList.add('active');
+
+  const lignes = ville.artistes.map(profil => {
+
+    const nom = profil.display_name || profil.instagram_handle;
+    const photo = safeUrl(profil.photo_url);
+
+    const sorties = catalogueData.filter(s =>
+      s.artistHandle === profil.instagram_handle ||
+      s.artist === nom
+    ).length;
+
+    return `
+      <button type="button" class="carte-artiste"
+              onclick="ouvrirPageArtiste('${escapeAttribute(profil.instagram_handle)}')">
+        <span class="carte-vignette">
+          ${
+            photo
+              ? `<img src="${escapeAttribute(photo)}" alt="">`
+              : escapeHtml(artistInitial(nom))
+          }
+        </span>
+        <span style="min-width:0;">
+          ${escapeHtml(nom)}
+          <span class="carte-sorties">
+            ${sorties ? sorties + ' sortie' + (sorties > 1 ? 's' : '') : 'Pas encore de sortie'}
+          </span>
+        </span>
+      </button>`;
+  }).join('');
+
+  panneau.innerHTML = `
+    <h3>${escapeHtml(ville.nom)}</h3>
+    <span class="carte-compte">
+      ${ville.artistes.length} artiste${ville.artistes.length > 1 ? 's' : ''}
+    </span>
+    ${lignes}`;
+}
+
+
 // ---------------- PAGE ARTISTE ----------------
 //
 // Rassemble tout ce qu'on sait d'un artiste : son profil (photo,
@@ -6021,6 +6325,12 @@ async function ouvrirPageArtiste(handle, depuisAdresse){
           <span class="mono" style="color:var(--muted); font-size:13px;">
             ${sorties.length} sortie${sorties.length > 1 ? 's' : ''} sur La Wave
           </span>
+          ${
+            profil && profil.ville
+              ? `<span class="platform-btn-sm" style="cursor:pointer;"
+                       onclick="goTo('carte')">📍 ${escapeHtml(profil.ville)}</span>`
+              : ''
+          }
           ${instagram
             ? `<a href="${escapeAttribute(instagram)}" target="_blank"
                   rel="noopener noreferrer" class="platform-btn-sm">Instagram</a>`
@@ -8553,6 +8863,15 @@ async function loadArtistProfiles(){
 
               <span style="display:block; margin-top:4px;">
                 ${
+                  profil.ville
+                    ? '📍 ' + escapeHtml(profil.ville) +
+                      (profil.latitude ? '' : ' — sans coordonnées, absent de la carte')
+                    : '📍 Aucune ville — absent de la carte'
+                }
+              </span>
+
+              <span style="display:block; margin-top:4px;">
+                ${
                   (emails[h] || []).length
                     ? '📧 ' + emails[h].map(email => `
                         <a href="mailto:${escapeAttribute(email)}"
@@ -8628,6 +8947,29 @@ async function loadArtistProfiles(){
                <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
                  Le pseudo Instagram identifie l'artiste. Le changer
                  met aussi à jour ses ${nombre} sortie${nombre > 1 ? 's' : ''}.
+               </p>
+             </div>
+
+             <div class="field">
+               <label for="artist-ville-${h}">Ville d'origine</label>
+               <input
+                 type="text"
+                 id="artist-ville-${h}"
+                 autocomplete="off"
+                 placeholder="Commence à taper une commune"
+                 data-initial="${escapeAttribute(profil.ville || '')}"
+                 value="${escapeAttribute(profil.ville || '')}"
+                 oninput="chercherVille('${h}')">
+               <div id="artist-ville-resultats-${h}" class="recherche-resultats"></div>
+               <p style="font-size:12px; color:var(--muted); margin:8px 0 0;">
+                 ${
+                   profil.latitude && profil.longitude
+                     ? 'Placé sur la carte.'
+                     : "Choisis une commune dans la liste : c'est elle qui " +
+                       "fournit les coordonnées, une ville tapée à la main " +
+                       'ne peut pas être placée.'
+                 }
+                 Vider le champ retire l'artiste de la carte.
                </p>
              </div>
 
@@ -8810,6 +9152,85 @@ function ouvrirSuppressionArtiste(handle){
 }
 
 
+// ---- Ville d'un artiste ----
+//
+// Les coordonnées viennent de la Base Adresse Nationale : service
+// public, gratuit, sans clé. Saisir une ville à la main ne suffit
+// donc pas — c'est le choix dans la liste qui fournit la position.
+const villesTrouvees = {};
+const villeChoisie = {};
+const villeMinuteurs = {};
+
+function chercherVille(handle){
+  clearTimeout(villeMinuteurs[handle]);
+  villeMinuteurs[handle] = setTimeout(() => lancerRechercheVille(handle), 280);
+}
+
+
+async function lancerRechercheVille(handle){
+
+  const champ = document.getElementById('artist-ville-' + handle);
+  const zone = document.getElementById('artist-ville-resultats-' + handle);
+
+  if(!champ || !zone) return;
+
+  // Toute frappe annule la commune retenue : sans cela on
+  // enregistrerait un nom modifié avec les anciennes coordonnées.
+  delete villeChoisie[handle];
+
+  const requete = champ.value.trim();
+
+  if(requete.length < 2){
+    zone.innerHTML = '';
+    return;
+  }
+
+  try{
+
+    const reponse = await fetch(
+      'https://api-adresse.data.gouv.fr/search/?type=municipality&limit=6&q=' +
+      encodeURIComponent(requete)
+    );
+
+    const donnees = await reponse.json();
+
+    villesTrouvees[handle] = (donnees.features || []).map(lieu => ({
+      nom: lieu.properties.city || lieu.properties.name,
+      code: lieu.properties.postcode || '',
+      lon: lieu.geometry.coordinates[0],
+      lat: lieu.geometry.coordinates[1]
+    }));
+
+    zone.innerHTML =
+      villesTrouvees[handle].map((ville, i) => `
+        <button type="button" class="recherche-resultat"
+                onclick="choisirVille('${escapeAttribute(handle)}', ${i})">
+          <span style="min-width:0;">
+            ${escapeHtml(ville.nom)}
+            <span class="recherche-pseudo">${escapeHtml(ville.code)}</span>
+          </span>
+        </button>`).join('') ||
+      `<p class="recherche-vide">Aucune commune trouvée.</p>`;
+
+  }catch(error){
+    zone.innerHTML =
+      `<p class="recherche-vide">Recherche indisponible : ${escapeHtml(error.message)}</p>`;
+  }
+}
+
+
+function choisirVille(handle, index){
+
+  const ville = (villesTrouvees[handle] || [])[index];
+  if(!ville) return;
+
+  villeChoisie[handle] = ville;
+
+  document.getElementById('artist-ville-' + handle).value = ville.nom;
+  document.getElementById('artist-ville-resultats-' + handle).innerHTML = '';
+}
+
+
 async function enregistrerArtiste(ancienHandle){
 
   if(!isAdmin) return;
@@ -8840,6 +9261,38 @@ async function enregistrerArtiste(ancienHandle){
   const emailModifie =
     !!champEmail && email !== (champEmail.dataset.initial || '');
 
+  // Ville : trois cas. Vidée, on retire l'artiste de la carte ; une
+  // commune choisie dans la liste, on écrit nom et coordonnées ;
+  // inchangée, on n'y touche pas.
+  const champVille =
+    document.getElementById('artist-ville-' + ancienHandle);
+
+  const villeSaisie = champVille ? champVille.value.trim() : '';
+  const villeInitiale = champVille ? (champVille.dataset.initial || '') : '';
+
+  let majVille = null;
+
+  if(champVille && villeSaisie !== villeInitiale){
+
+    if(!villeSaisie){
+      majVille = { ville: null, latitude: null, longitude: null };
+    } else if(villeChoisie[ancienHandle]){
+      majVille = {
+        ville: villeChoisie[ancienHandle].nom,
+        latitude: villeChoisie[ancienHandle].lat,
+        longitude: villeChoisie[ancienHandle].lon
+      };
+    } else {
+      setRowMessage(
+        msgId,
+        'Choisis la commune dans la liste : sans elle, pas de ' +
+        'coordonnées, et donc pas de point sur la carte.',
+        'err'
+      );
+      return;
+    }
+  }
+
   closeConfirmPanel('artist-edit-' + ancienHandle);
   setRowMessage(msgId, 'Enregistrement...', 'ok');
 
@@ -8865,7 +9318,8 @@ async function enregistrerArtiste(ancienHandle){
       display_name: nom || null,
       instagram_url: instagram,
       instagram_handle: nouveauHandle,
-      ...reseaux
+      ...reseaux,
+      ...(majVille || {})
     });
 
     if(error){
@@ -8883,9 +9337,9 @@ async function enregistrerArtiste(ancienHandle){
       // rejette la mise à jour entière, y compris le nom.
       if(detail.includes('column') || detail.includes('schema cache')){
         throw new Error(
-          "La table artists n'a pas encore les colonnes de réseaux — " +
-          'lance le SQL fourni dans Supabase, puis réessaie. (' +
-          error.message + ')'
+          "La table artists n'a pas encore toutes ses colonnes " +
+          '(réseaux, ville) — lance le SQL fourni dans Supabase, ' +
+          'puis réessaie. (' + error.message + ')'
         );
       }
 
