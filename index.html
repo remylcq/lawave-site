@@ -6096,10 +6096,11 @@ function projeterSurCarte(lon, lat){
 // Tout tient en canvas 2D : 1 668 points ne justifient pas WebGL, et
 // aucune bibliothèque n'est chargée.
 const CARTE_3D = {
-  // 35° : assez pour que le relief se voie, assez peu pour que la
-  // silhouette reste reconnaissable. Au-delà de 50° la France s'écrase
-  // en une tache et on ne la lit plus.
-  inclinaison: 0.61,
+  // Redressement du plan, en radians : 0 le couche à plat vu par la
+  // tranche, π/2 le dresse face à l'utilisateur sans aucun relief.
+  // 58° garde la France largement tournée vers le lecteur tout en
+  // laissant la perspective se voir.
+  redressement: 1.02,
   focale: 300,         // plus la valeur est basse, plus la fuite est marquée
   amplitude: 0.17,     // balancement automatique, en radians
   periode: 24000,      // durée d'un aller-retour, en millisecondes
@@ -6128,19 +6129,23 @@ function carteMouvementReduit(){
 // Projette un point de la grille (colonne, ligne) vers l'écran.
 function projeter3D(u, v, elevation, etat){
 
-  // Centrage sur la grille, puis rotation autour de l'axe vertical.
+  // Repère : x vers l'est, w vers le nord. Les lignes de la grille
+  // sont numérotées du nord au sud, d'où l'inversion — c'est elle qui
+  // manquait, et la France se retrouvait tête en bas.
   const x0 = u - CARTE.COLONNES / 2;
-  const z0 = v - 30;
+  const w0 = 30 - v;
 
-  const x1 = x0 * Math.cos(etat.angle) + z0 * Math.sin(etat.angle);
-  const z1 = -x0 * Math.sin(etat.angle) + z0 * Math.cos(etat.angle);
+  // Rotation autour de l'axe vertical.
+  const x1 = x0 * Math.cos(etat.angle) + w0 * Math.sin(etat.angle);
+  const w1 = -x0 * Math.sin(etat.angle) + w0 * Math.cos(etat.angle);
 
-  // Inclinaison : ce qui s'éloigne monte à l'écran et recule en
-  // profondeur.
-  const y2 = -z1 * Math.sin(CARTE_3D.inclinaison) - (elevation || 0);
-  const z2 = z1 * Math.cos(CARTE_3D.inclinaison);
+  // Le plan est redressé vers l'utilisateur : le nord monte à l'écran
+  // ET s'éloigne en profondeur. Les deux vont ensemble — n'en inverser
+  // qu'un donnait une carte qui grossissait vers le fond.
+  const y2 = -w1 * Math.sin(CARTE_3D.redressement) - (elevation || 0);
+  const profondeur = w1 * Math.cos(CARTE_3D.redressement);
 
-  const echelle = CARTE_3D.focale / (CARTE_3D.focale + z2);
+  const echelle = CARTE_3D.focale / (CARTE_3D.focale + profondeur);
 
   return {
     x: etat.cx + x1 * echelle * etat.zoom,
@@ -6260,7 +6265,7 @@ function dessinerCarte(temps){
       ctx.ellipse(
         base.x, base.y,
         k * (0.25 + phase * 1.5),
-        k * (0.25 + phase * 1.5) * Math.cos(CARTE_3D.inclinaison),
+        k * (0.25 + phase * 1.5) * Math.sin(CARTE_3D.redressement),
         0, 0, Math.PI * 2
       );
       ctx.stroke();
