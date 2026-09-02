@@ -361,8 +361,20 @@
   .news-cover{
     width:min(360px, 70vw); aspect-ratio:1/1; overflow:hidden; border-radius:var(--radius);
     background:rgba(255,255,255,0.06); flex-shrink:0;
+    transition:transform .5s var(--ease), box-shadow .5s var(--ease);
   }
-  .news-cover img{width:100%; height:100%; object-fit:cover;}
+  /* La pochette du moment se soulève et respire au survol : c'est le
+     seul élément de l'accueil qui bouge, donc il attire l'œil sans
+     que la page s'agite. */
+  .news-cover:hover{
+    transform:translateY(-6px);
+    box-shadow:var(--ombre-3), var(--reflet-int);
+  }
+  .news-cover img{
+    width:100%; height:100%; object-fit:cover;
+    transition:transform .7s var(--ease);
+  }
+  .news-cover:hover img{transform:scale(1.06);}
   .news-platforms{display:flex; flex-direction:row; gap:16px;}
   .platform-icon{
     width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
@@ -739,9 +751,30 @@
     display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
     gap:16px;
   }
-  .insta-embed{
-    width:100%; height:520px; border:1px solid var(--line);
-    border-radius:var(--radius); background:#fff;
+  /* L'intégration officielle d'Instagram rend une carte blanche :
+     en-tête au pseudo, photo, puis barre d'actions et légende. Seule
+     la photo nous intéresse, et rien dans l'URL ne permet de demander
+     les autres parties séparément.
+
+     On découpe donc la carte : le cadre est carré, l'iframe est
+     remontée de la hauteur de l'en-tête, et tout ce qui suit la photo
+     déborde hors du cadre. Elle est aussi élargie de deux pixels de
+     chaque côté pour masquer la bordure claire de la carte.
+
+     Ce calage dépend de la mise en page d'Instagram : si elle change,
+     c'est --insta-entete qu'il faudra reprendre. */
+  .insta-cadre{
+    --insta-entete: 54px;
+    position:relative; width:100%; aspect-ratio:1/1;
+    overflow:hidden; border-radius:var(--radius);
+    background:#000;
+  }
+  .insta-cadre iframe{
+    position:absolute;
+    top:calc(var(--insta-entete) * -1);
+    left:-2px; width:calc(100% + 4px);
+    height:calc(100% + var(--insta-entete) + 220px);
+    border:0; display:block;
   }
   .content-thumb{
     aspect-ratio:16/9; overflow:hidden; position:relative; background:rgba(255,255,255,0.06); display:block;
@@ -1392,7 +1425,7 @@
       <div class="form-wrap">
         <form id="submitForm" novalidate>
           <div class="field">
-            <label for="f-title">Titre du morceau</label>
+            <label for="f-title">Titre single / projet</label>
             <input type="text" id="f-title" maxlength="120">
           </div>
           <div class="field">
@@ -2131,7 +2164,7 @@
       <form id="adminAddForm" novalidate>
 
         <div class="field">
-          <label for="admin-title">Titre du morceau</label>
+          <label for="admin-title">Titre single / projet</label>
           <input type="text" id="admin-title" maxlength="120">
         </div>
 
@@ -3048,14 +3081,15 @@ function renderInstagramPosts(){
   }
 
   grid.innerHTML = codes.map(code => `
-    <iframe
-      class="insta-embed"
-      src="https://www.instagram.com/p/${escapeAttribute(code)}/embed"
-      loading="lazy"
-      scrolling="no"
-      allowtransparency="true"
-      title="Publication Instagram La Wave"
-    ></iframe>
+    <div class="insta-cadre">
+      <iframe
+        src="https://www.instagram.com/p/${escapeAttribute(code)}/embed"
+        loading="lazy"
+        scrolling="no"
+        allowtransparency="true"
+        title="Publication Instagram La Wave"
+      ></iframe>
+    </div>
   `).join('');
 }
 
@@ -3703,8 +3737,24 @@ function applyCropTransform(){
   cropImageEl.style.top = cropOffsetY + 'px';
 }
 
+// Le zoom se fait autour du centre du cadre. Sans cela l'image
+// grandissait depuis son coin haut-gauche : le cadrage partait sur le
+// côté à chaque mouvement du curseur, et il fallait le rattraper à la
+// main. Le point de l'image visible au centre doit y rester.
 cropZoomEl.addEventListener('input', ()=>{
-  cropScale = cropScale0 * parseFloat(cropZoomEl.value);
+
+  const ancienne = cropScale;
+  const nouvelle = cropScale0 * parseFloat(cropZoomEl.value);
+
+  if(ancienne > 0){
+    const rapport = nouvelle / ancienne;
+    const centre = CROP_SIZE / 2;
+    cropOffsetX = centre - (centre - cropOffsetX) * rapport;
+    cropOffsetY = centre - (centre - cropOffsetY) * rapport;
+  }
+
+  cropScale = nouvelle;
+
   clampCropOffsets();
   applyCropTransform();
 });
@@ -7642,7 +7692,7 @@ function releaseRowHtml(submission){
       <div class="release-edit" id="release-edit-${id}">
 
         <div class="field">
-          <label for="edit-title-${id}">Titre du morceau</label>
+          <label for="edit-title-${id}">Titre single / projet</label>
           <input
             type="text"
             id="edit-title-${id}"
