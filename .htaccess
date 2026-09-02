@@ -1,0 +1,30 @@
+# Configuration Apache pour l'hébergement OVH.
+#
+# À déposer dans le dossier "www/", à côté de index.html.
+
+# ---------- Forcer HTTPS ----------
+#
+# Netlify redirigeait de lui-même ; Apache ne le fait pas. Sans cette
+# règle, un visiteur qui tape "lawave.fr" sans préciser le protocole
+# reste en clair sur le port 80.
+#
+# Deux conditions plutôt qu'une : sur un hébergement mutualisé, la
+# requête arrive souvent à Apache déjà déchiffrée par un frontal, et
+# %{HTTPS} vaut alors "off" même quand le visiteur est bien en HTTPS.
+# L'en-tête X-Forwarded-Proto tranche ce cas. Rediriger sur la seule
+# valeur de %{HTTPS} provoquerait une boucle.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+
+# ---------- Page d'accueil ----------
+DirectoryIndex index.html
+
+# ---------- Pages d'erreur ----------
+#
+# Le site est une page unique à routage par ancre : une adresse
+# inconnue doit rendre la page plutôt qu'une erreur d'Apache.
+ErrorDocument 404 /index.html
