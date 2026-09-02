@@ -125,7 +125,11 @@
     letter-spacing:0.02em;
   }
   a{color:inherit;text-decoration:none;}
-  button{font-family:inherit;cursor:pointer;}
+  /* Sans couleur explicite, un <button> ne suit pas la couleur du
+     texte alentour : il retombe sur le noir du navigateur, invisible
+     sur fond sombre. Les règles qui fixent leur propre couleur, plus
+     spécifiques, restent prioritaires. */
+  button{font-family:inherit; cursor:pointer; color:var(--ink-soft);}
   img{max-width:100%;display:block;}
 
   /* ---------- NAV ---------- */
@@ -854,9 +858,16 @@
   .admin-row .meta h4{margin:0 0 2px; font-size:14px;}
   .admin-row .meta span{font-size:12px; color:var(--muted);}
   .admin-actions{display:flex; gap:8px;}
+  /* Contour plus marqué que le trait courant : ces boutons sont posés
+     sur une ligne déjà translucide, un trait à 10 % les y noyait. */
   .admin-actions button{
-    font-size:12px; font-weight:600; padding:8px 12px; border-radius:var(--radius-pill); border:1px solid var(--line);
-    background:var(--bg-alt);
+    font-size:12px; font-weight:600; padding:8px 12px; border-radius:var(--radius-pill);
+    border:1px solid var(--line-strong);
+    background:var(--glass); color:var(--ink-soft);
+    transition:color .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
+  }
+  .admin-actions button:hover{
+    color:var(--ink); border-color:rgba(255,255,255,0.32); background:var(--glass-hi);
   }
   .admin-actions .approve{border-color:var(--blue); color:var(--blue);}
   .admin-actions .approve:hover{background:var(--blue); color:#fff;}
@@ -864,6 +875,39 @@
   .admin-actions .reject:hover{background:var(--danger); color:#fff;}
   .post-canvas-wrap{text-align:center; margin-top:14px;}
   #postCanvas{border:1px solid var(--line); max-width:260px; width:100%;}
+
+  /* ---------- RECHERCHE D'ARTISTE ----------
+     Une liste déroulante affichait tous les artistes d'emblée : elle
+     grandit avec le catalogue et oblige à parcourir. Ici rien ne
+     s'affiche tant qu'on n'a pas tapé, sauf l'entrée « nouvel
+     artiste », toujours accessible. */
+  .recherche-resultats{
+    display:flex; flex-direction:column; gap:2px; margin-top:8px;
+    max-height:250px; overflow-y:auto;
+  }
+  .recherche-resultat{
+    display:flex; align-items:center; gap:10px;
+    width:100%; text-align:left; font-size:14px;
+    padding:8px 10px; border:1px solid transparent;
+    border-radius:var(--radius-sm);
+    background:transparent; color:var(--ink-soft);
+    transition:background .2s var(--ease), color .2s var(--ease);
+  }
+  .recherche-resultat:hover{background:var(--glass); color:var(--ink);}
+  .recherche-resultat.actif{
+    border-color:var(--blue); color:var(--ink);
+    background:rgba(20,137,222,0.12);
+  }
+  .recherche-vignette{
+    width:30px; height:30px; border-radius:50%; overflow:hidden; flex-shrink:0;
+    border:1px solid var(--line); background:rgba(255,255,255,0.06);
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:600; color:var(--ink-soft);
+  }
+  .recherche-vignette img{width:100%; height:100%; object-fit:cover;}
+  .recherche-pseudo{color:var(--muted); font-size:12px;}
+  .recherche-nouveau{color:var(--blue-bright); font-weight:600;}
+  .recherche-vide{font-size:13px; color:var(--muted); padding:8px 10px;}
 
   /* ---------- ADMIN : LIGNES DÉPLIABLES ----------
      Confirmations affichées dans la page : un navigateur peut
@@ -1316,24 +1360,28 @@
             <input type="text" id="f-title" maxlength="120">
           </div>
           <div class="field">
-            <label for="f-artist-choix">Artiste</label>
-            <select id="f-artist-choix" onchange="onArtistChoiceChange()">
-              <option value="">＋ Nouvel artiste</option>
-            </select>
-            <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
-              Si l'artiste a déjà une sortie sur La Wave, choisis-le dans la
-              liste : sa photo et ses réseaux sont déjà enregistrés, inutile
-              de les ressaisir.
+            <label for="f-artist-recherche">Artiste</label>
+            <input
+              type="text"
+              id="f-artist-recherche"
+              placeholder="Tape un nom d'artiste"
+              autocomplete="off"
+              oninput="onRechercheArtisteInput()">
+            <div id="f-artist-resultats" class="recherche-resultats"></div>
+            <p style="font-size:12px; color:var(--muted); margin:8px 0 0;">
+              Si l'artiste a déjà une sortie sur La Wave, choisis-le : sa
+              photo et ses réseaux sont déjà enregistrés, inutile de les
+              ressaisir.
             </p>
           </div>
 
           <!-- Récapitulatif du profil choisi : photo, pseudo et réseaux
-               réglés par l'équipe. Rempli par onArtistChoiceChange. -->
+               réglés par l'équipe. Rempli par choisirArtiste. -->
           <div class="field" id="f-artiste-connu" style="display:none;"></div>
 
-          <!-- Masqué dès qu'un artiste existant est choisi, mais toujours
-               rempli en coulisse : c'est lui qui alimente l'envoi. -->
-          <div id="f-artiste-nouveau">
+          <!-- Masqué tant qu'aucun choix n'est fait, mais toujours rempli
+               en coulisse : c'est lui qui alimente l'envoi. -->
+          <div id="f-artiste-nouveau" style="display:none;">
             <div class="field">
               <label for="f-artist">Nom d'artiste</label>
               <input type="text" id="f-artist" maxlength="120">
@@ -4371,10 +4419,10 @@ async function loadArtists(){
     artistsByHandle[profil.instagram_handle] = profil;
   });
 
-  // La liste déroulante du formulaire public se remplit ici plutôt
-  // qu'au démarrage : elle suit ainsi toute modification faite par
-  // l'équipe, sans rechargement de page.
-  remplirChoixArtistes(data || []);
+  // Les résultats de recherche du formulaire public sont redessinés
+  // ici plutôt qu'au démarrage : ils suivent ainsi toute modification
+  // faite par l'équipe, sans rechargement de page.
+  rechercherArtistes();
 
   return data || [];
 }
@@ -4423,68 +4471,132 @@ function artistSocialsHtml(profil){
 }
 
 
-// ---- Choix de l'artiste dans le formulaire public ----
+// ---- Recherche d'artiste dans le formulaire public ----
+//
+// Rien ne s'affiche tant que rien n'est tapé, sauf l'entrée « nouvel
+// artiste ». Le choix n'est jamais implicite : tant que l'utilisateur
+// n'a cliqué ni sur un artiste ni sur « nouvel artiste », les champs
+// qui alimentent l'envoi restent vides et le bouton désactivé.
+let artisteChoisiHandle = null;
 
-function remplirChoixArtistes(profils){
 
-  const select = document.getElementById('f-artist-choix');
+function rechercherArtistes(){
 
-  if(!select) return;
+  const champ = document.getElementById('f-artist-recherche');
+  const zone = document.getElementById('f-artist-resultats');
 
-  const choixCourant = select.value;
+  if(!champ || !zone) return;
 
-  const tries = [...profils].sort((a, b) =>
-    String(a.display_name || a.instagram_handle)
-      .localeCompare(String(b.display_name || b.instagram_handle))
-  );
+  const requete = champ.value.trim().toLowerCase();
 
-  select.innerHTML =
-    `<option value="">＋ Nouvel artiste</option>` +
-    tries.map(profil => `
-      <option value="${escapeAttribute(profil.instagram_handle)}">
-        ${escapeHtml(profil.display_name || profil.instagram_handle)}
-        (@${escapeHtml(profil.instagram_handle)})
-      </option>`).join('');
+  const trouves = requete
+    ? Object.values(artistsByHandle)
+        .filter(profil =>
+          String(profil.display_name || '').toLowerCase().includes(requete) ||
+          String(profil.instagram_handle || '').toLowerCase().includes(requete)
+        )
+        .sort((a, b) =>
+          String(a.display_name || a.instagram_handle)
+            .localeCompare(String(b.display_name || b.instagram_handle))
+        )
+        .slice(0, 8)
+    : [];
 
-  // Une saisie en cours ne doit pas être effacée par un rechargement
-  // de la liste.
-  if(choixCourant && artistsByHandle[choixCourant]){
-    select.value = choixCourant;
-  }
+  const lignes = trouves.map(profil => {
+
+    const photo = safeUrl(profil.photo_url);
+    const nom = profil.display_name || profil.instagram_handle;
+
+    return `
+      <button type="button"
+              class="recherche-resultat${artisteChoisiHandle === profil.instagram_handle ? ' actif' : ''}"
+              onclick="choisirArtiste('${escapeAttribute(profil.instagram_handle)}')">
+        <span class="recherche-vignette">
+          ${
+            photo
+              ? `<img src="${escapeAttribute(photo)}" alt="">`
+              : escapeHtml(artistInitial(nom))
+          }
+        </span>
+        <span style="min-width:0;">
+          ${escapeHtml(nom)}
+          <span class="recherche-pseudo">@${escapeHtml(profil.instagram_handle)}</span>
+        </span>
+      </button>`;
+  }).join('');
+
+  const aucun =
+    requete && trouves.length === 0
+      ? `<p class="recherche-vide">Aucun artiste connu sous ce nom.</p>`
+      : '';
+
+  zone.innerHTML = lignes + aucun + `
+    <button type="button"
+            class="recherche-resultat recherche-nouveau"
+            onclick="choisirNouvelArtiste()">
+      ＋ Ajouter un nouvel artiste
+    </button>`;
 }
 
 
-function onArtistChoiceChange(){
+// Toute frappe annule le choix précédent : le formulaire ne doit pas
+// partir avec un artiste que l'on croit avoir remplacé en retapant.
+function onRechercheArtisteInput(){
 
-  const select = document.getElementById('f-artist-choix');
-  const nouveau = document.getElementById('f-artiste-nouveau');
-  const connu = document.getElementById('f-artiste-connu');
-  const champNom = document.getElementById('f-artist');
-  const champInsta = document.getElementById('f-instagram');
-
-  if(!select || !nouveau || !connu) return;
-
-  const profil = artistsByHandle[select.value];
-
-  if(!profil){
-    nouveau.style.display = '';
-    connu.style.display = 'none';
-    connu.innerHTML = '';
-    champNom.value = '';
-    champInsta.value = '';
-    updateSubmitButtonState();
-    return;
+  if(artisteChoisiHandle !== null){
+    reinitialiserChoixArtiste();
   }
 
-  // Les champs restent la source de l'envoi : on les remplit au lieu
-  // de dupliquer la logique de validation et de soumission.
-  nouveau.style.display = 'none';
-  champNom.value = profil.display_name || profil.instagram_handle;
-  champInsta.value =
+  rechercherArtistes();
+}
+
+
+function reinitialiserChoixArtiste(){
+
+  artisteChoisiHandle = null;
+
+  const connu = document.getElementById('f-artiste-connu');
+  const nouveau = document.getElementById('f-artiste-nouveau');
+
+  if(connu){
+    connu.style.display = 'none';
+    connu.innerHTML = '';
+  }
+
+  if(nouveau){
+    nouveau.style.display = 'none';
+  }
+
+  document.getElementById('f-artist').value = '';
+  document.getElementById('f-instagram').value = '';
+
+  updateSubmitButtonState();
+}
+
+
+function choisirArtiste(handle){
+
+  const profil = artistsByHandle[handle];
+
+  if(!profil) return;
+
+  artisteChoisiHandle = handle;
+
+  const nom = profil.display_name || profil.instagram_handle;
+
+  document.getElementById('f-artist-recherche').value = nom;
+
+  // Les champs masqués restent la source de l'envoi : on les remplit
+  // au lieu de dupliquer la validation et la soumission.
+  document.getElementById('f-artist').value = nom;
+  document.getElementById('f-instagram').value =
     profil.instagram_url ||
     ('https://instagram.com/' + profil.instagram_handle);
 
+  document.getElementById('f-artiste-nouveau').style.display = 'none';
+
   const photo = safeUrl(profil.photo_url);
+  const connu = document.getElementById('f-artiste-connu');
 
   connu.style.display = '';
   connu.innerHTML = `
@@ -4500,13 +4612,11 @@ function onArtistChoiceChange(){
           photo
             ? `<img src="${escapeAttribute(photo)}" alt=""
                     style="width:100%; height:100%; object-fit:cover;">`
-            : escapeHtml(artistInitial(profil.display_name || profil.instagram_handle))
+            : escapeHtml(artistInitial(nom))
         }
       </div>
       <div style="min-width:0;">
-        <strong style="display:block;">
-          ${escapeHtml(profil.display_name || profil.instagram_handle)}
-        </strong>
+        <strong style="display:block;">${escapeHtml(nom)}</strong>
         <span style="font-size:13px; color:var(--muted);">
           @${escapeHtml(profil.instagram_handle)}
         </span>
@@ -4518,7 +4628,34 @@ function onArtistChoiceChange(){
       </div>
     </div>`;
 
+  rechercherArtistes();
   updateSubmitButtonState();
+}
+
+
+function choisirNouvelArtiste(){
+
+  artisteChoisiHandle = null;
+
+  const saisi =
+    document.getElementById('f-artist-recherche').value.trim();
+
+  const connu = document.getElementById('f-artiste-connu');
+
+  connu.style.display = 'none';
+  connu.innerHTML = '';
+
+  document.getElementById('f-artiste-nouveau').style.display = '';
+
+  // Ce qui a été tapé dans la recherche sert de point de départ : la
+  // plupart du temps, c'est déjà le nom de l'artiste.
+  document.getElementById('f-artist').value = saisi;
+  document.getElementById('f-instagram').value = '';
+
+  rechercherArtistes();
+  updateSubmitButtonState();
+
+  document.getElementById('f-instagram').focus();
 }
 
 
@@ -7186,6 +7323,20 @@ function releaseRowHtml(submission){
         </p>
 
         <div class="field">
+          <label for="edit-email-${id}">Email de contact</label>
+          <input
+            type="text"
+            id="edit-email-${id}"
+            placeholder="Laisser vide si aucun contact"
+            value="${escapeAttribute(submission.contact_email || '')}"
+          >
+          <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
+            Saisie par l'artiste lors de sa soumission. Corrigeable ici
+            en cas de faute de frappe.
+          </p>
+        </div>
+
+        <div class="field">
           <label for="edit-release-${id}">Date de sortie</label>
           <input
             type="date"
@@ -7366,6 +7517,7 @@ function cancelEditRelease(submissionId){
   set('edit-artist-', submission.artist_name || '');
   set('edit-release-', submission.release_date || '');
   set('edit-instagram-', submission.instagram_url || '');
+  set('edit-email-', submission.contact_email || '');
 
   LISTEN_PLATFORMS.forEach(plateforme => {
     set(
@@ -7459,6 +7611,8 @@ async function saveReleaseEdit(submissionId){
   const instagram =
     normalizeInstagramUrl(value('edit-instagram-'));
 
+  const email = value('edit-email-');
+
 
   if(!title || !artist || !link || !releaseDate){
     msg.textContent =
@@ -7482,6 +7636,7 @@ async function saveReleaseEdit(submissionId){
       release_date: releaseDate,
       release_type: releaseType,
       instagram_url: instagram,
+      contact_email: email || null,
       ...platformUrls,
       updated_at: new Date().toISOString()
     };
