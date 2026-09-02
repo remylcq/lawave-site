@@ -45,6 +45,7 @@
     --blue: #1489DE;
     --blue-deep: #0C5A97;
     --blue-bright: #4FB4FF;
+    --gold-favori: #E9C46A;
     --danger: #E5695C;
 
     /* ---------- VERRE ----------
@@ -902,6 +903,153 @@
   .post-canvas-wrap{text-align:center; margin-top:14px;}
   #postCanvas{border:1px solid var(--line); max-width:260px; width:100%;}
 
+  /* ---------- PROFIL ---------- */
+  .profil-entete{
+    display:flex; align-items:center; gap:22px; flex-wrap:wrap; margin-bottom:24px;
+  }
+  .profil-photo{
+    width:96px; height:96px; border-radius:50%; overflow:hidden; flex-shrink:0;
+    border:1px solid var(--line-strong); background:rgba(255,255,255,0.06);
+    display:flex; align-items:center; justify-content:center;
+    font-size:34px; font-weight:600; color:var(--ink-soft);
+    box-shadow:var(--ombre-1), var(--reflet-int);
+  }
+  .profil-photo img{width:100%; height:100%; object-fit:cover;}
+  .profil-identite{min-width:0;}
+  .profil-identite h2{font-size:clamp(24px,4vw,34px); margin-bottom:10px;}
+  .profil-etiquettes{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .profil-bio{
+    color:var(--ink-soft); font-size:14px; margin:12px 0 0; max-width:60ch;
+  }
+  .profil-section{margin-top:44px;}
+
+  /* Réglages repliés : on vient sur cette page pour regarder sa
+     collection, pas pour remplir un formulaire. */
+  .profil-reglages{
+    margin-top:52px; border-radius:var(--radius);
+    background:var(--glass); position:relative; overflow:hidden;
+    box-shadow:var(--ombre-1), var(--reflet-int);
+  }
+  .profil-reglages summary{
+    list-style:none; cursor:pointer; padding:18px 20px;
+    display:flex; align-items:center; justify-content:space-between;
+    font-size:14px; font-weight:600; color:var(--ink-soft);
+    -webkit-tap-highlight-color:transparent;
+  }
+  .profil-reglages summary::-webkit-details-marker{display:none;}
+  .profil-reglages summary:hover{color:var(--ink);}
+  .profil-reglages .chevron{color:var(--muted); transition:transform .2s var(--ease);}
+  .profil-reglages[open] .chevron{transform:rotate(180deg);}
+  .profil-reglages .profile-form{padding:0 20px 22px; max-width:none;}
+
+  /* ---------- SUCCÈS ---------- */
+  .succes-grille{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px;
+  }
+  .succes{
+    display:flex; align-items:flex-start; gap:12px;
+    padding:14px 16px; border-radius:var(--radius-sm);
+    border:1px solid var(--line);
+    background:rgba(255,255,255,0.02);
+    /* Un succès non obtenu reste lisible mais éteint : le masquer
+       priverait de l'objectif, l'afficher en pleine lumière ferait
+       croire qu'il est acquis. */
+    opacity:.42;
+  }
+  .succes.obtenu{opacity:1; background:var(--glass);}
+  .succes-jeton{
+    width:32px; height:32px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; color:var(--muted);
+    border:1px solid var(--line); background:rgba(0,0,0,0.25);
+  }
+  .succes.rang-bronze .succes-jeton{color:#C98F5B; border-color:rgba(201,143,91,0.55); box-shadow:0 0 14px rgba(201,143,91,0.18);}
+  .succes.rang-argent .succes-jeton{color:#C7D0DA; border-color:rgba(199,208,218,0.55); box-shadow:0 0 14px rgba(199,208,218,0.18);}
+  .succes.rang-or     .succes-jeton{color:#E9C46A; border-color:rgba(233,196,106,0.6);  box-shadow:0 0 16px rgba(233,196,106,0.24);}
+  .succes-texte{min-width:0; display:flex; flex-direction:column; gap:3px;}
+  .succes-texte strong{font-size:14px;}
+  .succes-desc{font-size:12px; color:var(--muted); line-height:1.4;}
+
+  /* ---------- PODIUM DES FAVORITES ---------- */
+  .favoris-podium{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:14px;
+  }
+  @media (max-width:560px){ .favoris-podium{gap:8px;} }
+  .favori-case{
+    border-radius:var(--radius-sm); overflow:hidden; position:relative;
+    display:flex; flex-direction:column;
+  }
+  .favori-case.remplie{cursor:pointer;}
+  .favori-case img{width:100%; aspect-ratio:1/1; object-fit:cover; display:block;}
+  .favori-case.remplie img{transition:transform .4s var(--ease);}
+  .favori-case.remplie:hover img{transform:scale(1.05);}
+  .favori-titre{
+    display:block; font-size:13px; font-weight:600; margin-top:8px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .favori-artiste{
+    display:block; font-size:12px; color:var(--muted);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .favori-case.vide{
+    aspect-ratio:1/1; border:1px dashed var(--line);
+    align-items:center; justify-content:center; gap:6px;
+    color:var(--muted);
+  }
+  .favori-rang{font-family:'Space Grotesk', sans-serif; font-size:28px; font-weight:700; opacity:.5;}
+  .favori-invite{font-size:12px;}
+  .favori-compte{font-size:11px; color:var(--muted); margin-left:4px;}
+  .btn-enregistrer.favori{border-color:var(--gold-favori); color:var(--gold-favori); background:rgba(233,196,106,0.12);}
+
+  /* ---------- COLLECTION DÉTAILLÉE ---------- */
+  .coll-ligne{
+    display:flex; gap:16px; padding:16px 0;
+    border-top:1px solid var(--line);
+  }
+  .coll-ligne:first-child{border-top:none; padding-top:0;}
+  .coll-pochette{
+    width:88px; height:88px; flex-shrink:0; position:relative; cursor:pointer;
+    border-radius:var(--radius-sm); overflow:hidden;
+  }
+  .coll-pochette img{width:100%; height:100%; object-fit:cover; display:block;}
+  .coll-favori{
+    position:absolute; top:6px; right:6px;
+    width:22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; color:var(--gold-favori);
+    background:rgba(5,7,10,0.72); backdrop-filter:blur(6px);
+  }
+  .coll-corps{min-width:0; display:flex; flex-direction:column; gap:3px;}
+  .coll-titre{font-size:15px; cursor:pointer;}
+  .coll-titre:hover{color:var(--blue-bright);}
+  .coll-artiste{font-size:13px; color:var(--ink-soft);}
+  .coll-meta{
+    display:flex; gap:12px; flex-wrap:wrap; align-items:center;
+    font-size:12px; color:var(--muted); margin-top:4px;
+  }
+  .coll-note{color:var(--gold-favori); letter-spacing:1px;}
+  .coll-avis{
+    font-size:13px; color:var(--ink-soft); line-height:1.55;
+    margin:10px 0 0; padding-left:12px;
+    border-left:2px solid var(--line-strong);
+    white-space:pre-wrap; word-break:break-word;
+  }
+
+  /* ---------- AVIS DANS LA FICHE ---------- */
+  .avis-bloc{margin-top:16px;}
+  .avis-bloc label{
+    display:block; font-size:12px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.06em; color:var(--ink-soft); margin-bottom:8px;
+  }
+  .avis-bloc textarea{
+    width:100%; padding:12px 14px; border-radius:var(--radius-sm);
+    border:1px solid rgba(255,255,255,0.09); background:rgba(0,0,0,0.26);
+    color:var(--ink); font-family:inherit; font-size:14px; resize:vertical;
+    box-shadow:inset 0 1px 3px rgba(0,0,0,0.34);
+    margin-bottom:12px;
+  }
+  .note-date{font-size:12px; color:var(--muted); margin:10px 0 0;}
+
   /* ---------- CARTE DE FRANCE ---------- */
   .carte-zone{
     display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);
@@ -923,6 +1071,21 @@
     opacity:.65; transition:opacity .4s var(--ease);
   }
   .carte-plan:hover .carte-aide{opacity:0;}
+
+  /* Commandes de zoom : la molette ne suffit pas au doigt. */
+  .carte-outils{
+    position:absolute; top:0; right:0;
+    display:flex; flex-direction:column; gap:6px;
+  }
+  .carte-outils button{
+    width:34px; height:34px; border-radius:var(--radius-sm);
+    border:1px solid var(--line-strong); background:var(--glass);
+    color:var(--ink-soft); font-size:15px; line-height:1;
+    backdrop-filter:blur(var(--glass-blur-sm));
+    -webkit-backdrop-filter:blur(var(--glass-blur-sm));
+    transition:color .2s var(--ease), background .2s var(--ease);
+  }
+  .carte-outils button:hover{color:var(--ink); background:var(--glass-hi);}
 
   .carte-panneau{
     border-radius:var(--radius); padding:20px 22px;
@@ -1382,11 +1545,8 @@
       <button class="navlink" data-page="catalogue">Catalogue</button>
       <button class="navlink" data-page="submit">Soumettre une sortie</button>
       <button class="navlink" data-page="content">Contenu</button>
-      <button class="navlink" data-page="about">À propos</button>
       <button class="navlink" data-page="carte">Carte</button>
       <button class="navlink" data-page="community">Communauté</button>
-      <!-- Affiché uniquement une fois connecté (voir refreshAccountUI). -->
-      <button class="navlink" data-page="collection" id="navCollection" style="display:none;">Ma collection</button>
     </nav>
     <div class="account-zone">
       <button class="account-icon" id="accountIconBtn" onclick="toggleAccountMenu()" aria-label="Compte">
@@ -1501,7 +1661,12 @@
       <div class="carte-zone">
         <div class="carte-plan">
           <canvas id="carteCanvas" aria-hidden="true"></canvas>
-          <p class="carte-aide">Fais glisser pour faire pivoter</p>
+          <div class="carte-outils">
+            <button type="button" onclick="zoomerCarte(1.4)" aria-label="Zoomer">+</button>
+            <button type="button" onclick="zoomerCarte(1/1.4)" aria-label="Dézoomer">−</button>
+            <button type="button" onclick="reinitialiserCarte()" aria-label="Revenir à la vue d'ensemble">⤢</button>
+          </div>
+          <p class="carte-aide">Molette pour zoomer · glisser pour déplacer</p>
         </div>
         <aside class="carte-panneau" id="cartePanneau"></aside>
       </div>
@@ -1678,34 +1843,6 @@
     </section>
   </section>
 
-  <!-- ================= MA COLLECTION ================= -->
-  <section id="page-collection" class="page">
-    <section>
-      <div class="section-head">
-        <div>
-          <span class="eyebrow mono">Ma collection</span>
-          <h2>Mes sorties</h2>
-          <p class="desc">
-            Les sorties que tu as enregistrées et celles que tu as notées.
-          </p>
-        </div>
-      </div>
-
-      <div id="collectionDeconnecte" class="empty-state" style="padding:40px 24px;">
-        Connecte-toi pour retrouver ici tes sorties enregistrées et tes notes.
-        <div style="margin-top:16px;">
-          <button class="btn btn-primary" onclick="openAuthModal('signup')">Créer un compte</button>
-        </div>
-      </div>
-
-      <div id="collectionConnecte" style="display:none;">
-        <p class="mono" id="maCollectionResume"
-           style="color:var(--muted); font-size:13px; margin:0 0 18px;"></p>
-        <div id="maCollectionZone"></div>
-      </div>
-    </section>
-  </section>
-
   <!-- ================= COMMUNITY (DEMO) ================= -->
   <section id="page-community" class="page">
     <section>
@@ -1792,22 +1929,59 @@
   <!-- ================= PROFILE (DEMO) ================= -->
   <section id="page-profile" class="page">
     <section>
-      <div class="demo-banner">
-        Les informations de ton profil sont visibles par tous les visiteurs.
-      </div>
-      <div class="section-head">
-        <div>
-          <h2>Mon profil</h2>
-        </div>
-      </div>
+
       <div id="profileLoggedOut" class="empty-state" style="padding:40px 24px; display:none;">
-        Connecte-toi pour voir et modifier ton profil.
+        Connecte-toi pour voir ton profil, tes trophées et ta collection.
         <div style="margin-top:16px;">
           <button class="btn btn-primary" onclick="openAuthModal('login')">Se connecter</button>
         </div>
       </div>
-      <div class="profile-form" id="profileFormWrap">
-        <div class="badge-display" id="ownBadgeDisplay"></div>
+
+      <div id="profileConnecte" style="display:none;">
+
+        <!-- Identité : ce qu'on voit avant tout le reste. -->
+        <div class="profil-entete" id="profilEntete"></div>
+
+        <div class="xp-card" id="profilXp"></div>
+
+        <div class="profil-section">
+          <div class="section-head" style="margin-bottom:18px;">
+            <div>
+              <span class="eyebrow mono">Trophées</span>
+              <h3 style="font-size:19px;">Mes succès</h3>
+            </div>
+            <span class="mono" id="profilSuccesCompte"
+                  style="color:var(--muted); font-size:13px;"></span>
+          </div>
+          <div id="profilSucces"></div>
+        </div>
+
+        <div class="profil-section">
+          <span class="eyebrow mono">Podium</span>
+          <h3 style="font-size:19px; margin-bottom:6px;">Mes trois favorites</h3>
+          <p class="desc" style="margin-bottom:18px;">
+            Les sorties que tu mets au-dessus des autres. Trois places,
+            pas une de plus — le choix se fait depuis la fiche d'une sortie.
+          </p>
+          <div id="profilFavoris"></div>
+        </div>
+
+        <div class="profil-section">
+          <span class="eyebrow mono">Collection</span>
+          <h3 style="font-size:19px; margin-bottom:6px;">Mes sorties</h3>
+          <p class="mono" id="profilCollectionResume"
+             style="color:var(--muted); font-size:13px; margin:0 0 18px;"></p>
+          <div id="profilCollection"></div>
+        </div>
+
+        <!-- Les réglages passent derrière : on vient ici pour regarder
+             sa collection, pas pour remplir un formulaire. -->
+        <details class="profil-reglages">
+          <summary>
+            <span>Modifier mon profil</span>
+            <span class="chevron">⌄</span>
+          </summary>
+          <div class="profile-form" id="profileFormWrap">
         <div class="field">
           <label>Photo de profil</label>
           <div class="cover-drop" id="profilePhotoDrop">
@@ -1859,6 +2033,9 @@
         </div>
         <button class="btn btn-primary" onclick="saveProfile()">Enregistrer mon profil</button>
         <div class="form-msg" id="profileMsg"></div>
+          </div>
+        </details>
+
       </div>
     </section>
   </section>
@@ -2582,7 +2759,8 @@
 <footer>
   <div class="footer-inner">
     <span class="mono">© La Wave — média musical</span>
-    <div style="display:flex; gap:18px;">
+    <div style="display:flex; gap:18px; flex-wrap:wrap;">
+      <a class="footer-admin-link" onclick="goTo('about')" href="javascript:void(0)">À propos</a>
       <a class="footer-admin-link" onclick="goTo('bugreport')" href="javascript:void(0)">Signaler un bug</a>
       <a class="footer-admin-link" onclick="goTo('admin')" href="javascript:void(0)">Espace équipe</a>
     </div>
@@ -2971,7 +3149,6 @@ const BD = {
   // quitte la page, sinon elle consomme du processeur en arrière-plan.
   if(pageId === 'carte') renderCarte(); else arreterCarte();
   if(pageId === 'community') renderCommunity();
-  if(pageId === 'collection') renderMaCollection();
   if(pageId === 'profile') renderProfileForm();
 }
 
@@ -3687,10 +3864,6 @@ function refreshAccountUI(){
 
   refreshAccountIcon();
 
-  // « Ma collection » n'a de sens qu'une fois connecté.
-  const navCollection = document.getElementById('navCollection');
-  if(navCollection) navCollection.style.display = currentUser ? '' : 'none';
-
   if(currentUser){
     loggedOut.style.display = 'none';
     loggedIn.style.display = 'block';
@@ -3824,33 +3997,279 @@ async function submitLogin(){
 // ---- Profil ----
 let profileAvatarDataUrl = null;
 
-function renderProfileForm(){
-  const loggedOutEl = document.getElementById('profileLoggedOut');
-  const formEl = document.getElementById('profileFormWrap');
+// ---------------- SUCCÈS ----------------
+//
+// Rien n'est stocké : chaque succès est une question posée aux données
+// déjà en base. Une table dédiée aurait exigé de détecter le moment
+// exact du déclenchement, de gérer les rattrapages pour les comptes
+// existants, et de rester cohérente après une suppression. Ici, un
+// succès obtenu puis défait redevient simplement à obtenir.
+//
+// Trois rangs, comme sur une console : bronze pour ce qui s'obtient en
+// passant, argent pour ce qui demande de la régularité, or pour ce qui
+// demande d'y revenir longtemps.
+const SUCCES = [
+  { cle:'note-1',       rang:'bronze', nom:'Premier verdict',  desc:'Noter une sortie',                       test: s => s.notes >= 1 },
+  { cle:'note-10',      rang:'argent', nom:'Oreille affûtée',  desc:'Noter dix sorties',                      test: s => s.notes >= 10 },
+  { cle:'note-30',      rang:'or',     nom:'Juge de paix',     desc:'Noter trente sorties',                   test: s => s.notes >= 30 },
+  { cle:'coll-5',       rang:'bronze', nom:'Étagère',          desc:'Enregistrer cinq sorties',               test: s => s.enregistrees >= 5 },
+  { cle:'coll-25',      rang:'argent', nom:'Discothèque',      desc:'Enregistrer vingt-cinq sorties',         test: s => s.enregistrees >= 25 },
+  { cle:'coll-60',      rang:'or',     nom:'Archiviste',       desc:'Enregistrer soixante sorties',           test: s => s.enregistrees >= 60 },
+  { cle:'avis-1',       rang:'bronze', nom:'Chroniqueur',      desc:'Rédiger un avis',                        test: s => s.avis >= 1 },
+  { cle:'avis-10',      rang:'or',     nom:'Plume de La Wave', desc:'Rédiger dix avis',                       test: s => s.avis >= 10 },
+  { cle:'podium',       rang:'argent', nom:'Podium complet',   desc:'Choisir ses trois favorites',            test: s => s.favoris >= MAX_FAVORIS },
+  { cle:'cinq-etoiles', rang:'bronze', nom:'Coup de cœur',     desc:'Mettre cinq étoiles à une sortie',       test: s => s.cinqEtoiles >= 1 },
+  { cle:'forum-1',      rang:'bronze', nom:'Prise de parole',  desc:'Publier un message sur le forum',        test: s => s.posts >= 1 },
+  { cle:'profil',       rang:'bronze', nom:'Carte de visite',  desc:'Renseigner photo, description et rôle',  test: s => s.profilComplet },
+  { cle:'niveau-3',     rang:'argent', nom:'Habitué',          desc:'Atteindre le niveau 3',                  test: s => s.niveau >= 3 },
+  { cle:'niveau-6',     rang:'or',     nom:'Pilier',           desc:'Atteindre le niveau 6',                  test: s => s.niveau >= 6 },
+  { cle:'niveau-10',    rang:'or',     nom:'Légende',          desc:'Atteindre le niveau 10',                 test: s => s.niveau >= 10 }
+];
+
+
+// Nombre de messages du forum : la seule donnée qui ne soit pas déjà
+// en mémoire. Chargée une fois à l'ouverture du profil.
+let profilNbPosts = 0;
+
+
+function statsUtilisateur(user){
+
+  const miennes = toutesLesNotes.filter(n => n.user_id === user.id);
+
+  return {
+    notes:        miennes.filter(n => n.rating).length,
+    enregistrees: miennes.filter(n => n.saved).length,
+    avis:         miennes.filter(n => n.avis && String(n.avis).trim()).length,
+    favoris:      miennes.filter(n => n.favori).length,
+    cinqEtoiles:  miennes.filter(n => n.rating === 5).length,
+    posts:        profilNbPosts,
+    niveau:       levelForXP(user.xp),
+    profilComplet: !!(user.avatar && user.bio && user.role)
+  };
+}
+
+
+function succesHtml(user){
+
+  const stats = statsUtilisateur(user);
+
+  const cartes = SUCCES.map(succes => {
+
+    const obtenu = !!succes.test(stats);
+
+    return `
+      <div class="succes${obtenu ? ' obtenu rang-' + succes.rang : ''}"
+           title="${escapeAttribute(succes.desc)}">
+        <span class="succes-jeton">${obtenu ? '✦' : '·'}</span>
+        <span class="succes-texte">
+          <strong>${escapeHtml(succes.nom)}</strong>
+          <span class="succes-desc">${escapeHtml(succes.desc)}</span>
+        </span>
+      </div>`;
+  }).join('');
+
+  return `<div class="succes-grille">${cartes}</div>`;
+}
+
+
+function nombreDeSucces(user){
+  const stats = statsUtilisateur(user);
+  return SUCCES.filter(s => s.test(stats)).length;
+}
+
+
+// ---------------- COLLECTION DÉTAILLÉE ----------------
+//
+// Version longue de la collection : chaque ligne porte la pochette, la
+// note, la date d'ajout et l'avis écrit. La version compacte en
+// vignettes reste utilisée sur les profils visités.
+function collectionDetailleeHtml(userId){
+
+  const lignes = toutesLesNotes.filter(n =>
+    n.user_id === userId && (n.rating || n.saved || n.avis)
+  );
+
+  if(!lignes.length){
+    return `<p class="carte-invite">
+              Aucune sortie enregistrée pour l'instant. Ouvre une fiche
+              du catalogue pour la noter, l'enregistrer ou en écrire un
+              avis.
+            </p>`;
+  }
+
+  // Les plus récemment ajoutées d'abord : c'est l'ordre dans lequel on
+  // se souvient de sa propre collection.
+  const triees = [...lignes].sort((a, b) =>
+    String(b.created_at || b.updated_at || '').localeCompare(
+      String(a.created_at || a.updated_at || ''))
+  );
+
+  const cartes = triees.map(ligne => {
+
+    const sortie = catalogueData.find(s => s.id === ligne.release_id);
+    if(!sortie) return '';
+
+    const date = ligne.created_at || ligne.updated_at;
+
+    return `
+      <div class="coll-ligne">
+        <div class="coll-pochette" onclick="openCatalogueModal('${sortie.id}')">
+          <img src="${escapeAttribute(safeUrl(sortie.cover))}"
+               alt="${escapeAttribute(sortie.title)}" loading="lazy">
+          ${ligne.favori ? `<span class="coll-favori" title="Favorite">★</span>` : ''}
+        </div>
+        <div class="coll-corps">
+          <strong class="coll-titre" onclick="openCatalogueModal('${sortie.id}')">
+            ${escapeHtml(sortie.title)}
+          </strong>
+          <span class="coll-artiste">${escapeHtml(sortie.artist)}</span>
+          <span class="coll-meta">
+            ${ligne.rating ? `<span class="coll-note">${'★'.repeat(ligne.rating)}</span>` : ''}
+            ${date ? `<span>Ajoutée le ${formatFrDate(String(date).slice(0,10))}</span>` : ''}
+          </span>
+          ${
+            ligne.avis
+              ? `<p class="coll-avis">${escapeHtml(ligne.avis)}</p>`
+              : ''
+          }
+        </div>
+      </div>`;
+  }).filter(Boolean).join('');
+
+  return cartes || `<p class="carte-invite">Ces sorties ne sont plus au catalogue.</p>`;
+}
+
+
+function favorisHtml(userId){
+
+  const favoris = toutesLesNotes.filter(n => n.user_id === userId && n.favori);
+
+  const cases = [];
+
+  for(let i = 0; i < MAX_FAVORIS; i++){
+
+    const ligne = favoris[i];
+    const sortie = ligne && catalogueData.find(s => s.id === ligne.release_id);
+
+    cases.push(
+      sortie
+        ? `<div class="favori-case remplie" onclick="openCatalogueModal('${sortie.id}')">
+             <img src="${escapeAttribute(safeUrl(sortie.cover))}"
+                  alt="${escapeAttribute(sortie.title)}" loading="lazy">
+             <span class="favori-titre">${escapeHtml(sortie.title)}</span>
+             <span class="favori-artiste">${escapeHtml(sortie.artist)}</span>
+           </div>`
+        : `<div class="favori-case vide">
+             <span class="favori-rang">${i + 1}</span>
+             <span class="favori-invite">Libre</span>
+           </div>`
+    );
+  }
+
+  return `<div class="favoris-podium">${cases.join('')}</div>`;
+}
+
+
+// ---------------- PAGE PROFIL ----------------
+
+async function renderProfileForm(){
+
+  const deconnecte = document.getElementById('profileLoggedOut');
+  const connecte = document.getElementById('profileConnecte');
+
+  if(!deconnecte || !connecte) return;
+
   if(!currentUser){
-    loggedOutEl.style.display = 'block';
-    formEl.style.display = 'none';
+    deconnecte.style.display = 'block';
+    connecte.style.display = 'none';
     return;
   }
-  loggedOutEl.style.display = 'none';
-  formEl.style.display = 'block';
+
+  deconnecte.style.display = 'none';
+  connecte.style.display = 'block';
+
+  // Le catalogue porte les pochettes, les notes portent la collection.
+  if(!catalogueData.length) await renderCatalogue();
+
+  try{
+    const { count } = await BD.nombreDePostsDeLAuteur(currentUser.id);
+    profilNbPosts = count || 0;
+  }catch(e){
+    profilNbPosts = 0;
+  }
+
   const badge = badgeForXP(currentUser.xp);
-  document.getElementById('ownBadgeDisplay').innerHTML =
-    `<span class="badge-pill">${badge.icon} ${badge.name}</span> <span class="mono" style="color:var(--muted); font-size:12px;">Niveau ${levelForXP(currentUser.xp)} · ${currentUser.xp||0} XP</span>`;
+  const niveau = levelForXP(currentUser.xp);
+  const xp = currentUser.xp || 0;
+  const dansLeNiveau = xp % 100;
+  const photo = safeUrl(currentUser.avatar);
+
+  document.getElementById('profilEntete').innerHTML = `
+    <div class="profil-photo">
+      ${
+        photo
+          ? `<img src="${escapeAttribute(photo)}" alt="">`
+          : escapeHtml(artistInitial(currentUser.pseudo))
+      }
+    </div>
+    <div class="profil-identite">
+      <h2>${escapeHtml(currentUser.pseudo)}</h2>
+      <div class="profil-etiquettes">
+        <span class="badge-pill">${badge.icon} ${badge.name}</span>
+        ${roleBadgeHtml(currentUser.role, 'small')}
+      </div>
+      ${currentUser.bio ? `<p class="profil-bio">${escapeHtml(currentUser.bio)}</p>` : ''}
+    </div>`;
+
+  document.getElementById('profilXp').innerHTML = `
+    <div class="xp-top">
+      <span id="xpLevelLabel">Niveau ${niveau}</span>
+      <span id="xpNumberLabel">${xp} XP · ${100 - dansLeNiveau} XP avant le niveau ${niveau + 1}</span>
+    </div>
+    <div class="xp-bar-track">
+      <span class="xp-bar-fill" style="width:${dansLeNiveau}%"></span>
+    </div>`;
+
+  const obtenus = nombreDeSucces(currentUser);
+
+  document.getElementById('profilSuccesCompte').textContent =
+    obtenus + ' / ' + SUCCES.length;
+
+  document.getElementById('profilSucces').innerHTML = succesHtml(currentUser);
+  document.getElementById('profilFavoris').innerHTML = favorisHtml(currentUser.id);
+
+  const miennes = toutesLesNotes.filter(n => n.user_id === currentUser.id);
+  const enregistrees = miennes.filter(n => n.saved).length;
+  const notees = miennes.filter(n => n.rating).length;
+
+  document.getElementById('profilCollectionResume').textContent =
+    enregistrees + ' enregistrée' + (enregistrees > 1 ? 's' : '') +
+    ' · ' + notees + ' notée' + (notees > 1 ? 's' : '');
+
+  document.getElementById('profilCollection').innerHTML =
+    collectionDetailleeHtml(currentUser.id);
+
+  // ---- Formulaire de réglages, replié par défaut ----
   document.getElementById('profilePseudo').value = currentUser.pseudo || '';
   document.getElementById('profileBio').value = currentUser.bio || '';
   document.getElementById('profileRole').value = currentUser.role || 'Auditeur';
-  document.getElementById('socialInstagram').value = currentUser.socials?.instagram || '';
-  document.getElementById('socialTwitter').value = currentUser.socials?.twitter || '';
-  document.getElementById('socialTiktok').value = currentUser.socials?.tiktok || '';
-  document.getElementById('socialSpotify').value = currentUser.socials?.spotify || '';
-  document.getElementById('socialAppleMusic').value = currentUser.socials?.appleMusic || '';
-  document.getElementById('socialDeezer').value = currentUser.socials?.deezer || '';
+  document.getElementById('socialInstagram').value = (currentUser.socials || {}).instagram || '';
+  document.getElementById('socialTwitter').value = (currentUser.socials || {}).twitter || '';
+  document.getElementById('socialTiktok').value = (currentUser.socials || {}).tiktok || '';
+  document.getElementById('socialSpotify').value = (currentUser.socials || {}).spotify || '';
+  document.getElementById('socialAppleMusic').value = (currentUser.socials || {}).appleMusic || '';
+  document.getElementById('socialDeezer').value = (currentUser.socials || {}).deezer || '';
+
+  // Sans cette reprise, enregistrer le profil effacerait la photo :
+  // saveProfile lit cette variable et non le champ.
   profileAvatarDataUrl = currentUser.avatar || null;
-  const drop = document.getElementById('profilePhotoDrop');
-  drop.innerHTML = profileAvatarDataUrl
-    ? `<img class="cover-preview" style="border-radius:50%;" src="${profileAvatarDataUrl}">`
-    : `<span id="profilePhotoText">Cliquer pour choisir une image</span>`;
+
+  const dropPhoto = document.getElementById('profilePhotoDrop');
+  if(dropPhoto){
+    dropPhoto.innerHTML = profileAvatarDataUrl
+      ? `<img class="cover-preview" style="border-radius:50%;" src="${escapeAttribute(profileAvatarDataUrl)}">`
+      : `<span id="profilePhotoText">Cliquer pour choisir une image</span>`;
+  }
 }
 
 document.getElementById('profilePhotoDrop').addEventListener('click', ()=> document.getElementById('profilePhotoInput').click());
@@ -5763,6 +6182,18 @@ function etoilesLectureHtml(valeur){
 }
 
 // Bloc de notation affiché dans la fiche d'une sortie.
+// Trois favorites au maximum : au-delà, le podium ne veut plus rien
+// dire. La limite est aussi rappelée dans le message d'erreur, parce
+// qu'un bouton qui refuse sans explication passe pour un bug.
+const MAX_FAVORIS = 3;
+
+
+function mesFavoris(){
+  if(!currentUser) return [];
+  return toutesLesNotes.filter(n => n.user_id === currentUser.id && n.favori);
+}
+
+
 function renderNoteBloc(releaseId){
 
   const moyenneEl = document.getElementById('modalNoteMoyenne');
@@ -5789,6 +6220,8 @@ function renderNoteBloc(releaseId){
   const mienne = maNoteSur(releaseId);
   const note = (mienne && mienne.rating) || 0;
   const enregistre = !!(mienne && mienne.saved);
+  const favori = !!(mienne && mienne.favori);
+  const avis = (mienne && mienne.avis) || '';
 
   let etoiles = '<span class="etoiles">';
   for(let i = 1; i <= 5; i++){
@@ -5797,6 +6230,8 @@ function renderNoteBloc(releaseId){
                   onclick="noterSortie('${releaseId}', ${i})">★</button>`;
   }
   etoiles += '</span>';
+
+  const nbFavoris = mesFavoris().length;
 
   blocEl.innerHTML = `
     <div class="note-actions">
@@ -5809,7 +6244,100 @@ function renderNoteBloc(releaseId){
               onclick="basculerEnregistrement('${releaseId}')">
         ${enregistre ? '✓ Enregistrée' : '＋ Enregistrer'}
       </button>
+      <button type="button"
+              class="btn-enregistrer${favori ? ' favori' : ''}"
+              title="${favori ? 'Retirer de tes favorites' : 'Ajouter à tes trois favorites'}"
+              onclick="basculerFavori('${releaseId}')">
+        ${favori ? '★ Favorite' : '☆ Favorite'}
+        <span class="favori-compte">${nbFavoris}/${MAX_FAVORIS}</span>
+      </button>
+    </div>
+
+    ${
+      mienne && mienne.created_at
+        ? `<p class="note-date">Dans ta collection depuis le ${formatFrDate(String(mienne.created_at).slice(0,10))}.</p>`
+        : ''
+    }
+
+    <div class="avis-bloc">
+      <label for="avis-${releaseId}">Ton avis</label>
+      <textarea id="avis-${releaseId}" rows="3" maxlength="600"
+                placeholder="Ce que tu en as pensé — visible sur ton profil.">${escapeHtml(avis)}</textarea>
+      <div class="inline-actions">
+        <button type="button" class="btn btn-primary" style="padding:9px 16px; font-size:13px;"
+                onclick="enregistrerAvis('${releaseId}')">
+          ${avis ? 'Modifier mon avis' : 'Publier mon avis'}
+        </button>
+        ${
+          avis
+            ? `<button type="button" class="btn btn-ghost" style="padding:9px 16px; font-size:13px;"
+                       onclick="effacerAvis('${releaseId}')">Effacer</button>`
+            : ''
+        }
+      </div>
+      <div class="form-msg" id="avis-msg-${releaseId}"></div>
     </div>`;
+}
+
+
+async function basculerFavori(releaseId){
+
+  if(!currentUser) return;
+
+  const mienne = maNoteSur(releaseId);
+  const dejaFavori = !!(mienne && mienne.favori);
+
+  if(!dejaFavori && mesFavoris().length >= MAX_FAVORIS){
+    notifier('Déjà trois favorites', {
+      type: 'erreur',
+      detail: 'Retires-en une avant d\'en ajouter une autre.'
+    });
+    return;
+  }
+
+  // Une favorite fait forcément partie de la collection : sans cela
+  // elle disparaîtrait de la liste où elle doit s'afficher.
+  await enregistrerMaNote(releaseId, {
+    favori: !dejaFavori,
+    saved: dejaFavori ? (mienne && mienne.saved) : true
+  });
+
+  notifier(dejaFavori ? 'Retirée de tes favorites' : 'Ajoutée à tes favorites', {
+    type: dejaFavori ? 'info' : 'succes',
+    icone: dejaFavori ? '☆' : '★'
+  });
+
+  renderNoteBloc(releaseId);
+}
+
+
+async function enregistrerAvis(releaseId){
+
+  if(!currentUser) return;
+
+  const champ = document.getElementById('avis-' + releaseId);
+  const msg = document.getElementById('avis-msg-' + releaseId);
+  if(!champ) return;
+
+  const texte = champ.value.trim();
+
+  // Écrire un avis vaut mise en collection : autrement le texte
+  // n'aurait nulle part où s'afficher.
+  await enregistrerMaNote(releaseId, { avis: texte || null, saved: true });
+
+  if(msg){
+    msg.textContent = texte ? '✅ Avis enregistré.' : 'Avis effacé.';
+    msg.className = 'form-msg ok';
+  }
+
+  renderNoteBloc(releaseId);
+}
+
+
+async function effacerAvis(releaseId){
+  const champ = document.getElementById('avis-' + releaseId);
+  if(champ) champ.value = '';
+  await enregistrerAvis(releaseId);
 }
 
 
@@ -5822,14 +6350,16 @@ async function enregistrerMaNote(releaseId, champs){
     user_id: currentUser.id,
     release_id: releaseId,
     rating: null,
-    saved: false
+    saved: false,
+    avis: null,
+    favori: false
   };
 
   const nouvelle = { ...mienne, ...champs };
 
-  // Plus de note ni d'enregistrement : la ligne n'a plus de raison
-  // d'exister.
-  if(!nouvelle.rating && !nouvelle.saved){
+  // Plus rien à garder : ni note, ni enregistrement, ni avis, ni
+  // favori. La ligne n'a alors plus de raison d'exister.
+  if(!nouvelle.rating && !nouvelle.saved && !nouvelle.avis && !nouvelle.favori){
     const { error } = await BD.supprimerNote(currentUser.id, releaseId);
     if(error){
       console.warn('⚠️ Note non supprimée :', error.message);
@@ -5846,10 +6376,24 @@ async function enregistrerMaNote(releaseId, champs){
     user_id: currentUser.id,
     release_id: releaseId,
     rating: nouvelle.rating,
-    saved: nouvelle.saved
+    saved: nouvelle.saved,
+    avis: nouvelle.avis || null,
+    favori: !!nouvelle.favori
   });
 
   if(error){
+
+    // Les colonnes avis et favori sont récentes : sans elles, la base
+    // rejette l'écriture entière, note comprise.
+    const detail = String(error.message || '').toLowerCase();
+
+    if(detail.includes('column') || detail.includes('schema cache')){
+      notifier('Base à mettre à jour', {
+        type: 'erreur',
+        detail: "La table des notes n'a pas encore les colonnes avis et favori."
+      });
+    }
+
     console.warn('⚠️ Note non enregistrée :', error.message);
     return;
   }
@@ -5977,45 +6521,6 @@ function collectionHtml(userId, options){
 }
 
 
-// ---- Page « Ma collection » ----
-//
-// Même contenu que la collection du profil, mais sur une page à soi,
-// atteignable depuis la navigation une fois connecté.
-
-async function renderMaCollection(){
-
-  const deconnecte = document.getElementById('collectionDeconnecte');
-  const connecte = document.getElementById('collectionConnecte');
-  if(!deconnecte || !connecte) return;
-
-  if(!currentUser){
-    deconnecte.style.display = 'block';
-    connecte.style.display = 'none';
-    return;
-  }
-
-  deconnecte.style.display = 'none';
-  connecte.style.display = 'block';
-
-  // Le catalogue porte les pochettes, les notes portent les liens.
-  if(!catalogueData.length) await renderCatalogue();
-  await chargerNotes();
-
-  const miennes = toutesLesNotes.filter(
-    n => n.user_id === currentUser.id && (n.rating || n.saved)
-  );
-  const notees = miennes.filter(n => n.rating).length;
-
-  document.getElementById('maCollectionResume').textContent =
-    miennes.length
-      ? miennes.length + ' sortie' + (miennes.length > 1 ? 's' : '') +
-        (notees ? ' · ' + notees + ' notée' + (notees > 1 ? 's' : '') : '')
-      : '';
-
-  document.getElementById('maCollectionZone').innerHTML =
-    collectionHtml(currentUser.id, { grande: true });
-}
-
 
 // ---------------- CARTE DE FRANCE ----------------
 //
@@ -6089,8 +6594,15 @@ const CARTE_3D = {
 // interromprait tout ce qui suit. `var` vaut undefined avant son
 // initialisation, ce que le garde de arreterCarte accepte.
 var carteAnim = null;
-let carteRotation = 0;      // rotation appliquée par l'utilisateur
+// Le glisser déplace la vue plutôt que de la faire pivoter : dès qu'on
+// zoome pour distinguer deux villes proches, se déplacer devient le
+// geste utile, et le balancement automatique suffit à garder le
+// volume perceptible.
+let carteZoom = 1;
+let cartePanX = 0;
+let cartePanY = 0;
 let carteSaisie = null;     // position du pointeur pendant un glisser
+let carteDernierGlisser = false;
 let carteSurvol = -1;
 let carteEcran = [];        // position à l'écran de chaque ville, pour le clic
 
@@ -6178,10 +6690,10 @@ function dessinerCarte(temps){
     : Math.sin((temps / CARTE_3D.periode) * Math.PI * 2) * CARTE_3D.amplitude;
 
   const etat = {
-    angle: balancement + carteRotation,
-    cx: largeur / 2,
-    cy: hauteur * 0.52,
-    zoom: largeur / 78
+    angle: balancement,
+    cx: largeur / 2 + cartePanX,
+    cy: hauteur * 0.52 + cartePanY,
+    zoom: (largeur / 78) * carteZoom
   };
 
   // ---- Fond pointillé, du plus lointain au plus proche ----
@@ -6324,6 +6836,55 @@ function villeSousLePointeur(evenement){
 }
 
 
+// Zoom ancré sur le pointeur : le point survolé ne bouge pas pendant
+// que la carte grossit. Un zoom centré sur le cadre obligerait à
+// repositionner la vue après chaque cran de molette.
+function zoomerCarte(facteur, versX, versY){
+
+  const canvas = document.getElementById('carteCanvas');
+  if(!canvas) return;
+
+  const largeur = canvas.clientWidth;
+  const hauteur = canvas.clientHeight;
+
+  const mx = versX === undefined ? largeur / 2 : versX;
+  const my = versY === undefined ? hauteur / 2 : versY;
+
+  const avant = carteZoom;
+  carteZoom = Math.max(1, Math.min(6, carteZoom * facteur));
+
+  const reel = carteZoom / avant;
+  if(reel === 1) return;
+
+  const cx = largeur / 2 + cartePanX;
+  const cy = hauteur * 0.52 + cartePanY;
+
+  cartePanX = mx + (cx - mx) * reel - largeur / 2;
+  cartePanY = my + (cy - my) * reel - hauteur * 0.52;
+
+  brider();
+}
+
+
+// La vue ne doit pas pouvoir être tirée jusqu'à sortir la France du
+// cadre : au zoom minimal elle reste centrée, et plus on zoome plus on
+// s'autorise à s'éloigner du centre.
+function brider(){
+  const canvas = document.getElementById('carteCanvas');
+  if(!canvas) return;
+  const marge = canvas.clientWidth * 0.55 * (carteZoom - 1);
+  cartePanX = Math.max(-marge, Math.min(marge, cartePanX));
+  cartePanY = Math.max(-marge, Math.min(marge, cartePanY));
+}
+
+
+function reinitialiserCarte(){
+  carteZoom = 1;
+  cartePanX = 0;
+  cartePanY = 0;
+}
+
+
 function brancherCarte(){
 
   const canvas = document.getElementById('carteCanvas');
@@ -6332,18 +6893,23 @@ function brancherCarte(){
   canvas.dataset.branche = '1';
 
   canvas.addEventListener('pointerdown', (e) => {
-    carteSaisie = { x: e.clientX, angle: carteRotation, bouge: false };
+    carteSaisie = {
+      x: e.clientX, y: e.clientY,
+      panX: cartePanX, panY: cartePanY,
+      bouge: false
+    };
     canvas.classList.add('saisie');
   });
 
   window.addEventListener('pointermove', (e) => {
 
     if(carteSaisie){
-      const ecart = e.clientX - carteSaisie.x;
-      if(Math.abs(ecart) > 3) carteSaisie.bouge = true;
-      // Bridé : au-delà, la France sortirait du cadre et la carte
-      // deviendrait inutilisable.
-      carteRotation = Math.max(-0.8, Math.min(0.8, carteSaisie.angle + ecart / 260));
+      const dx = e.clientX - carteSaisie.x;
+      const dy = e.clientY - carteSaisie.y;
+      if(Math.abs(dx) > 3 || Math.abs(dy) > 3) carteSaisie.bouge = true;
+      cartePanX = carteSaisie.panX + dx;
+      cartePanY = carteSaisie.panY + dy;
+      brider();
       return;
     }
 
@@ -6361,11 +6927,29 @@ function brancherCarte(){
     carteSaisie = null;
   });
 
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const cadre = canvas.getBoundingClientRect();
+    zoomerCarte(
+      e.deltaY < 0 ? 1.16 : 1 / 1.16,
+      e.clientX - cadre.left,
+      e.clientY - cadre.top
+    );
+  }, { passive: false });
+
   // Un glisser ne doit pas ouvrir la ville qu'on a effleurée en cours
   // de route : seul un clic sans déplacement compte.
   canvas.addEventListener('click', (e) => {
+    if(carteDernierGlisser) return;
     const trouvee = villeSousLePointeur(e);
     if(trouvee >= 0) ouvrirVilleCarte(trouvee);
+  });
+
+  // Le clic arrive après le relâchement : on retient si le geste
+  // précédent était un déplacement.
+  canvas.addEventListener('pointerup', () => {
+    carteDernierGlisser = !!(carteSaisie && carteSaisie.bouge);
+    setTimeout(() => { carteDernierGlisser = false; }, 0);
   });
 }
 
