@@ -1316,16 +1316,36 @@
             <input type="text" id="f-title" maxlength="120">
           </div>
           <div class="field">
-            <label for="f-artist">Nom d'artiste</label>
-            <input type="text" id="f-artist" maxlength="120">
-          </div>
-          <div class="field">
-            <label for="f-instagram">Instagram</label>
-            <input type="text" id="f-instagram" placeholder="@tonpseudo ou lien complet">
+            <label for="f-artist-choix">Artiste</label>
+            <select id="f-artist-choix" onchange="onArtistChoiceChange()">
+              <option value="">＋ Nouvel artiste</option>
+            </select>
             <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
-              Obligatoire : c'est ce qui identifie ton profil d'artiste sur
-              La Wave. Un lien vers ton compte sera ajouté sur la fiche.
+              Si l'artiste a déjà une sortie sur La Wave, choisis-le dans la
+              liste : sa photo et ses réseaux sont déjà enregistrés, inutile
+              de les ressaisir.
             </p>
+          </div>
+
+          <!-- Récapitulatif du profil choisi : photo, pseudo et réseaux
+               réglés par l'équipe. Rempli par onArtistChoiceChange. -->
+          <div class="field" id="f-artiste-connu" style="display:none;"></div>
+
+          <!-- Masqué dès qu'un artiste existant est choisi, mais toujours
+               rempli en coulisse : c'est lui qui alimente l'envoi. -->
+          <div id="f-artiste-nouveau">
+            <div class="field">
+              <label for="f-artist">Nom d'artiste</label>
+              <input type="text" id="f-artist" maxlength="120">
+            </div>
+            <div class="field">
+              <label for="f-instagram">Instagram</label>
+              <input type="text" id="f-instagram" placeholder="@tonpseudo ou lien complet">
+              <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
+                Obligatoire : c'est ce qui identifie ton profil d'artiste sur
+                La Wave. Un lien vers ton compte sera ajouté sur la fiche.
+              </p>
+            </div>
           </div>
           <div class="field">
             <label>Cover (image en bonne qualité)</label>
@@ -2355,7 +2375,7 @@ const BD = {
   // artiste dans l'onglet Artistes.
   sortiesParArtiste(){
     return supabaseClient.from('submissions')
-      .select('artist_handle, status');
+      .select('artist_handle, status, contact_email');
   },
 
   creerSortie(champs){
@@ -4351,7 +4371,154 @@ async function loadArtists(){
     artistsByHandle[profil.instagram_handle] = profil;
   });
 
+  // La liste déroulante du formulaire public se remplit ici plutôt
+  // qu'au démarrage : elle suit ainsi toute modification faite par
+  // l'équipe, sans rechargement de page.
+  remplirChoixArtistes(data || []);
+
   return data || [];
+}
+
+
+// ---- Réseaux d'un profil artiste ----
+//
+// Distincts des liens d'écoute d'une sortie : ceux-ci pointent la
+// page de l'artiste, pas un morceau, et valent pour toutes ses
+// sorties. L'équipe les renseigne dans l'onglet Artistes.
+const ARTIST_SOCIALS = [
+  { column: 'instagram_url',   label: 'Instagram' },
+  { column: 'tiktok_url',      label: 'TikTok' },
+  { column: 'twitter_url',     label: 'X' },
+  { column: 'youtube_url',     label: 'YouTube' },
+  { column: 'spotify_url',     label: 'Spotify' },
+  { column: 'deezer_url',      label: 'Deezer' },
+  { column: 'apple_music_url', label: 'Apple Music' }
+];
+
+
+function artistSocialsHtml(profil){
+
+  if(!profil) return '';
+
+  const liens = ARTIST_SOCIALS
+    .map(reseau => ({
+      label: reseau.label,
+      url: safeUrl(String(profil[reseau.column] || '').trim())
+    }))
+    .filter(lien => lien.url);
+
+  if(liens.length === 0) return '';
+
+  return `
+    <div class="listen-row" style="margin-top:8px;">
+      ${
+        liens.map(lien => `
+          <a class="platform-btn-sm"
+             href="${escapeAttribute(lien.url)}"
+             target="_blank" rel="noopener noreferrer">
+            ${escapeHtml(lien.label)}
+          </a>`).join('')
+      }
+    </div>`;
+}
+
+
+// ---- Choix de l'artiste dans le formulaire public ----
+
+function remplirChoixArtistes(profils){
+
+  const select = document.getElementById('f-artist-choix');
+
+  if(!select) return;
+
+  const choixCourant = select.value;
+
+  const tries = [...profils].sort((a, b) =>
+    String(a.display_name || a.instagram_handle)
+      .localeCompare(String(b.display_name || b.instagram_handle))
+  );
+
+  select.innerHTML =
+    `<option value="">＋ Nouvel artiste</option>` +
+    tries.map(profil => `
+      <option value="${escapeAttribute(profil.instagram_handle)}">
+        ${escapeHtml(profil.display_name || profil.instagram_handle)}
+        (@${escapeHtml(profil.instagram_handle)})
+      </option>`).join('');
+
+  // Une saisie en cours ne doit pas être effacée par un rechargement
+  // de la liste.
+  if(choixCourant && artistsByHandle[choixCourant]){
+    select.value = choixCourant;
+  }
+}
+
+
+function onArtistChoiceChange(){
+
+  const select = document.getElementById('f-artist-choix');
+  const nouveau = document.getElementById('f-artiste-nouveau');
+  const connu = document.getElementById('f-artiste-connu');
+  const champNom = document.getElementById('f-artist');
+  const champInsta = document.getElementById('f-instagram');
+
+  if(!select || !nouveau || !connu) return;
+
+  const profil = artistsByHandle[select.value];
+
+  if(!profil){
+    nouveau.style.display = '';
+    connu.style.display = 'none';
+    connu.innerHTML = '';
+    champNom.value = '';
+    champInsta.value = '';
+    updateSubmitButtonState();
+    return;
+  }
+
+  // Les champs restent la source de l'envoi : on les remplit au lieu
+  // de dupliquer la logique de validation et de soumission.
+  nouveau.style.display = 'none';
+  champNom.value = profil.display_name || profil.instagram_handle;
+  champInsta.value =
+    profil.instagram_url ||
+    ('https://instagram.com/' + profil.instagram_handle);
+
+  const photo = safeUrl(profil.photo_url);
+
+  connu.style.display = '';
+  connu.innerHTML = `
+    <div style="display:flex; gap:14px; align-items:flex-start;">
+      <div style="
+        width:52px; height:52px; border-radius:50%; overflow:hidden;
+        flex-shrink:0; border:1px solid var(--line);
+        background:rgba(255,255,255,0.06);
+        display:flex; align-items:center; justify-content:center;
+        font-size:20px; font-weight:600; color:var(--ink-soft);
+      ">
+        ${
+          photo
+            ? `<img src="${escapeAttribute(photo)}" alt=""
+                    style="width:100%; height:100%; object-fit:cover;">`
+            : escapeHtml(artistInitial(profil.display_name || profil.instagram_handle))
+        }
+      </div>
+      <div style="min-width:0;">
+        <strong style="display:block;">
+          ${escapeHtml(profil.display_name || profil.instagram_handle)}
+        </strong>
+        <span style="font-size:13px; color:var(--muted);">
+          @${escapeHtml(profil.instagram_handle)}
+        </span>
+        ${artistSocialsHtml(profil)}
+        <p style="font-size:12px; color:var(--muted); margin:10px 0 0;">
+          Ce profil et ses réseaux sont déjà enregistrés : ils
+          apparaîtront sur la fiche de cette sortie.
+        </p>
+      </div>
+    </div>`;
+
+  updateSubmitButtonState();
 }
 
 
@@ -5138,6 +5305,19 @@ async function ouvrirPageArtiste(handle, depuisAdresse){
             ? `<a href="${escapeAttribute(instagram)}" target="_blank"
                   rel="noopener noreferrer" class="platform-btn-sm">Instagram</a>`
             : ''}
+          ${
+            ARTIST_SOCIALS
+              .filter(reseau => reseau.column !== 'instagram_url')
+              .map(reseau => {
+                const url = safeUrl(profil && profil[reseau.column]);
+                return url
+                  ? `<a href="${escapeAttribute(url)}" target="_blank"
+                        rel="noopener noreferrer"
+                        class="platform-btn-sm">${escapeHtml(reseau.label)}</a>`
+                  : '';
+              })
+              .join('')
+          }
           ${membre
             ? `<span class="platform-btn-sm" style="cursor:pointer;"
                      onclick="viewProfile('${membre.id}')">
@@ -6844,6 +7024,15 @@ function releaseRowHtml(submission){
             }
           </span>
 
+          <span style="display:block; margin-top:3px;">
+            ${
+              submission.contact_email
+                ? `📧 <a href="mailto:${escapeAttribute(submission.contact_email)}"
+                        style="color:var(--blue);">${escapeHtml(submission.contact_email)}</a>`
+                : '📧 Aucun email renseigné'
+            }
+          </span>
+
           ${
             isScheduled
               ? `<span style="display:block; margin-top:3px;">
@@ -7517,10 +7706,27 @@ async function loadArtistProfiles(){
 
     const comptes = {};
 
+    // Adresses laissées par l'artiste au fil de ses soumissions. Elle
+    // ne vit que dans les sorties : c'est le seul endroit du site où
+    // l'équipe peut la retrouver une fois la sortie validée.
+    const emails = {};
+
     (sorties || []).forEach(sortie => {
       if(!sortie.artist_handle) return;
+
       comptes[sortie.artist_handle] =
         (comptes[sortie.artist_handle] || 0) + 1;
+
+      const email = String(sortie.contact_email || '').trim();
+
+      if(email){
+        if(!emails[sortie.artist_handle]){
+          emails[sortie.artist_handle] = [];
+        }
+        if(!emails[sortie.artist_handle].includes(email)){
+          emails[sortie.artist_handle].push(email);
+        }
+      }
     });
 
 
@@ -7599,6 +7805,19 @@ async function loadArtistProfiles(){
                 ${nombre} sortie${nombre > 1 ? 's' : ''}
               </span>
 
+              <span style="display:block; margin-top:4px;">
+                ${
+                  (emails[h] || []).length
+                    ? '📧 ' + emails[h].map(email => `
+                        <a href="mailto:${escapeAttribute(email)}"
+                           style="color:var(--blue);">${escapeHtml(email)}</a>`
+                      ).join(', ')
+                    : '📧 Aucun email laissé dans ses soumissions'
+                }
+              </span>
+
+              ${artistSocialsHtml(profil)}
+
               ${
                 profil.photo_url
                   ? ''
@@ -7664,6 +7883,28 @@ async function loadArtistProfiles(){
                  Le pseudo Instagram identifie l'artiste. Le changer
                  met aussi à jour ses ${nombre} sortie${nombre > 1 ? 's' : ''}.
                </p>
+             </div>
+
+             <div class="field">
+               <label>Réseaux de l'artiste</label>
+               <p style="font-size:12px; color:var(--muted); margin:-2px 0 12px;">
+                 Ces liens pointent vers ses pages, pas vers un morceau :
+                 ils valent pour toutes ses sorties. Ils s'affichent aussi
+                 dans le formulaire public dès que quelqu'un le choisit
+                 dans la liste des artistes.
+               </p>
+               ${
+                 ARTIST_SOCIALS
+                   .filter(reseau => reseau.column !== 'instagram_url')
+                   .map(reseau => `
+                     <input
+                       type="text"
+                       id="artist-${reseau.column}-${h}"
+                       placeholder="${escapeAttribute(reseau.label)}"
+                       value="${escapeAttribute(profil[reseau.column] || '')}"
+                       style="margin-bottom:10px;">`)
+                   .join('')
+               }
              </div>
 
              <div class="inline-actions">
@@ -7832,19 +8073,51 @@ async function enregistrerArtiste(ancienHandle){
 
   try{
 
+    // Les réseaux sont lus depuis ARTIST_SOCIALS : ajouter une entrée
+    // à cette liste suffira à la faire apparaître dans le formulaire
+    // comme dans l'enregistrement.
+    const reseaux = {};
+
+    ARTIST_SOCIALS
+      .filter(reseau => reseau.column !== 'instagram_url')
+      .forEach(reseau => {
+        const champ =
+          document.getElementById(
+            'artist-' + reseau.column + '-' + ancienHandle
+          );
+        reseaux[reseau.column] =
+          champ && champ.value.trim() ? champ.value.trim() : null;
+      });
+
     const { data, error } = await BD.majArtiste(ancienHandle, {
       display_name: nom || null,
       instagram_url: instagram,
-      instagram_handle: nouveauHandle
+      instagram_handle: nouveauHandle,
+      ...reseaux
     });
 
     if(error){
+
+      const detail = String(error.message || '').toLowerCase();
+
       // Le pseudo est unique : il peut déjà appartenir à un autre profil.
-      throw new Error(
-        String(error.message).toLowerCase().includes('duplicate')
-          ? 'Ce pseudo Instagram est déjà utilisé par un autre profil.'
-          : error.message
-      );
+      if(detail.includes('duplicate')){
+        throw new Error(
+          'Ce pseudo Instagram est déjà utilisé par un autre profil.'
+        );
+      }
+
+      // Les colonnes de réseaux sont récentes : sans elles, la table
+      // rejette la mise à jour entière, y compris le nom.
+      if(detail.includes('column') || detail.includes('schema cache')){
+        throw new Error(
+          "La table artists n'a pas encore les colonnes de réseaux — " +
+          'lance le SQL fourni dans Supabase, puis réessaie. (' +
+          error.message + ')'
+        );
+      }
+
+      throw new Error(error.message);
     }
 
     if(!data || data.length === 0){
