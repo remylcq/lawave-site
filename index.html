@@ -907,6 +907,17 @@
   .recherche-vignette img{width:100%; height:100%; object-fit:cover;}
   .recherche-vide{font-size:13px; color:var(--muted); padding:8px 10px;}
 
+  /* Bascule afficher/masquer d'une vidéo, dans l'onglet Contenu. */
+  .pick-bascule{
+    display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+    font-size:12px; font-weight:600; white-space:nowrap;
+    padding:8px 13px; border-radius:var(--radius-pill);
+    border:1px solid var(--line-strong);
+    background:var(--glass); color:var(--ink-soft);
+  }
+  .pick-bascule:hover{color:var(--ink); background:var(--glass-hi);}
+  .pick-bascule input{accent-color:var(--blue); margin:0; cursor:pointer;}
+
   /* « Nouvel artiste » vit dans la barre elle-même plutôt qu'en pied
      de liste : il reste au même endroit quel que soit le nombre de
      résultats, et ne se retrouve jamais poussé hors de vue. */
@@ -1848,6 +1859,18 @@
       <span class="admin-tab-label">Ajout manuel</span>
     </button>
 
+    <button type="button" class="admin-tab" id="adminTab-content"
+      onclick="switchAdminTab('content')" title="Vidéos et publications affichées">
+      <span class="admin-tab-icon">🎬</span>
+      <span class="admin-tab-label">Contenu</span>
+    </button>
+
+    <button type="button" class="admin-tab" id="adminTab-settings"
+      onclick="switchAdminTab('settings')" title="Chiffres réseaux">
+      <span class="admin-tab-icon">⚙️</span>
+      <span class="admin-tab-label">Réglages</span>
+    </button>
+
     <button type="button" class="admin-tab" id="adminTab-community"
       onclick="switchAdminTab('community')" title="Modération du forum">
       <span class="admin-tab-icon">💬</span>
@@ -1995,11 +2018,9 @@
   </div>
 
 
-  <!-- ================= AJOUT MANUEL ================= -->
+  <!-- ================= RÉGLAGES ================= -->
 
-  <div class="admin-section" id="adminSection-add">
-
-    <!-- ---------- CHIFFRES RÉSEAUX (page À propos) ---------- -->
+  <div class="admin-section" id="adminSection-settings">
 
     <span class="eyebrow mono">Réglages</span>
 
@@ -2031,9 +2052,69 @@
       <div class="form-msg" id="statsMsg" style="display:none;"></div>
     </div>
 
-    <div class="hairline" style="margin-top:48px;"></div>
+  </div>
 
-    <span class="eyebrow mono" style="display:block; margin-top:32px;">Ajout manuel</span>
+
+  <!-- ================= CONTENU AFFICHÉ ================= -->
+
+  <div class="admin-section" id="adminSection-content">
+
+    <div class="section-head">
+      <div>
+        <span class="eyebrow mono">Contenu</span>
+        <h3 style="font-size:18px; margin-bottom:6px;">
+          Vidéos et publications affichées
+        </h3>
+        <p class="desc">
+          Ce qui apparaît sur la page « Contenu » du site. Les vidéos
+          sont récupérées automatiquement depuis la chaîne YouTube :
+          décoche celles que tu ne veux pas montrer.
+        </p>
+      </div>
+      <button type="button" class="btn btn-ghost"
+              onclick="loadContentPicker()">
+        Actualiser
+      </button>
+    </div>
+
+    <h4 style="margin:28px 0 12px; font-size:15px;">YouTube</h4>
+
+    <div id="youtubePickList" class="admin-list"></div>
+
+    <h4 style="margin:32px 0 12px; font-size:15px;">Instagram</h4>
+
+    <p class="desc" style="margin-bottom:14px;">
+      Une adresse de publication par ligne. L'API Instagram exige un
+      compte professionnel et un jeton secret, impossible à mettre dans
+      une page publique : on passe donc par l'intégration officielle,
+      qui ne demande que l'URL.
+    </p>
+
+    <div class="form-wrap">
+      <div class="field">
+        <label for="instaPostsInput">Publications</label>
+        <textarea
+          id="instaPostsInput"
+          rows="5"
+          placeholder="https://www.instagram.com/p/CODE/"></textarea>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn-primary"
+            onclick="saveContentPicks()">
+      Enregistrer l'affichage
+    </button>
+
+    <div class="form-msg" id="contentPickMsg"></div>
+
+  </div>
+
+
+  <!-- ================= AJOUT MANUEL ================= -->
+
+  <div class="admin-section" id="adminSection-add">
+
+    <span class="eyebrow mono">Ajout manuel</span>
 
     <h3 style="font-size:18px; margin-bottom:6px;">
       Ajouter directement au catalogue
@@ -2055,18 +2136,41 @@
         </div>
 
         <div class="field">
-          <label for="admin-artist">Nom d'artiste</label>
-          <input type="text" id="admin-artist" maxlength="120">
+          <label for="admin-artist-recherche">Artiste</label>
+          <div class="recherche-barre">
+            <input
+              type="text"
+              id="admin-artist-recherche"
+              placeholder="Tape un nom d'artiste"
+              autocomplete="off"
+              oninput="onRechercheArtisteInput('admin')">
+            <button
+              type="button"
+              class="recherche-ajout"
+              onclick="choisirNouvelArtiste('admin')">
+              ＋ Nouvel artiste
+            </button>
+          </div>
+          <div id="admin-artist-resultats" class="recherche-resultats"></div>
         </div>
 
-        <div class="field">
-          <label for="admin-instagram">Instagram de l'artiste</label>
-          <input type="text" id="admin-instagram" placeholder="@pseudo ou lien complet">
-          <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
-            Sert de clé au profil d'artiste : c'est lui qui rattache
-            cette sortie aux autres du même artiste, et qui réutilise
-            la photo déjà réglée par l'équipe.
-          </p>
+        <div class="field" id="admin-artiste-connu" style="display:none;"></div>
+
+        <div id="admin-artiste-nouveau" style="display:none;">
+          <div class="field">
+            <label for="admin-artist">Nom d'artiste</label>
+            <input type="text" id="admin-artist" maxlength="120">
+          </div>
+
+          <div class="field">
+            <label for="admin-instagram">Instagram de l'artiste</label>
+            <input type="text" id="admin-instagram" placeholder="@pseudo ou lien complet">
+            <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
+              Sert de clé au profil d'artiste : c'est lui qui rattache
+              cette sortie aux autres du même artiste, et qui réutilise
+              la photo déjà réglée par l'équipe.
+            </p>
+          </div>
         </div>
 
         <div class="field">
@@ -2926,15 +3030,19 @@ function renderInstagramPosts(){
   const grid = document.getElementById('instagramGrid');
   if(!grid) return;
 
-  const codes = INSTAGRAM_POSTS
+  // Les publications choisies dans l'espace équipe priment ; la liste
+  // écrite dans le code ne sert plus que de repli.
+  const source =
+    contentPicks.posts.length ? contentPicks.posts : INSTAGRAM_POSTS;
+
+  const codes = source
     .map(instagramPostCode)
     .filter(Boolean);
 
   if(!codes.length){
     grid.innerHTML = `
       <div class="empty-state">
-        Aucun post configuré. Ajoutez des URLs de publications dans
-        la variable INSTAGRAM_POSTS du code.
+        Aucune publication pour l'instant.
       </div>`;
     return;
   }
@@ -2956,15 +3064,22 @@ async function renderContentVideos(){
   const grid = document.getElementById('contentGrid');
   if(!grid) return;
 
-  renderInstagramPosts();
-
   grid.innerHTML = `<div class="empty-state">Chargement des vidéos...</div>`;
+
+  // Le choix de l'équipe est lu avant tout affichage : sinon une vidéo
+  // masquée apparaîtrait le temps du chargement.
+  await loadContentPicks();
+
+  renderInstagramPosts();
 
   try{
     const auto = await fetchLatestYouTubeVideos();
 
-    if(auto && auto.length){
-      grid.innerHTML = youtubeThumbsHtml(auto);
+    const visibles = (auto || [])
+      .filter(video => !contentPicks.masquees.includes(video.id));
+
+    if(visibles.length){
+      grid.innerHTML = youtubeThumbsHtml(visibles);
       return;
     }
 
@@ -2987,6 +3102,182 @@ async function renderContentVideos(){
   grid.innerHTML = youtubeThumbsHtml(
     contentVideos.map(v => ({ id: v.id, titre: '' }))
   );
+}
+
+
+// ---------------- SÉLECTION DU CONTENU AFFICHÉ ----------------
+//
+// Les vidéos arrivent de YouTube, les publications sont saisies à la
+// main. Le choix de ce qui s'affiche vit dans site_stats : une ligne
+// unique, lecture publique, écriture réservée à l'équipe — exactement
+// les droits dont on a besoin, déjà en place pour les chiffres
+// réseaux. Une table dédiée n'aurait rien apporté de plus.
+//
+// On enregistre les vidéos *masquées* plutôt que les affichées : une
+// nouvelle vidéo publiée sur la chaîne apparaît ainsi d'elle-même,
+// sans avoir à repasser par ce panneau.
+
+let contentPicks = { masquees: [], posts: [] };
+let contentPicksCharges = false;
+
+
+// Supabase renvoie du jsonb tantôt décodé, tantôt en texte selon la
+// façon dont la colonne a été créée.
+function listeDepuisJson(valeur){
+
+  if(Array.isArray(valeur)) return valeur;
+
+  if(typeof valeur === 'string'){
+    try{
+      const lu = JSON.parse(valeur);
+      return Array.isArray(lu) ? lu : [];
+    }catch(e){
+      return [];
+    }
+  }
+
+  return [];
+}
+
+
+async function loadContentPicks(force){
+
+  if(contentPicksCharges && !force) return contentPicks;
+
+  const stats = await fetchSiteStats();
+
+  // Colonnes absentes tant que le SQL n'a pas été lancé : la page
+  // publique continue alors d'afficher tout, sans erreur.
+  contentPicks = {
+    masquees: listeDepuisJson(stats && stats.youtube_masquees),
+    posts: listeDepuisJson(stats && stats.instagram_posts)
+  };
+
+  contentPicksCharges = true;
+
+  return contentPicks;
+}
+
+
+async function loadContentPicker(){
+
+  const liste = document.getElementById('youtubePickList');
+  const champPosts = document.getElementById('instaPostsInput');
+
+  if(!liste) return;
+
+  liste.innerHTML = `<div class="empty-state">Chargement des vidéos...</div>`;
+
+  await loadContentPicks(true);
+
+  if(champPosts){
+    champPosts.value = contentPicks.posts.join('\n');
+  }
+
+  let videos = [];
+
+  try{
+    videos = (await fetchLatestYouTubeVideos()) || [];
+  }catch(error){
+    liste.innerHTML = `
+      <div class="form-msg err">
+        Impossible de lire la chaîne YouTube : ${escapeHtml(error.message)}
+      </div>`;
+    return;
+  }
+
+  if(!videos.length){
+    liste.innerHTML = `
+      <div class="empty-state">
+        Aucune vidéo trouvée sur la chaîne.
+      </div>`;
+    return;
+  }
+
+  liste.innerHTML = videos.map(video => {
+
+    const masquee = contentPicks.masquees.includes(video.id);
+
+    return `
+      <div class="admin-row">
+        <img
+          src="https://i.ytimg.com/vi/${escapeAttribute(video.id)}/mqdefault.jpg"
+          alt=""
+          style="width:112px; height:63px; object-fit:cover;">
+        <div class="meta">
+          <h4>${escapeHtml(video.titre || video.id)}</h4>
+          <span>${masquee ? 'Masquée' : 'Affichée sur le site'}</span>
+        </div>
+        <div class="admin-actions">
+          <label class="pick-bascule">
+            <input type="checkbox" class="youtube-pick"
+                   value="${escapeAttribute(video.id)}"
+                   ${masquee ? '' : 'checked'}>
+            Afficher
+          </label>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+
+async function saveContentPicks(){
+
+  const msg = document.getElementById('contentPickMsg');
+
+  const masquees = [...document.querySelectorAll('.youtube-pick')]
+    .filter(case_ => !case_.checked)
+    .map(case_ => case_.value);
+
+  const posts =
+    String(document.getElementById('instaPostsInput').value || '')
+      .split('\n')
+      .map(ligne => ligne.trim())
+      .filter(Boolean);
+
+  msg.textContent = 'Enregistrement...';
+  msg.className = 'form-msg ok';
+
+  const { data, error } = await BD.majChiffresReseaux({
+    youtube_masquees: masquees,
+    instagram_posts: posts
+  });
+
+  if(error){
+
+    const detail = String(error.message || '').toLowerCase();
+
+    msg.textContent =
+      detail.includes('column') || detail.includes('schema cache')
+        ? "La table site_stats n'a pas encore les colonnes de contenu — " +
+          'lance le SQL fourni dans Supabase, puis réessaie.'
+        : 'Échec : ' + error.message;
+
+    msg.className = 'form-msg err';
+    return;
+  }
+
+  // Écriture réservée à l'équipe : sans droits, Supabase renvoie zéro
+  // ligne modifiée et aucune erreur.
+  if(!data || data.length === 0){
+    msg.textContent =
+      "Modification refusée : connecte-toi avec un compte marqué administrateur.";
+    msg.className = 'form-msg err';
+    return;
+  }
+
+  contentPicks = { masquees, posts };
+
+  msg.textContent =
+    '✅ Affichage enregistré — ' +
+    (masquees.length
+      ? masquees.length + ' vidéo' + (masquees.length > 1 ? 's' : '') + ' masquée' + (masquees.length > 1 ? 's' : '')
+      : 'toutes les vidéos sont affichées') +
+    ', ' + posts.length + ' publication' + (posts.length > 1 ? 's' : '') + '.';
+
+  msg.className = 'form-msg ok';
+
+  loadContentPicker();
 }
 
 // ---------------- RÔLES DES MEMBRES ----------------
@@ -4452,10 +4743,10 @@ async function loadArtists(){
     artistsByHandle[profil.instagram_handle] = profil;
   });
 
-  // Les résultats de recherche du formulaire public sont redessinés
+  // Les résultats de recherche des deux formulaires sont redessinés
   // ici plutôt qu'au démarrage : ils suivent ainsi toute modification
   // faite par l'équipe, sans rechargement de page.
-  rechercherArtistes();
+  rafraichirRecherchesArtistes();
 
   return data || [];
 }
@@ -4504,19 +4795,56 @@ function artistSocialsHtml(profil){
 }
 
 
-// ---- Recherche d'artiste dans le formulaire public ----
+// ---- Recherche d'artiste ----
 //
-// Rien ne s'affiche tant que rien n'est tapé, sauf l'entrée « nouvel
-// artiste ». Le choix n'est jamais implicite : tant que l'utilisateur
-// n'a cliqué ni sur un artiste ni sur « nouvel artiste », les champs
-// qui alimentent l'envoi restent vides et le bouton désactivé.
-let artisteChoisiHandle = null;
+// Deux formulaires s'en servent : la soumission publique et l'ajout
+// manuel de l'espace équipe. Le contexte ne change que des noms de
+// champs, d'où cette table plutôt qu'un doublon de la logique.
+//
+// Rien ne s'affiche tant que rien n'est tapé, et le choix n'est jamais
+// implicite : tant que l'utilisateur n'a cliqué ni sur un artiste ni
+// sur « nouvel artiste », les champs qui alimentent l'envoi restent
+// vides.
+const CONTEXTES_ARTISTE = {
+  f: {
+    recherche: 'f-artist-recherche',
+    resultats: 'f-artist-resultats',
+    connu: 'f-artiste-connu',
+    nouveau: 'f-artiste-nouveau',
+    nom: 'f-artist',
+    insta: 'f-instagram'
+  },
+  admin: {
+    recherche: 'admin-artist-recherche',
+    resultats: 'admin-artist-resultats',
+    connu: 'admin-artiste-connu',
+    nouveau: 'admin-artiste-nouveau',
+    nom: 'admin-artist',
+    insta: 'admin-instagram'
+  }
+};
+
+const artisteChoisi = { f: null, admin: null };
 
 
-function rechercherArtistes(){
+// Le bouton d'envoi n'existe que sur le formulaire public : l'ajout
+// manuel valide au clic.
+function apresChoixArtiste(ctx){
+  if(ctx === 'f' && typeof updateSubmitButtonState === 'function'){
+    updateSubmitButtonState();
+  }
+}
 
-  const champ = document.getElementById('f-artist-recherche');
-  const zone = document.getElementById('f-artist-resultats');
+
+function rechercherArtistes(ctx){
+
+  ctx = ctx || 'f';
+
+  const config = CONTEXTES_ARTISTE[ctx];
+  if(!config) return;
+
+  const champ = document.getElementById(config.recherche);
+  const zone = document.getElementById(config.resultats);
 
   if(!champ || !zone) return;
 
@@ -4546,8 +4874,8 @@ function rechercherArtistes(){
 
     return `
       <button type="button"
-              class="recherche-resultat${artisteChoisiHandle === profil.instagram_handle ? ' actif' : ''}"
-              onclick="choisirArtiste('${escapeAttribute(profil.instagram_handle)}')">
+              class="recherche-resultat${artisteChoisi[ctx] === profil.instagram_handle ? ' actif' : ''}"
+              onclick="choisirArtiste('${escapeAttribute(profil.instagram_handle)}', '${ctx}')">
         <span class="recherche-vignette">
           ${
             photo
@@ -4569,24 +4897,38 @@ function rechercherArtistes(){
 }
 
 
-// Toute frappe annule le choix précédent : le formulaire ne doit pas
-// partir avec un artiste que l'on croit avoir remplacé en retapant.
-function onRechercheArtisteInput(){
-
-  if(artisteChoisiHandle !== null){
-    reinitialiserChoixArtiste();
-  }
-
-  rechercherArtistes();
+// Redessine les deux formulaires : appelée après un rechargement des
+// profils, pour qu'une modification de l'équipe s'y reflète.
+function rafraichirRecherchesArtistes(){
+  Object.keys(CONTEXTES_ARTISTE).forEach(ctx => rechercherArtistes(ctx));
 }
 
 
-function reinitialiserChoixArtiste(){
+// Toute frappe annule le choix précédent : le formulaire ne doit pas
+// partir avec un artiste que l'on croit avoir remplacé en retapant.
+function onRechercheArtisteInput(ctx){
 
-  artisteChoisiHandle = null;
+  ctx = ctx || 'f';
 
-  const connu = document.getElementById('f-artiste-connu');
-  const nouveau = document.getElementById('f-artiste-nouveau');
+  if(artisteChoisi[ctx] !== null){
+    reinitialiserChoixArtiste(ctx);
+  }
+
+  rechercherArtistes(ctx);
+}
+
+
+function reinitialiserChoixArtiste(ctx){
+
+  ctx = ctx || 'f';
+
+  const config = CONTEXTES_ARTISTE[ctx];
+  if(!config) return;
+
+  artisteChoisi[ctx] = null;
+
+  const connu = document.getElementById(config.connu);
+  const nouveau = document.getElementById(config.nouveau);
 
   if(connu){
     connu.style.display = 'none';
@@ -4597,36 +4939,39 @@ function reinitialiserChoixArtiste(){
     nouveau.style.display = 'none';
   }
 
-  document.getElementById('f-artist').value = '';
-  document.getElementById('f-instagram').value = '';
+  document.getElementById(config.nom).value = '';
+  document.getElementById(config.insta).value = '';
 
-  updateSubmitButtonState();
+  apresChoixArtiste(ctx);
 }
 
 
-function choisirArtiste(handle){
+function choisirArtiste(handle, ctx){
 
+  ctx = ctx || 'f';
+
+  const config = CONTEXTES_ARTISTE[ctx];
   const profil = artistsByHandle[handle];
 
-  if(!profil) return;
+  if(!config || !profil) return;
 
-  artisteChoisiHandle = handle;
+  artisteChoisi[ctx] = handle;
 
   const nom = profil.display_name || profil.instagram_handle;
 
-  document.getElementById('f-artist-recherche').value = nom;
+  document.getElementById(config.recherche).value = nom;
 
   // Les champs masqués restent la source de l'envoi : on les remplit
   // au lieu de dupliquer la validation et la soumission.
-  document.getElementById('f-artist').value = nom;
-  document.getElementById('f-instagram').value =
+  document.getElementById(config.nom).value = nom;
+  document.getElementById(config.insta).value =
     profil.instagram_url ||
     ('https://instagram.com/' + profil.instagram_handle);
 
-  document.getElementById('f-artiste-nouveau').style.display = 'none';
+  document.getElementById(config.nouveau).style.display = 'none';
 
   const photo = safeUrl(profil.photo_url);
-  const connu = document.getElementById('f-artiste-connu');
+  const connu = document.getElementById(config.connu);
 
   connu.style.display = '';
   connu.innerHTML = `
@@ -4658,34 +5003,39 @@ function choisirArtiste(handle){
       </div>
     </div>`;
 
-  rechercherArtistes();
-  updateSubmitButtonState();
+  rechercherArtistes(ctx);
+  apresChoixArtiste(ctx);
 }
 
 
-function choisirNouvelArtiste(){
+function choisirNouvelArtiste(ctx){
 
-  artisteChoisiHandle = null;
+  ctx = ctx || 'f';
+
+  const config = CONTEXTES_ARTISTE[ctx];
+  if(!config) return;
+
+  artisteChoisi[ctx] = null;
 
   const saisi =
-    document.getElementById('f-artist-recherche').value.trim();
+    document.getElementById(config.recherche).value.trim();
 
-  const connu = document.getElementById('f-artiste-connu');
+  const connu = document.getElementById(config.connu);
 
   connu.style.display = 'none';
   connu.innerHTML = '';
 
-  document.getElementById('f-artiste-nouveau').style.display = '';
+  document.getElementById(config.nouveau).style.display = '';
 
   // Ce qui a été tapé dans la recherche sert de point de départ : la
   // plupart du temps, c'est déjà le nom de l'artiste.
-  document.getElementById('f-artist').value = saisi;
-  document.getElementById('f-instagram').value = '';
+  document.getElementById(config.nom).value = saisi;
+  document.getElementById(config.insta).value = '';
 
-  rechercherArtistes();
-  updateSubmitButtonState();
+  rechercherArtistes(ctx);
+  apresChoixArtiste(ctx);
 
-  document.getElementById('f-instagram').focus();
+  document.getElementById(config.insta).focus();
 }
 
 
@@ -4908,8 +5258,10 @@ const list = (data || [])
 
     if(homeGrid){
 
+      // Quatre pochettes : la grille en tient quatre par ligne sur un
+      // écran d'ordinateur, trois y laissaient un vide à droite.
       const latest =
-        sorted.slice(0, 3);
+        sorted.slice(0, 4);
 
       homeGrid.innerHTML =
         latest.length
@@ -6231,6 +6583,8 @@ const ADMIN_TABS = [
   'catalogue',
   'artists',
   'add',
+  'content',
+  'settings',
   'community',
   'support'
 ];
@@ -6253,6 +6607,12 @@ function switchAdminTab(nom){
       section.classList.toggle('active', id === nom);
     }
   });
+
+  // L'onglet Contenu interroge YouTube : on ne le fait qu'à son
+  // ouverture, pas à chaque affichage de l'espace équipe.
+  if(nom === 'content'){
+    loadContentPicker();
+  }
 }
 
 
@@ -8876,6 +9236,12 @@ document.getElementById('adminAddForm').addEventListener('submit', async (e)=>{
     msg.className = 'form-msg ok';
 
     e.target.reset();
+
+    // reset() vide bien les champs, mais pas le récapitulatif de
+    // l'artiste choisi ni l'état interne de la recherche.
+    reinitialiserChoixArtiste('admin');
+    rechercherArtistes('admin');
+
     adminCoverDataUrl = null;
     adminCoverDrop.classList.remove('has-file');
     adminCoverDrop.innerHTML = `<span>Cliquer pour choisir un fichier</span>`;
