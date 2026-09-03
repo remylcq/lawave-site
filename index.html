@@ -1070,6 +1070,43 @@
   .artiste-propriete .btn{text-decoration:none;}
   #maPageArtisteEdition{margin-top:14px;}
 
+  /* ---------- FICHE DE SORTIE : EN-TÊTE EN LIGNE ----------
+     La pochette pleine largeur prenait 339 px : la notation et l'avis
+     se retrouvaient sous la ligne de flottaison de la fiche, et il
+     fallait défiler pour comprendre ce qu'on pouvait y faire. Posée à
+     côté du titre, elle en prend 118. */
+  .modal-entete{
+    display:flex; gap:16px; align-items:flex-start;
+    padding:20px 22px 14px;
+  }
+  .modal-entete .modal-cover{
+    width:118px; height:118px; flex-shrink:0;
+    max-height:none; border-radius:var(--radius-sm);
+  }
+  .modal-entete-texte{min-width:0; flex:1;}
+  .modal-entete-texte h3{font-size:19px; margin:4px 0 2px;}
+  .modal-entete .modal-artist{margin:8px 0 0;}
+  .modal-body{padding:0 22px 22px;}
+
+  /* Volet d'avis replié : ouvert par défaut, il ajoutait 156 px à une
+     fiche déjà longue, pour un geste que peu de visiteurs font. */
+  .avis-bascule{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:13px; font-weight:600;
+    padding:9px 15px; border-radius:var(--radius-pill);
+    border:1px solid var(--line-strong);
+    background:var(--glass); color:var(--ink-soft);
+    transition:color .2s var(--ease), background .2s var(--ease);
+  }
+  .avis-bascule:hover{color:var(--ink); background:var(--glass-hi);}
+  .avis-corps{margin-top:14px;}
+  .avis-apercu{
+    font-size:13px; color:var(--ink-soft); line-height:1.5;
+    margin:12px 0 0; padding-left:12px;
+    border-left:2px solid var(--line-strong);
+    white-space:pre-wrap; word-break:break-word;
+  }
+
   /* ---------- CLIP ---------- */
   .clip-affiche{
     display:block; position:relative; width:100%; margin-top:16px;
@@ -1774,11 +1811,7 @@
               </button>
             </div>
             <div id="f-artist-resultats" class="recherche-resultats"></div>
-            <p style="font-size:12px; color:var(--muted); margin:8px 0 0;">
-              Si l'artiste a déjà une sortie sur La Wave, choisis-le : sa
-              photo et ses réseaux sont déjà enregistrés, inutile de les
-              ressaisir.
-            </p>
+
           </div>
 
           <!-- Récapitulatif du profil choisi : photo, pseudo et réseaux
@@ -1795,10 +1828,7 @@
             <div class="field">
               <label for="f-instagram">Instagram</label>
               <input type="text" id="f-instagram" placeholder="@tonpseudo ou lien complet">
-              <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
-                Obligatoire : c'est ce qui identifie ton profil d'artiste sur
-                La Wave. Un lien vers ton compte sera ajouté sur la fiche.
-              </p>
+
             </div>
           </div>
           <div class="field">
@@ -1823,10 +1853,7 @@
           </div>
           <div class="field">
             <label>Liens d'écoute</label>
-            <p style="font-size:12px; color:var(--muted); margin:-2px 0 12px;">
-              Remplis uniquement les plateformes où ta sortie est disponible —
-              seules celles-ci apparaîtront sur ta fiche.
-            </p>
+
             <input type="text" id="f-spotify" placeholder="Spotify" style="margin-bottom:10px;">
             <input type="text" id="f-deezer" placeholder="Deezer" style="margin-bottom:10px;">
             <input type="text" id="f-apple" placeholder="Apple Music" style="margin-bottom:10px;">
@@ -1835,9 +1862,7 @@
           <div class="field">
   <label for="f-release-date">Date de sortie</label>
   <input type="date" id="f-release-date">
-  <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
-    Indique la date officielle de sortie de ton morceau ou projet.
-  </p>
+
 </div>
 
           <div class="field">
@@ -1846,16 +1871,15 @@
               <span style="text-transform:none; letter-spacing:normal; font-weight:400; color:var(--muted);">— facultatif</span>
             </label>
             <input type="text" id="f-clip" placeholder="Lien YouTube du clip">
-            <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
-              S'il existe, il s'affichera directement sur la fiche de la
-              sortie.
-            </p>
+
           </div>
 
           <!-- Les identifiants suivent le schéma attendu par
                chercherVille / choisirVille, qui servent déjà à l'espace
                équipe : « public » y tient lieu de pseudo d'artiste. -->
-          <div class="field">
+          <!-- Masqué dès qu'un artiste connu est choisi : sa ville est
+               déjà en base, et une soumission ne peut pas la changer. -->
+          <div class="field" id="f-ville-champ">
             <label for="artist-ville-public">
               Ta ville
               <span style="text-transform:none; letter-spacing:normal; font-weight:400; color:var(--muted);">— facultatif</span>
@@ -1867,11 +1891,7 @@
               placeholder="Commence à taper une commune"
               oninput="chercherVille('public')">
             <div id="artist-ville-resultats-public" class="recherche-resultats"></div>
-            <p style="font-size:12px; color:var(--muted); margin:8px 0 0;">
-              Choisis ta commune dans la liste pour apparaître sur la carte
-              des artistes. Si ton profil en a déjà une, celle réglée par
-              l'équipe est conservée.
-            </p>
+
           </div>
 
           
@@ -2815,46 +2835,28 @@
 <div class="modal-overlay" id="catalogueModal" onclick="if(event.target===this) closeCatalogueModal()">
   <div class="modal-box">
     <button class="modal-close" onclick="closeCatalogueModal()">✕</button>
-    <div class="modal-cover"><img id="modalCover" src="" alt=""></div>
+    <!-- En-tete en ligne : la pochette prenait 339 px a elle seule,
+         ce qui poussait la notation et l'avis hors de l'ecran. -->
+    <div class="modal-entete">
+      <div class="modal-cover"><img id="modalCover" src="" alt=""></div>
+      <div class="modal-entete-texte">
+        <span class="release-type-badge" id="modalReleaseType"></span>
+        <h3 id="modalTitle"></h3>
+        <div class="modal-artist">
+          <span id="modalArtistPhoto" class="modal-artist-photo"></span>
+          <p id="modalArtist" style="color:var(--ink-soft); font-size:14px; margin:0; flex:1;"></p>
+          <a id="modalInstagram" class="social-icon" href="#" target="_blank"
+             rel="noopener noreferrer" aria-label="Instagram de l'artiste"
+             title="Instagram de l'artiste" style="width:30px; height:30px; flex-shrink:0;">
+            
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none"/></svg>
+          </a>
+        </div>
+        <p id="modalReleaseDate" style="color:var(--muted); font-size:12px; margin:8px 0 0;"></p>
+      </div>
+    </div>
+
     <div class="modal-body">
-  <span class="release-type-badge" id="modalReleaseType"></span>
-
-  <h3
-    id="modalTitle"
-    style="font-size:20px; margin:2px 0 2px;"
-  ></h3>
-
-  <div class="modal-artist">
-
-    <span
-      id="modalArtistPhoto"
-      class="modal-artist-photo"
-    ></span>
-
-    <p
-      id="modalArtist"
-      style="color:var(--ink-soft); font-size:14px; margin:0; flex:1;"
-    ></p>
-
-    <a
-      id="modalInstagram"
-      class="social-icon"
-      href="#"
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="Instagram de l'artiste"
-      title="Instagram de l'artiste"
-      style="width:32px; height:32px; flex-shrink:0;"
-    >
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none"/></svg>
-    </a>
-
-  </div>
-
-  <p
-    id="modalReleaseDate"
-    style="color:var(--muted); font-size:12px; margin:0 0 16px;"
-  ></p>
 
   <div class="listen-row" id="modalListenRow"></div>
 
@@ -5733,6 +5735,9 @@ function reinitialiserChoixArtiste(ctx){
   document.getElementById(config.nom).value = '';
   document.getElementById(config.insta).value = '';
 
+  const champVille = document.getElementById('f-ville-champ');
+  if(ctx === 'f' && champVille) champVille.style.display = '';
+
   apresChoixArtiste(ctx);
 }
 
@@ -5785,14 +5790,17 @@ function choisirArtiste(handle, ctx){
         <strong style="display:block;">${escapeHtml(nom)}</strong>
         <span style="font-size:13px; color:var(--muted);">
           @${escapeHtml(profil.instagram_handle)}
+          ${profil.ville ? ' · 📍 ' + escapeHtml(profil.ville) : ''}
         </span>
         ${artistSocialsHtml(profil)}
-        <p style="font-size:12px; color:var(--muted); margin:10px 0 0;">
-          Ce profil et ses réseaux sont déjà enregistrés : ils
-          apparaîtront sur la fiche de cette sortie.
-        </p>
       </div>
     </div>`;
+
+  // Ce que la base sait déjà de cet artiste n'a pas à être ressaisi :
+  // le champ ville disparaît, puisqu'une soumission ne peut de toute
+  // façon pas modifier un profil existant.
+  const champVille = document.getElementById('f-ville-champ');
+  if(ctx === 'f' && champVille) champVille.style.display = 'none';
 
   rechercherArtistes(ctx);
   apresChoixArtiste(ctx);
@@ -5822,6 +5830,10 @@ function choisirNouvelArtiste(ctx){
   // plupart du temps, c'est déjà le nom de l'artiste.
   document.getElementById(config.nom).value = saisi;
   document.getElementById(config.insta).value = '';
+
+  // Artiste inconnu : sa ville est à renseigner.
+  const champVille = document.getElementById('f-ville-champ');
+  if(ctx === 'f' && champVille) champVille.style.display = '';
 
   rechercherArtistes(ctx);
   apresChoixArtiste(ctx);
@@ -6391,23 +6403,56 @@ function renderNoteBloc(releaseId){
     }
 
     <div class="avis-bloc">
-      <label for="avis-${releaseId}">Ton avis</label>
-      <textarea id="avis-${releaseId}" rows="3" maxlength="600"
-                placeholder="Ce que tu en as pensé — visible sur ton profil.">${escapeHtml(avis)}</textarea>
-      <div class="inline-actions">
-        <button type="button" class="btn btn-primary" style="padding:9px 16px; font-size:13px;"
-                onclick="enregistrerAvis('${releaseId}')">
-          ${avis ? 'Modifier mon avis' : 'Publier mon avis'}
-        </button>
-        ${
-          avis
-            ? `<button type="button" class="btn btn-ghost" style="padding:9px 16px; font-size:13px;"
-                       onclick="effacerAvis('${releaseId}')">Effacer</button>`
-            : ''
-        }
+      <button type="button" class="avis-bascule"
+              onclick="basculerVoletAvis('${releaseId}')">
+        ✍ ${avis ? 'Modifier mon avis' : 'Écrire un avis'}
+      </button>
+
+      ${
+        avis
+          ? `<p class="avis-apercu" id="avis-apercu-${releaseId}">${escapeHtml(avis)}</p>`
+          : ''
+      }
+
+      <div class="avis-corps" id="avis-corps-${releaseId}" hidden>
+        <textarea id="avis-${releaseId}" rows="3" maxlength="600"
+                  placeholder="Ce que tu en as pensé — visible sur ton profil.">${escapeHtml(avis)}</textarea>
+        <div class="inline-actions">
+          <button type="button" class="btn btn-primary" style="padding:9px 16px; font-size:13px;"
+                  onclick="enregistrerAvis('${releaseId}')">
+            Enregistrer
+          </button>
+          ${
+            avis
+              ? `<button type="button" class="btn btn-ghost" style="padding:9px 16px; font-size:13px;"
+                         onclick="effacerAvis('${releaseId}')">Effacer</button>`
+              : ''
+          }
+        </div>
+        <div class="form-msg" id="avis-msg-${releaseId}"></div>
       </div>
-      <div class="form-msg" id="avis-msg-${releaseId}"></div>
     </div>`;
+}
+
+
+// Le volet s'ouvre au clic, et la fiche défile jusqu'à lui : sans
+// cela, ouvrir le champ le poussait hors de la zone visible.
+function basculerVoletAvis(releaseId){
+
+  const corps = document.getElementById('avis-corps-' + releaseId);
+  const apercu = document.getElementById('avis-apercu-' + releaseId);
+
+  if(!corps) return;
+
+  corps.hidden = !corps.hidden;
+
+  if(apercu) apercu.hidden = !corps.hidden;
+
+  if(!corps.hidden){
+    const champ = document.getElementById('avis-' + releaseId);
+    if(champ) champ.focus();
+    corps.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
 }
 
 
