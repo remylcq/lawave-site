@@ -1050,6 +1050,64 @@
   }
   .note-date{font-size:12px; color:var(--muted); margin:10px 0 0;}
 
+  /* ---------- PAGE ARTISTE : PROPRIÉTÉ ---------- */
+  .artiste-propriete{
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+    margin-top:22px; padding:14px 18px;
+    border-radius:var(--radius-sm);
+    background:var(--glass); border:1px solid var(--line);
+    font-size:14px; color:var(--ink-soft);
+  }
+  .artiste-propriete.verifie{
+    border-color:rgba(79,180,255,0.35);
+    background:rgba(20,137,222,0.10);
+    color:var(--ink);
+  }
+  .artiste-propriete button{
+    background:none; border:none; color:var(--blue-bright);
+    font:inherit; text-decoration:underline; padding:0; cursor:pointer;
+  }
+  .artiste-propriete .btn{text-decoration:none;}
+  #maPageArtisteEdition{margin-top:14px;}
+
+  /* ---------- CLIP ---------- */
+  .clip-affiche{
+    display:block; position:relative; width:100%; margin-top:16px;
+    border:none; padding:0; border-radius:var(--radius-sm);
+    overflow:hidden; background:#000; cursor:pointer;
+  }
+  .clip-affiche img{
+    width:100%; aspect-ratio:16/9; object-fit:cover; display:block;
+    transition:transform .5s var(--ease), opacity .3s var(--ease);
+    opacity:.8;
+  }
+  .clip-affiche:hover img{transform:scale(1.04); opacity:1;}
+  .clip-play{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width:48px; height:48px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:17px; color:#fff; padding-left:3px;
+    background:rgba(5,7,10,0.62); border:1px solid rgba(255,255,255,0.35);
+    backdrop-filter:blur(6px);
+    transition:background .25s var(--ease), transform .25s var(--ease);
+  }
+  .clip-affiche:hover .clip-play{
+    background:var(--blue); transform:translate(-50%,-50%) scale(1.08);
+  }
+  .clip-mention{
+    position:absolute; left:12px; bottom:10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:#fff; text-shadow:0 1px 6px rgba(0,0,0,0.8);
+  }
+  .clip-cadre{
+    position:relative; width:100%; aspect-ratio:16/9; margin-top:16px;
+    border-radius:var(--radius-sm); overflow:hidden; background:#000;
+  }
+  .clip-cadre iframe{
+    position:absolute; inset:0; width:100%; height:100%; border:0;
+  }
+
   /* ---------- CARTE DE FRANCE ---------- */
   .carte-zone{
     display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);
@@ -1780,7 +1838,42 @@
   <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
     Indique la date officielle de sortie de ton morceau ou projet.
   </p>
-</div> 
+</div>
+
+          <div class="field">
+            <label for="f-clip">
+              Clip
+              <span style="text-transform:none; letter-spacing:normal; font-weight:400; color:var(--muted);">— facultatif</span>
+            </label>
+            <input type="text" id="f-clip" placeholder="Lien YouTube du clip">
+            <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
+              S'il existe, il s'affichera directement sur la fiche de la
+              sortie.
+            </p>
+          </div>
+
+          <!-- Les identifiants suivent le schéma attendu par
+               chercherVille / choisirVille, qui servent déjà à l'espace
+               équipe : « public » y tient lieu de pseudo d'artiste. -->
+          <div class="field">
+            <label for="artist-ville-public">
+              Ta ville
+              <span style="text-transform:none; letter-spacing:normal; font-weight:400; color:var(--muted);">— facultatif</span>
+            </label>
+            <input
+              type="text"
+              id="artist-ville-public"
+              autocomplete="off"
+              placeholder="Commence à taper une commune"
+              oninput="chercherVille('public')">
+            <div id="artist-ville-resultats-public" class="recherche-resultats"></div>
+            <p style="font-size:12px; color:var(--muted); margin:8px 0 0;">
+              Choisis ta commune dans la liste pour apparaître sur la carte
+              des artistes. Si ton profil en a déjà une, celle réglée par
+              l'équipe est conservée.
+            </p>
+          </div>
+
           
           
           <div class="field">
@@ -2523,6 +2616,14 @@
         </div>
 
         <div class="field">
+          <label for="admin-clip">
+            Clip
+            <span style="text-transform:none; letter-spacing:normal; font-weight:400; color:var(--muted);">— facultatif</span>
+          </label>
+          <input type="text" id="admin-clip" placeholder="Lien YouTube du clip">
+        </div>
+
+        <div class="field">
           <label for="admin-release-date">Date de sortie</label>
           <input type="date" id="admin-release-date">
           <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
@@ -2757,6 +2858,9 @@
 
   <div class="listen-row" id="modalListenRow"></div>
 
+  <!-- Clip, quand la sortie en a un. Rempli par openCatalogueModal. -->
+  <div id="modalClip"></div>
+
   <div class="hairline" style="margin:20px 0 16px;"></div>
 
   <!-- Note moyenne de la communauté, puis la note du visiteur -->
@@ -2956,6 +3060,14 @@ const BD = {
       .update({ ...champs, updated_at: new Date().toISOString() })
       .eq('instagram_handle', handle)
       .select();
+  },
+
+  // Passe par une fonction de la base : une écriture directe
+  // permettrait à n'importe qui de se déclarer propriétaire d'une page.
+  demanderVerificationArtiste(handle){
+    return supabaseClient.rpc('demander_verification_artiste', {
+      p_handle: handle
+    });
   },
 
   supprimerArtiste(handle){
@@ -5721,14 +5833,20 @@ function choisirNouvelArtiste(ctx){
 // Crée le profil s'il n'existe pas encore. La photo n'est jamais
 // touchée ici : elle appartient à l'équipe, et une nouvelle
 // soumission ne doit pas l'écraser.
-async function ensureArtistProfile(handle, instagramUrl, nom){
+async function ensureArtistProfile(handle, instagramUrl, nom, ville){
 
   if(!handle) return;
 
+  // La ville n'est écrite qu'à la création du profil : l'upsert ignore
+  // les doublons, donc celle réglée par l'équipe sur un artiste déjà
+  // connu ne peut pas être écrasée depuis le formulaire public.
   const { error } = await BD.creerArtisteSiAbsent({
     instagram_handle: handle,
     instagram_url: instagramUrl,
-    display_name: nom
+    display_name: nom,
+    ...(ville
+      ? { ville: ville.nom, latitude: ville.lat, longitude: ville.lon }
+      : {})
   });
 
   if(error){
@@ -5865,6 +5983,9 @@ const list = (data || [])
 
     releaseDate:
       submission.release_date,
+
+    clip:
+      submission.clip_url,
 
     publishedAt:
       submission.validated_at,
@@ -7299,6 +7420,8 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
       </div>
     </div>
 
+    ${panneauProprieteHtml(profil)}
+
     <div class="hairline" style="margin:32px 0;"></div>
 
     <span class="eyebrow mono">Discographie</span>
@@ -7312,6 +7435,251 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
         : `<div class="empty-state">Aucune sortie publiée pour l'instant.</div>`}
     </div>
   `;
+}
+
+
+// ---------------- ARTISTE VÉRIFIÉ ----------------
+//
+// Un membre peut demander à gérer la page d'un artiste. L'équipe
+// valide, et il obtient alors le droit de la modifier lui-même.
+//
+// La demande passe par une fonction de la base plutôt que par une
+// écriture directe : sans cela, quelqu'un pourrait se déclarer
+// vérifié tout seul. Côté base, un déclencheur gèle les trois colonnes
+// de propriété pour tout le monde sauf l'équipe — le panneau
+// ci-dessous n'est donc pas la seule barrière.
+
+function estArtisteVerifie(profil){
+  return !!(profil && currentUser && profil.verifie_par === currentUser.id);
+}
+
+
+function panneauProprieteHtml(profil){
+
+  if(!profil) return '';
+
+  if(!currentUser){
+    return `
+      <p class="artiste-propriete">
+        C'est ta page ?
+        <button type="button" onclick="openAuthModal('login')">Connecte-toi</button>
+        pour en demander la gestion.
+      </p>`;
+  }
+
+  if(estArtisteVerifie(profil)){
+    return `
+      <div class="artiste-propriete verifie">
+        <span>✓ Tu gères cette page.</span>
+        <button type="button" class="btn btn-ghost"
+                style="padding:8px 14px; font-size:13px;"
+                onclick="ouvrirEditionMaPageArtiste()">
+          Modifier ma page
+        </button>
+      </div>
+
+      <div class="confirm-panel" id="maPageArtisteEdition">
+        <div class="field">
+          <label for="ma-page-nom">Nom affiché</label>
+          <input type="text" id="ma-page-nom" maxlength="120"
+                 value="${escapeAttribute(profil.display_name || '')}">
+        </div>
+        <div class="field">
+          <label for="artist-ville-${handleSain(profil.instagram_handle)}">Ville d'origine</label>
+          <input type="text"
+                 id="artist-ville-${handleSain(profil.instagram_handle)}"
+                 autocomplete="off"
+                 placeholder="Commence à taper une commune"
+                 value="${escapeAttribute(profil.ville || '')}"
+                 oninput="chercherVille('${handleSain(profil.instagram_handle)}')">
+          <div id="artist-ville-resultats-${handleSain(profil.instagram_handle)}"
+               class="recherche-resultats"></div>
+        </div>
+        <div class="field">
+          <label>Tes réseaux</label>
+          ${
+            ARTIST_SOCIALS
+              .filter(reseau => reseau.column !== 'instagram_url')
+              .map(reseau => `
+                <input type="text"
+                       id="ma-page-${reseau.column}"
+                       placeholder="${escapeAttribute(reseau.label)}"
+                       value="${escapeAttribute(profil[reseau.column] || '')}"
+                       style="margin-bottom:10px;">`)
+              .join('')
+          }
+        </div>
+        <p style="font-size:12px; color:var(--muted); margin:-2px 0 14px;">
+          La photo reste réglée par l'équipe : elle sert aussi de
+          repère sur la carte et dans le catalogue.
+        </p>
+        <div class="inline-actions">
+          <button type="button" class="btn btn-primary"
+                  onclick="enregistrerMaPageArtiste('${handleSain(profil.instagram_handle)}')">
+            Enregistrer
+          </button>
+          <button type="button" class="btn btn-ghost"
+                  onclick="closeConfirmPanel('maPageArtisteEdition')">
+            Annuler
+          </button>
+        </div>
+        <div class="form-msg" id="maPageArtisteMsg"></div>
+      </div>`;
+  }
+
+  if(profil.verifie_par){
+    return `<p class="artiste-propriete">Page gérée par son artiste.</p>`;
+  }
+
+  if(profil.demande_par === currentUser.id){
+    return `
+      <p class="artiste-propriete">
+        Demande envoyée — l'équipe doit encore la valider.
+      </p>`;
+  }
+
+  if(profil.demande_par){
+    return `<p class="artiste-propriete">Une demande est déjà en cours d'examen.</p>`;
+  }
+
+  return `
+    <div class="artiste-propriete">
+      <span>C'est ta page ?</span>
+      <button type="button" class="btn btn-ghost"
+              style="padding:8px 14px; font-size:13px;"
+              onclick="demanderMaPageArtiste('${handleSain(profil.instagram_handle)}')">
+        Demander à la gérer
+      </button>
+    </div>`;
+}
+
+
+async function demanderMaPageArtiste(handle){
+
+  if(!currentUser) return;
+
+  const { error } = await BD.demanderVerificationArtiste(handle);
+
+  if(error){
+    notifier('Demande impossible', {
+      type: 'erreur',
+      detail: String(error.message).toLowerCase().includes('function')
+        ? "La fonction de demande n'existe pas encore côté base."
+        : error.message
+    });
+    return;
+  }
+
+  notifier('Demande envoyée', {
+    type: 'succes',
+    icone: '✓',
+    detail: "L'équipe la validera depuis son espace."
+  });
+
+  await loadArtists();
+  ouvrirPageArtiste(handle, true);
+}
+
+
+function ouvrirEditionMaPageArtiste(){
+  openConfirmPanel('maPageArtisteEdition');
+}
+
+
+async function enregistrerMaPageArtiste(handle){
+
+  const msg = document.getElementById('maPageArtisteMsg');
+
+  const champs = {
+    display_name: document.getElementById('ma-page-nom').value.trim() || null
+  };
+
+  ARTIST_SOCIALS
+    .filter(reseau => reseau.column !== 'instagram_url')
+    .forEach(reseau => {
+      const champ = document.getElementById('ma-page-' + reseau.column);
+      champs[reseau.column] = champ && champ.value.trim() ? champ.value.trim() : null;
+    });
+
+  // Même règle que pour l'équipe : une ville sans coordonnées ne
+  // pourrait pas être placée sur la carte.
+  if(villeChoisie[handle]){
+    champs.ville = villeChoisie[handle].nom;
+    champs.latitude = villeChoisie[handle].lat;
+    champs.longitude = villeChoisie[handle].lon;
+  }
+
+  msg.textContent = 'Enregistrement...';
+  msg.className = 'form-msg ok';
+
+  const { data, error } = await BD.majArtiste(handle, champs);
+
+  if(error){
+    msg.textContent = 'Échec : ' + error.message;
+    msg.className = 'form-msg err';
+    return;
+  }
+
+  if(!data || data.length === 0){
+    msg.textContent =
+      "Modification refusée par la base : la règle qui autorise " +
+      "l'artiste vérifié à modifier sa page n'est peut-être pas en place.";
+    msg.className = 'form-msg err';
+    return;
+  }
+
+  msg.textContent = '✅ Page mise à jour.';
+  msg.className = 'form-msg ok';
+
+  await loadArtists();
+  ouvrirPageArtiste(handle, true);
+}
+
+
+// ---- Côté équipe : valider ou refuser une demande ----
+
+async function validerDemandeArtiste(handle){
+
+  if(!isAdmin) return;
+
+  const profil = artistsByHandle[handle];
+  if(!profil || !profil.demande_par) return;
+
+  const { data, error } = await BD.majArtiste(handle, {
+    verifie_par: profil.demande_par
+  });
+
+  if(error || !data || data.length === 0){
+    setRowMessage('artistsActionMsg',
+      error ? 'Échec : ' + error.message : 'Validation refusée : droits équipe requis.',
+      'err');
+    return;
+  }
+
+  await refreshAfterArtistChange();
+  setRowMessage('artistsActionMsg',
+    '✅ Demande validée — cet artiste peut désormais modifier sa page.', 'ok');
+}
+
+
+async function refuserDemandeArtiste(handle){
+
+  if(!isAdmin) return;
+
+  const { data, error } = await BD.majArtiste(handle, {
+    demande_par: null,
+    demande_le: null
+  });
+
+  if(error || !data || data.length === 0){
+    setRowMessage('artistsActionMsg',
+      error ? 'Échec : ' + error.message : 'Refus impossible : droits équipe requis.',
+      'err');
+    return;
+  }
+
+  await refreshAfterArtistChange();
+  setRowMessage('artistsActionMsg', 'Demande refusée.', 'ok');
 }
 
 
@@ -7330,9 +7698,66 @@ async function ouvrirSortieParNumero(numero){
 }
 
 
+// Accepte les trois formes d'adresse YouTube : watch?v=, youtu.be et
+// shorts. Renvoie l'identifiant seul, ou null si ce n'en est pas une.
+function idYouTube(url){
+
+  const brut = String(url || '').trim();
+  if(!brut) return null;
+
+  const motifs = [
+    /[?&]v=([A-Za-z0-9_-]{11})/,
+    /youtu\.be\/([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([A-Za-z0-9_-]{11})/,
+    /youtube\.com\/embed\/([A-Za-z0-9_-]{11})/
+  ];
+
+  for(const motif of motifs){
+    const trouve = brut.match(motif);
+    if(trouve) return trouve[1];
+  }
+
+  return null;
+}
+
+
+// L'iframe n'est posée qu'au clic : une intégration YouTube tire
+// plusieurs centaines de kilo-octets, et la plupart des visiteurs
+// ouvrent une fiche sans regarder le clip.
+function lancerClip(bouton, videoId){
+
+  const zone = bouton.closest('#modalClip');
+  if(!zone) return;
+
+  zone.innerHTML = `
+    <div class="clip-cadre">
+      <iframe
+        src="https://www.youtube-nocookie.com/embed/${escapeAttribute(videoId)}?autoplay=1"
+        title="Clip de la sortie"
+        allow="accelerometer; autoplay; encrypted-media; picture-in-picture"
+        allowfullscreen></iframe>
+    </div>`;
+}
+
+
 function openCatalogueModal(id){
   const item = catalogueData.find(c=>c.id===id);
   if(!item) return;
+
+  const zoneClip = document.getElementById('modalClip');
+  const videoId = idYouTube(item.clip);
+
+  if(zoneClip){
+    zoneClip.innerHTML = videoId
+      ? `<button type="button" class="clip-affiche"
+                 onclick="lancerClip(this, '${escapeAttribute(videoId)}')">
+           <img src="https://i.ytimg.com/vi/${escapeAttribute(videoId)}/hqdefault.jpg"
+                alt="" loading="lazy">
+           <span class="clip-play">▶</span>
+           <span class="clip-mention">Regarder le clip</span>
+         </button>`
+      : '';
+  }
   document.getElementById('modalCover').src = item.cover;
   document.getElementById('modalCover').alt = item.title;
   // Le numéro de catalogue reste un outil interne : il n'est plus
@@ -7699,7 +8124,7 @@ msg.textContent =
 
     const handle = instagramHandle(instagram);
 
-    await ensureArtistProfile(handle, instagram, artist);
+    await ensureArtistProfile(handle, instagram, artist, villeChoisie['public']);
 
 
     // =====================================================
@@ -7718,6 +8143,7 @@ msg.textContent =
         artist_handle: handle,
         release_date: releaseDate,
         release_type: releaseType,
+        clip_url: document.getElementById('f-clip').value.trim() || null,
         ...liens.urls,
         status: 'pending'
       });
@@ -7747,6 +8173,12 @@ msg.textContent =
     // =====================================================
 
     e.target.reset();
+
+    // reset() vide les champs, pas la commune retenue ni la liste de
+    // résultats affichée dessous.
+    delete villeChoisie['public'];
+    const resultatsVille = document.getElementById('artist-ville-resultats-public');
+    if(resultatsVille) resultatsVille.innerHTML = '';
 
     coverDataUrl = null;
 
@@ -9199,6 +9631,16 @@ function releaseRowHtml(submission){
         </div>
 
         <div class="field">
+          <label for="edit-clip-${id}">Clip (lien YouTube)</label>
+          <input
+            type="text"
+            id="edit-clip-${id}"
+            placeholder="Laisser vide s'il n'y a pas de clip"
+            value="${escapeAttribute(submission.clip_url || '')}"
+          >
+        </div>
+
+        <div class="field">
           <label for="edit-release-${id}">Date de sortie</label>
           <input
             type="date"
@@ -9380,6 +9822,7 @@ function cancelEditRelease(submissionId){
   set('edit-release-', submission.release_date || '');
   set('edit-instagram-', submission.instagram_url || '');
   set('edit-email-', submission.contact_email || '');
+  set('edit-clip-', submission.clip_url || '');
 
   LISTEN_PLATFORMS.forEach(plateforme => {
     set(
@@ -9499,6 +9942,7 @@ async function saveReleaseEdit(submissionId){
       release_type: releaseType,
       instagram_url: instagram,
       contact_email: email || null,
+      clip_url: value('edit-clip-') || null,
       ...platformUrls,
       updated_at: new Date().toISOString()
     };
@@ -9844,6 +10288,18 @@ async function loadArtistProfiles(){
                 }
               </span>
 
+              ${
+                profil.demande_par && !profil.verifie_par
+                  ? `<span style="display:block; margin-top:6px; color:var(--blue-bright);">
+                       ⏳ Demande de gestion en attente
+                     </span>`
+                  : profil.verifie_par
+                    ? `<span style="display:block; margin-top:6px;">
+                         ✓ Page gérée par l'artiste
+                       </span>`
+                    : ''
+              }
+
               ${artistSocialsHtml(profil)}
 
               ${
@@ -9865,6 +10321,19 @@ async function loadArtistProfiles(){
               <button type="button" onclick="ouvrirEditionArtiste('${h}')">
                 ✎ Modifier
               </button>
+
+              ${
+                profil.demande_par && !profil.verifie_par
+                  ? `<button class="approve" type="button"
+                             onclick="validerDemandeArtiste('${h}')">
+                       ✓ Valider la demande
+                     </button>
+                     <button class="reject" type="button"
+                             onclick="refuserDemandeArtiste('${h}')">
+                       ✕ Refuser
+                     </button>`
+                  : ''
+              }
 
               <button
                 type="button"
@@ -10786,6 +11255,7 @@ document.getElementById('adminAddForm').addEventListener('submit', async (e)=>{
       artist_handle: handle,
       release_date: releaseDate,
       release_type: releaseType,
+      clip_url: lire('admin-clip') || null,
       ...liens.urls,
       status: 'pending'
     });
