@@ -1028,6 +1028,19 @@
     font-size:12px; color:var(--muted); margin-top:4px;
   }
   .coll-note{color:var(--gold-favori); letter-spacing:1px;}
+  /* Le podium se compose ici, où l'on voit ce qu'on possède déjà. */
+  .coll-favori-btn{
+    font-size:12px; font-weight:600; white-space:nowrap;
+    padding:5px 11px; border-radius:var(--radius-pill);
+    border:1px solid var(--line-strong);
+    background:transparent; color:var(--muted);
+    transition:color .2s var(--ease), border-color .2s var(--ease);
+  }
+  .coll-favori-btn:hover{color:var(--ink); border-color:rgba(255,255,255,0.3);}
+  .coll-favori-btn.actif{
+    color:var(--gold-favori); border-color:rgba(233,196,106,0.5);
+    background:rgba(233,196,106,0.10);
+  }
   .coll-avis{
     font-size:13px; color:var(--ink-soft); line-height:1.55;
     margin:10px 0 0; padding-left:12px;
@@ -1353,9 +1366,8 @@
   .challenge-dropdown .challenge-list{padding:0 14px 14px; margin:0;}
 
   /* ---------- CHALLENGES ---------- */
-  /* Onze défis : la liste doit rester compacte, sinon le volet ouvert
-     repousse tout le reste de la page vers le bas. Elle défile
-     au-delà de six entrées environ. */
+  /* Le volet des défis du jour n'en porte plus qu'un, mais celui de
+     l'accueil en garde quatre : le plafond reste utile. */
   .challenge-list{
     display:flex; flex-direction:column; gap:3px; margin-bottom:4px;
     max-height:250px; overflow-y:auto;
@@ -1601,15 +1613,6 @@
     border:1px solid rgba(20,137,222,0.35); color:var(--ink);
   }
   .badge-pill.small{font-size:11px; padding:4px 9px;}
-  .leaderboard-list{padding:0 14px 14px; display:flex; flex-direction:column; gap:8px;}
-  .leaderboard-row{
-    display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm);
-    cursor:pointer; border:1px solid var(--line);
-  }
-  .leaderboard-row:hover{border-color:var(--blue);}
-  .lb-rank{width:28px; color:var(--muted); font-size:12px;}
-  .lb-pseudo{flex:1; font-size:13px; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .lb-xp{font-size:12px; color:var(--muted);}
   .platform-btn-sm{
     font-size:12px; padding:6px 12px; border:1px solid var(--line); border-radius:var(--radius-pill); color:var(--ink-soft);
   }
@@ -2020,11 +2023,6 @@
             <span class="chevron">⌄</span>
           </summary>
           <div class="challenge-list" id="challengeList"></div>
-        </details>
-
-        <details class="challenge-dropdown" id="leaderboardDetails" style="margin-top:32px;">
-          <summary><span class="eyebrow mono" style="margin:0;">Palmarès</span><span class="chevron">⌄</span></summary>
-          <div class="leaderboard-list" id="leaderboardList"></div>
         </details>
 
         <div class="hairline" style="margin:36px 0;"></div>
@@ -4250,6 +4248,11 @@ function collectionDetailleeHtml(userId){
           <span class="coll-meta">
             ${ligne.rating ? `<span class="coll-note">${'★'.repeat(ligne.rating)}</span>` : ''}
             ${date ? `<span>Ajoutée le ${formatFrDate(String(date).slice(0,10))}</span>` : ''}
+            <button type="button"
+                    class="coll-favori-btn${ligne.favori ? ' actif' : ''}"
+                    onclick="basculerFavori('${ligne.release_id}')">
+              ${ligne.favori ? '★ Retirer du podium' : '☆ Mettre au podium'}
+            </button>
           </span>
           ${
             ligne.avis
@@ -4622,6 +4625,27 @@ async function saveProfile(){
 }
 
 // ---- Communauté : XP, défis, forum ----
+// Un seul défi est proposé par jour, tiré de la liste ci-dessous. Le
+// tirage vient de la date : tout le monde a le même, il ne change pas
+// d'un rechargement à l'autre, et il tourne d'un jour sur l'autre sans
+// qu'on ait à stocker quoi que ce soit.
+//
+// Les autres actions continuent de rapporter leur XP une fois par
+// jour — c'est le volet qui ne propose plus qu'une chose à faire,
+// pas le site qui cesse de récompenser le reste.
+function defiDuJour(){
+
+  const jour = todayStr();
+  let somme = 0;
+
+  for(let i = 0; i < jour.length; i++){
+    somme = (somme * 31 + jour.charCodeAt(i)) % 100000;
+  }
+
+  return DAILY_CHALLENGES[somme % DAILY_CHALLENGES.length];
+}
+
+
 const DAILY_CHALLENGES = [
   { key: 'exploreCatalogue', label: 'Découvrir une sortie du catalogue', xp: 5, auto: true },
   { key: 'noterSortie', label: 'Noter une sortie', xp: 5, auto: true },
@@ -4690,6 +4714,16 @@ function renderOnboarding(){
   ensureOnboarding(currentUser);
   const list = document.getElementById('onboardingList');
   if(!list) return;
+
+  // Une fois les quatre étapes faites, le volet n'a plus rien à
+  // proposer : il n'occupe plus la page.
+  const volet = document.getElementById('onboardingDetails');
+  const restant = ONBOARDING_CHALLENGES.filter(c => !currentUser.onboarding[c.key]);
+
+  if(volet) volet.style.display = restant.length ? '' : 'none';
+
+  if(!restant.length) return;
+
   list.innerHTML = ONBOARDING_CHALLENGES.map(c => {
     const done = currentUser.onboarding[c.key];
     const action = done
@@ -4711,38 +4745,32 @@ function renderChallenges(){
   const list = document.getElementById('challengeList');
   if(!list) return;
 
-  const faits = DAILY_CHALLENGES.filter(c => currentUser.challenges[c.key]).length;
-  const total = DAILY_CHALLENGES.length;
+  // Un seul défi proposé : onze d'un coup se lisaient comme une liste
+  // de corvées, et rien n'y ressortait.
+  const defi = defiDuJour();
+  const fait = !!currentUser.challenges[defi.key];
 
-  // Les défis restants d'abord : la liste s'est allongée, on ne veut
-  // pas faire défiler pour trouver ce qu'il reste à faire.
-  const tries = [...DAILY_CHALLENGES].sort((a, b) =>
-    (currentUser.challenges[a.key] ? 1 : 0) - (currentUser.challenges[b.key] ? 1 : 0)
-  );
+  const faits = fait ? 1 : 0;
+  const total = 1;
 
-  list.innerHTML = tries.map(c => {
+  const action = fait
+    ? `<span class="c-done" title="Fait">✓</span>`
+    : (defi.auto
+        ? `<span class="c-xp">+${defi.xp} XP</span>`
+        : `<button onclick="declareChallenge('${defi.key}')">J'ai fait ce défi</button>`);
 
-    const fait = !!currentUser.challenges[c.key];
-
-    const action = fait
-      ? `<span class="c-done" title="Fait">✓</span>`
-      : (c.auto
-          ? `<span class="c-xp">+${c.xp} XP</span>`
-          : `<button onclick="declareChallenge('${c.key}')">J'ai fait ce défi</button>`);
-
-    return `
-      <div class="challenge-item${fait ? ' fait' : ''}">
-        <span class="c-label">${escapeHtml(c.label)}</span>
-        ${action}
-      </div>`;
-  }).join('');
+  list.innerHTML = `
+    <div class="challenge-item${fait ? ' fait' : ''}">
+      <span class="c-label">${escapeHtml(defi.label)}</span>
+      ${action}
+    </div>`;
 
   // Progression du jour, affichée dans l'en-tête repliée du volet.
   const entete = document.getElementById('defisProgression');
   if(entete){
     const pct = total ? Math.round((faits / total) * 100) : 0;
     entete.innerHTML = `
-      <span class="defis-compteur">${faits}/${total} défis</span>
+      <span class="defis-compteur">${fait ? 'Fait' : 'À faire'}</span>
       <span class="defis-jauge"><span style="width:${pct}%"></span></span>`;
     entete.classList.toggle('defis-tous-faits', faits === total && total > 0);
   }
@@ -4841,7 +4869,6 @@ async function renderCommunity(){
   refreshChallengeDots();
   await loadForumPosts();
   renderForum();
-  renderLeaderboard();
 }
 
 // Le forum vit dans Supabase : posts, commentaires, votes et
@@ -5301,29 +5328,6 @@ function setMemberRoleFilter(nom){
 
 
 // ---- Palmarès ----
-async function renderLeaderboard(){
-  const list = document.getElementById('leaderboardList');
-  if(!list) return;
-  const users = await getUsers();
-  const sorted = [...users].sort((a,b) => (b.xp||0) - (a.xp||0)).slice(0, 20);
-  list.innerHTML = sorted.length ? sorted.map((u, i) => {
-    const badge = badgeForXP(u.xp);
-    const url = safeUrl(u.avatar);
-    const avatar = url
-      ? `<img class="forum-avatar" src="${escapeAttribute(url)}" alt="">`
-      : `<div class="forum-avatar"></div>`;
-    return `
-      <div class="leaderboard-row" onclick="viewProfile('${u.id}')">
-        <span class="lb-rank mono">#${i+1}</span>
-        ${avatar}
-        <span class="lb-pseudo">${escapeHtml(u.pseudo)}</span>
-        ${roleBadgeHtml(u.role, 'small')}
-        <span class="badge-pill small">${badge.icon} ${badge.name}</span>
-        <span class="lb-xp mono">${u.xp||0} XP</span>
-      </div>`;
-  }).join('') : `<div class="empty-state">Personne au classement pour l'instant.</div>`;
-}
-
 // ---- Profil visitable ----
 async function viewProfile(userId){
   if(!userId) return;
@@ -6387,12 +6391,12 @@ function renderNoteBloc(releaseId){
               onclick="basculerEnregistrement('${releaseId}')">
         ${enregistre ? '✓ Enregistrée' : '＋ Enregistrer'}
       </button>
-      <button type="button"
-              class="btn-enregistrer${favori ? ' favori' : ''}"
-              title="${favori ? 'Retirer de tes favorites' : 'Ajouter à tes trois favorites'}"
-              onclick="basculerFavori('${releaseId}')">
-        ${favori ? '★ Favorite' : '☆ Favorite'}
-        <span class="favori-compte">${nbFavoris}/${MAX_FAVORIS}</span>
+      <!-- Les favorites se choisissent depuis le profil, où le podium
+           est visible : ici, rien ne montrait combien de places
+           restaient ni lesquelles étaient déjà prises. -->
+      <button type="button" class="btn-enregistrer"
+              onclick="basculerVoletAvis('${releaseId}')">
+        ${avis ? 'Modifier mon avis' : 'Écrire un avis'}
       </button>
     </div>
 
@@ -6403,11 +6407,6 @@ function renderNoteBloc(releaseId){
     }
 
     <div class="avis-bloc">
-      <button type="button" class="avis-bascule"
-              onclick="basculerVoletAvis('${releaseId}')">
-        ✍ ${avis ? 'Modifier mon avis' : 'Écrire un avis'}
-      </button>
-
       ${
         avis
           ? `<p class="avis-apercu" id="avis-apercu-${releaseId}">${escapeHtml(avis)}</p>`
@@ -6483,7 +6482,13 @@ async function basculerFavori(releaseId){
     icone: dejaFavori ? '☆' : '★'
   });
 
-  renderNoteBloc(releaseId);
+  // Le geste se fait depuis le profil : c'est lui qu'il faut redessiner
+  // pour que le podium et la collection reflètent le changement.
+  if(document.getElementById('page-profile').classList.contains('active')){
+    await renderProfileForm();
+  } else {
+    renderNoteBloc(releaseId);
+  }
 }
 
 
