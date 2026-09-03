@@ -1472,6 +1472,13 @@
     background:linear-gradient(152deg, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0) 42%);
   }
 
+  /* Rappel après le groupe ci-dessus : il impose overflow:hidden pour
+     découper les images à l'arrondi, ce qui écrasait le défilement de
+     la fiche de sortie. Résultat, sur un écran de 700 px la fiche
+     s'arrêtait à 650 px alors qu'elle en demandait 808, et le bouton
+     d'envoi de l'avis était hors d'atteinte. */
+  .modal-box{overflow-y:auto; overflow-x:hidden;}
+
   /* Surfaces réellement translucides. Le flou d'arrière-plan coûte
      cher à composer : on le réserve aux panneaux peu nombreux à
      l'écran, jamais aux listes qui se comptent par dizaines. */
@@ -1637,7 +1644,10 @@
   <!-- ================= PAGE ARTISTE ================= -->
   <section id="page-artiste" class="page">
     <section>
-      <button class="btn btn-ghost" onclick="goTo('catalogue')" style="margin-bottom:24px;">
+      <!-- Libellé et destination réglés par ouvrirPageArtiste selon
+           l'endroit d'où l'on vient. -->
+      <button class="btn btn-ghost" id="artisteRetour"
+              onclick="goTo('catalogue')" style="margin-bottom:24px;">
         ← Retour au catalogue
       </button>
       <div id="artistePageBody"></div>
@@ -6415,7 +6425,14 @@ async function enregistrerMaNote(releaseId, champs){
 
 async function noterSortie(releaseId, valeur){
 
-  await enregistrerMaNote(releaseId, { rating: valeur || null });
+  // Noter, c'est déjà dire que la sortie compte : elle rejoint la
+  // collection sans qu'il faille cliquer une seconde fois. Retirer sa
+  // note ne l'en sort pas pour autant — l'enregistrement se défait au
+  // bouton dédié.
+  await enregistrerMaNote(releaseId, {
+    rating: valeur || null,
+    ...(valeur ? { saved: true } : {})
+  });
 
   // Pas de notification ici : les étoiles changent sous les yeux de
   // la personne, le message ferait doublon. Seul le gain d'XP, qui
@@ -6642,6 +6659,28 @@ function projeter3D(u, v, elevation, etat){
 }
 
 
+// Photos des artistes, chargées une fois et gardées en mémoire. Le
+// canvas se redessine soixante fois par seconde : recréer une Image à
+// chaque image relancerait un téléchargement à chaque fois.
+const imagesArtistes = new Map();
+
+function imageArtiste(url){
+
+  if(!url) return null;
+
+  if(!imagesArtistes.has(url)){
+    const entree = { img: new Image(), pret: false };
+    entree.img.onload = () => { entree.pret = true; };
+    entree.img.onerror = () => { entree.pret = false; };
+    entree.img.src = url;
+    imagesArtistes.set(url, entree);
+  }
+
+  const entree = imagesArtistes.get(url);
+  return entree.pret ? entree.img : null;
+}
+
+
 let cartePointsGrille = null;
 
 function pointsGrille(){
@@ -6767,28 +6806,76 @@ function dessinerCarte(temps){
     ctx.lineTo(tete.x, tete.y);
     ctx.stroke();
 
-    // Tête : un disque blanc cerné de bleu, d'autant plus gros que la
-    // ville compte d'artistes.
-    const rayon = k * (0.16 + Math.min(ville.artistes.length - 1, 3) * 0.03) *
-                  (actif || survole ? 1.3 : 1);
+    // Tête : la photo de l'artiste plutôt qu'un point. Quand la ville
+    // en compte plusieurs, elles défilent — un point unique ne disait
+    // pas qui s'y trouvait, et empiler les pastilles aurait encombré
+    // la carte dès qu'une ville en réunit trois ou quatre.
+    const rayon = Math.max(11, k * 0.40) * (actif || survole ? 1.18 : 1);
+
+    const tour = ville.artistes.length > 1
+      ? Math.floor(temps / 2600) % ville.artistes.length
+      : 0;
+
+    const artiste = ville.artistes[tour];
+    const photo = imageArtiste(safeUrl(artiste.photo_url));
 
     ctx.globalAlpha = 1;
-    ctx.fillStyle = 'rgba(79,180,255,0.28)';
+
+    // Halo puis fond : la photo doit se détacher du fond pointillé.
+    ctx.fillStyle = 'rgba(79,180,255,0.22)';
     ctx.beginPath();
-    ctx.arc(tete.x, tete.y, rayon * 2.4, 0, Math.PI * 2);
+    ctx.arc(tete.x, tete.y, rayon * 1.55, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#4FB4FF';
-    ctx.beginPath();
-    ctx.arc(tete.x, tete.y, rayon * 1.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#0b1016';
     ctx.beginPath();
     ctx.arc(tete.x, tete.y, rayon, 0, Math.PI * 2);
     ctx.fill();
 
-    carteEcran.push({ index, x: tete.x, y: tete.y, rayon: Math.max(14, rayon * 3) });
+    if(photo){
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(tete.x, tete.y, rayon, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(photo, tete.x - rayon, tete.y - rayon, rayon * 2, rayon * 2);
+      ctx.restore();
+    } else {
+      // Pas encore de photo réglée par l'équipe : l'initiale, comme
+      // partout ailleurs sur le site.
+      ctx.fillStyle = '#C4C9D0';
+      ctx.font = '600 ' + Math.round(rayon * 1.05) + 'px "Space Grotesk", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(
+        artistInitial(artiste.display_name || artiste.instagram_handle),
+        tete.x, tete.y + rayon * 0.04
+      );
+    }
+
+    // Anneau par-dessus, pour border la photo proprement.
+    ctx.strokeStyle = actif || survole ? '#ffffff' : '#4FB4FF';
+    ctx.lineWidth = Math.max(1.2, rayon * 0.11);
+    ctx.beginPath();
+    ctx.arc(tete.x, tete.y, rayon, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Combien d'artistes dans cette ville, quand il y en a plusieurs.
+    if(ville.artistes.length > 1){
+      const rc = rayon * 0.46;
+      const cxp = tete.x + rayon * 0.78;
+      const cyp = tete.y - rayon * 0.78;
+      ctx.fillStyle = '#4FB4FF';
+      ctx.beginPath();
+      ctx.arc(cxp, cyp, rc, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#05070a';
+      ctx.font = '700 ' + Math.round(rc * 1.25) + 'px "Inter", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(ville.artistes.length), cxp, cyp + rc * 0.06);
+    }
+
+    carteEcran.push({ index, x: tete.x, y: tete.y, rayon: Math.max(16, rayon * 1.6) });
   });
 
   ctx.globalAlpha = 1;
@@ -7073,7 +7160,7 @@ function ouvrirVilleCarte(index){
 
     return `
       <button type="button" class="carte-artiste"
-              onclick="ouvrirPageArtiste('${handleSain(profil.instagram_handle)}')">
+              onclick="ouvrirPageArtiste('${handleSain(profil.instagram_handle)}', false, 'carte')">
         <span class="carte-vignette">
           ${
             photo
@@ -7109,7 +7196,21 @@ function ouvrirVilleCarte(index){
 // Instagram), ses sorties publiées, et son compte communauté si son
 // Instagram correspond à celui d'un membre.
 
-async function ouvrirPageArtiste(handle, depuisAdresse){
+async function ouvrirPageArtiste(handle, depuisAdresse, origine){
+
+  // La page artiste s'atteint depuis le catalogue ou depuis la carte.
+  // Renvoyer systématiquement au catalogue faisait perdre le zoom et
+  // la ville qu'on venait d'ouvrir.
+  const retour = document.getElementById('artisteRetour');
+
+  if(retour){
+    const versLaCarte =
+      origine === 'carte' ||
+      (!origine && document.getElementById('page-carte').classList.contains('active'));
+
+    retour.textContent = versLaCarte ? '← Retour à la carte' : '← Retour au catalogue';
+    retour.setAttribute('onclick', versLaCarte ? "goTo('carte')" : "goTo('catalogue')");
+  }
 
   goTo('artiste', {
     parametre: handle,
