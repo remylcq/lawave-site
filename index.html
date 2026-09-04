@@ -1876,10 +1876,14 @@
             <input type="text" id="f-instagram"
                    placeholder="@pseudo ou lien Instagram complet">
             <div class="inline-actions">
+              <button type="button" class="btn btn-primary"
+                      style="padding:9px 16px; font-size:13px;"
+                      onclick="validerNouvelArtiste('f')">Ajouter</button>
               <button type="button" class="btn btn-ghost"
                       style="padding:9px 16px; font-size:13px;"
                       onclick="reinitialiserChoixArtiste('f')">Annuler</button>
             </div>
+            <div class="form-msg" id="f-artiste-nouveau-msg"></div>
           </div>
 
           <!-- Featurings : rempli au démarrage par blocFeatHtml, pour que
@@ -2667,10 +2671,14 @@
             réutilise la photo déjà réglée par l'équipe.
           </p>
           <div class="inline-actions">
+            <button type="button" class="btn btn-primary"
+                    style="padding:9px 16px; font-size:13px;"
+                    onclick="validerNouvelArtiste('admin')">Ajouter</button>
             <button type="button" class="btn btn-ghost"
                     style="padding:9px 16px; font-size:13px;"
                     onclick="reinitialiserChoixArtiste('admin')">Annuler</button>
           </div>
+          <div class="form-msg" id="admin-artiste-nouveau-msg"></div>
         </div>
 
         <div class="field" id="admin-feat-bloc"></div>
@@ -5777,7 +5785,8 @@ const CONTEXTES_ARTISTE = {
     connu: 'f-artiste-connu',
     nouveau: 'f-artiste-nouveau',
     nom: 'f-artist',
-    insta: 'f-instagram'
+    insta: 'f-instagram',
+    msg: 'f-artiste-nouveau-msg'
   },
   admin: {
     recherche: 'admin-artist-recherche',
@@ -5785,11 +5794,20 @@ const CONTEXTES_ARTISTE = {
     connu: 'admin-artiste-connu',
     nouveau: 'admin-artiste-nouveau',
     nom: 'admin-artist',
-    insta: 'admin-instagram'
+    insta: 'admin-instagram',
+    msg: 'admin-artiste-nouveau-msg'
   }
 };
 
 const artisteChoisi = { f: null, admin: null };
+
+
+function effacerMessageNouvelArtiste(config){
+  const msg = config && document.getElementById(config.msg);
+  if(!msg) return;
+  msg.textContent = '';
+  msg.className = 'form-msg';
+}
 
 
 // Le bouton d'envoi n'existe que sur le formulaire public : l'ajout
@@ -5904,6 +5922,8 @@ function reinitialiserChoixArtiste(ctx){
     nouveau.style.display = 'none';
   }
 
+  effacerMessageNouvelArtiste(config);
+
   document.getElementById(config.nom).value = '';
   document.getElementById(config.insta).value = '';
 
@@ -5998,6 +6018,8 @@ function choisirNouvelArtiste(ctx){
 
   document.getElementById(config.nouveau).style.display = '';
 
+  effacerMessageNouvelArtiste(config);
+
   // Ce qui a été tapé dans la recherche sert de point de départ : la
   // plupart du temps, c'est déjà le nom de l'artiste.
   document.getElementById(config.nom).value = saisi;
@@ -6009,6 +6031,106 @@ function choisirNouvelArtiste(ctx){
 
   rechercherArtistes(ctx);
   apresChoixArtiste(ctx);
+
+  placerLeCurseur(document.getElementById(config.nom));
+}
+
+
+// Valide la saisie d'un artiste inconnu, comme le bouton Ajouter d'un
+// featuring. Les deux champs alimentent l'envoi en direct : ce clic ne
+// conditionne rien, il confirme et remplace l'encadré par la fiche de
+// l'artiste. Oublier de cliquer ne fait donc pas échouer la sortie.
+function validerNouvelArtiste(ctx){
+
+  ctx = ctx || 'f';
+
+  const config = CONTEXTES_ARTISTE[ctx];
+  if(!config) return;
+
+  const nom = document.getElementById(config.nom).value.trim();
+  const url = normalizeInstagramUrl(document.getElementById(config.insta).value);
+  const handle = instagramHandle(url);
+  const msg = document.getElementById(config.msg);
+
+  if(!nom || !handle){
+    if(msg){
+      msg.textContent =
+        "Il faut le nom et l'Instagram : c'est le pseudo Instagram qui " +
+        "sert de clé au profil de l'artiste.";
+      msg.className = 'form-msg err';
+    }
+    placerLeCurseur(document.getElementById(nom ? config.insta : config.nom));
+    return;
+  }
+
+  // Ce pseudo peut déjà exister — l'artiste a pu être créé entre-temps,
+  // ou la personne n'a pas vu qu'il était proposé. On bascule alors sur
+  // sa vraie fiche plutôt que d'annoncer un profil neuf.
+  if(artistsByHandle[handle]){
+    choisirArtiste(handle, ctx);
+    return;
+  }
+
+  // Le lien est normalisé une bonne fois : la soumission part avec la
+  // même adresse que celle qui servira de clé au profil.
+  document.getElementById(config.insta).value = url;
+
+  if(msg){
+    msg.textContent = '';
+    msg.className = 'form-msg';
+  }
+
+  // Un artiste retenu, même pas encore en base : retaper dans la
+  // recherche doit annuler ce choix, comme pour un artiste connu.
+  artisteChoisi[ctx] = handle;
+
+  document.getElementById(config.nouveau).style.display = 'none';
+
+  const connu = document.getElementById(config.connu);
+
+  connu.style.display = '';
+  connu.innerHTML = `
+    <div style="display:flex; gap:14px; align-items:flex-start;">
+      <div style="
+        width:52px; height:52px; border-radius:50%; overflow:hidden;
+        flex-shrink:0; border:1px solid var(--line);
+        background:rgba(255,255,255,0.06);
+        display:flex; align-items:center; justify-content:center;
+        font-size:20px; font-weight:600; color:var(--ink-soft);
+      ">${escapeHtml(artistInitial(nom))}</div>
+      <div style="min-width:0;">
+        <strong style="display:block;">${escapeHtml(nom)}</strong>
+        <span style="font-size:13px; color:var(--muted);">
+          @${escapeHtml(handle)} · nouveau profil, créé à l'envoi
+        </span>
+        <div class="inline-actions" style="margin-top:10px;">
+          <button type="button" class="btn btn-ghost"
+                  style="padding:8px 14px; font-size:13px;"
+                  onclick="modifierNouvelArtiste('${ctx}')">Modifier</button>
+        </div>
+      </div>
+    </div>`;
+
+  rechercherArtistes(ctx);
+  apresChoixArtiste(ctx);
+}
+
+
+// Rouvre l'encadré sans toucher aux valeurs déjà saisies : à la
+// différence de choisirNouvelArtiste, qui repart de la recherche.
+function modifierNouvelArtiste(ctx){
+
+  ctx = ctx || 'f';
+
+  const config = CONTEXTES_ARTISTE[ctx];
+  if(!config) return;
+
+  const connu = document.getElementById(config.connu);
+
+  connu.style.display = 'none';
+  connu.innerHTML = '';
+
+  document.getElementById(config.nouveau).style.display = '';
 
   placerLeCurseur(document.getElementById(config.nom));
 }
