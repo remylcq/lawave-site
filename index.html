@@ -1920,6 +1920,8 @@
        sortie est un des boutons proposés. -->
   <div class="modal-overlay" id="submitGate">
     <div class="modal-box" style="max-width:420px;">
+      <button class="modal-close" onclick="goTo('home')"
+              aria-label="Fermer et revenir à l'accueil">✕</button>
       <div class="modal-body" style="padding:28px 26px 26px;">
         <span class="eyebrow mono">Accès réservé</span>
         <h3 style="font-size:20px; margin:6px 0 12px;">
@@ -3848,9 +3850,7 @@ function verifierAccesSoumission(){
       <button type="button" class="btn btn-primary"
               onclick="openAuthModal('signup')">Créer un compte</button>
       <button type="button" class="btn btn-ghost"
-              onclick="openAuthModal('login')">J'ai déjà un compte</button>
-      <button type="button" class="btn btn-ghost"
-              onclick="goTo('home')">Retour à l'accueil</button>`;
+              onclick="openAuthModal('login')">J'ai déjà un compte</button>`;
     return;
   }
 
@@ -3861,9 +3861,7 @@ function verifierAccesSoumission(){
 
   actions.innerHTML = `
     <button type="button" class="btn btn-primary"
-            onclick="goTo('profile')">Modifier mon rôle</button>
-    <button type="button" class="btn btn-ghost"
-            onclick="goTo('home')">Retour à l'accueil</button>`;
+            onclick="goTo('profile')">Modifier mon rôle</button>`;
 }
 
 function roleBadgeHtml(nom, taille){
