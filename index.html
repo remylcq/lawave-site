@@ -1259,6 +1259,38 @@
   .recherche-pseudo{color:var(--muted); font-size:12px; margin-left:6px;}
   .recherche-vide{font-size:13px; color:var(--muted); padding:8px 10px;}
 
+  /* ---------- FEATURINGS ---------- */
+  .feat-liste{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+  .feat-liste:empty{margin-top:0;}
+  .feat-pastille{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:5px 7px 5px 5px; border-radius:var(--radius-pill);
+    border:1px solid var(--line); background:var(--bg-alt);
+    font-size:13px; color:var(--ink-soft);
+  }
+  .feat-pastille .recherche-vignette{width:24px; height:24px; font-size:11px;}
+  .feat-retirer{
+    width:20px; height:20px; border-radius:50%; flex-shrink:0;
+    border:none; background:rgba(255,255,255,0.08); color:var(--muted);
+    font-size:11px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .feat-retirer:hover{background:#c0392b; color:#fff;}
+  .feat-nouveau{
+    margin-top:10px; padding:14px 16px;
+    border:1px solid var(--line); border-radius:var(--radius-sm);
+    background:var(--bg-alt);
+  }
+  .feat-nouveau input{margin-bottom:10px;}
+  /* Ligne « feat. » de la fiche de sortie : petite, sous le nom de
+     l'artiste principal, chaque nom menant à sa page. */
+  .modal-feat{font-size:12px; color:var(--muted); margin:6px 0 0;}
+  .modal-feat button{
+    background:none; border:none; padding:0; font:inherit;
+    color:var(--ink-soft); text-decoration:underline; cursor:pointer;
+  }
+  .modal-feat button:hover{color:var(--blue-bright);}
+
   /* Bascule afficher/masquer d'une vidéo, dans l'onglet Contenu. */
   .pick-bascule{
     display:inline-flex; align-items:center; gap:8px; cursor:pointer;
@@ -1820,6 +1852,11 @@
           <!-- Récapitulatif du profil choisi : photo, pseudo et réseaux
                réglés par l'équipe. Rempli par choisirArtiste. -->
           <div class="field" id="f-artiste-connu" style="display:none;"></div>
+
+          <!-- Featurings : rempli au démarrage par blocFeatHtml, pour que
+               les trois formulaires qui s'en servent partagent le même
+               balisage. -->
+          <div class="field" id="f-feat-bloc"></div>
 
           <!-- Masqué tant qu'aucun choix n'est fait, mais toujours rempli
                en coulisse : c'est lui qui alimente l'envoi. -->
@@ -2604,6 +2641,8 @@
 
         <div class="field" id="admin-artiste-connu" style="display:none;"></div>
 
+        <div class="field" id="admin-feat-bloc"></div>
+
         <div id="admin-artiste-nouveau" style="display:none;">
           <div class="field">
             <label for="admin-artist">Nom d'artiste</label>
@@ -2871,6 +2910,8 @@
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none"/></svg>
           </a>
         </div>
+        <!-- Featurings de la sortie, quand elle en a. -->
+        <p id="modalFeaturing" class="modal-feat"></p>
         <p id="modalReleaseDate" style="color:var(--muted); font-size:12px; margin:8px 0 0;"></p>
       </div>
     </div>
@@ -5958,6 +5999,376 @@ function choisirNouvelArtiste(ctx){
 }
 
 
+// ---- Featurings ----
+//
+// Même recherche que pour l'artiste principal, mais en liste : une
+// sortie peut en compter plusieurs. Le composant est piloté par un
+// préfixe d'identifiants plutôt que par une table de contextes fixes :
+// les trois endroits qui s'en servent — soumission publique, ajout
+// manuel, et édition d'une sortie déjà en ligne, où le préfixe porte
+// l'identifiant de la sortie — n'ont ainsi rien à déclarer.
+//
+// Un featuring porte toujours un pseudo Instagram, comme l'artiste
+// principal : c'est la clé du profil. Sans elle on ne pourrait ni
+// créer le profil manquant, ni rattacher la sortie à celui qui existe.
+const featsChoisis = {};
+
+
+// Les préfixes finissent dans des attributs onclick : même précaution
+// que pour les pseudos Instagram, on les restreint au jeu de
+// caractères des identifiants qu'ils composent.
+function prefixeSain(valeur){
+  return String(valeur || '').replace(/[^a-zA-Z0-9_-]/g, '');
+}
+
+
+function featsDe(prefixe){
+  return featsChoisis[prefixeSain(prefixe)] || [];
+}
+
+
+// Remet la liste à un état connu : vide sur un formulaire neuf, ou
+// celle déjà enregistrée quand on rouvre l'édition d'une sortie.
+function initFeats(prefixe, valeurs){
+
+  const p = prefixeSain(prefixe);
+
+  featsChoisis[p] = (Array.isArray(valeurs) ? valeurs : [])
+    .map(feat => featNormalise(feat))
+    .filter(Boolean);
+
+  const bloc = document.getElementById(p + '-nouveau');
+  if(bloc) fermerNouveauFeat(p);
+
+  renderFeats(p);
+}
+
+
+function featNormalise(feat){
+
+  if(!feat) return null;
+
+  const handle = handleSain(feat.handle || instagramHandle(feat.instagram_url));
+  const nom = String(feat.nom || '').trim();
+
+  if(!handle || !nom) return null;
+
+  return {
+    nom,
+    handle,
+    instagram_url:
+      safeUrl(feat.instagram_url) || ('https://instagram.com/' + handle)
+  };
+}
+
+
+// Le nom affiché suit le profil : si l'équipe renomme un artiste, ses
+// featurings se corrigent partout sans qu'on ait à réécrire les
+// sorties déjà enregistrées.
+function nomAfficheDuFeat(feat){
+  const profil = artistsByHandle[feat.handle];
+  return (profil && (profil.display_name || profil.instagram_handle)) || feat.nom;
+}
+
+
+// Résumé en une ligne, pour l'espace équipe : la file de modération
+// doit montrer les featurings avant qu'on valide la sortie.
+function featsResumeHtml(submission){
+
+  const feats = (Array.isArray(submission.featuring) ? submission.featuring : [])
+    .map(featNormalise)
+    .filter(Boolean);
+
+  if(!feats.length) return '';
+
+  return `
+    <span style="display:block; margin-top:3px; color:var(--muted);">
+      feat. ${feats.map(feat => escapeHtml(nomAfficheDuFeat(feat))).join(', ')}
+    </span>`;
+}
+
+
+// Le champ qui porte l'Instagram de l'artiste principal du formulaire,
+// pour ne jamais le proposer en featuring de sa propre sortie.
+function champInstaPrincipal(prefixe){
+
+  if(prefixe === 'f-feat') return 'f-instagram';
+  if(prefixe === 'admin-feat') return 'admin-instagram';
+
+  if(prefixe.indexOf('edit-feat-') === 0){
+    return 'edit-instagram-' + prefixe.slice('edit-feat-'.length);
+  }
+
+  return null;
+}
+
+
+function blocFeatHtml(prefixe){
+
+  const p = prefixeSain(prefixe);
+
+  return `
+    <label for="${p}-recherche">Featuring (facultatif)</label>
+    <div class="recherche-barre">
+      <input type="text" id="${p}-recherche"
+             placeholder="Tape un nom d'artiste"
+             autocomplete="off"
+             oninput="rechercherFeats('${p}')">
+      <button type="button" class="recherche-ajout"
+              onclick="ouvrirNouveauFeat('${p}')">
+        ＋ Nouvel artiste
+      </button>
+    </div>
+    <div id="${p}-resultats" class="recherche-resultats"></div>
+    <div id="${p}-liste" class="feat-liste"></div>
+    <div id="${p}-nouveau" class="feat-nouveau" style="display:none;">
+      <input type="text" id="${p}-nom" maxlength="120"
+             placeholder="Nom de l'artiste">
+      <input type="text" id="${p}-insta"
+             placeholder="@pseudo ou lien Instagram complet">
+      <div class="inline-actions">
+        <button type="button" class="btn btn-primary"
+                style="padding:9px 16px; font-size:13px;"
+                onclick="validerNouveauFeat('${p}')">Ajouter</button>
+        <button type="button" class="btn btn-ghost"
+                style="padding:9px 16px; font-size:13px;"
+                onclick="fermerNouveauFeat('${p}')">Annuler</button>
+      </div>
+      <div class="form-msg" id="${p}-msg"></div>
+    </div>`;
+}
+
+
+function renderFeats(prefixe){
+
+  const p = prefixeSain(prefixe);
+  const liste = document.getElementById(p + '-liste');
+
+  if(!liste) return;
+
+  liste.innerHTML = featsDe(p).map(feat => {
+
+    const profil = artistsByHandle[feat.handle];
+    const photo = safeUrl(profil && profil.photo_url);
+    const nom = nomAfficheDuFeat(feat);
+
+    return `
+      <span class="feat-pastille">
+        <span class="recherche-vignette">
+          ${
+            photo
+              ? `<img src="${escapeAttribute(photo)}" alt="">`
+              : escapeHtml(artistInitial(nom))
+          }
+        </span>
+        ${escapeHtml(nom)}
+        <button type="button" class="feat-retirer"
+                title="Retirer ${escapeAttribute(nom)}"
+                onclick="retirerFeat('${p}', '${handleSain(feat.handle)}')">✕</button>
+      </span>`;
+  }).join('');
+}
+
+
+function rechercherFeats(prefixe){
+
+  const p = prefixeSain(prefixe);
+
+  const champ = document.getElementById(p + '-recherche');
+  const zone = document.getElementById(p + '-resultats');
+
+  if(!champ || !zone) return;
+
+  const requete = champ.value.trim().toLowerCase();
+
+  // Ni un artiste déjà en featuring, ni l'artiste principal.
+  const exclus = new Set(featsDe(p).map(feat => feat.handle));
+
+  const champPrincipal = champInstaPrincipal(p);
+  const principal = champPrincipal
+    ? instagramHandle((document.getElementById(champPrincipal) || {}).value)
+    : null;
+
+  if(principal) exclus.add(principal);
+
+  const trouves = requete
+    ? Object.values(artistsByHandle)
+        .filter(profil => !exclus.has(profil.instagram_handle))
+        .filter(profil =>
+          String(profil.display_name || profil.instagram_handle || '')
+            .toLowerCase()
+            .startsWith(requete)
+        )
+        .sort((a, b) =>
+          String(a.display_name || a.instagram_handle)
+            .localeCompare(String(b.display_name || b.instagram_handle))
+        )
+        .slice(0, 8)
+    : [];
+
+  const lignes = trouves.map(profil => {
+
+    const photo = safeUrl(profil.photo_url);
+    const nom = profil.display_name || profil.instagram_handle;
+
+    return `
+      <button type="button" class="recherche-resultat"
+              onclick="ajouterFeat('${p}', '${handleSain(profil.instagram_handle)}')">
+        <span class="recherche-vignette">
+          ${
+            photo
+              ? `<img src="${escapeAttribute(photo)}" alt="">`
+              : escapeHtml(artistInitial(nom))
+          }
+        </span>
+        <span style="min-width:0;">${escapeHtml(nom)}</span>
+      </button>`;
+  }).join('');
+
+  zone.innerHTML =
+    lignes ||
+    (requete
+      ? `<p class="recherche-vide">
+           Aucun <em>autre</em> artiste ne commence par
+           « ${escapeHtml(champ.value.trim())} » — l'artiste principal et
+           ceux déjà ajoutés ne sont pas proposés. Utilise
+           « ＋ Nouvel artiste » pour créer un profil.
+         </p>`
+      : '');
+}
+
+
+function ajouterFeat(prefixe, handle){
+
+  const profil = artistsByHandle[handle];
+  if(!profil) return;
+
+  ajouterFeatBrut(prefixe, {
+    nom: profil.display_name || profil.instagram_handle,
+    handle: profil.instagram_handle,
+    instagram_url: profil.instagram_url
+  });
+}
+
+
+function ajouterFeatBrut(prefixe, brut){
+
+  const p = prefixeSain(prefixe);
+  const feat = featNormalise(brut);
+
+  if(!feat) return;
+  if(featsDe(p).some(deja => deja.handle === feat.handle)) return;
+
+  featsChoisis[p] = featsDe(p).concat([feat]);
+
+  const champ = document.getElementById(p + '-recherche');
+  if(champ) champ.value = '';
+
+  fermerNouveauFeat(p);
+  renderFeats(p);
+  rechercherFeats(p);
+}
+
+
+function retirerFeat(prefixe, handle){
+  const p = prefixeSain(prefixe);
+  featsChoisis[p] = featsDe(p).filter(feat => feat.handle !== handle);
+  renderFeats(p);
+  rechercherFeats(p);
+}
+
+
+function ouvrirNouveauFeat(prefixe){
+
+  const p = prefixeSain(prefixe);
+  const bloc = document.getElementById(p + '-nouveau');
+
+  if(!bloc) return;
+
+  bloc.style.display = '';
+
+  // Ce qui a été tapé dans la recherche sert de point de départ, comme
+  // pour l'artiste principal.
+  const recherche = document.getElementById(p + '-recherche');
+  const nom = document.getElementById(p + '-nom');
+  const insta = document.getElementById(p + '-insta');
+
+  if(nom) nom.value = recherche ? recherche.value.trim() : '';
+  if(insta){
+    insta.value = '';
+    insta.focus();
+  }
+}
+
+
+function fermerNouveauFeat(prefixe){
+
+  const p = prefixeSain(prefixe);
+  const bloc = document.getElementById(p + '-nouveau');
+
+  if(!bloc) return;
+
+  bloc.style.display = 'none';
+
+  const nom = document.getElementById(p + '-nom');
+  const insta = document.getElementById(p + '-insta');
+  const msg = document.getElementById(p + '-msg');
+
+  if(nom) nom.value = '';
+  if(insta) insta.value = '';
+  if(msg){
+    msg.textContent = '';
+    msg.className = 'form-msg';
+  }
+}
+
+
+function validerNouveauFeat(prefixe){
+
+  const p = prefixeSain(prefixe);
+
+  const nom = (document.getElementById(p + '-nom').value || '').trim();
+  const url = normalizeInstagramUrl(document.getElementById(p + '-insta').value);
+  const handle = instagramHandle(url);
+  const msg = document.getElementById(p + '-msg');
+
+  if(!nom || !handle){
+    if(msg){
+      msg.textContent =
+        "Il faut le nom et l'Instagram : c'est le pseudo Instagram qui " +
+        'sert de clé au profil de l\'artiste.';
+      msg.className = 'form-msg err';
+    }
+    return;
+  }
+
+  ajouterFeatBrut(p, { nom, handle, instagram_url: url });
+}
+
+
+// Crée les profils manquants des featurings. Exactement le même
+// chemin que pour l'artiste principal : ceux qui existent déjà sont
+// ignorés par l'upsert, les autres sont créés.
+async function ensureFeatProfiles(feats){
+  for(const feat of (feats || [])){
+    await ensureArtistProfile(feat.handle, feat.instagram_url, feat.nom);
+  }
+}
+
+
+// Les deux formulaires fixes reçoivent le bloc au démarrage. Les
+// lignes d'édition, elles, le reçoivent à leur construction : leur
+// préfixe dépend de la sortie.
+(function poserBlocsFeat(){
+  ['f-feat', 'admin-feat'].forEach(prefixe => {
+    const zone = document.getElementById(prefixe + '-bloc');
+    if(!zone) return;
+    zone.innerHTML = blocFeatHtml(prefixe);
+    initFeats(prefixe, []);
+  });
+})();
+
+
 // Crée le profil s'il n'existe pas encore. La photo n'est jamais
 // touchée ici : elle appartient à l'équipe, et une nouvelle
 // soumission ne doit pas l'écraser.
@@ -6105,6 +6516,11 @@ const list = (data || [])
 
     artistPhoto:
       artistPhotoFor(submission),
+
+    featuring:
+      (Array.isArray(submission.featuring) ? submission.featuring : [])
+        .map(featNormalise)
+        .filter(Boolean),
 
     instagram:
       submission.instagram_url,
@@ -7607,8 +8023,11 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
 
   const profil = artistsByHandle[handle] || null;
 
+  // Les sorties où l'artiste est en featuring comptent aussi : sans
+  // cela, un profil créé par un featuring mènerait à une page vide.
   const sorties = catalogueData.filter(s =>
-    (s.artistHandle || instagramHandle(s.instagram)) === handle
+    (s.artistHandle || instagramHandle(s.instagram)) === handle ||
+    (s.featuring || []).some(feat => feat.handle === handle)
   );
 
   if(!profil && !sorties.length){
@@ -7619,12 +8038,19 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
     return;
   }
 
-  const nom = (sorties[0] && sorties[0].artist) ||
+  // Nom et Instagram se lisent sur une sortie dont l'artiste est le
+  // titulaire, jamais sur une où il n'est qu'invité : ce serait le nom
+  // de quelqu'un d'autre.
+  const sienne = sorties.find(s =>
+    (s.artistHandle || instagramHandle(s.instagram)) === handle
+  );
+
+  const nom = (sienne && sienne.artist) ||
               (profil && profil.display_name) || handle;
 
   const photo = (profil && safeUrl(profil.photo_url)) || '';
   const instagram = safeUrl(profil && profil.instagram_url) ||
-                    safeUrl(sorties[0] && sorties[0].instagram);
+                    safeUrl(sienne && sienne.instagram);
 
   // Compte communauté éventuel, repéré par le même pseudo Instagram.
   const membres = await getUsers();
@@ -8048,6 +8474,28 @@ function openCatalogueModal(id){
              alt="${escapeAttribute(item.artist)}">`
       : escapeHtml(artistInitial(item.artist));
 
+  // Featurings, en petit sous le nom de l'artiste principal. Chaque
+  // nom mène à sa page : le profil existe forcément, il est créé à la
+  // soumission au même titre que celui de l'artiste principal.
+  const featEl = document.getElementById('modalFeaturing');
+  const feats = item.featuring || [];
+
+  if(feats.length){
+    featEl.style.display = '';
+    // Pas de retour à la ligne dans le bouton : l'espace qu'il laisse
+    // se verrait juste avant la virgule.
+    featEl.innerHTML =
+      'feat. ' +
+      feats.map(feat =>
+        `<button type="button" onclick="closeCatalogueModal(); ` +
+        `ouvrirPageArtiste('${handleSain(feat.handle)}')">` +
+        `${escapeHtml(nomAfficheDuFeat(feat))}</button>`
+      ).join(', ');
+  } else {
+    featEl.style.display = 'none';
+    featEl.innerHTML = '';
+  }
+
   const instaEl = document.getElementById('modalInstagram');
   const instaUrl = safeUrl(item.instagram);
   if(instaUrl){
@@ -8393,6 +8841,11 @@ msg.textContent =
 
     await ensureArtistProfile(handle, instagram, artist, villeChoisie['public']);
 
+    // Les featurings suivent le même chemin : profil créé s'il manque,
+    // laissé intact s'il existe déjà.
+    const feats = featsDe('f-feat');
+    await ensureFeatProfiles(feats);
+
 
     // =====================================================
     // 4. ENREGISTRER LA SOUMISSION DANS SUPABASE
@@ -8411,6 +8864,7 @@ msg.textContent =
         release_date: releaseDate,
         release_type: releaseType,
         clip_url: document.getElementById('f-clip').value.trim() || null,
+        featuring: feats,
         ...liens.urls,
         status: 'pending'
       });
@@ -8441,11 +8895,17 @@ msg.textContent =
 
     e.target.reset();
 
-    // reset() vide les champs, pas la commune retenue ni la liste de
-    // résultats affichée dessous.
+    // reset() vide les champs, pas la commune retenue, ni la liste de
+    // résultats affichée dessous, ni l'artiste et les featurings
+    // choisis — qui vivent en mémoire et non dans le formulaire.
     delete villeChoisie['public'];
     const resultatsVille = document.getElementById('artist-ville-resultats-public');
     if(resultatsVille) resultatsVille.innerHTML = '';
+
+    reinitialiserChoixArtiste('f');
+    rechercherArtistes('f');
+    initFeats('f-feat', []);
+    rechercherFeats('f-feat');
 
     coverDataUrl = null;
 
@@ -9036,6 +9496,8 @@ async function loadArtistSubmissions(){
                 ${escapeHtml(submission.artist_name)}
                 ${instagramLinkHtml(submission)}
               </span>
+
+              ${featsResumeHtml(submission)}
 
               <span style="display:block; margin-top:5px;">
                 📧 ${escapeHtml(submission.contact_email)}
@@ -9884,6 +10346,10 @@ function releaseRowHtml(submission){
         </p>
 
         <div class="field">
+          ${blocFeatHtml('edit-feat-' + id)}
+        </div>
+
+        <div class="field">
           <label for="edit-email-${id}">Email de contact</label>
           <input
             type="text"
@@ -10013,6 +10479,12 @@ async function loadApprovedReleases(){
         .map(releaseRowHtml)
         .join('');
 
+    // Les blocs de featuring viennent d'être créés : on les remplit
+    // avec ce qui est enregistré pour chaque sortie.
+    approvedReleasesData.forEach(sortie => {
+      initFeats('edit-feat-' + sortie.id, sortie.featuring);
+    });
+
 
   } catch(error){
 
@@ -10083,6 +10555,8 @@ function cancelEditRelease(submissionId){
       document.getElementById(prefix + submissionId);
     if(field) field.value = value;
   };
+
+  initFeats('edit-feat-' + submissionId, submission.featuring);
 
   set('edit-title-', submission.track_title || '');
   set('edit-artist-', submission.artist_name || '');
@@ -10201,6 +10675,11 @@ async function saveReleaseEdit(submissionId){
 
   try{
 
+    // Un featuring ajouté ici doit exister comme profil, au même titre
+    // que s'il était arrivé par le formulaire.
+    const feats = featsDe('edit-feat-' + submissionId);
+    await ensureFeatProfiles(feats);
+
     const updates = {
       track_title: title,
       artist_name: artist,
@@ -10210,6 +10689,7 @@ async function saveReleaseEdit(submissionId){
       instagram_url: instagram,
       contact_email: email || null,
       clip_url: value('edit-clip-') || null,
+      featuring: feats,
       ...platformUrls,
       updated_at: new Date().toISOString()
     };
@@ -11506,6 +11986,9 @@ document.getElementById('adminAddForm').addEventListener('submit', async (e)=>{
 
     await ensureArtistProfile(handle, instagram, artist);
 
+    const feats = featsDe('admin-feat');
+    await ensureFeatProfiles(feats);
+
     submitBtn.textContent = 'Enregistrement...';
 
     // Insertion en « pending » puis validation immédiate. Les règles
@@ -11523,6 +12006,7 @@ document.getElementById('adminAddForm').addEventListener('submit', async (e)=>{
       release_date: releaseDate,
       release_type: releaseType,
       clip_url: lire('admin-clip') || null,
+      featuring: feats,
       ...liens.urls,
       status: 'pending'
     });
@@ -11596,6 +12080,8 @@ document.getElementById('adminAddForm').addEventListener('submit', async (e)=>{
     // l'artiste choisi ni l'état interne de la recherche.
     reinitialiserChoixArtiste('admin');
     rechercherArtistes('admin');
+    initFeats('admin-feat', []);
+    rechercherFeats('admin-feat');
 
     adminCoverDataUrl = null;
     adminCoverDrop.classList.remove('has-file');
