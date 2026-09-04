@@ -1913,6 +1913,25 @@
     </section>
   </section>
 
+  <!-- Voile bloquant de la page Soumettre. La file de modération n'est
+       pas ouverte à tous les comptes : le formulaire reste derrière,
+       inaccessible, tant que le rôle ne convient pas. Rempli par
+       verifierAccesSoumission — pas de croix de fermeture, la seule
+       sortie est un des boutons proposés. -->
+  <div class="modal-overlay" id="submitGate">
+    <div class="modal-box" style="max-width:420px;">
+      <div class="modal-body" style="padding:28px 26px 26px;">
+        <span class="eyebrow mono">Accès réservé</span>
+        <h3 style="font-size:20px; margin:6px 0 12px;">
+          Réservé aux artistes et à leur entourage
+        </h3>
+        <p id="submitGateTexte"
+           style="font-size:14px; color:var(--ink-soft); margin:0 0 22px;"></p>
+        <div class="inline-actions" id="submitGateActions"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= CONTENT ================= -->
   <section id="page-content" class="page">
     <section>
@@ -3272,6 +3291,9 @@ const BD = {
   if(pageId === 'carte') renderCarte(); else arreterCarte();
   if(pageId === 'community') renderCommunity();
   if(pageId === 'profile') renderProfileForm();
+  // Le voile est en position fixe : sans cet appel à chaque page, il
+  // recouvrirait la suivante après un départ de « Soumettre ».
+  verifierAccesSoumission();
 }
 
 // L'accueil n'a pas d'ancre : une adresse nue reste propre.
@@ -3741,19 +3763,102 @@ async function saveContentPicks(){
 // côté de chaque pseudo, et les filtres de l'annuaire.
 
 const MEMBER_ROLES = [
-  { name: 'Auditeur',           icon: '🎧', color: '#8a9199' },
-  { name: 'Artiste',            icon: '🎤', color: '#1489de' },
-  { name: 'Beatmaker',          icon: '🎹', color: '#a855f7' },
-  { name: 'DJ',                 icon: '🎛️', color: '#f59e0b' },
-  { name: "Membre d'un label",  icon: '🏷️', color: '#10b981' },
-  { name: 'Manager / Booker',   icon: '📈', color: '#ec4899' },
-  { name: 'Média / Presse',     icon: '📰', color: '#06b6d4' },
-  { name: 'Autre',              icon: '✨', color: '#8a9199' }
+  { name: 'Auditeur / Auditrice', icon: '🎧', color: '#8a9199' },
+  { name: 'Artiste',              icon: '🎤', color: '#1489de' },
+  { name: 'Beatmaker',            icon: '🎹', color: '#a855f7' },
+  { name: 'DJ',                   icon: '🎛️', color: '#f59e0b' },
+  { name: "Membre d'un label",    icon: '🏷️', color: '#10b981' },
+  { name: 'Manager',              icon: '📈', color: '#ec4899' },
+  { name: 'Relation presse',      icon: '📣', color: '#ef4444' },
+  { name: 'Média / Presse',       icon: '📰', color: '#06b6d4' },
+  { name: 'Autre',                icon: '✨', color: '#8a9199' }
 ];
 
+// Les libellés ont changé : les comptes créés avant gardent l'ancien
+// texte en base tant qu'ils n'ont pas réenregistré leur profil. Sans
+// cette table, leur badge basculerait sur « Autre » et ils
+// disparaîtraient des filtres de l'annuaire.
+const ROLES_RENOMMES = {
+  'Auditeur':         'Auditeur / Auditrice',
+  'Manager / Booker': 'Manager',
+  'Booker':           'Manager'
+};
+
 function roleInfo(nom){
-  return MEMBER_ROLES.find(r => r.name === nom) ||
+  const cible = ROLES_RENOMMES[nom] || nom;
+  return MEMBER_ROLES.find(r => r.name === cible) ||
          MEMBER_ROLES[MEMBER_ROLES.length - 1];
+}
+
+// Nom canonique d'un rôle : à utiliser partout où des rôles sont
+// comparés entre eux — filtres de l'annuaire, accès au formulaire,
+// valeur du menu déroulant.
+function roleNom(nom){
+  return roleInfo(nom || MEMBER_ROLES[0].name).name;
+}
+
+// Le formulaire de soumission alimente directement la file de
+// modération de l'équipe : seuls les rôles qui ont légitimement une
+// sortie à proposer y accèdent.
+const ROLES_SOUMISSION = [
+  'Artiste',
+  'Beatmaker',
+  "Membre d'un label",
+  'Manager',
+  'Relation presse'
+];
+
+function peutSoumettre(){
+  return !!currentUser && ROLES_SOUMISSION.includes(roleNom(currentUser.role));
+}
+
+// Lève ou pose le voile de la page Soumettre. Appelée à chaque
+// navigation et à chaque changement de session : quelqu'un qui se
+// connecte depuis cette page voit le voile se lever sans recharger.
+function verifierAccesSoumission(){
+
+  const voile = document.getElementById('submitGate');
+  const page = document.getElementById('page-submit');
+
+  if(!voile || !page) return;
+
+  if(!page.classList.contains('active') || peutSoumettre()){
+    voile.classList.remove('open');
+    return;
+  }
+
+  const texte = document.getElementById('submitGateTexte');
+  const actions = document.getElementById('submitGateActions');
+
+  const liste = ROLES_SOUMISSION.join(', ').replace(/, ([^,]*)$/, ' ou $1');
+
+  voile.classList.add('open');
+
+  if(!currentUser){
+    texte.textContent =
+      'Cette page est réservée aux comptes ayant le statut ' + liste +
+      ". Si c'est ton cas, crée-toi un compte : tu pourras nous " +
+      'envoyer tes sorties directement.';
+    actions.innerHTML = `
+      <button type="button" class="btn btn-primary"
+              onclick="openAuthModal('signup')">Créer un compte</button>
+      <button type="button" class="btn btn-ghost"
+              onclick="openAuthModal('login')">J'ai déjà un compte</button>
+      <button type="button" class="btn btn-ghost"
+              onclick="goTo('home')">Retour à l'accueil</button>`;
+    return;
+  }
+
+  texte.textContent =
+    'Cette page est réservée aux comptes ayant le statut ' + liste +
+    ". Ton profil indique « " + roleNom(currentUser.role) +
+    " » : modifie-le si tu fais partie de ces statuts.";
+
+  actions.innerHTML = `
+    <button type="button" class="btn btn-primary"
+            onclick="goTo('profile')">Modifier mon rôle</button>
+    <button type="button" class="btn btn-ghost"
+            onclick="goTo('home')">Retour à l'accueil</button>`;
 }
 
 function roleBadgeHtml(nom, taille){
@@ -3795,7 +3900,7 @@ function profileToUser(row){
     pseudo: row.pseudo,
     avatar: row.avatar_url || '',
     bio: row.bio || '',
-    role: row.role || 'Auditeur',
+    role: roleNom(row.role),
     socials: row.socials || {},
     xp: row.xp || 0,
     challenges: row.challenges || {},
@@ -3841,7 +3946,7 @@ async function ensureProfileExists(authUser){
     const { error } = await BD.creerProfil({
       id: authUser.id,
       pseudo,
-      role: 'Auditeur',
+      role: MEMBER_ROLES[0].name,
       socials: { instagram:'', twitter:'', tiktok:'', spotify:'', appleMusic:'', deezer:'' },
       xp: 0,
       challenges: { date: todayStr(), postForum:false, commentForum:false, instaComment:false },
@@ -3986,6 +4091,10 @@ function refreshAccountUI(){
 
   refreshAccountIcon();
 
+  // La session revient après le premier affichage : sans ce rappel, un
+  // membre arrivé directement sur #submit resterait derrière le voile.
+  verifierAccesSoumission();
+
   if(currentUser){
     loggedOut.style.display = 'none';
     loggedIn.style.display = 'block';
@@ -4065,7 +4174,7 @@ async function submitSignup(){
   const { error: profilError } = await BD.creerProfil({
     id: data.user.id,
     pseudo,
-    role: 'Auditeur',
+    role: MEMBER_ROLES[0].name,
     socials: { instagram:'', twitter:'', tiktok:'', spotify:'', appleMusic:'', deezer:'' },
     xp: 0,
     challenges: { date: todayStr(), postForum:false, commentForum:false, instaComment:false },
@@ -4379,7 +4488,7 @@ async function renderProfileForm(){
   // ---- Formulaire de réglages, replié par défaut ----
   document.getElementById('profilePseudo').value = currentUser.pseudo || '';
   document.getElementById('profileBio').value = currentUser.bio || '';
-  document.getElementById('profileRole').value = currentUser.role || 'Auditeur';
+  document.getElementById('profileRole').value = roleNom(currentUser.role);
   document.getElementById('socialInstagram').value = (currentUser.socials || {}).instagram || '';
   document.getElementById('socialTwitter').value = (currentUser.socials || {}).twitter || '';
   document.getElementById('socialTiktok').value = (currentUser.socials || {}).tiktok || '';
@@ -5271,7 +5380,7 @@ function renderMembers(){
   // Un filtre n'a d'intérêt que s'il correspond à des membres.
   const rolesPresents = MEMBER_ROLES
     .map(r => r.name)
-    .filter(nom => membersData.some(m => (m.role || 'Auditeur') === nom));
+    .filter(nom => membersData.some(m => roleNom(m.role) === nom));
 
   const filtres = document.getElementById('roleFilters');
 
@@ -5280,7 +5389,7 @@ function renderMembers(){
       const info = nom === 'Tous' ? null : roleInfo(nom);
       const nb = nom === 'Tous'
         ? membersData.length
-        : membersData.filter(m => (m.role || 'Auditeur') === nom).length;
+        : membersData.filter(m => roleNom(m.role) === nom).length;
       return `
         <button type="button"
           class="role-filter${memberRoleFilter === nom ? ' active' : ''}"
@@ -5292,7 +5401,7 @@ function renderMembers(){
 
   const visibles = memberRoleFilter === 'Tous'
     ? membersData
-    : membersData.filter(m => (m.role || 'Auditeur') === memberRoleFilter);
+    : membersData.filter(m => roleNom(m.role) === memberRoleFilter);
 
   // Les profils les plus actifs d'abord.
   const tries = [...visibles].sort((a, b) => (b.xp || 0) - (a.xp || 0));
@@ -6875,6 +6984,94 @@ function pointsGrille(){
 }
 
 
+// ---- Cadrage automatique ----
+//
+// L'échelle était fixe (la largeur divisée par 78). Elle ignorait deux
+// choses : le balancement, qui pousse les extrémités est et ouest hors
+// du cadre à certains moments, et le rayon des pastilles, qui n'existe
+// pas dans la géométrie du plan. Résultat, Brest ou Nice se
+// retrouvaient coupées par le bord une partie du temps.
+//
+// Ici on projette la grille et les têtes de marqueurs pour toute la
+// course du balancement, on prend la boîte la plus large, et on choisit
+// l'échelle qui la fait tenir — pastilles comprises. Le calcul se fait
+// une fois par taille de cadre : quinze mille projections à l'ouverture
+// de la page, rien pendant l'animation.
+let carteCadre = null;
+
+function calculerCadre(largeur, hauteur){
+
+  const angles = [];
+  const amplitude = carteMouvementReduit() ? 0 : CARTE_3D.amplitude;
+  for(let i = -4; i <= 4; i++) angles.push(amplitude * i / 4);
+
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+  let echelleMax = 0;
+
+  const retenir = (p) => {
+    if(p.x < minX) minX = p.x;
+    if(p.x > maxX) maxX = p.x;
+    if(p.y < minY) minY = p.y;
+    if(p.y > maxY) maxY = p.y;
+  };
+
+  angles.forEach(angle => {
+
+    const etat = { angle, cx: 0, cy: 0, zoom: 1 };
+
+    pointsGrille().forEach(([c, r]) => retenir(projeter3D(c, r, 0, etat)));
+
+    carteVilles.forEach(ville => {
+      const g = projeterSurCarte(ville.lon, ville.lat);
+      const tete = projeter3D(g.x, g.y, CARTE_3D.hauteurMarqueur, etat);
+      retenir(tete);
+      if(tete.echelle > echelleMax) echelleMax = tete.echelle;
+    });
+  });
+
+  if(!isFinite(minX) || maxX === minX){
+    return { echelle: largeur / 78, cx: largeur / 2, cy: hauteur * 0.52 };
+  }
+
+  // La marge doit contenir la pastille, son halo et sa pastille de
+  // comptage — or leur rayon dépend de l'échelle qu'on cherche. Deux
+  // passes suffisent à converger.
+  let echelle = largeur / 78;
+
+  for(let passe = 0; passe < 3; passe++){
+    const rayon = Math.max(11, echelleMax * echelle * 0.40) * 1.18;
+    const marge = rayon * 1.6;
+    echelle = Math.max(1, Math.min(
+      (largeur - marge * 2) / (maxX - minX),
+      (hauteur - marge * 2) / (maxY - minY)
+    ));
+  }
+
+  return {
+    echelle,
+    cx: largeur / 2 - (minX + maxX) / 2 * echelle,
+    cy: hauteur / 2 - (minY + maxY) / 2 * echelle
+  };
+}
+
+
+function cadrageCarte(largeur, hauteur){
+
+  if(carteCadre &&
+     carteCadre.largeur === largeur &&
+     carteCadre.hauteur === hauteur){
+    return carteCadre;
+  }
+
+  carteCadre = calculerCadre(largeur, hauteur);
+  carteCadre.largeur = largeur;
+  carteCadre.hauteur = hauteur;
+
+  return carteCadre;
+}
+
+
 function dessinerCarte(temps){
 
   const canvas = document.getElementById('carteCanvas');
@@ -6899,11 +7096,13 @@ function dessinerCarte(temps){
     ? 0
     : Math.sin((temps / CARTE_3D.periode) * Math.PI * 2) * CARTE_3D.amplitude;
 
+  const cadre = cadrageCarte(largeur, hauteur);
+
   const etat = {
     angle: balancement,
-    cx: largeur / 2 + cartePanX,
-    cy: hauteur * 0.52 + cartePanY,
-    zoom: (largeur / 78) * carteZoom
+    cx: cadre.cx + cartePanX,
+    cy: cadre.cy + cartePanY,
+    zoom: cadre.echelle * carteZoom
   };
 
   // ---- Fond pointillé, du plus lointain au plus proche ----
@@ -7114,11 +7313,13 @@ function zoomerCarte(facteur, versX, versY){
   const reel = carteZoom / avant;
   if(reel === 1) return;
 
-  const cx = largeur / 2 + cartePanX;
-  const cy = hauteur * 0.52 + cartePanY;
+  const cadre = cadrageCarte(largeur, hauteur);
 
-  cartePanX = mx + (cx - mx) * reel - largeur / 2;
-  cartePanY = my + (cy - my) * reel - hauteur * 0.52;
+  const cx = cadre.cx + cartePanX;
+  const cy = cadre.cy + cartePanY;
+
+  cartePanX = mx + (cx - mx) * reel - cadre.cx;
+  cartePanY = my + (cy - my) * reel - cadre.cy;
 
   brider();
 }
@@ -7260,6 +7461,10 @@ async function renderCarte(){
 
   carteVilles = villesDeLaCarte();
   carteVilleActive = -1;
+
+  // Le cadrage dépend des villes affichées : un nouvel artiste à une
+  // extrémité change la boîte à faire tenir.
+  carteCadre = null;
 
   brancherCarte();
   demarrerCarte();
@@ -8110,6 +8315,15 @@ submitFormEl.addEventListener('submit', async (e)=>{
   e.preventDefault();
 
   const msg = document.getElementById('formMsg');
+
+  // Le voile couvre l'écran, mais un envoi déclenché autrement — un
+  // Entrée dans un champ resté focalisé — ne doit pas passer non plus.
+  if(!peutSoumettre()){
+    verifierAccesSoumission();
+    msg.textContent = 'Ce formulaire est réservé aux comptes artistes.';
+    msg.className = 'form-msg err';
+    return;
+  }
 
   const title = document.getElementById('f-title').value.trim();
   const artist = document.getElementById('f-artist').value.trim();
