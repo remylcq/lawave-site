@@ -3808,8 +3808,13 @@ const ROLES_SOUMISSION = [
   'Relation presse'
 ];
 
+// L'équipe passe quel que soit son rôle affiché : c'est elle qui
+// dépouille la file, elle doit pouvoir y déposer. Même règle que côté
+// base, où la policy laisse passer is_admin sans regarder le rôle.
 function peutSoumettre(){
-  return !!currentUser && ROLES_SOUMISSION.includes(roleNom(currentUser.role));
+  if(!currentUser) return false;
+  if(currentUser.isAdmin) return true;
+  return ROLES_SOUMISSION.includes(roleNom(currentUser.role));
 }
 
 // Lève ou pose le voile de la page Soumettre. Appelée à chaque
