@@ -1853,13 +1853,10 @@
                réglés par l'équipe. Rempli par choisirArtiste. -->
           <div class="field" id="f-artiste-connu" style="display:none;"></div>
 
-          <!-- Featurings : rempli au démarrage par blocFeatHtml, pour que
-               les trois formulaires qui s'en servent partagent le même
-               balisage. -->
-          <div class="field" id="f-feat-bloc"></div>
-
           <!-- Masqué tant qu'aucun choix n'est fait, mais toujours rempli
-               en coulisse : c'est lui qui alimente l'envoi. -->
+               en coulisse : c'est lui qui alimente l'envoi. Il reste
+               collé à la recherche ci-dessus : ces champs complètent
+               l'artiste principal, pas le featuring qui suit. -->
           <div id="f-artiste-nouveau" style="display:none;">
             <div class="field">
               <label for="f-artist">Nom d'artiste</label>
@@ -1871,6 +1868,11 @@
 
             </div>
           </div>
+
+          <!-- Featurings : rempli au démarrage par blocFeatHtml, pour que
+               les trois formulaires qui s'en servent partagent le même
+               balisage. -->
+          <div class="field" id="f-feat-bloc"></div>
           <div class="field">
             <label>Cover (image en bonne qualité)</label>
             <div class="cover-drop" id="coverDrop">
@@ -2641,8 +2643,6 @@
 
         <div class="field" id="admin-artiste-connu" style="display:none;"></div>
 
-        <div class="field" id="admin-feat-bloc"></div>
-
         <div id="admin-artiste-nouveau" style="display:none;">
           <div class="field">
             <label for="admin-artist">Nom d'artiste</label>
@@ -2659,6 +2659,8 @@
             </p>
           </div>
         </div>
+
+        <div class="field" id="admin-feat-bloc"></div>
 
         <div class="field">
           <label>Cover (recadrée automatiquement en carré)</label>
