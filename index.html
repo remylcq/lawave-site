@@ -5871,14 +5871,14 @@ const CONTEXTES_ARTISTE = {
 const artisteChoisi = { f: null, admin: null };
 
 
-// Un profil n'est proposé dans les formulaires que si l'on connaît son
-// Instagram. Les profils importés en masse n'en ont pas : leur pseudo
-// est déduit de leur nom, donc invérifiable. Les proposer ferait
-// afficher un lien Instagram inventé sur la fiche d'une sortie — mieux
-// vaut pas de lien qu'un mauvais. L'équipe les complète depuis
-// l'onglet Artistes, et ils apparaissent alors ici.
-function profilProposable(profil){
-  return !!(profil && safeUrl(profil.instagram_url));
+// Les profils importés en masse n'ont pas d'Instagram : leur pseudo
+// est déduit de leur nom. On les propose quand même — c'est l'intérêt
+// d'avoir la base — mais on n'invente pas leur lien : le formulaire le
+// demande à celui qui soumet, qui est le plus souvent l'artiste ou son
+// entourage et le connaît mieux que nous. Le profil se complète à la
+// validation de la sortie.
+function instagramConnu(profil){
+  return safeUrl(profil && profil.instagram_url);
 }
 
 
@@ -5994,7 +5994,6 @@ function rechercherArtistes(ctx){
   // girlsloveromsii dès la lettre e : l'artiste ne s'écrit pas ainsi.
   const trouves = requete
     ? Object.values(artistsByHandle)
-        .filter(profilProposable)
         .filter(profil =>
           String(profil.display_name || profil.instagram_handle || '')
             .toLowerCase()
@@ -6107,12 +6106,15 @@ function choisirArtiste(handle, ctx){
 
   document.getElementById(config.recherche).value = nom;
 
+  const insta = instagramConnu(profil);
+
   // Les champs masqués restent la source de l'envoi : on les remplit
-  // au lieu de dupliquer la validation et la soumission.
+  // au lieu de dupliquer la validation et la soumission. Quand on ne
+  // connaît pas l'Instagram, le champ reste vide plutôt que de porter
+  // un lien déduit du pseudo : c'est la fiche demandée juste en
+  // dessous qui le renseignera.
   document.getElementById(config.nom).value = nom;
-  document.getElementById(config.insta).value =
-    profil.instagram_url ||
-    ('https://instagram.com/' + profil.instagram_handle);
+  document.getElementById(config.insta).value = insta || '';
 
   document.getElementById(config.nouveau).style.display = 'none';
 
@@ -6136,13 +6138,32 @@ function choisirArtiste(handle, ctx){
             : escapeHtml(artistInitial(nom))
         }
       </div>
-      <div style="min-width:0;">
+      <div style="min-width:0; flex:1;">
         <strong style="display:block;">${escapeHtml(nom)}</strong>
         <span style="font-size:13px; color:var(--muted);">
-          @${escapeHtml(profil.instagram_handle)}
+          ${
+            insta
+              ? '@' + escapeHtml(profil.instagram_handle)
+              : 'Instagram inconnu de notre base'
+          }
           ${profil.ville ? ' · 📍 ' + escapeHtml(profil.ville) : ''}
         </span>
         ${artistSocialsHtml(profil)}
+        ${
+          insta
+            ? ''
+            : `<div style="margin-top:10px;">
+                 <input type="text"
+                        id="${ctx}-insta-complement"
+                        placeholder="@pseudo Instagram de l'artiste"
+                        autocomplete="off"
+                        oninput="document.getElementById('${config.insta}').value = this.value; apresChoixArtiste('${ctx}');">
+                 <p style="font-size:12px; color:var(--muted); margin:8px 0 0;">
+                   On ne l'a pas encore. Renseigne-le : il complétera son
+                   profil une fois la sortie validée.
+                 </p>
+               </div>`
+        }
       </div>
     </div>`;
 
@@ -6513,7 +6534,6 @@ function rechercherFeats(prefixe){
 
   const trouves = requete
     ? Object.values(artistsByHandle)
-        .filter(profilProposable)
         .filter(profil => !exclus.has(profil.instagram_handle))
         .filter(profil =>
           String(profil.display_name || profil.instagram_handle || '')
@@ -9298,7 +9318,11 @@ msg.textContent =
     // première soumission, et on ne touche plus à sa photo ensuite
     // pour ne pas écraser celle réglée par l'équipe.
 
-    const handle = instagramHandle(instagram);
+    // Un artiste choisi dans la liste garde SON pseudo, même si celui
+    // qui soumet vient de renseigner un Instagram différent : sans
+    // cela, compléter le lien d'un profil importé créerait un second
+    // profil au lieu de le compléter.
+    const handle = artisteChoisi.f || instagramHandle(instagram);
 
     await ensureArtistProfile(handle, instagram, artist, villeChoisie['public']);
 
@@ -10203,24 +10227,34 @@ function askApproveSubmission(submissionId){
 async function appliquerPhotoProposee(submission){
 
   const photo = safeUrl(submission && submission.artist_photo_url);
+  const insta = safeUrl(submission && submission.instagram_url);
   const handle = submission && handleSain(submission.artist_handle);
 
-  if(!photo || !handle) return;
+  if(!handle || (!photo && !insta)) return;
 
   // Le profil vient peut-être d'être créé par cette soumission : on
   // relit avant de décider.
   await loadArtists();
 
   const profil = artistsByHandle[handle];
+  if(!profil) return;
 
-  // Profil inconnu du site à cet instant, ou photo déjà réglée : on ne
-  // touche à rien.
-  if(!profil || profil.photo_url) return;
+  // On ne remplit que ce qui manque. Ce que l'équipe a déjà réglé
+  // reste prioritaire : une validation ne doit rien remplacer.
+  const champs = {};
 
-  const { error } = await BD.majArtiste(handle, { photo_url: photo });
+  if(photo && !profil.photo_url) champs.photo_url = photo;
+
+  // Un profil importé n'a pas d'Instagram : celui laissé par la
+  // personne qui soumet le complète, et le rend enfin cliquable.
+  if(insta && !instagramConnu(profil)) champs.instagram_url = insta;
+
+  if(Object.keys(champs).length === 0) return;
+
+  const { error } = await BD.majArtiste(handle, champs);
 
   if(error){
-    console.warn('⚠️ Photo proposée non appliquée :', error.message);
+    console.warn('⚠️ Profil non complété à la validation :', error.message);
     return;
   }
 
@@ -10323,9 +10357,9 @@ async function approveSubmission(submissionId){
     }
 
 
-    // La photo proposée par l'artiste ne se pose qu'ici, et seulement
-    // si son profil n'en a pas déjà une : celle réglée par l'équipe
-    // reste prioritaire, une validation ne doit pas la remplacer.
+    // Photo et Instagram laissés avec la soumission complètent le
+    // profil de l'artiste, mais seulement là où il est vide : ce que
+    // l'équipe a réglé reste prioritaire.
     await appliquerPhotoProposee(submission);
 
 
@@ -11709,8 +11743,8 @@ function artistProfileRowHtml(profil){
               ${
                 profil.source && !safeUrl(profil.instagram_url)
                   ? `<span style="display:block; margin-top:4px; color:var(--muted);">
-                       Pseudo déduit du nom : renseigne son Instagram pour
-                       qu'il soit proposé dans les formulaires.
+                       Pseudo déduit du nom. Son Instagram se remplira à la
+                       première sortie validée à son nom, ou ici.
                      </span>`
                   : ''
               }
@@ -12668,7 +12702,7 @@ document.getElementById('adminAddForm').addEventListener('submit', async (e)=>{
       Fichiers.nommer(artist, title)
     );
 
-    const handle = instagramHandle(instagram);
+    const handle = artisteChoisi.admin || instagramHandle(instagram);
 
     // L'équipe est déjà l'instance de validation : sa photo est posée
     // sur le profil au moment où celui-ci est créé, pas plus tard.
