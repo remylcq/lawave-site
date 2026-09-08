@@ -1811,8 +1811,18 @@
           <h2>Catalogue</h2>
           <p class="desc">Toutes les sorties repérées par La Wave, de la plus récente à la plus ancienne.</p>
         </div>
+        <span class="mono" id="catalogueCompte"
+              style="color:var(--muted); font-size:13px;"></span>
       </div>
+
+      <div class="field" style="margin-bottom:24px;">
+        <input type="text" id="rechercheCataloguePublic" autocomplete="off"
+               placeholder="Chercher un titre ou un artiste"
+               oninput="onRechercheCatalogue()">
+      </div>
+
       <div class="cat-grid" id="catalogueGrid"></div>
+      <div id="catalogueReste" style="margin-top:28px; text-align:center;"></div>
     </section>
   </section>
 
@@ -6771,6 +6781,95 @@ function artistInitial(nom){
 // ---------------- CATALOGUE RENDER ----------------
 let catalogueData = [];
 
+// Le catalogue s'affichait d'un bloc. À trente sorties c'était juste ;
+// avec un fonds importé il atteignait 350 000 pixels de haut et
+// demandait près de quatre mille images — une page qu'on ne peut ni
+// parcourir ni charger. Il s'ouvre donc sur une page, la recherche
+// donnant accès au reste.
+const CATALOGUE_PAR_PAGE = 60;
+
+let catalogueTrie = [];
+let catalogueVisibles = CATALOGUE_PAR_PAGE;
+
+
+function catalogueFiltre(){
+
+  const requete = texteRecherche('rechercheCataloguePublic');
+
+  if(!requete) return catalogueTrie;
+
+  return catalogueTrie.filter(sortie =>
+    String(sortie.title || '').toLowerCase().includes(requete) ||
+    String(sortie.artist || '').toLowerCase().includes(requete) ||
+    (sortie.featuring || []).some(feat =>
+      String(feat.nom || '').toLowerCase().includes(requete))
+  );
+}
+
+
+function voirPlusCatalogue(){
+  catalogueVisibles += CATALOGUE_PAR_PAGE;
+  renderCatalogueGrille();
+}
+
+
+function renderCatalogueGrille(){
+
+  const grid = document.getElementById('catalogueGrid');
+  const compteur = document.getElementById('catalogueCompte');
+
+  if(!grid) return;
+
+  if(!catalogueTrie.length){
+    grid.innerHTML = `
+      <div class="empty-state">
+        Aucune sortie publiée pour l'instant.
+        Les prochaines validations apparaîtront ici.
+      </div>`;
+    if(compteur) compteur.textContent = '';
+    return;
+  }
+
+  const trouvees = catalogueFiltre();
+
+  if(compteur){
+    compteur.textContent = trouvees.length
+      ? trouvees.length + ' sortie' + (trouvees.length > 1 ? 's' : '')
+      : '';
+  }
+
+  if(!trouvees.length){
+    grid.innerHTML = `
+      <div class="empty-state">
+        Aucune sortie ne correspond à cette recherche.
+      </div>`;
+    return;
+  }
+
+  const visibles = trouvees.slice(0, catalogueVisibles);
+
+  grid.innerHTML = visibles.map(tileHtml).join('');
+
+  const reste = document.getElementById('catalogueReste');
+
+  if(reste){
+    reste.innerHTML = trouvees.length > visibles.length
+      ? `<button type="button" class="btn btn-ghost"
+                 onclick="voirPlusCatalogue()">
+           Voir plus — ${trouvees.length - visibles.length} restante${trouvees.length - visibles.length > 1 ? 's' : ''}
+         </button>`
+      : '';
+  }
+}
+
+
+// La recherche repart de la première page : sinon, chercher après
+// avoir déroulé tout le catalogue affichait d'emblée mille résultats.
+function onRechercheCatalogue(){
+  catalogueVisibles = CATALOGUE_PAR_PAGE;
+  renderCatalogueGrille();
+}
+
 function tileHtml(item){
   return `
     <div class="cat-tile" onclick="openCatalogueModal('${item.id}')">
@@ -6914,27 +7013,9 @@ const list = (data || [])
     // CATALOGUE
     // ==========================================
 
-    const grid =
-      document.getElementById(
-        'catalogueGrid'
-      );
-
-    if(grid){
-
-      grid.innerHTML =
-        sorted.length
-
-          ? sorted
-              .map(tileHtml)
-              .join('')
-
-          : `
-            <div class="empty-state">
-              Aucune sortie publiée pour l'instant.
-              Les prochaines validations apparaîtront ici.
-            </div>
-          `;
-    }
+    catalogueTrie = sorted;
+    catalogueVisibles = CATALOGUE_PAR_PAGE;
+    renderCatalogueGrille();
 
 
     // ==========================================
