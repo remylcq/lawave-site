@@ -3235,6 +3235,14 @@ const BD = {
       .delete().eq('instagram_handle', handle).select();
   },
 
+  // Toutes les sorties d'un artiste d'un coup. Le .select() est
+  // indispensable : sans lui, un DELETE bloqué par une policy renvoie
+  // zéro ligne sans erreur, et l'échec passerait inaperçu.
+  supprimerSortiesDArtiste(handle){
+    return supabaseClient.from('submissions')
+      .delete().eq('artist_handle', handle).select();
+  },
+
   // Sert à suivre un changement de pseudo Instagram : les sorties
   // gardent le lien avec leur artiste.
   majSortiesDArtiste(handle, champs){
@@ -12033,19 +12041,30 @@ function artistProfileRowHtml(profil){
                Sa photo sera effacée définitivement.
                ${
                  nombre > 0
-                   ? `Ses ${nombre} sortie${nombre > 1 ? 's' : ''} <strong>resteront
-                      en ligne</strong>, mais afficheront son initiale à la place
-                      de sa photo. Le profil se recréera tout seul à sa prochaine
-                      soumission.`
+                   ? `Ses ${nombre} sortie${nombre > 1 ? 's' : ''} peuvent partir
+                      avec lui, ou rester en ligne — elles afficheraient alors son
+                      initiale à la place de sa photo, et le profil se recréerait
+                      tout seul à sa prochaine soumission.`
                    : `Il n'a aucune sortie publiée.`
                }
              </p>
 
              <div class="inline-actions">
-               <button type="button" class="btn btn-primary"
-                       onclick="supprimerProfilArtiste('${h}')">
-                 Oui, supprimer
-               </button>
+               ${
+                 nombre > 0
+                   ? `<button type="button" class="btn btn-primary"
+                              onclick="supprimerProfilArtiste('${h}', true)">
+                        Supprimer le profil et ses ${nombre} sortie${nombre > 1 ? 's' : ''}
+                      </button>
+                      <button type="button" class="btn btn-ghost"
+                              onclick="supprimerProfilArtiste('${h}', false)">
+                        Le profil seul
+                      </button>`
+                   : `<button type="button" class="btn btn-primary"
+                              onclick="supprimerProfilArtiste('${h}', false)">
+                        Oui, supprimer
+                      </button>`
+               }
                <button type="button" class="btn btn-ghost"
                        onclick="closeConfirmPanel('artist-delete-${h}')">
                  Annuler
@@ -12391,7 +12410,7 @@ async function enregistrerArtiste(ancienHandle){
 // Supprime le profil et sa photo. Les sorties de l'artiste restent en
 // ligne : elles perdent seulement le lien vers sa photo, et le profil
 // se recrée automatiquement à sa prochaine soumission.
-async function supprimerProfilArtiste(handle){
+async function supprimerProfilArtiste(handle, avecSorties){
 
   if(!isAdmin) return;
 
@@ -12403,12 +12422,45 @@ async function supprimerProfilArtiste(handle){
 
   try{
 
+    let sortiesEffacees = 0;
+
+    // Les sorties d'abord. Si elles résistent, le profil reste en
+    // place et la situation est encore lisible ; l'ordre inverse
+    // laisserait des sorties orphelines sans le profil qui les
+    // rattache.
+    if(avecSorties){
+
+      const { data: sorties, error: erreurSorties } =
+        await BD.supprimerSortiesDArtiste(handle);
+
+      if(erreurSorties) throw erreurSorties;
+
+      sortiesEffacees = (sorties || []).length;
+
+      // Les covers importées vivent chez Deezer : cheminDepuisUrl les
+      // écarte, seules celles du bucket sont réellement effacées.
+      if(sortiesEffacees){
+        await Fichiers.supprimerParUrl.apply(
+          null,
+          (sorties || []).map(sortie => sortie.cover_url)
+        );
+      }
+    }
+
     const { data, error } = await BD.supprimerArtiste(handle);
 
     if(error) throw error;
 
     if(!data || data.length === 0){
-      setRowMessage(msgId, 'Suppression refusée : droits équipe requis.', 'err');
+      setRowMessage(
+        msgId,
+        sortiesEffacees
+          ? sortiesEffacees + ' sortie' + (sortiesEffacees > 1 ? 's' : '') +
+            ' supprimée' + (sortiesEffacees > 1 ? 's' : '') +
+            ", mais le profil a résisté : droits équipe requis."
+          : 'Suppression refusée : droits équipe requis.',
+        'err'
+      );
       return;
     }
 
@@ -12420,7 +12472,11 @@ async function supprimerProfilArtiste(handle){
 
     setRowMessage(
       'artistsActionMsg',
-      '🗑 Profil supprimé : ' + (profil && profil.display_name || handle) + '.',
+      '🗑 Profil supprimé : ' + (profil && profil.display_name || handle) +
+      (sortiesEffacees
+        ? ', avec ses ' + sortiesEffacees + ' sortie' +
+          (sortiesEffacees > 1 ? 's' : '') + '.'
+        : '.'),
       'ok'
     );
 
