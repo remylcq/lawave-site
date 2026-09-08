@@ -3097,6 +3097,42 @@ const Auth = {
 };
 
 
+// Supabase plafonne chaque réponse à mille lignes, sans le dire : la
+// requête réussit, elle est simplement tronquée. Avec 4 240 sorties en
+// base, le catalogue n'en voyait qu'un quart, les recherches ne
+// trouvaient rien au-delà, et les compteurs par artiste tombaient à
+// zéro pour tous ceux qui suivaient dans l'ordre.
+//
+// Les pages sont donc demandées une à une jusqu'à en recevoir une
+// incomplète. Chaque requête paginée porte un tri explicite : sans
+// ordre stable, deux pages peuvent se recouvrir ou se sauter.
+const PAGE_SUPABASE = 1000;
+
+async function toutesLesPages(construire){
+
+  const lignes = [];
+
+  for(let debut = 0; ; debut += PAGE_SUPABASE){
+
+    const { data, error } = await construire()
+      .range(debut, debut + PAGE_SUPABASE - 1);
+
+    if(error) return { data: null, error };
+
+    const page = data || [];
+    lignes.push(...page);
+
+    if(page.length < PAGE_SUPABASE) break;
+
+    // Garde-fou : une pagination qui ne se termine pas vaut mieux
+    // arrêtée que bouclée à l'infini.
+    if(lignes.length >= 100000) break;
+  }
+
+  return { data: lignes, error: null };
+}
+
+
 const BD = {
 
   // ---------- PROFILS ----------
@@ -3130,22 +3166,35 @@ const BD = {
 
   // ---------- SORTIES ----------
 
+  // Colonnes que la fiche publique d'une sortie utilise réellement.
+  //
+  // Un select('*') en ramenait six de plus, dont contact_email :
+  // l'adresse laissée par l'artiste partait chez chaque visiteur du
+  // site, pour rien. Les cinq autres (statut, motif de refus, dates
+  // techniques, photo proposée) ne servent qu'à l'espace équipe.
+  COLONNES_PUBLIQUES: [
+    'id', 'catalog_number', 'track_title', 'artist_name', 'artist_handle',
+    'instagram_url', 'cover_url', 'listen_url', 'spotify_url', 'deezer_url',
+    'apple_music_url', 'youtube_url', 'clip_url', 'release_date',
+    'release_type', 'featuring', 'source', 'validated_at', 'validated_by'
+  ].join(', '),
+
   // Catalogue public : trié par date de sortie, la plus récente
   // d'abord. Le filtrage des sorties encore à venir se fait côté
   // site, pour garder ici une requête simple.
   sortiesPubliees(){
-    return supabaseClient.from('submissions')
-      .select('*')
+    return toutesLesPages(() => supabaseClient.from('submissions')
+      .select(BD.COLONNES_PUBLIQUES)
       .eq('status', 'approved')
-      .order('release_date', { ascending: false, nullsFirst: false });
+      .order('release_date', { ascending: false, nullsFirst: false }));
   },
 
   // Espace équipe : même contenu, trié par numéro de catalogue.
   sortiesValidees(){
-    return supabaseClient.from('submissions')
+    return toutesLesPages(() => supabaseClient.from('submissions')
       .select('*')
       .eq('status', 'approved')
-      .order('catalog_number', { ascending: false });
+      .order('catalog_number', { ascending: false }));
   },
 
   sortiesEnAttente(){
@@ -3181,8 +3230,9 @@ const BD = {
   // Pseudo et statut de chaque sortie, pour compter les sorties par
   // artiste dans l'onglet Artistes.
   sortiesParArtiste(){
-    return supabaseClient.from('submissions')
-      .select('artist_handle, status, contact_email');
+    return toutesLesPages(() => supabaseClient.from('submissions')
+      .select('artist_handle, status, contact_email')
+      .order('catalog_number', { ascending: true, nullsFirst: false }));
   },
 
   creerSortie(champs){
@@ -3203,7 +3253,9 @@ const BD = {
   // ---------- ARTISTES ----------
 
   artistes(){
-    return supabaseClient.from('artists').select('*');
+    return toutesLesPages(() => supabaseClient.from('artists')
+      .select('*')
+      .order('instagram_handle', { ascending: true }));
   },
 
   // Crée le profil s'il n'existe pas, sans jamais écraser l'existant.
@@ -3345,9 +3397,11 @@ const BD = {
   // ---------- NOTES ET COLLECTION ----------
 
   // Toutes les notes du site : sert à calculer les moyennes sans
-  // multiplier les requêtes. Le volume reste modeste.
+  // multiplier les requêtes.
   toutesLesNotes(){
-    return supabaseClient.from('release_ratings').select('*');
+    return toutesLesPages(() => supabaseClient.from('release_ratings')
+      .select('*')
+      .order('release_id', { ascending: true }));
   },
 
   notesDeLUtilisateur(userId){
@@ -6888,7 +6942,31 @@ function tileHtml(item){
     </div>`;
 }
 
+// Trois appels partent au démarrage : le script lui-même, puis la
+// lecture de l'adresse, puis la page affichée. Chacun relisait la base
+// entière — avec 4 240 sorties paginées par mille, quinze requêtes au
+// lieu de cinq, et trois fois le même volume téléchargé.
+//
+// Les appels simultanés partagent maintenant la même lecture. Le
+// verrou tombe dès qu'elle est finie : un appel ultérieur, après une
+// suppression ou une validation, relit bien la base.
+let catalogueEnCours = null;
+
 async function renderCatalogue(){
+
+  if(catalogueEnCours) return catalogueEnCours;
+
+  catalogueEnCours = chargerEtAfficherCatalogue();
+
+  try{
+    return await catalogueEnCours;
+  } finally {
+    catalogueEnCours = null;
+  }
+}
+
+
+async function chargerEtAfficherCatalogue(){
 
   try{
 
@@ -11896,6 +11974,10 @@ function artistProfileRowHtml(profil){
                 ✎ Modifier
               </button>
 
+              <button type="button" onclick="voirPageArtiste('${h}')">
+                ↗ Voir sa page
+              </button>
+
               ${
                 profil.demande_par && !profil.verifie_par
                   ? `<button class="approve" type="button"
@@ -12148,6 +12230,14 @@ function ouvrirEditionArtiste(handle){
 function ouvrirSuppressionArtiste(handle){
   if(!isAdmin) return;
   openConfirmPanel('artist-delete-' + handle);
+}
+
+
+// Ouvre la page publique de l'artiste dans un onglet à part : le tri
+// se fait depuis l'espace équipe, qu'on ne veut pas quitter — ni
+// recharger, ni rechercher à nouveau — à chaque vérification.
+function voirPageArtiste(handle){
+  window.open('#artiste/' + encodeURIComponent(handleSain(handle)), '_blank');
 }
 
 
