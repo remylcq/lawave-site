@@ -1232,6 +1232,17 @@
   .carte-retour{
     font-size:12px; padding:8px 14px; margin-bottom:14px;
   }
+  /* Défilé des profils : seule la carte qui arrive est animée, les
+     autres gardent leur nœud et ne rejouent donc rien. */
+  .carte-defile{display:flex; flex-direction:column; gap:2px;}
+  .carte-defile-entre{animation:defileEntre .45s var(--ease);}
+  @keyframes defileEntre{
+    from{opacity:0; transform:translateY(8px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .carte-defile-entre{animation:none;}
+  }
 
   /* ---------- RECHERCHE D'ARTISTE ----------
      Une liste déroulante affichait tous les artistes d'emblée : elle
@@ -1875,6 +1886,13 @@
                    placeholder="Nom de l'artiste">
             <input type="text" id="f-instagram"
                    placeholder="@pseudo ou lien Instagram complet">
+            <div class="cover-drop" id="f-artiste-photo-drop"
+                 onclick="ouvrirChoixPhotoArtiste('f')">
+              <span>Photo de l'artiste — facultatif</span>
+            </div>
+            <p style="font-size:12px; color:var(--muted); margin:8px 0 12px;">
+              Elle sera proposée à l'équipe, qui la validera avec la sortie.
+            </p>
             <div class="inline-actions">
               <button type="button" class="btn btn-primary"
                       style="padding:9px 16px; font-size:13px;"
@@ -2465,6 +2483,12 @@
       style="margin-top:16px;"
     ></div>
 
+    <div class="field" style="margin-top:20px; margin-bottom:0;">
+      <input type="text" id="rechercheCatalogue" autocomplete="off"
+             placeholder="Chercher un titre, un artiste, un pseudo"
+             oninput="renderApprovedReleasesList()">
+    </div>
+
     <div
       id="approvedReleasesList"
       class="admin-list"
@@ -2508,6 +2532,12 @@
       id="artistsActionMsg"
       style="margin-top:16px;"
     ></div>
+
+    <div class="field" style="margin-top:20px; margin-bottom:0;">
+      <input type="text" id="rechercheArtistesEquipe" autocomplete="off"
+             placeholder="Chercher un artiste, un pseudo, une ville"
+             oninput="renderArtistProfilesList()">
+    </div>
 
     <div
       id="artistProfilesList"
@@ -2669,6 +2699,13 @@
             Le pseudo Instagram sert de clé au profil : c'est lui qui
             rattache cette sortie aux autres du même artiste, et qui
             réutilise la photo déjà réglée par l'équipe.
+          </p>
+          <div class="cover-drop" id="admin-artiste-photo-drop"
+               onclick="ouvrirChoixPhotoArtiste('admin')">
+            <span>Photo de l'artiste — facultatif</span>
+          </div>
+          <p style="font-size:12px; color:var(--muted); margin:8px 0 12px;">
+            Appliquée directement au profil créé.
           </p>
           <div class="inline-actions">
             <button type="button" class="btn btn-primary"
@@ -4729,6 +4766,10 @@ function confirmCrop(){
       drop.innerHTML =
         `<img class="cover-preview" src="${dataUrl}">Nouvelle cover — enregistre pour l'appliquer`;
     }
+  } else if(cropTarget === 'artiste-nouveau-f' || cropTarget === 'artiste-nouveau-admin'){
+    // Photo proposée pour un artiste encore inconnu : elle attend
+    // l'envoi du formulaire, elle n'est pas posée tout de suite.
+    poserPhotoNouvelArtiste(cropTarget.slice('artiste-nouveau-'.length), dataUrl);
   } else if(cropTarget === 'artist-profile-photo'){
     // Photo de profil artiste : enregistrée immédiatement, elle vaut
     // pour toutes les sorties de l'artiste.
@@ -5802,6 +5843,82 @@ const CONTEXTES_ARTISTE = {
 const artisteChoisi = { f: null, admin: null };
 
 
+// ---- Photo d'un artiste inconnu ----
+//
+// Le formulaire ne peut proposer une photo que pour un artiste qui
+// n'existe pas encore : celle d'un profil déjà en base appartient à
+// l'équipe et ne doit pas pouvoir être écrasée depuis l'extérieur.
+// Côté public elle voyage avec la sortie et n'est posée qu'à la
+// validation ; côté équipe, elle est appliquée tout de suite.
+const photoNouvelArtiste = { f: null, admin: null };
+
+// Un seul sélecteur de fichier, partagé par les deux formulaires.
+const photoArtisteInput = document.createElement('input');
+photoArtisteInput.type = 'file';
+photoArtisteInput.accept = 'image/png,image/jpeg,image/webp';
+photoArtisteInput.style.display = 'none';
+document.body.appendChild(photoArtisteInput);
+
+let photoArtisteContexte = 'f';
+
+function ouvrirChoixPhotoArtiste(ctx){
+  photoArtisteContexte = ctx || 'f';
+  photoArtisteInput.click();
+}
+
+photoArtisteInput.addEventListener('change', () => {
+
+  const fichier = photoArtisteInput.files[0];
+  if(!fichier) return;
+
+  if(!['image/png','image/jpeg','image/webp'].includes(fichier.type)){
+    notifier('Format refusé', {
+      type: 'erreur',
+      detail: 'JPG, PNG ou WEBP uniquement.'
+    });
+    photoArtisteInput.value = '';
+    return;
+  }
+
+  const lecteur = new FileReader();
+
+  lecteur.onload = (e) => {
+    openCropModal(e.target.result, 'artiste-nouveau-' + photoArtisteContexte);
+    photoArtisteInput.value = '';
+  };
+
+  lecteur.readAsDataURL(fichier);
+});
+
+
+function poserPhotoNouvelArtiste(ctx, dataUrl){
+
+  photoNouvelArtiste[ctx] = dataUrl;
+
+  const drop = document.getElementById(ctx + '-artiste-photo-drop');
+
+  if(drop){
+    drop.classList.add('has-file');
+    drop.innerHTML =
+      `<img class="cover-preview" style="border-radius:50%; max-width:96px;"
+            src="${escapeAttribute(dataUrl)}">Cliquer pour remplacer`;
+  }
+}
+
+
+function effacerPhotoNouvelArtiste(ctx){
+
+  photoNouvelArtiste[ctx] = null;
+
+  const drop = document.getElementById(ctx + '-artiste-photo-drop');
+
+  if(drop){
+    drop.classList.remove('has-file');
+    drop.innerHTML = `<span>Photo de l'artiste — facultatif</span>`;
+  }
+}
+
+
 function effacerMessageNouvelArtiste(config){
   const msg = config && document.getElementById(config.msg);
   if(!msg) return;
@@ -5923,6 +6040,7 @@ function reinitialiserChoixArtiste(ctx){
   }
 
   effacerMessageNouvelArtiste(config);
+  effacerPhotoNouvelArtiste(ctx);
 
   document.getElementById(config.nom).value = '';
   document.getElementById(config.insta).value = '';
@@ -6097,7 +6215,12 @@ function validerNouvelArtiste(ctx){
         background:rgba(255,255,255,0.06);
         display:flex; align-items:center; justify-content:center;
         font-size:20px; font-weight:600; color:var(--ink-soft);
-      ">${escapeHtml(artistInitial(nom))}</div>
+      ">${
+        photoNouvelArtiste[ctx]
+          ? `<img src="${escapeAttribute(photoNouvelArtiste[ctx])}" alt=""
+                  style="width:100%; height:100%; object-fit:cover;">`
+          : escapeHtml(artistInitial(nom))
+      }</div>
       <div style="min-width:0;">
         <strong style="display:block;">${escapeHtml(nom)}</strong>
         <span style="font-size:13px; color:var(--muted);">
@@ -6528,20 +6651,21 @@ async function ensureFeatProfiles(feats){
 // Crée le profil s'il n'existe pas encore. La photo n'est jamais
 // touchée ici : elle appartient à l'équipe, et une nouvelle
 // soumission ne doit pas l'écraser.
-async function ensureArtistProfile(handle, instagramUrl, nom, ville){
+async function ensureArtistProfile(handle, instagramUrl, nom, ville, photoUrl){
 
   if(!handle) return;
 
-  // La ville n'est écrite qu'à la création du profil : l'upsert ignore
-  // les doublons, donc celle réglée par l'équipe sur un artiste déjà
-  // connu ne peut pas être écrasée depuis le formulaire public.
+  // La ville et la photo ne sont écrites qu'à la création du profil :
+  // l'upsert ignore les doublons, donc celles réglées par l'équipe sur
+  // un artiste déjà connu ne peuvent pas être écrasées.
   const { error } = await BD.creerArtisteSiAbsent({
     instagram_handle: handle,
     instagram_url: instagramUrl,
     display_name: nom,
     ...(ville
       ? { ville: ville.nom, latitude: ville.lat, longitude: ville.lon }
-      : {})
+      : {}),
+    ...(photoUrl ? { photo_url: photoUrl } : {})
   });
 
   if(error){
@@ -7840,6 +7964,9 @@ function demarrerCarte(){
 
 
 function arreterCarte(){
+  // Le défilé du panneau s'arrête avec l'animation : goTo appelle
+  // cette fonction dès qu'on quitte la page.
+  arreterDefileCarte();
   if(!carteAnim) return;
   cancelAnimationFrame(carteAnim);
   carteAnim = null;
@@ -8048,12 +8175,49 @@ async function renderCarte(){
 }
 
 
+// ---- Panneau de droite : les artistes défilent ----
+//
+// La liste des villes disait où regarder, pas qui on allait trouver.
+// À la place, des profils qui tournent : le panneau montre des
+// artistes plutôt qu'un sommaire.
+//
+// Un seul est remplacé à la fois, le plus ancien affiché : remplacer
+// toute la liste d'un coup rendait la lecture impossible. Le défilé
+// s'arrête au survol, sinon la fiche visée se dérobe au moment du
+// clic.
+const CARTE_DEFILE = {
+  places: 5,
+  periode: 2000
+};
+
+var carteDefileTimer = null;   // `var` : arreterDefileCarte est appelée avant
+let carteDefileVisibles = [];  // handles affichés, du plus ancien au plus récent
+let carteDefileFige = false;
+
+
+function artistesLocalises(){
+  const liste = [];
+  carteVilles.forEach((ville, index) => {
+    ville.artistes.forEach(profil => liste.push({ profil, ville, index }));
+  });
+  return liste;
+}
+
+
+function arreterDefileCarte(){
+  if(!carteDefileTimer) return;
+  clearInterval(carteDefileTimer);
+  carteDefileTimer = null;
+}
+
+
 function panneauToutesLesVilles(){
 
   const panneau = document.getElementById('cartePanneau');
   if(!panneau) return;
 
   carteVilleActive = -1;
+  arreterDefileCarte();
 
   if(carteVilles.length === 0){
     panneau.innerHTML = `
@@ -8065,28 +8229,140 @@ function panneauToutesLesVilles(){
     return;
   }
 
-  const total = carteVilles.reduce((n, v) => n + v.artistes.length, 0);
+  const tous = artistesLocalises();
 
-  // La liste double la carte au clavier : le canvas n'est pas
-  // navigable, ces boutons le sont.
   panneau.innerHTML = `
-    <h3>${carteVilles.length} ville${carteVilles.length > 1 ? 's' : ''}</h3>
+    <h3>${tous.length} artiste${tous.length > 1 ? 's' : ''}</h3>
     <span class="carte-compte">
-      ${total} artiste${total > 1 ? 's' : ''} localisé${total > 1 ? 's' : ''}
+      ${carteVilles.length} ville${carteVilles.length > 1 ? 's' : ''} sur la carte
     </span>
-    ${
-      carteVilles.map((ville, index) => `
-        <button type="button" class="carte-artiste"
-                onclick="ouvrirVilleCarte(${index})">
-          <span class="carte-vignette">📍</span>
-          <span style="min-width:0;">
-            ${escapeHtml(ville.nom)}
-            <span class="carte-sorties">
-              ${ville.artistes.length} artiste${ville.artistes.length > 1 ? 's' : ''}
-            </span>
-          </span>
-        </button>`).join('')
-    }`;
+    <div class="carte-defile" id="carteDefile"></div>`;
+
+  // Premier tirage : autant de places que possible, sans doublon.
+  carteDefileVisibles = [];
+  const places = Math.min(CARTE_DEFILE.places, tous.length);
+  for(let i = 0; i < places; i++) ajouterUnArtisteAuDefile(tous);
+
+  dessinerDefileCarte();
+
+  // Rien à faire tourner s'ils tiennent tous à l'écran.
+  if(tous.length <= places) return;
+
+  const zone = document.getElementById('carteDefile');
+
+  if(zone){
+    zone.addEventListener('pointerenter', () => { carteDefileFige = true; });
+    zone.addEventListener('pointerleave', () => { carteDefileFige = false; });
+    zone.addEventListener('focusin', () => { carteDefileFige = true; });
+    zone.addEventListener('focusout', () => { carteDefileFige = false; });
+  }
+
+  carteDefileFige = false;
+
+  carteDefileTimer = setInterval(() => {
+
+    // Le panneau a pu être remplacé par celui d'une ville.
+    if(!document.getElementById('carteDefile')){
+      arreterDefileCarte();
+      return;
+    }
+
+    if(carteDefileFige) return;
+
+    carteDefileVisibles.shift();
+    ajouterUnArtisteAuDefile(artistesLocalises());
+    dessinerDefileCarte();
+
+  }, CARTE_DEFILE.periode);
+}
+
+
+// Tire un artiste au hasard parmi ceux qui ne sont pas déjà affichés.
+function ajouterUnArtisteAuDefile(tous){
+
+  const libres = tous.filter(entree =>
+    !carteDefileVisibles.includes(entree.profil.instagram_handle)
+  );
+
+  const source = libres.length ? libres : tous;
+  const tire = source[Math.floor(Math.random() * source.length)];
+
+  if(tire) carteDefileVisibles.push(tire.profil.instagram_handle);
+}
+
+
+function dessinerDefileCarte(){
+
+  const zone = document.getElementById('carteDefile');
+  if(!zone) return;
+
+  const tous = artistesLocalises();
+
+  // Les cartes déjà en place gardent leur nœud : sans cela, refaire
+  // tout le HTML relancerait l'animation d'entrée sur chacune, et le
+  // panneau clignoterait toutes les deux secondes.
+  const existantes = {};
+  [...zone.children].forEach(el => { existantes[el.dataset.handle] = el; });
+
+  const ordonnees = carteDefileVisibles.map(handle => {
+
+    if(existantes[handle]){
+      const garde = existantes[handle];
+      delete existantes[handle];
+      // Déplacer un nœud peut relancer son animation d'entrée : la
+      // classe part dès qu'il a été affiché une fois.
+      garde.classList.remove('carte-defile-entre');
+      return garde;
+    }
+
+    const entree = tous.find(e => e.profil.instagram_handle === handle);
+    return entree ? carteDefileCarteHtml(entree) : null;
+
+  }).filter(Boolean);
+
+  Object.values(existantes).forEach(el => el.remove());
+  ordonnees.forEach(el => zone.appendChild(el));
+}
+
+
+function carteDefileCarteHtml(entree){
+
+  const profil = entree.profil;
+  const nom = profil.display_name || profil.instagram_handle;
+  const photo = safeUrl(profil.photo_url);
+
+  const sorties = catalogueData.filter(s =>
+    s.artistHandle === profil.instagram_handle ||
+    (s.featuring || []).some(feat => feat.handle === profil.instagram_handle)
+  ).length;
+
+  const bouton = document.createElement('button');
+  bouton.type = 'button';
+  bouton.className = 'carte-artiste carte-defile-entre';
+  bouton.dataset.handle = profil.instagram_handle;
+  bouton.setAttribute(
+    'onclick',
+    `ouvrirPageArtiste('${handleSain(profil.instagram_handle)}', false, 'carte')`
+  );
+
+  bouton.innerHTML = `
+    <span class="carte-vignette">
+      ${
+        photo
+          ? `<img src="${escapeAttribute(photo)}" alt="">`
+          : escapeHtml(artistInitial(nom))
+      }
+    </span>
+    <span style="min-width:0;">
+      ${escapeHtml(nom)}
+      <span class="carte-sorties">
+        📍 ${escapeHtml(entree.ville.nom)}${
+          sorties ? ' · ' + sorties + ' sortie' + (sorties > 1 ? 's' : '') : ''
+        }
+      </span>
+    </span>`;
+
+  return bouton;
 }
 
 
@@ -8131,7 +8407,7 @@ function ouvrirVilleCarte(index){
   panneau.innerHTML = `
     <button type="button" class="btn btn-ghost carte-retour"
             onclick="panneauToutesLesVilles()">
-      ← Toutes les villes
+      ← Retour aux artistes
     </button>
     <h3>${escapeHtml(ville.nom)}</h3>
     <span class="carte-compte">
@@ -9002,6 +9278,19 @@ msg.textContent =
     const feats = featsDe('f-feat');
     await ensureFeatProfiles(feats);
 
+    // Photo proposée : elle voyage avec la sortie et n'est posée sur
+    // le profil qu'à la validation par l'équipe. Une photo qui
+    // atterrirait tout de suite serait en ligne sans que personne
+    // l'ait regardée.
+    let photoProposee = null;
+
+    if(photoNouvelArtiste.f && !artistsByHandle[handle]){
+      submitBtnEl.textContent = "Envoi de la photo de l'artiste...";
+      photoProposee = await uploadCoverDataUrl(
+        photoNouvelArtiste.f, 'artiste', artist
+      );
+    }
+
 
     // =====================================================
     // 4. ENREGISTRER LA SOUMISSION DANS SUPABASE
@@ -9021,6 +9310,7 @@ msg.textContent =
         release_type: releaseType,
         clip_url: document.getElementById('f-clip').value.trim() || null,
         featuring: feats,
+        artist_photo_url: photoProposee,
         ...liens.urls,
         status: 'pending'
       });
@@ -9062,6 +9352,7 @@ msg.textContent =
     rechercherArtistes('f');
     initFeats('f-feat', []);
     rechercherFeats('f-feat');
+    effacerPhotoNouvelArtiste('f');
 
     coverDataUrl = null;
 
@@ -9655,6 +9946,28 @@ async function loadArtistSubmissions(){
 
               ${featsResumeHtml(submission)}
 
+              ${
+                safeUrl(submission.artist_photo_url)
+                  ? `<span style="display:flex; align-items:center; gap:10px;
+                                  margin-top:8px;">
+                       <img src="${escapeAttribute(safeUrl(submission.artist_photo_url))}"
+                            alt="" style="width:44px; height:44px; border-radius:50%;
+                                          object-fit:cover; border:1px solid var(--line);">
+                       <span style="font-size:12px; color:var(--muted);">
+                         Photo proposée pour l'artiste —
+                         posée sur son profil à la validation, s'il n'en a pas déjà une.
+                         <button type="button"
+                                 style="background:none; border:none; padding:0;
+                                        font:inherit; color:var(--danger);
+                                        text-decoration:underline; cursor:pointer;"
+                                 onclick="refuserPhotoProposee('${submission.id}')">
+                           Refuser la photo
+                         </button>
+                       </span>
+                     </span>`
+                  : ''
+              }
+
               <span style="display:block; margin-top:5px;">
                 📧 ${escapeHtml(submission.contact_email)}
               </span>
@@ -9858,6 +10171,51 @@ function askApproveSubmission(submissionId){
 }
 
 
+async function appliquerPhotoProposee(submission){
+
+  const photo = safeUrl(submission && submission.artist_photo_url);
+  const handle = submission && handleSain(submission.artist_handle);
+
+  if(!photo || !handle) return;
+
+  // Le profil vient peut-être d'être créé par cette soumission : on
+  // relit avant de décider.
+  await loadArtists();
+
+  const profil = artistsByHandle[handle];
+
+  // Profil inconnu du site à cet instant, ou photo déjà réglée : on ne
+  // touche à rien.
+  if(!profil || profil.photo_url) return;
+
+  const { error } = await BD.majArtiste(handle, { photo_url: photo });
+
+  if(error){
+    console.warn('⚠️ Photo proposée non appliquée :', error.message);
+    return;
+  }
+
+  await loadArtists();
+}
+
+
+async function refuserPhotoProposee(submissionId){
+
+  if(!isAdmin) return;
+
+  const { error } = await BD.majSortie(submissionId, { artist_photo_url: null });
+
+  if(error){
+    setRowMessage('submission-msg-' + submissionId,
+      'Refus impossible : ' + error.message, 'err');
+    return;
+  }
+
+  await loadArtistSubmissions();
+  setRowMessage('submission-msg-' + submissionId, 'Photo écartée.', 'ok');
+}
+
+
 async function approveSubmission(submissionId){
 
   if(!isAdmin){
@@ -9934,6 +10292,12 @@ async function approveSubmission(submissionId){
     if(updateError){
       throw updateError;
     }
+
+
+    // La photo proposée par l'artiste ne se pose qu'ici, et seulement
+    // si son profil n'en a pas déjà une : celle réglée par l'équipe
+    // reste prioritaire, une validation ne doit pas la remplacer.
+    await appliquerPhotoProposee(submission);
 
 
     console.log(
@@ -10583,6 +10947,100 @@ function releaseRowHtml(submission){
 }
 
 
+// ---- Listes de l'espace équipe : chercher plutôt que dérouler ----
+//
+// Les deux listes grandissent avec le catalogue. Elles s'ouvrent
+// désormais sur un aperçu, la recherche donnant accès au reste : une
+// page de cent lignes ne se parcourt pas, elle s'interroge.
+const LISTE_EQUIPE_APERCU = 8;
+
+let catalogueEquipeTout = false;
+let artistesEquipeTout = false;
+
+
+function texteRecherche(id){
+  const champ = document.getElementById(id);
+  return champ ? champ.value.trim().toLowerCase() : '';
+}
+
+
+// Bandeau commun aux deux listes : ce qui est montré, ce qui ne l'est
+// pas, et de quoi voir la suite.
+function pieDeListeEquipe(total, montres, requete, fonctionTout){
+
+  if(montres >= total) return '';
+
+  return `
+    <button type="button" class="btn btn-ghost"
+            style="margin-top:16px;"
+            onclick="${fonctionTout}()">
+      Voir les ${total - montres} autre${total - montres > 1 ? 's' : ''}
+    </button>
+    <p style="font-size:12px; color:var(--muted); margin:10px 0 0;">
+      ${
+        requete
+          ? 'Affine ta recherche pour aller plus vite.'
+          : 'Ou tape un nom dans la recherche ci-dessus.'
+      }
+    </p>`;
+}
+
+
+function voirToutLeCatalogue(){
+  catalogueEquipeTout = true;
+  renderApprovedReleasesList();
+}
+
+
+function renderApprovedReleasesList(){
+
+  const list = document.getElementById('approvedReleasesList');
+  if(!list) return;
+
+  if(approvedReleasesData.length === 0){
+    list.innerHTML = `
+      <div class="empty-state">
+        Aucune sortie validée pour l'instant.
+      </div>`;
+    return;
+  }
+
+  const requete = texteRecherche('rechercheCatalogue');
+
+  // Titre, nom d'artiste et pseudo Instagram : dans l'espace équipe,
+  // on cherche avec ce qu'on a sous la main.
+  const trouvees = requete
+    ? approvedReleasesData.filter(sortie =>
+        String(sortie.track_title || '').toLowerCase().includes(requete) ||
+        String(sortie.artist_name || '').toLowerCase().includes(requete) ||
+        String(sortie.artist_handle || '').toLowerCase().includes(requete)
+      )
+    : approvedReleasesData;
+
+  if(trouvees.length === 0){
+    list.innerHTML = `
+      <div class="empty-state">
+        Aucune sortie ne correspond à « ${escapeHtml(requete)} ».
+      </div>`;
+    return;
+  }
+
+  const visibles = (requete || catalogueEquipeTout)
+    ? trouvees
+    : trouvees.slice(0, LISTE_EQUIPE_APERCU);
+
+  list.innerHTML =
+    visibles.map(releaseRowHtml).join('') +
+    pieDeListeEquipe(trouvees.length, visibles.length, requete, 'voirToutLeCatalogue');
+
+  // Les blocs de featuring viennent d'être créés : on les remplit
+  // avec ce qui est enregistré pour chaque sortie affichée.
+  visibles.forEach(sortie => {
+    initFeats('edit-feat-' + sortie.id, sortie.featuring);
+  });
+}
+
+
 async function loadApprovedReleases(){
 
   const list =
@@ -10619,27 +11077,8 @@ async function loadApprovedReleases(){
     releaseEditingId = null;
     releaseEditCoverDataUrl = null;
 
-    if(approvedReleasesData.length === 0){
-
-      list.innerHTML = `
-        <div class="empty-state">
-          Aucune sortie validée pour l'instant.
-        </div>
-      `;
-
-      return;
-    }
-
-    list.innerHTML =
-      approvedReleasesData
-        .map(releaseRowHtml)
-        .join('');
-
-    // Les blocs de featuring viennent d'être créés : on les remplit
-    // avec ce qui est enregistré pour chaque sortie.
-    approvedReleasesData.forEach(sortie => {
-      initFeats('edit-feat-' + sortie.id, sortie.featuring);
-    });
+    catalogueEquipeTout = false;
+    renderApprovedReleasesList();
 
 
   } catch(error){
@@ -11003,6 +11442,13 @@ async function deleteRelease(submissionId){
 // =========================================================
 
 let artistProfilesData = [];
+
+// Nombre de sorties et adresses par artiste. Hors de la fonction de
+// chargement : la liste se réaffiche à chaque frappe dans la
+// recherche, sans relire la base.
+let artistProfilesComptes = {};
+let artistProfilesEmails = {};
+
 let artistPhotoEditingHandle = null;
 
 const artistPhotoPickerInput = document.createElement('input');
@@ -11068,27 +11514,23 @@ async function loadArtistProfiles(){
     // Nombre de sorties par artiste, pour situer chaque profil.
     const { data: sorties } = await BD.sortiesParArtiste();
 
-    const comptes = {};
-
-    // Adresses laissées par l'artiste au fil de ses soumissions. Elle
-    // ne vit que dans les sorties : c'est le seul endroit du site où
-    // l'équipe peut la retrouver une fois la sortie validée.
-    const emails = {};
+    artistProfilesComptes = {};
+    artistProfilesEmails = {};
 
     (sorties || []).forEach(sortie => {
       if(!sortie.artist_handle) return;
 
-      comptes[sortie.artist_handle] =
-        (comptes[sortie.artist_handle] || 0) + 1;
+      artistProfilesComptes[sortie.artist_handle] =
+        (artistProfilesComptes[sortie.artist_handle] || 0) + 1;
 
       const email = String(sortie.contact_email || '').trim();
 
       if(email){
-        if(!emails[sortie.artist_handle]){
-          emails[sortie.artist_handle] = [];
+        if(!artistProfilesEmails[sortie.artist_handle]){
+          artistProfilesEmails[sortie.artist_handle] = [];
         }
-        if(!emails[sortie.artist_handle].includes(email)){
-          emails[sortie.artist_handle].push(email);
+        if(!artistProfilesEmails[sortie.artist_handle].includes(email)){
+          artistProfilesEmails[sortie.artist_handle].push(email);
         }
       }
     });
@@ -11103,29 +11545,87 @@ async function loadArtistProfiles(){
 
     setAdminTabCount('artists', artistProfilesData.length);
 
-    if(artistProfilesData.length === 0){
-
-      list.innerHTML = `
-        <div class="empty-state">
-          Aucun profil artiste pour l'instant. Ils se créent
-          automatiquement à la première soumission.
-        </div>
-      `;
-
-      return;
-    }
+    artistesEquipeTout = false;
+    renderArtistProfilesList();
 
 
-    list.innerHTML = artistProfilesData
-      .map(profil => {
+  } catch(error){
 
-        const nombre = comptes[profil.instagram_handle] || 0;
+    console.error(
+      '❌ Erreur chargement des profils artistes :',
+      error
+    );
 
-        // Assaini à l'affichage et pas seulement à l'écriture : les
-        // profils déjà en base ont été créés avant ce filtrage.
-        const h = handleSain(profil.instagram_handle);
+    list.innerHTML = `
+      <div class="form-msg err">
+        Impossible de charger les profils :
+        ${escapeHtml(error.message)}
+      </div>
+    `;
+  }
+}
 
-        return `
+
+function voirTousLesArtistes(){
+  artistesEquipeTout = true;
+  renderArtistProfilesList();
+}
+
+
+function renderArtistProfilesList(){
+
+  const list = document.getElementById('artistProfilesList');
+  if(!list) return;
+
+  if(artistProfilesData.length === 0){
+    list.innerHTML = `
+      <div class="empty-state">
+        Aucun profil artiste pour l'instant. Ils se créent
+        automatiquement à la première soumission.
+      </div>`;
+    return;
+  }
+
+  const requete = texteRecherche('rechercheArtistesEquipe');
+
+  const trouves = requete
+    ? artistProfilesData.filter(profil =>
+        String(profil.display_name || '').toLowerCase().includes(requete) ||
+        String(profil.instagram_handle || '').toLowerCase().includes(requete) ||
+        String(profil.ville || '').toLowerCase().includes(requete)
+      )
+    : artistProfilesData;
+
+  if(trouves.length === 0){
+    list.innerHTML = `
+      <div class="empty-state">
+        Aucun artiste ne correspond à « ${escapeHtml(requete)} ».
+      </div>`;
+    return;
+  }
+
+  const visibles = (requete || artistesEquipeTout)
+    ? trouves
+    : trouves.slice(0, LISTE_EQUIPE_APERCU);
+
+  list.innerHTML =
+    visibles.map(artistProfileRowHtml).join('') +
+    pieDeListeEquipe(trouves.length, visibles.length, requete, 'voirTousLesArtistes');
+}
+
+
+function artistProfileRowHtml(profil){
+
+  const comptes = artistProfilesComptes;
+  const emails = artistProfilesEmails;
+
+  const nombre = comptes[profil.instagram_handle] || 0;
+
+  // Assaini à l'affichage et pas seulement à l'écriture : les
+  // profils déjà en base ont été créés avant ce filtrage.
+  const h = handleSain(profil.instagram_handle);
+
+  return `
           <div class="admin-row stacked" id="artist-${h}">
 
            <div class="admin-row-main">
@@ -11395,24 +11895,6 @@ async function loadArtistProfiles(){
 
           </div>
         `;
-      })
-      .join('');
-
-
-  } catch(error){
-
-    console.error(
-      '❌ Erreur chargement des profils artistes :',
-      error
-    );
-
-    list.innerHTML = `
-      <div class="form-msg err">
-        Impossible de charger les profils :
-        ${escapeHtml(error.message)}
-      </div>
-    `;
-  }
 }
 
 
@@ -12140,7 +12622,18 @@ document.getElementById('adminAddForm').addEventListener('submit', async (e)=>{
 
     const handle = instagramHandle(instagram);
 
-    await ensureArtistProfile(handle, instagram, artist);
+    // L'équipe est déjà l'instance de validation : sa photo est posée
+    // sur le profil au moment où celui-ci est créé, pas plus tard.
+    let photoArtiste = null;
+
+    if(photoNouvelArtiste.admin && !artistsByHandle[handle]){
+      submitBtn.textContent = "Envoi de la photo de l'artiste...";
+      photoArtiste = await uploadCoverDataUrl(
+        photoNouvelArtiste.admin, 'artiste', artist
+      );
+    }
+
+    await ensureArtistProfile(handle, instagram, artist, null, photoArtiste);
 
     const feats = featsDe('admin-feat');
     await ensureFeatProfiles(feats);
@@ -12238,6 +12731,7 @@ document.getElementById('adminAddForm').addEventListener('submit', async (e)=>{
     rechercherArtistes('admin');
     initFeats('admin-feat', []);
     rechercherFeats('admin-feat');
+    effacerPhotoNouvelArtiste('admin');
 
     adminCoverDataUrl = null;
     adminCoverDrop.classList.remove('has-file');
