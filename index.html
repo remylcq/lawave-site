@@ -1232,16 +1232,37 @@
   .carte-retour{
     font-size:12px; padding:8px 14px; margin-bottom:14px;
   }
-  /* Défilé des profils : seule la carte qui arrive est animée, les
-     autres gardent leur nœud et ne rejouent donc rien. */
-  .carte-defile{display:flex; flex-direction:column; gap:2px;}
-  .carte-defile-entre{animation:defileEntre .45s var(--ease);}
-  @keyframes defileEntre{
-    from{opacity:0; transform:translateY(8px);}
-    to{opacity:1; transform:translateY(0);}
+  /* Un seul artiste à la fois, en grand : le panneau sert à donner
+     envie d'ouvrir une page, pas à lister. */
+  .carte-defile{display:flex; justify-content:center;}
+  .carte-vedette{
+    display:flex; flex-direction:column; align-items:center; gap:9px;
+    width:100%; padding:16px 12px 8px; text-align:center;
+    background:transparent; border:none; color:var(--ink);
+    animation:vedetteEntre .5s var(--ease);
+  }
+  .carte-vedette-photo{
+    width:132px; height:132px; border-radius:50%; overflow:hidden;
+    border:1px solid var(--line); background:rgba(255,255,255,0.06);
+    display:flex; align-items:center; justify-content:center;
+    font-size:46px; font-weight:600; color:var(--ink-soft);
+    box-shadow:var(--ombre-2);
+    transition:border-color .25s var(--ease), transform .25s var(--ease);
+  }
+  .carte-vedette-photo img{width:100%; height:100%; object-fit:cover;}
+  .carte-vedette:hover .carte-vedette-photo{
+    border-color:var(--blue); transform:scale(1.03);
+  }
+  .carte-vedette-nom{font-size:19px; font-weight:600; line-height:1.3;}
+  .carte-vedette-lieu{font-size:13px; color:var(--ink-soft);}
+  .carte-vedette-sorties{font-size:12px; color:var(--muted);}
+  @keyframes vedetteEntre{
+    from{opacity:0; transform:scale(.94);}
+    to{opacity:1; transform:scale(1);}
   }
   @media (prefers-reduced-motion: reduce){
-    .carte-defile-entre{animation:none;}
+    .carte-vedette{animation:none;}
+    .carte-vedette:hover .carte-vedette-photo{transform:none;}
   }
 
   /* ---------- RECHERCHE D'ARTISTE ----------
@@ -8175,23 +8196,21 @@ async function renderCarte(){
 }
 
 
-// ---- Panneau de droite : les artistes défilent ----
+// ---- Panneau de droite : un artiste à la fois ----
 //
 // La liste des villes disait où regarder, pas qui on allait trouver.
-// À la place, des profils qui tournent : le panneau montre des
-// artistes plutôt qu'un sommaire.
+// À la place, un seul profil en grand, tiré au hasard, renouvelé
+// toutes les deux secondes : le panneau montre un artiste plutôt
+// qu'un sommaire.
 //
-// Un seul est remplacé à la fois, le plus ancien affiché : remplacer
-// toute la liste d'un coup rendait la lecture impossible. Le défilé
-// s'arrête au survol, sinon la fiche visée se dérobe au moment du
-// clic.
+// Le défilé s'arrête au survol, sinon la fiche visée se dérobe au
+// moment du clic.
 const CARTE_DEFILE = {
-  places: 5,
   periode: 2000
 };
 
 var carteDefileTimer = null;   // `var` : arreterDefileCarte est appelée avant
-let carteDefileVisibles = [];  // handles affichés, du plus ancien au plus récent
+let carteDefileDernier = null; // handle affiché, pour ne pas le retirer
 let carteDefileFige = false;
 
 
@@ -8238,15 +8257,11 @@ function panneauToutesLesVilles(){
     </span>
     <div class="carte-defile" id="carteDefile"></div>`;
 
-  // Premier tirage : autant de places que possible, sans doublon.
-  carteDefileVisibles = [];
-  const places = Math.min(CARTE_DEFILE.places, tous.length);
-  for(let i = 0; i < places; i++) ajouterUnArtisteAuDefile(tous);
-
+  carteDefileDernier = null;
   dessinerDefileCarte();
 
-  // Rien à faire tourner s'ils tiennent tous à l'écran.
-  if(tous.length <= places) return;
+  // Rien à faire tourner s'il n'y en a qu'un.
+  if(tous.length < 2) return;
 
   const zone = document.getElementById('carteDefile');
 
@@ -8269,25 +8284,24 @@ function panneauToutesLesVilles(){
 
     if(carteDefileFige) return;
 
-    carteDefileVisibles.shift();
-    ajouterUnArtisteAuDefile(artistesLocalises());
     dessinerDefileCarte();
 
   }, CARTE_DEFILE.periode);
 }
 
 
-// Tire un artiste au hasard parmi ceux qui ne sont pas déjà affichés.
-function ajouterUnArtisteAuDefile(tous){
+// Tire un artiste au hasard, jamais celui qui est déjà à l'écran :
+// sans cette exclusion, le hasard rejouait parfois le même et la
+// vedette semblait figée.
+function tirerUnArtiste(tous){
 
   const libres = tous.filter(entree =>
-    !carteDefileVisibles.includes(entree.profil.instagram_handle)
+    entree.profil.instagram_handle !== carteDefileDernier
   );
 
   const source = libres.length ? libres : tous;
-  const tire = source[Math.floor(Math.random() * source.length)];
 
-  if(tire) carteDefileVisibles.push(tire.profil.instagram_handle);
+  return source[Math.floor(Math.random() * source.length)] || null;
 }
 
 
@@ -8296,32 +8310,13 @@ function dessinerDefileCarte(){
   const zone = document.getElementById('carteDefile');
   if(!zone) return;
 
-  const tous = artistesLocalises();
+  const entree = tirerUnArtiste(artistesLocalises());
+  if(!entree) return;
 
-  // Les cartes déjà en place gardent leur nœud : sans cela, refaire
-  // tout le HTML relancerait l'animation d'entrée sur chacune, et le
-  // panneau clignoterait toutes les deux secondes.
-  const existantes = {};
-  [...zone.children].forEach(el => { existantes[el.dataset.handle] = el; });
+  carteDefileDernier = entree.profil.instagram_handle;
 
-  const ordonnees = carteDefileVisibles.map(handle => {
-
-    if(existantes[handle]){
-      const garde = existantes[handle];
-      delete existantes[handle];
-      // Déplacer un nœud peut relancer son animation d'entrée : la
-      // classe part dès qu'il a été affiché une fois.
-      garde.classList.remove('carte-defile-entre');
-      return garde;
-    }
-
-    const entree = tous.find(e => e.profil.instagram_handle === handle);
-    return entree ? carteDefileCarteHtml(entree) : null;
-
-  }).filter(Boolean);
-
-  Object.values(existantes).forEach(el => el.remove());
-  ordonnees.forEach(el => zone.appendChild(el));
+  zone.innerHTML = '';
+  zone.appendChild(carteDefileCarteHtml(entree));
 }
 
 
@@ -8338,7 +8333,7 @@ function carteDefileCarteHtml(entree){
 
   const bouton = document.createElement('button');
   bouton.type = 'button';
-  bouton.className = 'carte-artiste carte-defile-entre';
+  bouton.className = 'carte-vedette';
   bouton.dataset.handle = profil.instagram_handle;
   bouton.setAttribute(
     'onclick',
@@ -8346,20 +8341,21 @@ function carteDefileCarteHtml(entree){
   );
 
   bouton.innerHTML = `
-    <span class="carte-vignette">
+    <span class="carte-vedette-photo">
       ${
         photo
           ? `<img src="${escapeAttribute(photo)}" alt="">`
           : escapeHtml(artistInitial(nom))
       }
     </span>
-    <span style="min-width:0;">
-      ${escapeHtml(nom)}
-      <span class="carte-sorties">
-        📍 ${escapeHtml(entree.ville.nom)}${
-          sorties ? ' · ' + sorties + ' sortie' + (sorties > 1 ? 's' : '') : ''
-        }
-      </span>
+    <strong class="carte-vedette-nom">${escapeHtml(nom)}</strong>
+    <span class="carte-vedette-lieu">📍 ${escapeHtml(entree.ville.nom)}</span>
+    <span class="carte-vedette-sorties">
+      ${
+        sorties
+          ? sorties + ' sortie' + (sorties > 1 ? 's' : '') + ' sur La Wave'
+          : 'Pas encore de sortie'
+      }
     </span>`;
 
   return bouton;
