@@ -3152,10 +3152,17 @@ const BD = {
 
   // Plus grand numéro de catalogue attribué, pour en déduire le
   // suivant lors d'une validation.
+  //
+  // Les sorties importées en masse sont écartées : elles occupent une
+  // plage à part, très au-dessus. Sans ce filtre, la première sortie
+  // validée après un import aurait sauté à LW–100 000 et la
+  // numérotation éditoriale de La Wave n'aurait plus voulu dire grand
+  // chose.
   dernierNumeroCatalogue(){
     return supabaseClient.from('submissions')
       .select('catalog_number')
       .not('catalog_number', 'is', null)
+      .is('source', null)
       .order('catalog_number', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -5864,6 +5871,17 @@ const CONTEXTES_ARTISTE = {
 const artisteChoisi = { f: null, admin: null };
 
 
+// Un profil n'est proposé dans les formulaires que si l'on connaît son
+// Instagram. Les profils importés en masse n'en ont pas : leur pseudo
+// est déduit de leur nom, donc invérifiable. Les proposer ferait
+// afficher un lien Instagram inventé sur la fiche d'une sortie — mieux
+// vaut pas de lien qu'un mauvais. L'équipe les complète depuis
+// l'onglet Artistes, et ils apparaissent alors ici.
+function profilProposable(profil){
+  return !!(profil && safeUrl(profil.instagram_url));
+}
+
+
 // ---- Photo d'un artiste inconnu ----
 //
 // Le formulaire ne peut proposer une photo que pour un artiste qui
@@ -5976,6 +5994,7 @@ function rechercherArtistes(ctx){
   // girlsloveromsii dès la lettre e : l'artiste ne s'écrit pas ainsi.
   const trouves = requete
     ? Object.values(artistsByHandle)
+        .filter(profilProposable)
         .filter(profil =>
           String(profil.display_name || profil.instagram_handle || '')
             .toLowerCase()
@@ -6494,6 +6513,7 @@ function rechercherFeats(prefixe){
 
   const trouves = requete
     ? Object.values(artistsByHandle)
+        .filter(profilProposable)
         .filter(profil => !exclus.has(profil.instagram_handle))
         .filter(profil =>
           String(profil.display_name || profil.instagram_handle || '')
@@ -6823,6 +6843,11 @@ const list = (data || [])
         .map(featNormalise)
         .filter(Boolean),
 
+    // Vide pour les sorties choisies par La Wave, renseigné pour
+    // celles venues d'un import en masse.
+    source:
+      submission.source || null,
+
     instagram:
       submission.instagram_url,
 
@@ -6905,8 +6930,16 @@ const list = (data || [])
 
       // Quatre pochettes : la grille en tient quatre par ligne sur un
       // écran d'ordinateur, trois y laissaient un vide à droite.
+      //
+      // Seules les sorties choisies par La Wave y figurent. L'accueil
+      // est la vitrine éditoriale : une discographie importée, plus
+      // fournie et plus récente, y prendrait toute la place et
+      // reléguerait les trouvailles du média. Le catalogue, lui,
+      // montre tout.
+      const propres = sorted.filter(item => !item.source);
+
       const latest =
-        sorted.slice(0, 4);
+        (propres.length ? propres : sorted).slice(0, 4);
 
       homeGrid.innerHTML =
         latest.length
@@ -10674,6 +10707,11 @@ function releaseRowHtml(submission){
             ${catalogLabel}
           </span>
           ${badge}
+          ${
+            submission.source
+              ? `<span class="release-badge">importée</span>`
+              : ''
+          }
 
           <h4 style="margin-top:6px;">
             ${escapeHtml(submission.track_title)}
@@ -11661,7 +11699,21 @@ function artistProfileRowHtml(profil){
                           style="color:var(--blue);">@${escapeHtml(h)}</a>`
                     : '@' + escapeHtml(h)
                 }
+                ${
+                  profil.source
+                    ? `<span class="release-badge">importé</span>`
+                    : ''
+                }
               </span>
+
+              ${
+                profil.source && !safeUrl(profil.instagram_url)
+                  ? `<span style="display:block; margin-top:4px; color:var(--muted);">
+                       Pseudo déduit du nom : renseigne son Instagram pour
+                       qu'il soit proposé dans les formulaires.
+                     </span>`
+                  : ''
+              }
 
               <span style="display:block; margin-top:4px;">
                 ${nombre} sortie${nombre > 1 ? 's' : ''}
