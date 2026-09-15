@@ -1232,6 +1232,22 @@
   .carte-retour{
     font-size:12px; padding:8px 14px; margin-bottom:14px;
   }
+  /* La liste défile dans le panneau : Paris compte plusieurs dizaines
+     d'artistes, et le panneau s'allongeait jusqu'à étirer toute la
+     page. Sa hauteur est calée en JS sur celle de la carte. */
+  .carte-liste{
+    overflow-y:auto; overscroll-behavior:contain;
+    margin:0 -8px; padding:0 8px;
+    scrollbar-width:thin; scrollbar-color:var(--line-strong) transparent;
+  }
+  .carte-liste-ville{
+    display:flex; justify-content:space-between; gap:12px;
+    margin:16px 10px 4px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--muted);
+  }
+  .carte-liste-ville:first-child{margin-top:0;}
   /* Un seul artiste à la fois, en grand : le panneau sert à donner
      envie d'ouvrir une page, pas à lister. */
   .carte-defile{display:flex; justify-content:center;}
@@ -7821,7 +7837,12 @@ const CARTE_3D = {
   focale: 300,         // plus la valeur est basse, plus la fuite est marquée
   amplitude: 0.17,     // balancement automatique, en radians
   periode: 24000,      // durée d'un aller-retour, en millisecondes
-  hauteurMarqueur: 11  // longueur de la tige, en unités de grille
+  hauteurMarqueur: 11, // longueur de la tige au zoom 1, en unités de grille
+  // Plafonné à 6, le zoom laissait Paris et Saint-Denis collés : il
+  // faut descendre à l'échelle de quelques kilomètres pour séparer les
+  // communes d'Île-de-France.
+  zoomMax: 12,
+  ecartPastilles: 4    // en pixels : sous cet écart, deux villes fusionnent
 };
 
 // `var` et non `let` : goTo appelle arreterCarte dès le démarrage,
@@ -7840,8 +7861,9 @@ let cartePanX = 0;
 let cartePanY = 0;
 let carteSaisie = null;     // position du pointeur pendant un glisser
 let carteDernierGlisser = false;
-let carteSurvol = -1;
-let carteEcran = [];        // position à l'écran de chaque ville, pour le clic
+let carteSurvol = null;     // clé du groupe survolé
+let carteEcran = [];        // position à l'écran de chaque groupe, pour le clic
+let carteTransition = null; // zoom animé vers un groupe
 
 
 function carteMouvementReduit(){
@@ -8012,6 +8034,180 @@ function cadrageCarte(largeur, hauteur){
 }
 
 
+// Rayon d'une pastille, hors survol. Il ne dépend pas du zoom de
+// l'utilisateur : quand la pastille grossissait avec la carte, deux
+// villes qui se chevauchaient au zoom 1 se chevauchaient encore au
+// zoom 6, et zoomer ne séparait rien.
+function rayonMarqueur(k){
+  return Math.max(11, k * 0.40);
+}
+
+
+// ---- Regroupement des villes proches ----
+//
+// Une quarantaine de communes d'Île-de-France tiennent dans quelques
+// pixels : leurs pastilles s'empilaient en une colonne où l'on ne
+// pouvait plus rien viser. Les villes dont les pastilles se
+// toucheraient forment un groupe, dessiné comme une seule pastille ;
+// le zoom les sépare à mesure qu'il écarte les villes.
+//
+// Le calcul se fait sans le balancement : sinon deux villes à la
+// limite fusionneraient et se sépareraient au rythme de la rotation.
+// Il ne dépend donc que du zoom, et n'est refait que lorsqu'il change.
+//
+// Méthode : on fusionne à chaque tour la paire la plus imbriquée,
+// jusqu'à ce qu'aucune ne se touche. Le groupe se place au barycentre
+// de ses villes, pondéré par leurs artistes — un groupe autour de
+// Paris reste posé sur Paris.
+let carteGroupesMemo = null;
+
+function groupesDeLaCarte(largeur, cadre){
+
+  // Pendant un zoom animé, les groupes sont ceux de l'arrivée : calculés
+  // une fois, ils s'écartent pendant l'animation au lieu d'être refaits
+  // à chaque image.
+  const zoom = carteTransition ? carteTransition.vers.zoom : carteZoom;
+
+  const cle = largeur + '|' + cadre.echelle + '|' + zoom;
+
+  if(carteGroupesMemo &&
+     carteGroupesMemo.villes === carteVilles &&
+     carteGroupesMemo.cle === cle){
+    return carteGroupesMemo.groupes;
+  }
+
+  const etat = { angle: 0, cx: 0, cy: 0, zoom: cadre.echelle * zoom };
+
+  const provisoires = carteVilles.map((ville, index) => {
+    const g = projeterSurCarte(ville.lon, ville.lat);
+    const p = projeter3D(g.x, g.y, 0, etat);
+    return {
+      indices: [index],
+      x: p.x,
+      y: p.y,
+      poids: ville.artistes.length,
+      rayon: rayonMarqueur(p.echelle * cadre.echelle)
+    };
+  });
+
+  for(;;){
+
+    let a = -1, b = -1, plusProche = 1;
+
+    for(let i = 0; i < provisoires.length; i++){
+      for(let j = i + 1; j < provisoires.length; j++){
+        const gi = provisoires[i];
+        const gj = provisoires[j];
+        const seuil = gi.rayon + gj.rayon + CARTE_3D.ecartPastilles;
+        const rapport = Math.hypot(gi.x - gj.x, gi.y - gj.y) / seuil;
+        if(rapport < plusProche){
+          plusProche = rapport;
+          a = i;
+          b = j;
+        }
+      }
+    }
+
+    if(a < 0) break;
+
+    const ga = provisoires[a];
+    const gb = provisoires[b];
+    const poids = ga.poids + gb.poids;
+
+    provisoires[a] = {
+      indices: ga.indices.concat(gb.indices),
+      x: (ga.x * ga.poids + gb.x * gb.poids) / poids,
+      y: (ga.y * ga.poids + gb.y * gb.poids) / poids,
+      poids,
+      rayon: Math.max(ga.rayon, gb.rayon)
+    };
+
+    provisoires.splice(b, 1);
+  }
+
+  const groupes = provisoires.map(provisoire => {
+
+    // La ville la plus fournie d'abord : c'est elle qui nomme le groupe.
+    const indices = provisoire.indices.slice().sort((x, y) =>
+      carteVilles[y].artistes.length - carteVilles[x].artistes.length ||
+      carteVilles[x].nom.localeCompare(carteVilles[y].nom)
+    );
+
+    const artistes = indices.flatMap(i => carteVilles[i].artistes);
+
+    // Les photos défilent en priorité : une pastille qui montre un
+    // visage dit davantage qu'une initiale.
+    const avecPhoto = artistes.filter(profil => safeUrl(profil.photo_url));
+
+    const principale = carteVilles[indices[0]].nom;
+    const autres = indices.length - 1;
+
+    return {
+      indices,
+      cle: indices.slice().sort((x, y) => x - y).join(','),
+      total: artistes.length,
+      defile: avecPhoto.length ? avecPhoto : artistes,
+      nom: autres
+        ? principale + ' +' + autres + ' ville' + (autres > 1 ? 's' : '')
+        : principale
+    };
+  });
+
+  carteGroupesMemo = { villes: carteVilles, cle, groupes };
+
+  return groupes;
+}
+
+
+// Zoom animé vers un groupe. Zoom et déplacement s'interpolent tous
+// deux linéairement : le groupe glisse alors en ligne droite vers le
+// centre pendant que la carte grossit.
+function animerVueCarte(zoom, panX, panY){
+
+  if(carteMouvementReduit()){
+    carteTransition = null;
+    carteZoom = zoom;
+    cartePanX = panX;
+    cartePanY = panY;
+    return;
+  }
+
+  carteTransition = {
+    debut: performance.now(),
+    duree: 450,
+    de: { zoom: carteZoom, panX: cartePanX, panY: cartePanY },
+    vers: { zoom, panX, panY }
+  };
+}
+
+
+function avancerTransitionCarte(temps){
+
+  const t = carteTransition;
+  if(!t) return;
+
+  const avance = Math.max(0, Math.min(1, (temps - t.debut) / t.duree));
+  const e = avance < 0.5
+    ? 4 * avance * avance * avance
+    : 1 - Math.pow(-2 * avance + 2, 3) / 2;
+
+  // À l'arrivée, les valeurs exactes : a + (b − a) ne redonne pas
+  // toujours b au dernier chiffre près, et le regroupement calculé pour
+  // le zoom d'arrivée serait refait pour rien.
+  if(avance >= 1){
+    carteZoom = t.vers.zoom;
+    cartePanX = t.vers.panX;
+    cartePanY = t.vers.panY;
+    carteTransition = null;
+    return;
+  }
+
+  carteZoom = t.de.zoom + (t.vers.zoom - t.de.zoom) * e;
+  cartePanX = t.de.panX + (t.vers.panX - t.de.panX) * e;
+  cartePanY = t.de.panY + (t.vers.panY - t.de.panY) * e;
+}
+
+
 function dessinerCarte(temps){
 
   const canvas = document.getElementById('carteCanvas');
@@ -8027,14 +8223,23 @@ function dessinerCarte(temps){
     canvas.width = Math.round(largeur * ratio);
     canvas.height = Math.round(hauteur * ratio);
     canvas.style.height = hauteur + 'px';
+    // La liste du panneau suit la hauteur de la carte.
+    ajusterListeCarte();
   }
 
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, largeur, hauteur);
 
+  avancerTransitionCarte(temps);
+
+  // Le balancement tourne autour du centre de la France : zoomé sur
+  // Paris, il déplaçait la vue de plus de deux cents pixels au zoom 12,
+  // et la pastille visée se dérobait sous le pointeur. Son amplitude
+  // décroît avec le zoom, ce qui garde à l'écran le même mouvement
+  // qu'en vue d'ensemble.
   const balancement = carteMouvementReduit()
     ? 0
-    : Math.sin((temps / CARTE_3D.periode) * Math.PI * 2) * CARTE_3D.amplitude;
+    : Math.sin((temps / CARTE_3D.periode) * Math.PI * 2) * CARTE_3D.amplitude / carteZoom;
 
   const cadre = cadrageCarte(largeur, hauteur);
 
@@ -8061,21 +8266,53 @@ function dessinerCarte(temps){
     ctx.globalAlpha = 0.10 + force * 0.34;
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(p.x, p.y, Math.max(0.5, p.echelle * etat.zoom * 0.17), 0, Math.PI * 2);
+    // Le point grossit avec le zoom jusqu'à 4, puis se fige : au zoom
+    // 12 il aurait atteint la taille d'une pastille.
+    ctx.arc(
+      p.x, p.y,
+      Math.max(0.5, p.echelle * cadre.echelle * Math.min(carteZoom, 4) * 0.17),
+      0, Math.PI * 2
+    );
     ctx.fill();
   });
 
   ctx.globalAlpha = 1;
 
-  // ---- Villes ----
+  // ---- Villes, regroupées quand leurs pastilles se toucheraient ----
   carteEcran = [];
 
-  const villes = carteVilles.map((ville, index) => {
+  const projections = carteVilles.map(ville => {
     const g = projeterSurCarte(ville.lon, ville.lat);
     return {
-      index, ville,
       base: projeter3D(g.x, g.y, 0, etat),
-      tete: projeter3D(g.x, g.y, CARTE_3D.hauteurMarqueur, etat)
+      // La tige garde sa longueur à l'écran quel que soit le zoom : elle
+      // grandissait avec lui, et au zoom 6 les pastilles flottaient à
+      // six cents pixels au-dessus de leur ville.
+      tete: projeter3D(g.x, g.y, CARTE_3D.hauteurMarqueur / carteZoom, etat)
+    };
+  });
+
+  const groupes = groupesDeLaCarte(largeur, cadre).map(groupe => {
+
+    let poids = 0;
+    let bx = 0, by = 0, be = 0, hx = 0, hy = 0;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+    groupe.indices.forEach(i => {
+      const n = carteVilles[i].artistes.length;
+      const { base, tete } = projections[i];
+      poids += n;
+      bx += base.x * n;  by += base.y * n;  be += base.echelle * n;
+      hx += tete.x * n;  hy += tete.y * n;
+      minX = Math.min(minX, base.x);  maxX = Math.max(maxX, base.x);
+      minY = Math.min(minY, base.y);  maxY = Math.max(maxY, base.y);
+    });
+
+    return {
+      groupe,
+      base: { x: bx / poids, y: by / poids, echelle: be / poids },
+      tete: { x: hx / poids, y: hy / poids },
+      etendue: { x: maxX - minX, y: maxY - minY }
     };
   }).sort((a, b) => a.base.echelle - b.base.echelle);
 
@@ -8083,11 +8320,17 @@ function dessinerCarte(temps){
     ? 0.5
     : ((temps % 2000) / 2000);
 
-  villes.forEach(({ index, ville, base, tete }) => {
+  let etiquette = null;
 
-    const actif = index === carteVilleActive;
-    const survole = index === carteSurvol;
-    const k = base.echelle * etat.zoom;
+  groupes.forEach(({ groupe, base, tete, etendue }) => {
+
+    const actif =
+      groupe.indices.includes(carteVilleActive) ||
+      !!(carteGroupeActif && groupe.indices.some(i => carteGroupeActif.includes(i)));
+    const survole = groupe.cle === carteSurvol;
+    // Taille des pastilles, anneaux et tiges : celle du zoom 1, pour que
+    // zoomer écarte les villes au lieu de grossir les pastilles avec.
+    const k = base.echelle * cadre.echelle;
 
     // Anneaux au sol : deux ondes décalées, comme un signal qui part
     // du point. Elles restent sur le plan, donc elles se déforment
@@ -8120,13 +8363,13 @@ function dessinerCarte(temps){
     // en compte plusieurs, elles défilent — un point unique ne disait
     // pas qui s'y trouvait, et empiler les pastilles aurait encombré
     // la carte dès qu'une ville en réunit trois ou quatre.
-    const rayon = Math.max(11, k * 0.40) * (actif || survole ? 1.18 : 1);
+    const rayon = rayonMarqueur(k) * (actif || survole ? 1.18 : 1);
 
-    const tour = ville.artistes.length > 1
-      ? Math.floor(temps / 2600) % ville.artistes.length
+    const tour = groupe.defile.length > 1
+      ? Math.floor(temps / 2600) % groupe.defile.length
       : 0;
 
-    const artiste = ville.artistes[tour];
+    const artiste = groupe.defile[tour];
     const photo = imageArtiste(safeUrl(artiste.photo_url));
 
     ctx.globalAlpha = 1;
@@ -8169,8 +8412,19 @@ function dessinerCarte(temps){
     ctx.arc(tete.x, tete.y, rayon, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Combien d'artistes dans cette ville, quand il y en a plusieurs.
-    if(ville.artistes.length > 1){
+    // Un second anneau distingue un groupe de plusieurs villes d'une
+    // ville seule : un clic dessus zoome au lieu d'ouvrir une liste.
+    if(groupe.indices.length > 1){
+      ctx.globalAlpha = 0.5;
+      ctx.lineWidth = Math.max(1, rayon * 0.07);
+      ctx.beginPath();
+      ctx.arc(tete.x, tete.y, rayon * 1.32, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Combien d'artistes sous cette pastille, quand il y en a plusieurs.
+    if(groupe.total > 1){
       const rc = rayon * 0.46;
       const cxp = tete.x + rayon * 0.78;
       const cyp = tete.y - rayon * 0.78;
@@ -8182,13 +8436,56 @@ function dessinerCarte(temps){
       ctx.font = '700 ' + Math.round(rc * 1.25) + 'px "Inter", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(String(ville.artistes.length), cxp, cyp + rc * 0.06);
+      ctx.fillText(String(groupe.total), cxp, cyp + rc * 0.06);
     }
 
-    carteEcran.push({ index, x: tete.x, y: tete.y, rayon: Math.max(16, rayon * 1.6) });
+    if(survole) etiquette = { texte: groupe.nom, x: tete.x, y: tete.y, rayon };
+
+    carteEcran.push({
+      groupe,
+      x: tete.x, y: tete.y,
+      rayon: Math.max(16, rayon * 1.6),
+      base, etendue,
+      tige: base.y - tete.y
+    });
   });
 
+  // Le nom de ce qu'on survole, dessiné en dernier pour qu'aucune
+  // pastille ne le recouvre.
+  if(etiquette) dessinerEtiquetteCarte(ctx, etiquette, largeur);
+
   ctx.globalAlpha = 1;
+}
+
+
+function dessinerEtiquetteCarte(ctx, etiquette, largeur){
+
+  ctx.font = '600 12px "Inter", sans-serif';
+
+  const l = ctx.measureText(etiquette.texte).width + 18;
+  const h = 24;
+
+  const x = Math.max(4, Math.min(largeur - l - 4, etiquette.x - l / 2));
+  let y = etiquette.y - etiquette.rayon * 1.6 - h - 4;
+
+  // Trop près du haut : l'étiquette passe sous la pastille.
+  if(y < 4) y = etiquette.y + etiquette.rayon * 1.6 + 4;
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(8,12,18,0.92)';
+  ctx.beginPath();
+  if(ctx.roundRect) ctx.roundRect(x, y, l, h, 12);
+  else ctx.rect(x, y, l, h);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(79,180,255,0.45)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(etiquette.texte, x + l / 2, y + h / 2 + 0.5);
 }
 
 
@@ -8214,25 +8511,71 @@ function arreterCarte(){
 }
 
 
-function villeSousLePointeur(evenement){
+// La pastille sous le pointeur : une ville seule ou un groupe.
+function cibleSousLePointeur(evenement){
 
   const canvas = document.getElementById('carteCanvas');
   const cadre = canvas.getBoundingClientRect();
   const x = evenement.clientX - cadre.left;
   const y = evenement.clientY - cadre.top;
 
-  let meilleure = -1;
+  let meilleure = null;
   let distanceMin = Infinity;
 
   carteEcran.forEach(cible => {
     const d = Math.hypot(cible.x - x, cible.y - y);
     if(d < cible.rayon && d < distanceMin){
       distanceMin = d;
-      meilleure = cible.index;
+      meilleure = cible;
     }
   });
 
   return meilleure;
+}
+
+
+// Clic sur un groupe : on zoome dessus jusqu'à ce que ses villes
+// s'écartent. Si le zoom est déjà au maximum — Les Lilas et Bagnolet
+// sont à un kilomètre et demi —, on liste ses villes dans le panneau.
+function approcherGroupeCarte(cible){
+
+  const canvas = document.getElementById('carteCanvas');
+  if(!canvas) return;
+
+  const largeur = canvas.clientWidth;
+  const hauteur = canvas.clientHeight;
+  const cadre = cadrageCarte(largeur, hauteur);
+
+  // Assez pour que le groupe occupe près de la moitié du cadre, au
+  // moins le double du zoom actuel, jamais au-delà du maximum.
+  const ajuste = 0.45 * Math.min(largeur, hauteur) /
+                 Math.max(cible.etendue.x, cible.etendue.y, 1);
+
+  const facteur = Math.min(CARTE_3D.zoomMax / carteZoom, Math.max(2, ajuste));
+
+  if(facteur < 1.05){
+    ouvrirGroupeCarte(cible.groupe.indices);
+    return;
+  }
+
+  const zoom = carteZoom * facteur;
+
+  // Autour du centre du cadre, les distances au sol sont multipliées
+  // par le facteur ; la tige, elle, garde sa longueur. D'où ces deux
+  // équations, qui amènent la pastille du groupe au centre.
+  const cx = cadre.cx + cartePanX;
+  const cy = cadre.cy + cartePanY;
+
+  const panX = largeur / 2 - facteur * (cible.base.x - cx) - cadre.cx;
+  const panY = hauteur / 2 + cible.tige - facteur * (cible.base.y - cy) - cadre.cy;
+
+  const marge = margeDeplacementCarte(zoom);
+
+  animerVueCarte(
+    zoom,
+    Math.max(-marge, Math.min(marge, panX)),
+    Math.max(-marge, Math.min(marge, panY))
+  );
 }
 
 
@@ -8250,8 +8593,11 @@ function zoomerCarte(facteur, versX, versY){
   const mx = versX === undefined ? largeur / 2 : versX;
   const my = versY === undefined ? hauteur / 2 : versY;
 
+  // La molette reprend la main sur un zoom animé en cours.
+  carteTransition = null;
+
   const avant = carteZoom;
-  carteZoom = Math.max(1, Math.min(6, carteZoom * facteur));
+  carteZoom = Math.max(1, Math.min(CARTE_3D.zoomMax, carteZoom * facteur));
 
   const reel = carteZoom / avant;
   if(reel === 1) return;
@@ -8271,16 +8617,20 @@ function zoomerCarte(facteur, versX, versY){
 // La vue ne doit pas pouvoir être tirée jusqu'à sortir la France du
 // cadre : au zoom minimal elle reste centrée, et plus on zoome plus on
 // s'autorise à s'éloigner du centre.
-function brider(){
+function margeDeplacementCarte(zoom){
   const canvas = document.getElementById('carteCanvas');
-  if(!canvas) return;
-  const marge = canvas.clientWidth * 0.55 * (carteZoom - 1);
+  return canvas ? canvas.clientWidth * 0.55 * (zoom - 1) : 0;
+}
+
+function brider(){
+  const marge = margeDeplacementCarte(carteZoom);
   cartePanX = Math.max(-marge, Math.min(marge, cartePanX));
   cartePanY = Math.max(-marge, Math.min(marge, cartePanY));
 }
 
 
 function reinitialiserCarte(){
+  carteTransition = null;
   carteZoom = 1;
   cartePanX = 0;
   cartePanY = 0;
@@ -8295,6 +8645,9 @@ function brancherCarte(){
   canvas.dataset.branche = '1';
 
   canvas.addEventListener('pointerdown', (e) => {
+    // Saisir la carte interrompt un zoom animé : sinon il continuerait
+    // de déplacer la vue sous le doigt.
+    carteTransition = null;
     carteSaisie = {
       x: e.clientX, y: e.clientY,
       panX: cartePanX, panY: cartePanY,
@@ -8317,10 +8670,11 @@ function brancherCarte(){
 
     if(!document.getElementById('page-carte').classList.contains('active')) return;
 
-    const trouvee = villeSousLePointeur(e);
-    if(trouvee !== carteSurvol){
-      carteSurvol = trouvee;
-      canvas.style.cursor = trouvee >= 0 ? 'pointer' : 'grab';
+    const trouvee = cibleSousLePointeur(e);
+    const cle = trouvee ? trouvee.groupe.cle : null;
+    if(cle !== carteSurvol){
+      carteSurvol = cle;
+      canvas.style.cursor = trouvee ? 'pointer' : 'grab';
     }
   }, { passive: true });
 
@@ -8343,8 +8697,10 @@ function brancherCarte(){
   // de route : seul un clic sans déplacement compte.
   canvas.addEventListener('click', (e) => {
     if(carteDernierGlisser) return;
-    const trouvee = villeSousLePointeur(e);
-    if(trouvee >= 0) ouvrirVilleCarte(trouvee);
+    const cible = cibleSousLePointeur(e);
+    if(!cible) return;
+    if(cible.groupe.indices.length === 1) ouvrirVilleCarte(cible.groupe.indices[0]);
+    else approcherGroupeCarte(cible);
   });
 
   // Le clic arrive après le relâchement : on retient si le geste
@@ -8388,6 +8744,7 @@ function villesDeLaCarte(){
 
 let carteVilles = [];
 let carteVilleActive = -1;
+let carteGroupeActif = null;   // indices des villes listées ensemble
 
 
 async function renderCarte(){
@@ -8404,6 +8761,7 @@ async function renderCarte(){
 
   carteVilles = villesDeLaCarte();
   carteVilleActive = -1;
+  carteGroupeActif = null;
 
   // Le cadrage dépend des villes affichées : un nouvel artiste à une
   // extrémité change la boîte à faire tenir.
@@ -8456,6 +8814,7 @@ function panneauToutesLesVilles(){
   if(!panneau) return;
 
   carteVilleActive = -1;
+  carteGroupeActif = null;
   arreterDefileCarte();
 
   if(carteVilles.length === 0){
@@ -8590,35 +8949,7 @@ function ouvrirVilleCarte(index){
   if(!ville || !panneau) return;
 
   carteVilleActive = index;
-
-  const lignes = ville.artistes.map(profil => {
-
-    const nom = profil.display_name || profil.instagram_handle;
-    const photo = safeUrl(profil.photo_url);
-
-    const sorties = catalogueData.filter(s =>
-      s.artistHandle === profil.instagram_handle ||
-      s.artist === nom
-    ).length;
-
-    return `
-      <button type="button" class="carte-artiste"
-              onclick="ouvrirPageArtiste('${handleSain(profil.instagram_handle)}', false, 'carte')">
-        <span class="carte-vignette">
-          ${
-            photo
-              ? `<img src="${escapeAttribute(photo)}" alt="">`
-              : escapeHtml(artistInitial(nom))
-          }
-        </span>
-        <span style="min-width:0;">
-          ${escapeHtml(nom)}
-          <span class="carte-sorties">
-            ${sorties ? sorties + ' sortie' + (sorties > 1 ? 's' : '') : 'Pas encore de sortie'}
-          </span>
-        </span>
-      </button>`;
-  }).join('');
+  carteGroupeActif = null;
 
   panneau.innerHTML = `
     <button type="button" class="btn btn-ghost carte-retour"
@@ -8629,7 +8960,106 @@ function ouvrirVilleCarte(index){
     <span class="carte-compte">
       ${ville.artistes.length} artiste${ville.artistes.length > 1 ? 's' : ''}
     </span>
-    ${lignes}`;
+    <div class="carte-liste" id="carteListe">
+      ${ville.artistes.map(ligneArtisteCarte).join('')}
+    </div>`;
+
+  ajusterListeCarte();
+}
+
+
+// Plusieurs villes que le zoom maximal ne sépare pas : une seule liste,
+// découpée par ville.
+function ouvrirGroupeCarte(indices){
+
+  const panneau = document.getElementById('cartePanneau');
+  const villes = indices.map(i => carteVilles[i]).filter(Boolean);
+
+  if(!panneau || !villes.length) return;
+
+  carteVilleActive = -1;
+  carteGroupeActif = indices.slice();
+
+  const total = villes.reduce((n, ville) => n + ville.artistes.length, 0);
+  const autres = villes.length - 2;
+
+  const titre = villes.length === 1
+    ? villes[0].nom
+    : villes.length === 2
+      ? villes[0].nom + ' et ' + villes[1].nom
+      : villes[0].nom + ', ' + villes[1].nom +
+        ' et ' + autres + ' autre' + (autres > 1 ? 's' : '');
+
+  panneau.innerHTML = `
+    <button type="button" class="btn btn-ghost carte-retour"
+            onclick="panneauToutesLesVilles()">
+      ← Retour aux artistes
+    </button>
+    <h3>${escapeHtml(titre)}</h3>
+    <span class="carte-compte">
+      ${total} artiste${total > 1 ? 's' : ''}${villes.length > 1 ? ' · ' + villes.length + ' villes' : ''}
+    </span>
+    <div class="carte-liste" id="carteListe">
+      ${
+        villes.map(ville => `
+          <p class="carte-liste-ville">
+            <span>${escapeHtml(ville.nom)}</span>
+            <span>${ville.artistes.length}</span>
+          </p>
+          ${ville.artistes.map(ligneArtisteCarte).join('')}`
+        ).join('')
+      }
+    </div>`;
+
+  ajusterListeCarte();
+}
+
+
+function ligneArtisteCarte(profil){
+
+  const nom = profil.display_name || profil.instagram_handle;
+  const photo = safeUrl(profil.photo_url);
+
+  const sorties = catalogueData.filter(s =>
+    s.artistHandle === profil.instagram_handle ||
+    s.artist === nom
+  ).length;
+
+  return `
+    <button type="button" class="carte-artiste"
+            onclick="ouvrirPageArtiste('${handleSain(profil.instagram_handle)}', false, 'carte')">
+      <span class="carte-vignette">
+        ${
+          photo
+            ? `<img src="${escapeAttribute(photo)}" alt="">`
+            : escapeHtml(artistInitial(nom))
+        }
+      </span>
+      <span style="min-width:0;">
+        ${escapeHtml(nom)}
+        <span class="carte-sorties">
+          ${sorties ? sorties + ' sortie' + (sorties > 1 ? 's' : '') : 'Pas encore de sortie'}
+        </span>
+      </span>
+    </button>`;
+}
+
+
+// Le panneau ne dépasse plus la hauteur de la carte : c'est la liste
+// qui défile. Un plancher garde quelques lignes visibles sur mobile,
+// où la carte est basse et le panneau passe dessous.
+function ajusterListeCarte(){
+
+  const liste = document.getElementById('carteListe');
+  const canvas = document.getElementById('carteCanvas');
+
+  if(!liste || !canvas) return;
+
+  // offsetTop se mesure depuis le bord du panneau, marge intérieure
+  // comprise ; 20 px pour la marge du bas.
+  const disponible = canvas.clientHeight - liste.offsetTop - 20;
+
+  liste.style.maxHeight = Math.max(280, disponible) + 'px';
 }
 
 
