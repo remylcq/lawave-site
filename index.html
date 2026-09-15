@@ -1173,6 +1173,25 @@
     .carte-zone{grid-template-columns:1fr; gap:24px;}
   }
   .carte-plan{position:relative;}
+  /* Trois cartes, un onglet chacune : même dessin que les onglets de
+     l'espace équipe, le compteur en retrait. */
+  .carte-pays{
+    display:inline-flex; gap:6px; flex-wrap:wrap; margin:0 0 24px;
+    padding:6px; background:rgba(255,255,255,0.05); border-radius:var(--radius);
+  }
+  .carte-pays:empty{display:none;}
+  .carte-pays button{
+    display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
+    padding:9px 16px; font-size:13px; font-weight:600;
+    color:var(--muted); background:transparent; border:none;
+    border-radius:var(--radius-pill); transition:color .15s, background .15s;
+  }
+  .carte-pays button:hover{color:var(--ink);}
+  .carte-pays button[aria-selected="true"]{color:var(--ink); background:rgba(255,255,255,0.12);}
+  .carte-pays-compte{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:500;
+    color:var(--muted); font-variant-numeric:tabular-nums;
+  }
   #carteCanvas{
     width:100%; display:block; touch-action:none; cursor:grab;
   }
@@ -1868,6 +1887,9 @@
           </p>
         </div>
       </div>
+
+      <div class="carte-pays" id="cartePays" role="tablist" aria-label="Pays"
+           onkeydown="clavierOngletsPays(event)"></div>
 
       <div class="carte-zone">
         <div class="carte-plan">
@@ -3548,6 +3570,11 @@ function lireAdresse(){
     ouvrirPageArtiste(decodeURIComponent(parametre), true);
   } else if(page === 'sortie' && parametre){
     ouvrirSortieParNumero(decodeURIComponent(parametre));
+  } else if(page === 'carte'){
+    // #carte/belgique ouvre la carte belge ; #carte seul, la France.
+    const pays = decodeURIComponent(parametre || '');
+    cartePays = paysCarteValide(pays) ? pays : 'france';
+    goTo('carte');
   } else if(document.getElementById('page-' + page)){
     goTo(page);
   } else {
@@ -7775,7 +7802,7 @@ function collectionHtml(userId, options){
 
 
 
-// ---------------- CARTE DE FRANCE ----------------
+// ---------------- CARTES : FRANCE, BELGIQUE, SUISSE ----------------
 //
 // La silhouette est une grille de points, pas un tracé : c'est ce qui
 // donne la trame pointillée sans dessiner de frontière, et sans
@@ -7797,24 +7824,314 @@ const FRANCE_POINTILLES =
   '51:21-24,26-34 52:29-34,60-61 53:31-33,59-61 54:59-61 55:58-61 ' +
   '56:59-61 57:59-61 58:59-61 59:60';
 
-// Projection équirectangulaire centrée sur 46,5° N. À l'échelle de la
-// France la déformation est invisible, et elle a l'avantage d'être
-// réversible en deux multiplications — ce qui permet de placer une
-// ville sur la même grille que les points du fond.
-const CARTE = {
-  LON_MIN: -5.104,
-  LON_MAX: 9.56,
-  LAT_MAX: 51.088,
-  COLONNES: 62
+// La Belgique et la Suisse suivent la même méthode, à partir des
+// frontières d'OpenStreetMap. Chaque pays a 62 colonnes, comme la
+// France : les trois cartes remplissent le cadre avec la même densité
+// de points. La frontière belge d'OSM englobe les eaux territoriales ;
+// les points en mer du Nord ont été retirés le long du littoral.
+const BELGIQUE_POINTILLES =
+  '1:31-32,35-36,40 2:30-31,33,35,39-40 3:31-40 4:12-13,28-41 5:10-13,27-43 ' +
+  '6:8-13,16-19,26-43,45,47-48 7:6-19,24-48 8:5-49 9:3-53 10:1-52 11:1-52 ' +
+  '12:1-51 13:2-51 14:2-51 15:2-51 16:2-49 17:2-49 18:3-50 19:4-6,11-55 ' +
+  '20:6,11-57 21:12-57 22:12-58 23:12-59 24:12-58 25:13-14,16-58 26:18-60 ' +
+  '27:19-61 28:19-61 29:19-61 30:25-61 31:27-60 32:27-58 33:26-58 34:26-54 ' +
+  '35:27-35,38-53 36:28-34,37-53 37:26-34,37-53 38:26-34,37-52 39:27,29-31,37-51 ' +
+  '40:38-51 41:38-51 42:38-51 43:38,40-51 44:41-52 45:42-53 46:45-53 ' +
+  '47:45-53 48:47-53 49:47-53 50:47-49';
+const SUISSE_POINTILLES =
+  '1:35-37 2:34-37,39 3:34-35,37-39,41-43 4:35,37-47 5:22-23,26,29-48 ' +
+  '6:22-49 7:15-16,21-50 8:14-50 9:15-49 10:15-49 11:14-48 12:13-48 ' +
+  '13:13-48 14:11-48 15:11-49 16:10-53 17:8-53,60-61 18:7-55,59-61 ' +
+  '19:7-56,58-61 20:7-61 21:7-61 22:6-60 23:4-60 24:3-57,59-61 25:3-56,60-61 ' +
+  '26:3-55 27:2-33,35-45,48-55 28:2-5,12-31,35-45,48-57 29:3-4,12-31,35-45,49-52,55-56 ' +
+  '30:3,12-30,34-45,50-51,56-57 31:3-4,13-29,35-45,57 32:1-4,12-29,36-44 ' +
+  '33:1-2,12-30,37-43 34:13-28,39-42 35:13-28,40-42 36:15-27,39-41 ' +
+  '37:15-20,24-26,41 38:16-18,41-42 39:41-42';
+
+const BELGIQUE_CONTOUR =
+  '49400,514361,-45,102,-72,-77,-89,83,18,-100,-62,-15,212,-59|23889,512683,1696,-1964,155,' +
+  '-686,330,-121,39,-176,220,-274,-150,-48,-1,-67,-276,-158,43,-45,93,22,43,-65,-38,-237,86,' +
+  '-189,-139,-186,177,-9,184,-351,211,7,131,91,96,-93,341,19,111,-47,-28,-83,91,-142,308,-162,' +
+  '-47,-92,66,2,28,-82,171,-32,71,-257,291,-103,289,75,217,-198,155,33,204,-141,45,108,117,' +
+  '-5,69,64,27,188,132,43,-70,120,138,79,210,-18,426,237,185,-42,219,107,327,-74,173,93,68,' +
+  '121,147,-81,234,37,208,-314,288,-241,-88,-90,186,-81,-49,-55,402,10,159,-117,5,-99,-87,-16,' +
+  '124,-128,-240,-82,-11,-102,94,-112,-55,-67,152,-110,-39,-70,243,-268,-19,-316,75,-26,-93,' +
+  '-32,125,-326,323,-72,89,-107,321,-40,146,-129,621,196,105,-41,50,126,205,145,455,-101,-38,' +
+  '-108,-198,-139,44,-122,222,87,455,55,168,-104,223,67,251,-173,118,-174,90,11,94,-78,-44,' +
+  '-90,113,-96,53,-348,-13,-138,-164,-200,98,-77,-23,-132,126,-74,-27,-74,191,-111,-98,-16,' +
+  '259,-170,103,18,-102,145,111,-82,108,2,-21,189,86,109,-48,14,135,83,162,-30,33,51,324,-22,' +
+  '75,45,75,-22,10,-83,84,21,9,64,215,-2,97,-37,17,-73,185,-46,115,34,-15,-140,152,0,675,231,' +
+  '-26,-87,74,66,125,-59,78,66,243,36,64,69,119,-155,179,-44,11,-68,231,-117,7,-111,183,38,' +
+  '125,-117,85,13,59,-303,122,18,-8,-172,322,21,-43,124,-141,36,133,135,138,-46,10,-94,308,' +
+  '-20,119,-213,-387,-195,-87,-151,-223,-35,101,-113,-125,-280,78,-22,-5,-91,-179,-113,-103,' +
+  '-161,273,-78,26,75,425,-11,45,-187,-73,-91,107,-12,-58,-53,236,-143,60,-142,-128,-105,-196,' +
+  '-43,-46,-72,-202,-39,-118,38,-179,-184,-82,-175,91,-95,167,-33,12,-56,-226,-160,33,-27,290,' +
+  '9,246,-98,1,-128,714,109,209,-18,197,59,261,-61,154,-113,302,22,95,-67,259,0,289,-105,357,' +
+  '109,300,-16,124,38,175,192,234,10,173,131,519,37,373,99,230,-16,-90,110,-3,207,153,257,-29,' +
+  '62,-111,-18,-57,111,218,271,497,164,-36,103,79,-7,61,148,443,163,185,165,74,-160,452,5,38,' +
+  '-125,157,-33,-103,-71,-84,10,-113,-130,53,-310,-227,134,-123,-80,96,-96,-64,-6,-25,-158,' +
+  '-187,-13,99,-86,-22,-73,135,-39,9,-64,-215,-138,-8,-307,-124,-110,-135,-23,-30,-121,9,-118,' +
+  '578,-98,95,-158,231,-103,85,-132,-124,-43,99,-60,-97,-41,-154,-276,-150,12,93,-267,104,7,' +
+  '20,-191,72,-37,-111,-60,-22,-115,-111,-88,117,-42,130,46,295,-78,246,14,81,61,40,-26,43,' +
+  '86,96,28,55,-41,63,38,257,-7,143,-188,530,-147,18,-52,246,41,64,-28,245,-250,69,-260,151,' +
+  '11,28,-44,94,94,129,-68,-18,-183,317,-16,98,44,124,-86,140,39,107,-62,257,112,637,-421,-272,' +
+  '-242,71,-186,283,50,44,119,73,24,117,-78,343,-74,303,-197,93,-262,194,-29,-157,-146,240,' +
+  '-135,16,-130,-195,-80,182,-89,-6,-102,63,-17,125,103,572,78,154,140,347,-63,199,-169,104,' +
+  '136,-60,76,277,234,212,25,406,-143,288,68,44,-68,90,7,105,35,6,184,130,19,212,-117,261,-52,' +
+  '75,58,159,9,8,78,299,134,-67,62,73,31,-23,48,-209,-15,-23,90,287,126,74,245,238,61,-60,123,' +
+  '90,111,-84,57,-158,-3,-245,126,47,139,203,149,-221,176,-209,-56,-177,23,43,259,-128,45,-274,' +
+  '418,-352,-43,-40,234,-78,61,49,36,-90,91,16,52,94,8,-16,70,96,-3,-125,62,149,38,-68,155,' +
+  '163,6,42,-52,96,56,-61,110,-422,130,42,73,241,116,-1,157,113,62,-48,119,46,112,208,49,112,' +
+  '-33,53,97,235,68,43,105,-174,85,-37,149,409,161,-38,74,138,96,-157,130,65,103,265,99,81,' +
+  '331,188,97,472,95,24,412,611,102,85,-203,302,-92,153,32,4,143,232,-3,174,-71,-46,-83,105,' +
+  '-50,-136,-139,257,-64,167,118,-15,85,-123,-21,-87,55,157,70,-81,77,82,23,-19,63,141,-50,' +
+  '77,79,248,24,-86,106,50,126,-224,145,106,69,-13,87,213,25,187,191,432,108,195,-13,137,123,' +
+  '-64,154,126,81,-23,67,134,27,-30,85,266,34,15,-71,83,18,205,-131,-47,82,166,4,68,82,234,' +
+  '13,26,123,-208,164,-203,68,-61,125,-180,89,227,211,119,375,-57,167,-89,-17,-225,85,34,65,' +
+  '-63,59,138,136,-163,8,-260,124,-116,-40,-277,70,-81,-58,-99,48,-251,-91,-295,360,133,236,' +
+  '144,9,112,113,120,377,207,148,54,112,-82,126,-202,-17,-153,85,-88,-86,-343,-4,-36,66,125,' +
+  '107,-14,54,-290,-9,-29,91,-188,104,-4,72,-203,182,-41,126,-86,39,-374,-26,-288,75,-48,-101,' +
+  '-65,127,72,145,-206,92,-366,-19,-225,97,-392,-111,-64,-10,-20,54,-115,-44,-119,49,-32,139,' +
+  '-376,-168,-39,120,-142,-68,-231,-26,-145,142,-87,-30,-109,160,-287,-144,-57,-117,-189,76,' +
+  '-213,-94,-169,22,162,200,-44,340,-399,86,-148,262,25,179,96,109,183,67,98,-13,201,303,233,' +
+  '-16,53,164,185,217,122,44,-83,90,-193,-58,-114,66,478,382,-13,109,101,127,-180,117,152,274,' +
+  '267,-12,-37,106,83,78,-89,119,123,48,158,-39,83,50,-24,91,-200,31,-1,88,150,109,165,22,144,' +
+  '131,-194,91,-121,141,-92,-90,-102,41,-273,-116,18,120,-92,9,-6,49,101,27,-125,119,-216,58,' +
+  '-59,-48,-304,-43,-199,50,-314,-7,-53,130,-923,246,-40,441,-406,288,-328,50,-182,-156,-230,' +
+  '-25,-244,-198,-713,135,-96,-127,-403,-16,-331,53,-252,-54,-119,69,162,369,-419,175,-377,' +
+  '-124,-282,52,-27,315,-605,465,334,378,-253,400,-335,-2,-79,82,23,72,-70,7,-224,-149,-62,' +
+  '-284,-836,-502,-72,14,104,28,-140,44,-102,124,-29,-30,-142,48,-156,-74,-280,55,-500,-56,' +
+  '-181,59,-46,156,201,22,498,-154,50,51,-133,-2,-48,264,118,101,88,4,-79,21,58,195,-208,24,' +
+  '-60,119,-320,45,-93,56,-211,-53,-358,-309,-137,-19,-101,-153,-265,-73,31,-180,-180,5,-104,' +
+  '-49,-666,108,-393,-98,-55,265,182,239,-99,90,-622,-43,-113,-71,-221,-23,-599,-185,-34,-35,' +
+  '127,-3,68,-112,-151,-141,480,-461,-66,-37,63,-74,-95,13,-373,-108,-435,32,-66,200,-1169,' +
+  '-37,91,-141,153,-58,-759,-611,-1043,-483,-212,-33,-41,44,-120,-42,-97,36,-286,-109,-73,-88,' +
+  '-146,-14,-57,-82,-226,-39,-66,84,-134,-57,26,-68,-322,-76,-88,78,126,60,-17,90,-289,-122,' +
+  '-232,30,-113,-49,-340,51,-16,318,60,103,-212,78,-49,-40,-170,104,-587,58,-356,141,-176,-21,' +
+  '-505,178,-89,-76,68,-53,-61,-61,-192,90,-76,-63,-116,16,-53,-75,-90,50,-137,-15,122,-412,' +
+  '-793,-45,-208,32,-107,153,-93,-31,-318,203,51,98,-151,112,124,45,-197,123,269,191,-18,71,' +
+  '-94,73,9,104,-799,903,-842,347,-1307,669,-824,-263,-827,-500,-915,-410,-864,-290,-1229,-590|' +
+  '61660,506619,257,22,45,-53,-123,-109|61667,506436,167,34,56,-73,317,6,109,86,139,-84,195,' +
+  '19,88,-126,-45,-46,-344,9,-407,78,-124,-101,-61,36,76,47|61741,505564,290,129,222,212,153,' +
+  '-34,-53,-210,-99,-105,-148,-9,-132,-184,-193,52|61872,505262,92,49,103,-92,-144,-8|49273,' +
+  '514082,91,-29,-6,40|49331,514495,73,-43,124,64';
+
+const SUISSE_CONTOUR =
+  '59559,461324,15,-38,156,30,105,114,106,16,344,-42,69,-61,169,170,395,6,67,-81,379,-22,492,' +
+  '225,15,163,348,203,121,57,156,-14,451,202,156,188,-5,122,-148,-1,-1,85,-162,-133,-119,-36,' +
+  '-66,40,-226,259,154,128,-40,115,-294,100,334,485,822,433,904,121,935,406,1628,-21,1392,-271,' +
+  '-192,-383,36,-104,-130,-110,-170,-31,-45,-106,133,-210,121,2,40,-130,194,-44,102,-154,174,' +
+  '-103,104,14,71,-111,-95,-250,-156,-70,-91,-138,-95,-21,4,-92,-181,-185,91,-231,-209,-186,' +
+  '48,-242,186,-94,231,36,131,-62,486,-28,-48,-158,-129,-129,97,-101,-1,-114,-115,-44,-86,-181,' +
+  '196,-85,35,54,148,27,150,144,127,-9,-23,-83,151,-44,128,-212,184,-108,37,-150,255,-72,17,' +
+  '-101,114,-82,-151,-101,89,-86,200,-55,-17,-166,80,-151,169,-98,36,-133,124,-49,35,-101,153,' +
+  '-92,-33,-38,90,-128,174,1,350,199,106,-25,-25,-52,137,-87,212,-26,36,152,163,133,331,43,' +
+  '73,-49,201,125,175,211,295,-116,204,50,169,-119,251,-62,155,144,90,-29,163,69,173,161,303,' +
+  '42,-33,114,278,152,83,-44,106,47,99,-62,147,5,-12,192,86,104,285,-6,100,-155,509,-4,248,' +
+  '56,167,-187,289,-89,-26,-132,132,-111,146,2,127,170,215,-39,302,-200,223,99,423,-103,130,' +
+  '105,-87,95,134,273,-44,99,164,47,149,183,684,26,120,-36,120,163,113,-2,51,127,-56,65,235,' +
+  '128,-137,254,131,314,734,108,72,187,290,65,109,108,-54,149,156,197,-122,89,-144,350,-236,' +
+  '99,-51,135,-276,70,33,101,277,145,240,207,238,-59,374,64,132,70,27,104,104,67,-11,80,260,' +
+  '64,29,56,100,-4,9,180,93,29,112,-33,286,135,58,90,-30,129,-268,91,186,178,179,-2,415,262,' +
+  '261,-3,154,71,373,50,202,-193,-90,-212,114,-115,-52,-68,81,-90,-104,-92,94,-241,-86,-93,' +
+  '38,-195,-116,-125,-101,-18,-32,-154,-128,-58,282,-345,-136,-96,22,-53,196,-43,61,-123,622,' +
+  '-140,81,-205,232,-139,99,-196,135,-27,10,-50,151,-13,-105,-124,170,-100,21,-112,358,18,101,' +
+  '-108,217,-23,63,-84,283,-48,283,251,177,-207,230,-74,168,5,62,66,461,-257,25,-140,-104,-131,' +
+  '-97,29,-60,-49,70,-27,-84,-115,-212,-104,-200,-328,99,30,355,-41,370,-274,99,-40,155,24,' +
+  '49,-127,-53,-151,141,-134,69,0,98,-122,-26,-98,101,-100,22,-155,115,-33,-311,-248,-21,-118,' +
+  '441,130,138,-110,167,61,108,-36,-38,-129,236,-40,172,50,12,180,151,112,40,214,116,18,226,' +
+  '253,-121,-14,-3,121,-88,-8,-79,103,-108,-5,-64,71,-233,9,31,87,-103,67,18,167,-250,98,68,' +
+  '25,-5,77,120,-2,41,76,171,57,-60,233,-149,129,19,75,132,154,275,97,281,29,8,106,105,111,' +
+  '-171,311,490,167,130,185,220,88,47,86,222,-5,112,90,76,292,167,60,21,147,274,47,21,327,344,' +
+  '305,-33,124,135,84,43,97,-73,87,78,74,-36,120,-137,24,-65,98,83,173,-86,98,62,67,-17,126,' +
+  '-321,190,-12,136,193,46,119,103,-40,220,80,128,289,76,439,2,87,50,97,-54,-49,-98,79,-94,' +
+  '88,-23,46,-93,219,-62,124,92,6,126,95,92,294,110,-26,-241,-119,-4,6,-44,132,5,27,-110,-64,' +
+  '-64,-48,-423,146,-322,-79,-126,353,-117,221,-372,311,-248,106,39,180,-108,322,-8,83,-72,' +
+  '163,-13,339,99,81,71,104,-92,224,-20,162,216,-1,62,-85,38,101,92,-45,81,139,101,66,9,334,' +
+  '-170,414,149,144,113,355,14,386,185,184,-149,93,88,235,41,65,-151,206,-122,113,-5,-4,-89,' +
+  '-161,-191,202,-99,7,-116,-91,-53,42,-114,353,-79,243,-112,51,-175,-168,-186,266,-125,243,' +
+  '114,376,-37,137,56,305,278,-222,345,-377,213,-120,191,14,90,24,101,207,86,-14,168,149,85,' +
+  '194,13,47,201,-56,78,-134,-12,-47,141,-139,35,-119,-58,-93,23,-72,-70,-205,-2,-30,71,-157,' +
+  '-8,-52,135,-144,20,-1,93,127,125,-117,153,63,196,-68,104,92,34,25,93,-101,178,175,52,209,' +
+  '178,-36,116,170,23,50,53,17,280,252,-56,652,208,225,-90,88,122,152,63,198,-252,-173,-186,' +
+  '43,-166,80,-38,152,65,181,-73,87,-204,153,-33,141,50,127,-90,137,132,451,-120,212,74,346,' +
+  '-206,63,106,124,14,64,147,-32,93,131,229,-34,155,77,103,-460,259,-438,-45,-103,184,5,164,' +
+  '-107,127,117,50,98,162,127,35,28,101,-180,147,419,201,-22,201,-178,142,69,86,180,40,101,' +
+  '152,-11,142,99,57,-27,53,80,75,-71,356,215,312,31,223,-338,151,-294,46,5,182,-283,214,-136,' +
+  '29,-126,-93,-256,-11,-187,-356,-185,-38,-32,-99,111,-93,-11,-58,-153,-5,-39,-47,-563,114,' +
+  '14,-126,-163,-229,91,-112,-21,-184,-390,1,-246,-157,-460,-22,-177,-76,-180,203,-362,27,7,' +
+  '128,-341,249,-119,-28,-158,36,-122,135,-407,-26,-249,128,-362,85,26,225,-80,61,216,272,-35,' +
+  '103,-181,90,97,75,-41,40,-165,20,-71,-68,-166,-39,-512,260,-368,-16,-62,58,-237,7,-112,46,' +
+  '6,58,-194,14,-64,69,-367,-23,-124,-85,-292,105,-446,-134,-191,167,-403,-109,-82,20,-55,-71,' +
+  '-35,70,-65,-43,-34,132,411,206,58,110,-75,354,-260,494,452,896,152,90,102,184,318,190,176,' +
+  '345,187,142,359,40,134,138,-13,87,-209,120,-72,295,146,181,-366,53,-132,130,-62,-84,-79,' +
+  '13,-132,197,-199,132,-33,456,-631,96,-1009,688,-1381,384,-806,-47,-252,136,-116,-34,-446,' +
+  '151,-709,76,-821,-306,-479,-79,-183,65,-75,210,-173,53,71,114,-62,50,117,8,1,-60,101,16,' +
+  '-7,101,-244,-7,-51,88,-241,6,72,51,-215,66,74,59,-55,79,-101,-38,26,-74,-144,2,-150,-89,' +
+  '-5,-116,247,-26,36,-70,125,-38,-100,-16,-40,-165,-78,2,-305,139,-298,34,83,235,-184,53,-67,' +
+  '85,124,155,178,26,-141,141,-132,31,-190,-97,-64,27,-77,282,-236,51,-5,87,-112,-97,24,-166,' +
+  '49,-7,-213,-152,-123,95,-8,306,-177,47,-80,-43,-52,40,-123,-31,-74,89,-60,-159,130,-30,23,' +
+  '-79,-144,-38,-100,67,-264,-66,-63,-75,-99,57,-262,-53,-333,-307,41,-177,-96,6,-282,-129,' +
+  '-125,-122,162,-141,-152,-97,66,-79,114,6,215,-130,122,-12,87,45,-23,-87,98,-101,29,117,160,' +
+  '-80,9,48,385,-12,-49,148,66,26,81,-63,-16,83,209,52,168,-88,203,112,86,-6,15,-80,206,-150,' +
+  '-131,-114,-122,11,106,56,-55,78,-125,-89,90,-298,-224,-174,-204,42,42,96,81,21,-166,125,' +
+  '-422,93,-74,-163,-291,-23,-107,-113,-118,-16,102,-181,218,36,60,-68,-306,-88,-336,-56,-333,' +
+  '106,-147,-115,-528,52,-319,183,-53,197,-276,4,-76,60,-194,-26,-114,-77,-68,126,-141,35,-407,' +
+  '-269,-158,16,-132,-121,-261,-11,-103,-198,-102,-51,-220,68,-459,-142,-207,60,-408,18,-158,' +
+  '-142,-321,69,-14,206,-185,160,-240,13,-255,-66,-198,59,-113,-188,-158,-118,-1032,-250,-238,' +
+  '32,-348,256,434,25,62,76,24,-57,38,58,-180,159,221,135,-186,-88,-295,50,-266,-201,-142,10,' +
+  '-1,70,-158,50,-43,-144,-182,22,-96,-52,4,-75,-581,-249,31,-117,171,63,118,-65,-90,-140,-199,' +
+  '7,-44,64,124,-153,8,-90,-86,-62,-152,-88,-153,-16,-96,87,-293,81,-123,-168,86,25,264,-122,' +
+  '-100,-87,-158,-25,-94,-139,-175,-101,-175,-36,-308,20,-245,79,-484,-70,-353,-145,-132,183,' +
+  '-376,-32,-256,76,73,251,235,262,-387,-43,-343,139,-155,-88,-183,3,-193,-72,-28,42,-352,51,' +
+  '-154,70,-385,-99,34,-183,53,-99,88,8,17,-130,-120,-62,-199,-9,-66,-113,-234,-25,-19,-272,' +
+  '-251,-15,45,-14,-85,-71,42,-80,-299,-152,-43,-203,235,70,213,-44,505,49,218,35,192,93,343,' +
+  '-115,0,-137,125,-36,-95,-74,41,-23,-114,-79,-356,-20,58,-112,-64,-110,-131,-65,-197,5,-29,' +
+  '-50,-228,7,-99,-53,110,-168,-47,-192,84,-76,-750,-426,-68,-152,-328,-139,34,-46,139,-14,' +
+  '-85,-90,-439,-257,-655,-211,62,-118,-51,-69,-157,10,-232,-98,35,-79,-147,-75,277,-155,-227,' +
+  '-139,-373,-100,-188,-245,-224,-112,-249,2,-199,-94,-684,-167,-89,82,-424,-352,-208,-100,' +
+  '319,-383,-46,-391,-168,-186,-24,-169,-98,-34,38,-109,236,-127,-61,-146,-220,-174,-351,-83,' +
+  '-103,-171,-171,-22,39,-51,-897,-334,-1030,-749,-394,-182,-291,-212,462,-311,-130,-176,-57,' +
+  '33,-254,-214,-157,-283,-241,-159,16,-119,120,-96,-225,-275,337,-74,81,-96,81,-26,-8,31,367,' +
+  '-224,96,22,106,-136,-205,-234,-115,-40,-18,-102,-163,-159,-2,-183,-172,-94,221,-336,-230,' +
+  '-137,-134,95,-151,-58,-97,45,-172,-144,-124,72,-207,-76,-115,-105,-113,12,26,-65,-181,-2,' +
+  '-54,-83,41,-41,-97,-56,266,-92,46,-60,-69,-110,-61,24,-176,-284,20,-69|86586,476913,177,' +
+  '63,-116,158,216,-48,150,66,166,-245,-278,47,-205,-106|89585,459648,86,193,103,-12,-18,-213';
+
+// Les contours ci-dessus, simplifiés à environ 300 m, disent dans quel
+// pays tombe une ville. Une grille ne suffirait pas : Saint-Louis est à
+// un kilomètre de Bâle, Tourcoing à deux de la Belgique. Encodage :
+// anneaux séparés par « | », entiers au dix-millième de degré, premier
+// point absolu puis écarts.
+//
+// Projection équirectangulaire propre à chaque pays, centrée sur sa
+// latitude moyenne. À cette échelle la déformation est invisible, et
+// elle est réversible en deux multiplications — ce qui place une ville
+// sur la même grille que les points du fond.
+const CARTES_PAYS = {
+  france: {
+    nom: 'France', pointilles: FRANCE_POINTILLES, contour: null,
+    lonMin: -5.104, lonMax: 9.56, latMax: 51.088, latCentre: 46.5,
+    colonnes: 62, ligneCentre: 30
+  },
+  belgique: {
+    nom: 'Belgique', pointilles: BELGIQUE_POINTILLES, contour: BELGIQUE_CONTOUR,
+    lonMin: 2.5446, lonMax: 6.4081, latMax: 51.5051, latCentre: 50.5,
+    colonnes: 62, ligneCentre: 25.5
+  },
+  suisse: {
+    nom: 'Suisse', pointilles: SUISSE_POINTILLES, contour: SUISSE_CONTOUR,
+    lonMin: 5.9559, lonMax: 10.4922, latMax: 47.8085, latCentre: 46.8,
+    colonnes: 62, ligneCentre: 20
+  }
 };
-CARTE.K = Math.cos(46.5 * Math.PI / 180);
-CARTE.PAS = ((CARTE.LON_MAX - CARTE.LON_MIN) * CARTE.K) / CARTE.COLONNES;
+
+Object.values(CARTES_PAYS).forEach(pays => {
+  pays.K = Math.cos(pays.latCentre * Math.PI / 180);
+  pays.PAS = ((pays.lonMax - pays.lonMin) * pays.K) / pays.colonnes;
+});
+
+// `var` et non `let` : l'adresse (#carte/belgique) est lue au démarrage,
+// avant que ce code ne soit atteint — voir carteAnim plus bas. Pour la
+// même raison, la valeur par défaut ne s'applique que si l'adresse n'a
+// rien choisi : un simple `= 'france'` écraserait ce choix en passant.
+var cartePays = cartePays || 'france';
+
+// Sans passer par CARTES_PAYS, pour la même raison.
+function paysCarteValide(cle){
+  return cle === 'france' || cle === 'belgique' || cle === 'suisse';
+}
 
 function projeterSurCarte(lon, lat){
+  const pays = CARTES_PAYS[cartePays];
   return {
-    x: ((Number(lon) - CARTE.LON_MIN) * CARTE.K) / CARTE.PAS,
-    y: (CARTE.LAT_MAX - Number(lat)) / CARTE.PAS
+    x: ((Number(lon) - pays.lonMin) * pays.K) / pays.PAS,
+    y: (pays.latMax - Number(lat)) / pays.PAS
   };
+}
+
+
+// ---- Dans quel pays tombe une ville ----
+//
+// Belge ou suisse si elle tombe dans l'un des deux contours, française
+// sinon : c'est le cas de toute commune choisie dans l'espace équipe,
+// dont la recherche ne couvre que la France.
+var carteContours = {};
+var cartePaysDesLieux = new Map();
+
+function contourPays(cle){
+
+  if(carteContours[cle]) return carteContours[cle];
+
+  const anneaux = CARTES_PAYS[cle].contour.split('|').map(bloc => {
+    const valeurs = bloc.split(',').map(Number);
+    const points = [];
+    let lon = 0, lat = 0;
+    for(let i = 0; i < valeurs.length; i += 2){
+      lon += valeurs[i];
+      lat += valeurs[i + 1];
+      points.push(lon / 10000, lat / 10000);
+    }
+    return points;
+  });
+
+  let minLon = Infinity, maxLon = -Infinity, minLat = Infinity, maxLat = -Infinity;
+  anneaux.forEach(points => {
+    for(let i = 0; i < points.length; i += 2){
+      minLon = Math.min(minLon, points[i]);   maxLon = Math.max(maxLon, points[i]);
+      minLat = Math.min(minLat, points[i + 1]); maxLat = Math.max(maxLat, points[i + 1]);
+    }
+  });
+
+  carteContours[cle] = { anneaux, minLon, maxLon, minLat, maxLat };
+  return carteContours[cle];
+}
+
+// Pair-impair sur tous les anneaux : les enclaves (Baarle) et les trous
+// (Büsingen, Campione) se traitent sans cas particulier.
+function dansContour(contour, lon, lat){
+
+  if(lon < contour.minLon || lon > contour.maxLon ||
+     lat < contour.minLat || lat > contour.maxLat) return false;
+
+  let dedans = false;
+
+  contour.anneaux.forEach(p => {
+    const n = p.length / 2;
+    for(let i = 0, j = n - 1; i < n; j = i++){
+      const xi = p[2 * i], yi = p[2 * i + 1];
+      const xj = p[2 * j], yj = p[2 * j + 1];
+      if((yi > lat) !== (yj > lat) &&
+         lon < (xj - xi) * (lat - yi) / (yj - yi) + xi){
+        dedans = !dedans;
+      }
+    }
+  });
+
+  return dedans;
+}
+
+function paysDuLieu(lat, lon){
+
+  const cle = lat + '|' + lon;
+
+  if(!cartePaysDesLieux.has(cle)){
+    const pays = ['belgique', 'suisse'].find(p => dansContour(contourPays(p), lon, lat));
+    cartePaysDesLieux.set(cle, pays || 'france');
+  }
+
+  return cartePaysDesLieux.get(cle);
+}
+
+// Position d'un profil, ou null. Une ville sans coordonnées ne compte
+// pas : Number(null) vaut 0, et l'artiste serait placé dans le golfe de
+// Guinée.
+function lieuDuProfil(profil){
+  const lat = Number(profil.latitude);
+  const lon = Number(profil.longitude);
+  if(!profil.ville || profil.latitude == null || profil.longitude == null ||
+     !isFinite(lat) || !isFinite(lon)) return null;
+  return { lat, lon };
 }
 
 
@@ -7877,9 +8194,11 @@ function projeter3D(u, v, elevation, etat){
 
   // Repère : x vers l'est, w vers le nord. Les lignes de la grille
   // sont numérotées du nord au sud, d'où l'inversion — c'est elle qui
-  // manquait, et la France se retrouvait tête en bas.
-  const x0 = u - CARTE.COLONNES / 2;
-  const w0 = 30 - v;
+  // manquait, et la France se retrouvait tête en bas. La rotation se fait
+  // autour du centre de la grille du pays affiché.
+  const pays = CARTES_PAYS[cartePays];
+  const x0 = u - pays.colonnes / 2;
+  const w0 = pays.ligneCentre - v;
 
   // Rotation autour de l'axe vertical.
   const x1 = x0 * Math.cos(etat.angle) + w0 * Math.sin(etat.angle);
@@ -7923,15 +8242,16 @@ function imageArtiste(url){
 }
 
 
-let cartePointsGrille = null;
+// Décodée une fois par pays, à sa première ouverture.
+let cartePointsGrille = {};
 
 function pointsGrille(){
 
-  if(cartePointsGrille) return cartePointsGrille;
+  if(cartePointsGrille[cartePays]) return cartePointsGrille[cartePays];
 
   const points = [];
 
-  FRANCE_POINTILLES.split(' ').forEach(bloc => {
+  CARTES_PAYS[cartePays].pointilles.split(' ').forEach(bloc => {
     const [ligne, plages] = bloc.split(':');
     const r = Number(ligne);
     plages.split(',').forEach(plage => {
@@ -7941,7 +8261,7 @@ function pointsGrille(){
     });
   });
 
-  cartePointsGrille = points;
+  cartePointsGrille[cartePays] = points;
   return points;
 }
 
@@ -8712,8 +9032,8 @@ function brancherCarte(){
 }
 
 
-// Regroupe les artistes par ville : plusieurs artistes d'une même
-// commune partagent un seul point, sinon leurs marqueurs se
+// Regroupe les artistes du pays affiché par ville : plusieurs artistes
+// d'une même commune partagent un seul point, sinon leurs marqueurs se
 // recouvriraient exactement.
 function villesDeLaCarte(){
 
@@ -8721,11 +9041,11 @@ function villesDeLaCarte(){
 
   Object.values(artistsByHandle).forEach(profil => {
 
-    const lat = Number(profil.latitude);
-    const lon = Number(profil.longitude);
+    const lieu = lieuDuProfil(profil);
 
-    if(!profil.ville || !isFinite(lat) || !isFinite(lon)) return;
+    if(!lieu || paysDuLieu(lieu.lat, lieu.lon) !== cartePays) return;
 
+    const { lat, lon } = lieu;
     const cle = profil.ville.toLowerCase() + '|' + lat.toFixed(3) + '|' + lon.toFixed(3);
 
     if(!villes[cle]){
@@ -8759,18 +9079,139 @@ async function renderCarte(){
   if(!catalogueData.length) await renderCatalogue();
   await loadArtists();
 
-  carteVilles = villesDeLaCarte();
-  carteVilleActive = -1;
-  carteGroupeActif = null;
+  // Le menu mène à #carte sans préciser de pays : l'adresse reprend
+  // celui qu'on regardait, pour qu'un lien copié rouvre la même carte.
+  if(document.getElementById('page-carte').classList.contains('active')){
+    history.replaceState(null, '', adresseCarte(cartePays));
+  }
 
-  // Le cadrage dépend des villes affichées : un nouvel artiste à une
-  // extrémité change la boîte à faire tenir.
-  carteCadre = null;
+  // Revenir d'une fiche artiste garde le zoom ; arriver sur un autre
+  // pays repart de la vue d'ensemble.
+  afficherPaysCarte(cartePaysAffiche !== cartePays);
 
   brancherCarte();
   demarrerCarte();
+}
 
+
+var cartePaysAffiche = null;
+
+
+function adresseCarte(cle){
+  return '#carte' + (cle === 'france' ? '' : '/' + cle);
+}
+
+
+// Prépare la carte du pays courant : ses villes, un cadrage neuf, et le
+// panneau qui résume ce pays. La vue d'ensemble n'est rétablie que sur
+// demande.
+function afficherPaysCarte(reinitialiser){
+
+  carteVilles = villesDeLaCarte();
+  carteVilleActive = -1;
+  carteGroupeActif = null;
+  carteSurvol = null;
+
+  // Le cadrage dépend de la grille et des villes affichées.
+  carteCadre = null;
+  if(reinitialiser) reinitialiserCarte();
+  cartePaysAffiche = cartePays;
+
+  renderOngletsPays();
   panneauToutesLesVilles();
+}
+
+
+// ---- Onglets France / Belgique / Suisse ----
+
+function renderOngletsPays(){
+
+  const barre = document.getElementById('cartePays');
+  if(!barre) return;
+
+  const comptes = { france: 0, belgique: 0, suisse: 0 };
+
+  Object.values(artistsByHandle).forEach(profil => {
+    const lieu = lieuDuProfil(profil);
+    if(lieu) comptes[paysDuLieu(lieu.lat, lieu.lon)]++;
+  });
+
+  barre.innerHTML = Object.keys(CARTES_PAYS).map(cle => {
+    const actif = cle === cartePays;
+    return `
+      <button type="button" role="tab" id="cartePays-${cle}"
+              aria-selected="${actif}" tabindex="${actif ? 0 : -1}"
+              onclick="choisirPaysCarte('${cle}')">
+        ${escapeHtml(CARTES_PAYS[cle].nom)}
+        <span class="carte-pays-compte">${comptes[cle]}</span>
+      </button>`;
+  }).join('');
+}
+
+
+function choisirPaysCarte(cle, depuisClavier){
+
+  if(!paysCarteValide(cle) || cle === cartePays) return;
+
+  // Les onglets sont redessinés : le focus doit suivre sur le nouveau,
+  // sinon il retombe au début de la page.
+  const barre = document.getElementById('cartePays');
+  const avaitFocus = !!(barre && barre.contains(document.activeElement));
+
+  cartePays = cle;
+
+  // Remplacée plutôt qu'empilée : changer de pays ne doit pas remplir
+  // l'historique, le bouton Précédent quitte la carte.
+  history.replaceState(null, '', adresseCarte(cle));
+
+  afficherPaysCarte(true);
+
+  if(depuisClavier || avaitFocus){
+    const onglet = document.getElementById('cartePays-' + cle);
+    if(onglet) onglet.focus();
+  }
+
+  // Un fondu court marque le changement de pays : sans lui, la nouvelle
+  // silhouette remplaçait l'ancienne d'une image à l'autre.
+  const canvas = document.getElementById('carteCanvas');
+  if(canvas && canvas.animate && !carteMouvementReduit()){
+    canvas.animate(
+      [{ opacity: 0, transform: 'scale(.97)' }, { opacity: 1, transform: 'none' }],
+      { duration: 320, easing: 'cubic-bezier(.2,.7,.2,1)' }
+    );
+  }
+}
+
+
+// Flèches gauche et droite entre les onglets, comme le veut le rôle
+// tablist.
+function clavierOngletsPays(evenement){
+
+  const ordre = Object.keys(CARTES_PAYS);
+  const i = ordre.indexOf(cartePays);
+
+  let suivant = null;
+  if(evenement.key === 'ArrowRight') suivant = ordre[(i + 1) % ordre.length];
+  if(evenement.key === 'ArrowLeft') suivant = ordre[(i - 1 + ordre.length) % ordre.length];
+  if(evenement.key === 'Home') suivant = ordre[0];
+  if(evenement.key === 'End') suivant = ordre[ordre.length - 1];
+
+  if(!suivant) return;
+
+  evenement.preventDefault();
+  choisirPaysCarte(suivant, true);
+}
+
+
+// Depuis la fiche d'un artiste : la carte de son pays.
+function ouvrirCarteDeLArtiste(handle){
+
+  const profil = artistsByHandle[handle];
+  const lieu = profil && lieuDuProfil(profil);
+
+  if(lieu) cartePays = paysDuLieu(lieu.lat, lieu.lon);
+
+  goTo('carte', { parametre: cartePays === 'france' ? '' : cartePays });
 }
 
 
@@ -8817,13 +9258,18 @@ function panneauToutesLesVilles(){
   carteGroupeActif = null;
   arreterDefileCarte();
 
+  const nomPays = CARTES_PAYS[cartePays].nom;
+
   if(carteVilles.length === 0){
-    panneau.innerHTML = `
-      <p class="carte-invite">
-        Aucun artiste localisé pour l'instant. L'équipe renseigne leur
-        ville depuis l'espace équipe, onglet <strong>Artistes</strong> —
-        ils apparaissent alors ici.
-      </p>`;
+    panneau.innerHTML = cartePays === 'france'
+      ? `<p class="carte-invite">
+           Aucun artiste localisé pour l'instant. L'équipe renseigne leur
+           ville depuis l'espace équipe, onglet <strong>Artistes</strong> —
+           ils apparaissent alors ici.
+         </p>`
+      : `<p class="carte-invite">
+           Aucun artiste localisé en ${escapeHtml(nomPays)} pour l'instant.
+         </p>`;
     return;
   }
 
@@ -8832,7 +9278,7 @@ function panneauToutesLesVilles(){
   panneau.innerHTML = `
     <h3>${tous.length} artiste${tous.length > 1 ? 's' : ''}</h3>
     <span class="carte-compte">
-      ${carteVilles.length} ville${carteVilles.length > 1 ? 's' : ''} sur la carte
+      ${carteVilles.length} ville${carteVilles.length > 1 ? 's' : ''} en ${escapeHtml(nomPays)}
     </span>
     <div class="carte-defile" id="carteDefile"></div>`;
 
@@ -9152,7 +9598,7 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
           ${
             profil && profil.ville
               ? `<span class="platform-btn-sm" style="cursor:pointer;"
-                       onclick="goTo('carte')">📍 ${escapeHtml(profil.ville)}</span>`
+                       onclick="ouvrirCarteDeLArtiste('${handleSain(handle)}')">📍 ${escapeHtml(profil.ville)}</span>`
               : ''
           }
           ${instagram
