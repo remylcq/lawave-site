@@ -27,7 +27,7 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     /* ---------- FOND ---------- */
@@ -95,12 +95,12 @@
     background-position:center, center;
     background-attachment:fixed, fixed;
     color:var(--ink);
-    /* Une seule famille pour tout le site : Work Sans, en gras pour les
-       titres et en romain pour le reste. Deux polices de caractères
-       différentes, l'une pour les titres et l'autre pour le texte,
-       donnaient au site l'air d'un gabarit. */
-    font-family:'Work Sans', sans-serif;
-    font-weight:400;
+    /* Une seule famille pour tout le site, chasse fixe comprise : Public
+       Sans, gras pour les grands titres, moyen pour les petits, léger
+       pour le texte. Trois polices de caractères, dont une à chasse
+       fixe pour les sur-titres, donnaient au site l'air d'un gabarit. */
+    font-family:'Public Sans', sans-serif;
+    font-weight:300;
     -webkit-font-smoothing:antialiased;
     line-height:1.5;
   }
@@ -115,20 +115,21 @@
   main, footer{position:relative; z-index:1;}
   h1,h2,h3,.display{
     font-weight:700;
-    /* Work Sans est moins compacte que la police précédente : au même
-       resserrement, les grands titres se touchaient. */
     letter-spacing:-0.02em;
     margin:0;
     color:var(--ink);
   }
   h1,.display{font-size:clamp(30px,5.2vw,52px); line-height:1.06;}
   h2{font-size:clamp(23px,3.2vw,34px); line-height:1.12;}
-  /* Les petits titres restent en romain : c'est leur taille qui les
-     distingue du texte, pas leur graisse. */
-  h3{font-size:clamp(17px,2vw,20px); line-height:1.25; font-weight:400; letter-spacing:-0.01em;}
+  /* Les petits titres en graisse moyenne : assez pour se détacher d'un
+     texte léger, pas assez pour crier. */
+  h3{font-size:clamp(17px,2vw,20px); line-height:1.25; font-weight:500; letter-spacing:-0.01em;}
+  /* Anciennement la police à chasse fixe. Il n'en reste que ce qu'elle
+     servait vraiment : des chiffres qui s'alignent, et un léger
+     écartement qui distingue ces mentions du texte courant. */
   .mono{
-    font-family:'IBM Plex Mono', monospace;
-    letter-spacing:0.02em;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:0.04em;
   }
   a{color:inherit;text-decoration:none;}
   /* Sans couleur explicite, un <button> ne suit pas la couleur du
@@ -192,8 +193,11 @@
   .nav-logo img{height:66px; width:auto; display:block;}
   .nav-links{display:flex; gap:6px; align-items:center;}
   .nav-links button.navlink{
-    background:transparent; border:1px solid transparent; padding:8px 16px;
+    background:transparent; border:1px solid transparent; padding:8px 14px;
     font-size:14px; color:var(--ink-soft); font-weight:500;
+    /* Public Sans est plus large que la police précédente : sans cela,
+       « Soumettre une sortie » se coupait en deux lignes. */
+    white-space:nowrap;
     border-radius:var(--radius-pill);
     transition:color .2s, background .2s, border-color .2s;
   }
@@ -291,9 +295,10 @@
      il ne décore pas — d'où le gris plutôt que l'accent, et aucun
      cadre. C'est le titre qui suit qui doit capter l'œil. */
   .eyebrow{
-    font-family:'IBM Plex Mono', monospace;
     font-size:11px; font-weight:500;
-    letter-spacing:0.16em; text-transform:uppercase;
+    /* Plus écarté qu'en chasse fixe : ce sont maintenant les seuls
+       espaces qui donnent son allure de repère à cette ligne. */
+    letter-spacing:0.20em; text-transform:uppercase;
     color:var(--muted); margin-bottom:10px; display:block;
   }
 
@@ -1161,8 +1166,7 @@
   }
   .clip-mention{
     position:absolute; left:12px; bottom:10px;
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase;
     color:#fff; text-shadow:0 1px 6px rgba(0,0,0,0.8);
   }
   .clip-cadre{
@@ -1198,7 +1202,7 @@
   .carte-pays button:hover{color:var(--ink);}
   .carte-pays button[aria-selected="true"]{color:var(--ink); background:rgba(255,255,255,0.12);}
   .carte-pays-compte{
-    font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:500;
+    font-size:11px; font-weight:500; letter-spacing:.04em;
     color:var(--muted); font-variant-numeric:tabular-nums;
   }
   #carteCanvas{
@@ -1207,8 +1211,7 @@
   #carteCanvas.saisie{cursor:grabbing;}
   .carte-aide{
     position:absolute; left:0; bottom:0; margin:0;
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    font-size:11px; font-weight:500; letter-spacing:.18em; text-transform:uppercase;
     color:var(--muted); pointer-events:none;
     opacity:.65; transition:opacity .4s var(--ease);
   }
@@ -1271,8 +1274,7 @@
   .carte-liste-ville{
     display:flex; justify-content:space-between; gap:12px;
     margin:16px 10px 4px;
-    font-family:'IBM Plex Mono', monospace;
-    font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+    font-size:11px; font-weight:500; letter-spacing:.18em; text-transform:uppercase;
     color:var(--muted);
   }
   .carte-liste-ville:first-child{margin-top:0;}
@@ -8725,7 +8727,7 @@ function dessinerCarte(temps){
       // Pas encore de photo réglée par l'équipe : l'initiale, comme
       // partout ailleurs sur le site.
       ctx.fillStyle = '#C4C9D0';
-      ctx.font = '600 ' + Math.round(rayon * 1.05) + 'px "Work Sans", sans-serif';
+      ctx.font = '600 ' + Math.round(rayon * 1.05) + 'px "Public Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(
@@ -8762,7 +8764,7 @@ function dessinerCarte(temps){
       ctx.arc(cxp, cyp, rc, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#05070a';
-      ctx.font = '700 ' + Math.round(rc * 1.25) + 'px "Work Sans", sans-serif';
+      ctx.font = '700 ' + Math.round(rc * 1.25) + 'px "Public Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(groupe.total), cxp, cyp + rc * 0.06);
@@ -8789,7 +8791,7 @@ function dessinerCarte(temps){
 
 function dessinerEtiquetteCarte(ctx, etiquette, largeur){
 
-  ctx.font = '600 12px "Work Sans", sans-serif';
+  ctx.font = '600 12px "Public Sans", sans-serif';
 
   const l = ctx.measureText(etiquette.texte).width + 18;
   const h = 24;
