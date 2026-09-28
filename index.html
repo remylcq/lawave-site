@@ -413,7 +413,13 @@
     margin-bottom:32px; gap:20px; flex-wrap:wrap;
   }
   .section-head h2{font-size:clamp(24px,3vw,32px);}
-  .section-head .desc{color:var(--ink-soft); font-size:14px; max-width:44ch;}
+  /* Le sous-titre court sur toute la largeur disponible plutôt que de
+     se replier en colonne : bridé à 44 caractères, il tombait sur trois
+     lignes sous un titre qui en occupait une. Le bloc de gauche prend
+     donc la place restante, ce qui pousse le bouton de droite au bout
+     de la ligne au lieu de le laisser flotter au milieu. */
+  .section-head > div:first-child{flex:1 1 420px; min-width:0;}
+  .section-head .desc{color:var(--ink-soft); font-size:14px; max-width:none;}
 
   /* ---------- CATALOGUE GRID ---------- */
   .cat-grid{
@@ -1758,26 +1764,64 @@
 
   /* ---------- ACCRÉDITATIONS ---------- */
   /* Une classe qui pose display: l'emporte sur la règle [hidden] du
-     navigateur, de même spécificité mais déclarée avant : sans ces deux
-     sélecteurs, la pastille vide et le formulaire replié restaient
+     navigateur, de même spécificité mais déclarée avant : sans ces
+     sélecteurs, la pastille vide et les flèches inutiles restaient
      visibles. */
-  .nav-pastille[hidden], .accred-formulaire[hidden]{display:none;}
+  .nav-pastille[hidden], .accred-fleches[hidden]{display:none;}
   .nav-pastille{
     display:inline-flex; align-items:center; justify-content:center;
     min-width:18px; height:18px; margin-left:7px; padding:0 5px;
     font-size:11px; font-weight:700; line-height:1;
     border-radius:var(--radius-pill); background:var(--blue); color:#04121f;
   }
+  /* Les événements défilent côte à côte : trois places ouvertes ne
+     doivent pas repousser le suivi personnel en bas de page. */
+  .accred-barre{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:16px; flex-wrap:wrap; margin-bottom:14px;
+  }
+  .accred-filtre{display:flex; align-items:center; gap:10px;}
+  .accred-filtre span{
+    font-size:11px; font-weight:500; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .accred-filtre select{
+    padding:9px 14px; border-radius:var(--radius-pill);
+    border:1px solid var(--line-strong); background:rgba(0,0,0,0.26);
+    color:var(--ink); font-family:inherit; font-size:13px;
+  }
+  .accred-fleches{display:flex; gap:6px;}
+  .accred-fleches button{
+    width:34px; height:34px; border-radius:50%;
+    border:1px solid var(--line-strong); background:var(--glass);
+    color:var(--ink-soft); font-size:16px; line-height:1;
+    transition:color .2s var(--ease), background .2s var(--ease);
+  }
+  .accred-fleches button:hover{color:var(--ink); background:var(--glass-hi);}
+  .accred-piste{
+    display:flex; gap:14px; overflow-x:auto; scroll-snap-type:x mandatory;
+    padding-bottom:10px; scrollbar-width:thin;
+    scrollbar-color:var(--line-strong) transparent;
+  }
   .accred-carte{
+    flex:0 0 330px; scroll-snap-align:start;
     display:flex; gap:0; flex-direction:column;
     background:var(--glass); border:1px solid var(--line);
     border-radius:var(--radius); overflow:hidden;
     box-shadow:var(--ombre-1);
-    margin-bottom:18px;
   }
-  .accred-image{aspect-ratio:21/9; background:rgba(255,255,255,0.04);}
+  /* Une seule place ouverte : elle s'étale, sans piste à faire défiler. */
+  .accred-piste.seule .accred-carte{flex:0 1 520px;}
+  .accred-image{aspect-ratio:16/9; background:rgba(255,255,255,0.04);}
   .accred-image img{width:100%; height:100%; object-fit:cover;}
-  .accred-corps{padding:22px; display:flex; flex-direction:column; gap:14px;}
+  .accred-corps{padding:18px; display:flex; flex-direction:column; gap:10px;}
+  .accred-ligne{margin:0; font-size:13px; color:var(--ink-soft);}
+  /* La description tient en deux lignes : le détail est dans les
+     consignes, que seuls les retenus reçoivent. */
+  .accred-description{
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
   .accred-entete{display:flex; gap:14px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;}
   .accred-lieu{margin:0; font-size:13px; color:var(--muted);}
   /* Les informations pratiques en colonnes : c'est la première chose
@@ -1805,10 +1849,6 @@
   .accred-etat.attente{color:var(--ink-soft);}
   .accred-etat.retenu{color:#04121f; background:var(--blue); border-color:transparent; font-weight:600;}
   .accred-etat.refuse{color:var(--muted);}
-  .accred-formulaire{
-    border-top:1px solid var(--line); padding-top:18px;
-    display:flex; flex-direction:column; gap:2px;
-  }
   .accred-aide{font-size:13px; color:var(--muted); line-height:1.55; margin:0 0 12px;}
   .accred-suivi{display:flex; flex-direction:column; gap:12px;}
   .accred-suivi-ligne{
@@ -2184,6 +2224,17 @@
            style="font-size:14px; color:var(--ink-soft); margin:0 0 22px;"></p>
         <div class="inline-actions" id="submitGateActions"></div>
       </div>
+    </div>
+  </div>
+
+  <!-- Formulaire d'inscription à un tirage. Rempli par
+       accredOuvrirFormulaire : les fiches défilent côte à côte, le
+       formulaire y serait à l'étroit. -->
+  <div class="modal-overlay" id="accredModal">
+    <div class="modal-box" style="max-width:480px;">
+      <button class="modal-close" onclick="accredFermerModale()"
+              aria-label="Fermer">✕</button>
+      <div class="modal-body" id="accredModalCorps" style="padding:26px 24px 22px;"></div>
     </div>
   </div>
 
@@ -4408,6 +4459,7 @@ const ROLES_ACCREDITATION = ['Photographe'];
 let accredEvenements = [];
 let accredMesInscriptions = [];
 let accredComptes = {};
+let accredVilleFiltre = '';
 
 function peutAccreditation(){
   if(!currentUser) return false;
@@ -4566,14 +4618,87 @@ async function renderAccreditations(){
     e.statut !== 'termine' && !accredDatePassee(e.date_evenement)
   );
 
-  liste.innerHTML = ouverts.length
-    ? ouverts.map(evenementAccredHtml).join('')
-    : `<div class="empty-state">
-         Aucune accréditation ouverte en ce moment. Reviens bientôt : on
-         en publie dès qu'une salle nous répond.
-       </div>`;
+  if(!ouverts.length){
+    liste.innerHTML = `
+      <div class="empty-state">
+        Aucune accréditation ouverte en ce moment. Reviens bientôt : on
+        en publie dès qu'une salle nous répond.
+      </div>`;
+    renderSuiviAccreditations();
+    return;
+  }
+
+  // Le filtre ne propose que les villes réellement présentes, et
+  // s'efface quand tout tient dans une seule.
+  const villes = [...new Set(ouverts.map(e => e.ville).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+
+  if(accredVilleFiltre && !villes.includes(accredVilleFiltre)) accredVilleFiltre = '';
+
+  const retenus = accredVilleFiltre
+    ? ouverts.filter(e => e.ville === accredVilleFiltre)
+    : ouverts;
+
+  liste.innerHTML = `
+    ${villes.length > 1 ? accredBarreHtml(villes, ouverts) : ''}
+    <div class="accred-piste${retenus.length > 1 ? '' : ' seule'}" id="accredPiste">
+      ${retenus.map(evenementAccredHtml).join('')}
+    </div>`;
 
   renderSuiviAccreditations();
+  majFlechesAccred();
+}
+
+
+function accredBarreHtml(villes, ouverts){
+
+  const compte = ville => ouverts.filter(e => e.ville === ville).length;
+
+  return `
+    <div class="accred-barre">
+
+      <label class="accred-filtre">
+        <span>Ville</span>
+        <select id="accredVille" onchange="accredFiltrerVille(this.value)">
+          <option value="">Toutes (${ouverts.length})</option>
+          ${villes.map(v => `
+            <option value="${escapeAttribute(v)}" ${v === accredVilleFiltre ? 'selected' : ''}>
+              ${escapeHtml(v)} (${compte(v)})
+            </option>`).join('')}
+        </select>
+      </label>
+
+      <div class="accred-fleches" id="accredFleches" hidden>
+        <button type="button" onclick="accredDefiler(-1)" aria-label="Événements précédents">‹</button>
+        <button type="button" onclick="accredDefiler(1)" aria-label="Événements suivants">›</button>
+      </div>
+
+    </div>`;
+}
+
+
+function accredFiltrerVille(ville){
+  accredVilleFiltre = ville || '';
+  renderAccreditations();
+}
+
+
+// Les flèches ne servent qu'à la souris, et seulement s'il y a de quoi
+// défiler : au doigt, on fait glisser.
+function majFlechesAccred(){
+  const piste = document.getElementById('accredPiste');
+  const fleches = document.getElementById('accredFleches');
+  if(!piste || !fleches) return;
+  fleches.hidden = piste.scrollWidth <= piste.clientWidth + 4;
+}
+
+
+function accredDefiler(sens){
+  const piste = document.getElementById('accredPiste');
+  if(!piste) return;
+  const carte = piste.querySelector('.accred-carte');
+  const pas = carte ? carte.getBoundingClientRect().width + 14 : 340;
+  piste.scrollBy({ left: sens * pas, behavior: 'smooth' });
 }
 
 
@@ -4605,7 +4730,7 @@ function evenementAccredHtml(evenement){
 
         <div class="accred-entete">
           <div style="min-width:0;">
-            <h3 style="margin:0 0 4px;">${escapeHtml(evenement.artiste)}</h3>
+            <h3 style="margin:0 0 3px; font-size:18px;">${escapeHtml(evenement.artiste)}</h3>
             <p class="accred-lieu">
               ${escapeHtml(evenement.salle)}${evenement.ville ? ' · ' + escapeHtml(evenement.ville) : ''}
             </p>
@@ -4613,30 +4738,23 @@ function evenementAccredHtml(evenement){
           ${etat}
         </div>
 
-        <dl class="accred-infos">
-          <div><dt>Date</dt><dd>${escapeHtml(accredDateTexte(evenement.date_evenement, true))}</dd></div>
-          <div><dt>Places</dt><dd>${evenement.places}</dd></div>
-          <div><dt>Inscrits</dt><dd>${inscrits}</dd></div>
+        <p class="accred-ligne">
+          ${escapeHtml(accredDateTexte(evenement.date_evenement, true))}
+        </p>
+
+        <p class="accred-ligne">
+          ${evenement.places} place${evenement.places > 1 ? 's' : ''}
+          · ${inscrits} inscrit${inscrits > 1 ? 's' : ''}
           ${
             evenement.inscriptions_jusqu_au
-              ? `<div><dt>Inscriptions jusqu'au</dt>
-                   <dd>${escapeHtml(accredDateTexte(evenement.inscriptions_jusqu_au, true))}</dd></div>`
+              ? ' · jusqu’au ' + escapeHtml(accredDateTexte(evenement.inscriptions_jusqu_au))
               : ''
           }
-        </dl>
+        </p>
 
         ${
           evenement.description
             ? `<p class="accred-description">${escapeHtml(evenement.description)}</p>`
-            : ''
-        }
-
-        ${
-          mienne && mienne.statut === 'retenu' && evenement.consignes
-            ? `<div class="accred-consignes">
-                 <span class="eyebrow" style="margin-bottom:6px;">Tes consignes</span>
-                 <p style="margin:0; white-space:pre-wrap;">${escapeHtml(evenement.consignes)}</p>
-               </div>`
             : ''
         }
 
@@ -4645,8 +4763,6 @@ function evenementAccredHtml(evenement){
         </div>
 
         <div class="form-msg" id="accred-msg-${escapeAttribute(evenement.id)}"></div>
-
-        ${ouvert && !mienne ? accredFormulaireHtml(evenement) : ''}
 
       </div>
     </article>`;
@@ -4701,15 +4817,31 @@ function accredBoutonsHtml(evenement, mienne, ouvert){
 }
 
 
-function accredFormulaireHtml(evenement){
+// Le formulaire s'ouvre dans une fenêtre plutôt que dans la fiche : les
+// fiches défilent côte à côte, un formulaire à l'intérieur serait à
+// l'étroit et allongerait la piste.
+function accredOuvrirFormulaire(id){
 
-  const id = escapeAttribute(evenement.id);
+  const evenement = accredEvenements.find(e => e.id === id);
+  const voile = document.getElementById('accredModal');
+  const corps = document.getElementById('accredModalCorps');
+
+  if(!evenement || !voile || !corps) return;
+
   const email = emailDuCompte || '';
   const nom = (currentUser && currentUser.pseudo) || '';
 
-  return `
-    <form class="accred-formulaire" id="accred-form-${id}" hidden
-          onsubmit="accredEnvoyerInscription(event, '${id}')">
+  corps.innerHTML = `
+    <span class="eyebrow">Inscription au tirage</span>
+    <h3 style="font-size:19px; margin:6px 0 4px;">
+      ${escapeHtml(evenement.artiste)}
+    </h3>
+    <p class="accred-lieu" style="margin-bottom:16px;">
+      ${escapeHtml(evenement.salle)}${evenement.ville ? ' · ' + escapeHtml(evenement.ville) : ''}
+      · ${escapeHtml(accredDateTexte(evenement.date_evenement, true))}
+    </p>
+
+    <form onsubmit="accredEnvoyerInscription(event, '${escapeAttribute(id)}')">
 
       <p class="accred-aide">
         Ces informations partent à l'équipe pour l'accréditation auprès de
@@ -4717,55 +4849,57 @@ function accredFormulaireHtml(evenement){
       </p>
 
       <div class="field">
-        <label for="accred-nom-${id}">Nom et prénom</label>
-        <input type="text" id="accred-nom-${id}" maxlength="120" required
+        <label for="accred-nom">Nom et prénom</label>
+        <input type="text" id="accred-nom" maxlength="120" required
                value="${escapeAttribute(nom)}">
       </div>
 
       <div class="field">
-        <label for="accred-email-${id}">Email de contact</label>
-        <input type="email" id="accred-email-${id}" maxlength="180" required
+        <label for="accred-email">Email de contact</label>
+        <input type="email" id="accred-email" maxlength="180" required
                value="${escapeAttribute(email)}">
       </div>
 
       <div class="field">
-        <label for="accred-tel-${id}">Téléphone — facultatif</label>
-        <input type="tel" id="accred-tel-${id}" maxlength="30">
+        <label for="accred-tel">Téléphone</label>
+        <input type="tel" id="accred-tel" maxlength="30" required
+               placeholder="06 12 34 56 78">
+        <p class="accred-aide" style="margin:6px 0 0;">
+          La salle demande un contact joignable le jour même.
+        </p>
       </div>
 
       <div class="field">
-        <label for="accred-portfolio-${id}">Portfolio ou Instagram — facultatif</label>
-        <input type="text" id="accred-portfolio-${id}" maxlength="200"
+        <label for="accred-portfolio">Portfolio, Instagram ou site</label>
+        <input type="text" id="accred-portfolio" maxlength="200" required
                placeholder="Un lien vers tes photos">
       </div>
 
       <div class="field">
-        <label for="accred-message-${id}">Message — facultatif</label>
-        <textarea id="accred-message-${id}" rows="3" maxlength="500"
+        <label for="accred-message">Message — facultatif</label>
+        <textarea id="accred-message" rows="3" maxlength="500"
                   placeholder="Matériel, contraintes, ce que tu veux nous dire"></textarea>
       </div>
 
       <div class="inline-actions">
         <button type="submit" class="btn btn-primary">Valider mon inscription</button>
         <button type="button" class="btn btn-ghost"
-                onclick="accredFermerFormulaire('${id}')">Annuler</button>
+                onclick="accredFermerModale()">Annuler</button>
       </div>
+
+      <div class="form-msg" id="accred-modal-msg"></div>
     </form>`;
-}
 
+  voile.classList.add('open');
 
-function accredOuvrirFormulaire(id){
-  const form = document.getElementById('accred-form-' + id);
-  if(!form) return;
-  form.hidden = false;
-  const premier = document.getElementById('accred-nom-' + id);
+  const premier = document.getElementById('accred-nom');
   if(premier) premier.focus();
 }
 
 
-function accredFermerFormulaire(id){
-  const form = document.getElementById('accred-form-' + id);
-  if(form) form.hidden = true;
+function accredFermerModale(){
+  const voile = document.getElementById('accredModal');
+  if(voile) voile.classList.remove('open');
 }
 
 
@@ -4782,32 +4916,42 @@ async function accredEnvoyerInscription(evenement, id){
   evenement.preventDefault();
 
   const valeur = champ => {
-    const e = document.getElementById(champ + id);
+    const e = document.getElementById(champ);
     return e ? e.value.trim() : '';
   };
 
-  const nom = valeur('accred-nom-');
-  const email = valeur('accred-email-');
+  const msg = document.getElementById('accred-modal-msg');
 
-  if(!nom || !email){
-    accredMessage(id, 'Le nom et l’email sont nécessaires.', false);
+  const champs = {
+    evenementId: id,
+    nom: valeur('accred-nom'),
+    email: valeur('accred-email'),
+    telephone: valeur('accred-tel'),
+    portfolio: valeur('accred-portfolio'),
+    message: valeur('accred-message')
+  };
+
+  // Le navigateur bloque déjà les champs requis, mais un envoi
+  // déclenché autrement passerait à côté. La base les exige de son côté.
+  if(!champs.nom || !champs.email || !champs.telephone || !champs.portfolio){
+    if(msg){
+      msg.textContent = 'Nom, email, téléphone et lien vers ton travail sont nécessaires.';
+      msg.className = 'form-msg err';
+    }
     return;
   }
 
-  const { error } = await BD.sInscrireAccreditation({
-    evenementId: id,
-    nom,
-    email,
-    telephone: valeur('accred-tel-'),
-    portfolio: valeur('accred-portfolio-'),
-    message: valeur('accred-message-')
-  });
+  const { error } = await BD.sInscrireAccreditation(champs);
 
   if(error){
-    accredMessage(id, 'Inscription refusée : ' + error.message, false);
+    if(msg){
+      msg.textContent = 'Inscription refusée : ' + error.message;
+      msg.className = 'form-msg err';
+    }
     return;
   }
 
+  accredFermerModale();
   await renderAccreditations();
   accredMessage(id, '✅ Inscription enregistrée. Le tirage aura lieu après la date limite.', true);
 }
