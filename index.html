@@ -244,6 +244,16 @@
   }
   .account-dropdown button:hover{color:var(--ink); background:rgba(255,255,255,0.06);}
 
+  /* Entre le téléphone et le grand écran, la barre se resserre plutôt
+     que de déborder : les photographes et l'équipe y ont une entrée de
+     plus que les autres visiteurs. */
+  @media (min-width:761px) and (max-width:1150px){
+    .nav-links{gap:2px;}
+    .nav-links button.navlink{padding:8px 10px; font-size:13px;}
+    .nav-inner{padding:6px 12px 6px 18px;}
+    .nav-logo img{height:54px;}
+  }
+
   @media (max-width:760px){
     /* Le backdrop-filter de l'en-tête crée un bloc conteneur pour les
        descendants en position:fixed : ce menu se positionne donc par
@@ -809,7 +819,7 @@
      sombre que son entourage et l'ombre portée vers l'intérieur. */
   /* L'encadré du nouvel artiste est cité à part : il sert aussi hors
      d'un .field, et ses champs doivent se présenter comme les autres. */
-  .field input[type=text], .field input[type=url], .field input[type=email], .field input[type=password], .field input[type=date], .field select, .field textarea,
+  .field input[type=text], .field input[type=url], .field input[type=email], .field input[type=password], .field input[type=date], .field input[type=tel], .field input[type=number], .field input[type=datetime-local], .field select, .field textarea,
   .encadre-nouvel-artiste input[type=text]{
     width:100%; padding:13px 15px; border:1px solid rgba(255,255,255,0.09); border-radius:var(--radius-sm);
     background:rgba(0,0,0,0.26); font-size:14px; font-family:inherit; color:var(--ink);
@@ -1746,6 +1756,89 @@
   .fc-name{cursor:pointer;}
   .fc-name:hover{color:var(--blue);}
 
+  /* ---------- ACCRÉDITATIONS ---------- */
+  /* Une classe qui pose display: l'emporte sur la règle [hidden] du
+     navigateur, de même spécificité mais déclarée avant : sans ces deux
+     sélecteurs, la pastille vide et le formulaire replié restaient
+     visibles. */
+  .nav-pastille[hidden], .accred-formulaire[hidden]{display:none;}
+  .nav-pastille{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:18px; height:18px; margin-left:7px; padding:0 5px;
+    font-size:11px; font-weight:700; line-height:1;
+    border-radius:var(--radius-pill); background:var(--blue); color:#04121f;
+  }
+  .accred-carte{
+    display:flex; gap:0; flex-direction:column;
+    background:var(--glass); border:1px solid var(--line);
+    border-radius:var(--radius); overflow:hidden;
+    box-shadow:var(--ombre-1);
+    margin-bottom:18px;
+  }
+  .accred-image{aspect-ratio:21/9; background:rgba(255,255,255,0.04);}
+  .accred-image img{width:100%; height:100%; object-fit:cover;}
+  .accred-corps{padding:22px; display:flex; flex-direction:column; gap:14px;}
+  .accred-entete{display:flex; gap:14px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;}
+  .accred-lieu{margin:0; font-size:13px; color:var(--muted);}
+  /* Les informations pratiques en colonnes : c'est la première chose
+     qu'un photographe compare d'un événement à l'autre. */
+  .accred-infos{
+    display:flex; flex-wrap:wrap; gap:12px 28px; margin:0;
+  }
+  .accred-infos div{display:flex; flex-direction:column; gap:2px;}
+  .accred-infos dt{
+    font-size:11px; font-weight:500; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .accred-infos dd{margin:0; font-size:14px; color:var(--ink);}
+  .accred-description{margin:0; font-size:14px; color:var(--ink-soft); line-height:1.6; max-width:70ch;}
+  .accred-consignes{
+    border-left:2px solid var(--blue); padding:2px 0 2px 14px;
+    font-size:14px; color:var(--ink-soft); line-height:1.6;
+  }
+  .accred-actions{display:flex; gap:10px; flex-wrap:wrap;}
+  .accred-etat{
+    flex-shrink:0; padding:6px 12px; border-radius:var(--radius-pill);
+    font-size:12px; font-weight:500; white-space:nowrap;
+    border:1px solid var(--line-strong); color:var(--muted);
+  }
+  .accred-etat.attente{color:var(--ink-soft);}
+  .accred-etat.retenu{color:#04121f; background:var(--blue); border-color:transparent; font-weight:600;}
+  .accred-etat.refuse{color:var(--muted);}
+  .accred-formulaire{
+    border-top:1px solid var(--line); padding-top:18px;
+    display:flex; flex-direction:column; gap:2px;
+  }
+  .accred-aide{font-size:13px; color:var(--muted); line-height:1.55; margin:0 0 12px;}
+  .accred-suivi{display:flex; flex-direction:column; gap:12px;}
+  .accred-suivi-ligne{
+    background:var(--glass); border:1px solid var(--line);
+    border-radius:var(--radius); padding:18px 20px;
+    display:flex; flex-direction:column; gap:12px;
+  }
+  .accred-suivi-entete{display:flex; gap:14px; align-items:flex-start; justify-content:space-between; flex-wrap:wrap;}
+  .accred-livraison{border-top:1px solid var(--line); padding-top:14px;}
+  .accred-livraison-etat{margin:0 0 10px; font-size:13px; color:var(--ink-soft);}
+  .accred-livraison-form{display:flex; gap:10px; flex-wrap:wrap;}
+  .accred-livraison-form input{
+    flex:1; min-width:220px; padding:11px 14px;
+    border-radius:var(--radius-sm); border:1px solid var(--line-strong);
+    background:rgba(0,0,0,0.26); color:var(--ink); font-family:inherit; font-size:14px;
+  }
+  /* Liste des inscrits, côté équipe : elle déborde en largeur sur
+     mobile, d'où le conteneur qui défile autour. */
+  .accred-table{border-collapse:collapse; width:100%; font-size:13px;}
+  .accred-table th{
+    text-align:left; padding:8px 12px 8px 0; white-space:nowrap;
+    font-size:11px; font-weight:500; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--muted);
+    border-bottom:1px solid var(--line);
+  }
+  .accred-table td{
+    padding:10px 12px 10px 0; vertical-align:top;
+    border-bottom:1px solid var(--line); color:var(--ink-soft);
+  }
+
   /* ---------- FOOTER ---------- */
   footer{border-top:1px solid var(--line); padding:36px 0; margin-top:40px;}
   .footer-inner{
@@ -1772,6 +1865,12 @@
       <button class="navlink active" data-page="home">Accueil</button>
       <button class="navlink" data-page="catalogue">Catalogue</button>
       <button class="navlink" data-page="submit">Soumettre une sortie</button>
+      <!-- Montré aux seuls photographes et à l'équipe : la barre reste
+           courte pour tous les autres. Basculé par majAccesAccreditations. -->
+      <button class="navlink" data-page="accreditations" id="navAccreditations" hidden>
+        Accréditations
+        <span class="nav-pastille" id="navAccredPastille" hidden></span>
+      </button>
       <button class="navlink" data-page="content">Contenu</button>
       <button class="navlink" data-page="carte">Carte</button>
       <button class="navlink" data-page="community">Communauté</button>
@@ -2088,7 +2187,54 @@
     </div>
   </div>
 
+  <!-- Même voile pour la page Accréditations, réservée aux photographes.
+       Rempli par verifierAccesAccreditations. -->
+  <div class="modal-overlay" id="accredGate">
+    <div class="modal-box" style="max-width:420px;">
+      <button class="modal-close" onclick="goTo('home')"
+              aria-label="Fermer et revenir à l'accueil">✕</button>
+      <div class="modal-body" style="padding:28px 26px 26px;">
+        <span class="eyebrow">Accès réservé</span>
+        <h3 style="font-size:20px; margin:6px 0 12px;">
+          Réservé aux photographes
+        </h3>
+        <p id="accredGateTexte"
+           style="font-size:14px; color:var(--ink-soft); margin:0 0 22px;"></p>
+        <div class="inline-actions" id="accredGateActions"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= CONTENT ================= -->
+  <!-- Accréditations : les places obtenues par La Wave pour des concerts,
+       tirées au sort entre les photographes inscrits. Le tableau de bord
+       de chacun est sur la même page, sous la liste : un photographe
+       vient ici pour s'inscrire ET pour suivre ce qu'il a obtenu. -->
+  <section id="page-accreditations" class="page">
+    <section>
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">Accès terrain</span>
+          <h2>Accréditations</h2>
+          <p class="desc">
+            Les places photo que La Wave obtient pour des concerts et des
+            festivals. Inscris-toi au tirage au sort ; si tu es tiré, on
+            te contacte avec les démarches.
+          </p>
+        </div>
+      </div>
+
+      <div id="accredEvenements"></div>
+
+      <div class="hairline" style="margin-top:48px;"></div>
+
+      <span class="eyebrow" style="display:block; margin-top:32px;">Mon suivi</span>
+      <h3 style="font-size:18px; margin:6px 0 18px;">Mes accréditations</h3>
+      <div id="accredSuivi"></div>
+
+    </section>
+  </section>
+
   <section id="page-content" class="page">
     <section>
       <div class="section-head">
@@ -2479,12 +2625,47 @@
       <span class="admin-tab-label">Communauté</span>
     </button>
 
+    <button type="button" class="admin-tab" id="adminTab-accreditations"
+      onclick="switchAdminTab('accreditations')" title="Accréditations photo">
+      <span class="admin-tab-icon">📷</span>
+      <span class="admin-tab-label">Accréditations</span>
+      <span class="admin-tab-count" id="adminCount-accreditations"></span>
+    </button>
+
     <button type="button" class="admin-tab" id="adminTab-support"
       onclick="switchAdminTab('support')" title="Bugs signalés">
       <span class="admin-tab-icon">🛟</span>
       <span class="admin-tab-label">Support</span>
       <span class="admin-tab-count" id="adminCount-support"></span>
     </button>
+
+  </div>
+
+
+  <!-- ================= ACCRÉDITATIONS ================= -->
+
+  <div class="admin-section" id="adminSection-accreditations">
+
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Accréditations</span>
+        <h3 style="font-size:18px; margin-bottom:6px;">
+          Places photo et tirages au sort
+        </h3>
+        <p class="desc">
+          Publie une place obtenue, suis les inscriptions, tire au sort,
+          puis récupère les photos livrées.
+        </p>
+      </div>
+
+      <button type="button" class="btn btn-ghost"
+              onclick="ouvrirFormulaireEvenement()">
+        ＋ Nouvel événement
+      </button>
+    </div>
+
+    <div id="adminEvenementForm"></div>
+    <div id="adminEvenementsListe"></div>
 
   </div>
 
@@ -3077,6 +3258,9 @@
     <span class="mono">© La Wave — média musical</span>
     <div style="display:flex; gap:18px; flex-wrap:wrap;">
       <a class="footer-admin-link" onclick="goTo('about')" href="javascript:void(0)">À propos</a>
+      <!-- Le lien du menu n'apparaît qu'aux photographes : celui-ci reste
+           visible de tous, c'est par lui qu'on découvre que ça existe. -->
+      <a class="footer-admin-link" onclick="goTo('accreditations')" href="javascript:void(0)">Accréditations photo</a>
       <a class="footer-admin-link" onclick="goTo('bugreport')" href="javascript:void(0)">Signaler un bug</a>
       <a class="footer-admin-link" onclick="goTo('admin')" href="javascript:void(0)">Espace équipe</a>
     </div>
@@ -3352,6 +3536,93 @@ const BD = {
   },
 
 
+  // ---------- ACCRÉDITATIONS ----------
+  //
+  // Les brouillons ne sortent que pour l'équipe : la policy les retient
+  // déjà côté base, la requête ne les demande simplement pas au public.
+
+  evenementsAccreditation(pourEquipe){
+    const requete = supabaseClient
+      .from('evenements_accreditation')
+      .select('*')
+      .order('date_evenement', { ascending: true });
+    return pourEquipe ? requete : requete.neq('statut', 'brouillon');
+  },
+
+  // Chacun ne reçoit que ses propres lignes : c'est la policy qui
+  // filtre, pas la requête.
+  mesInscriptionsAccreditation(){
+    return supabaseClient
+      .from('inscriptions_accreditation')
+      .select('*')
+      .order('cree_le', { ascending: false });
+  },
+
+  // Toutes les inscriptions d'un événement : réservé à l'équipe, la
+  // policy renvoie une liste vide à quiconque d'autre.
+  inscriptionsDeLEvenement(evenementId){
+    return supabaseClient
+      .from('inscriptions_accreditation')
+      .select('*')
+      .eq('evenement_id', evenementId)
+      .order('cree_le', { ascending: true });
+  },
+
+  // Le nombre d'inscrits est public — il dit à chacun ses chances —
+  // alors que les lignes ne le sont pas.
+  comptesInscriptionsAccreditation(){
+    return supabaseClient.rpc('compte_inscriptions_accreditation');
+  },
+
+  sInscrireAccreditation(champs){
+    return supabaseClient.rpc('inscription_accreditation', {
+      p_evenement: champs.evenementId,
+      p_nom:       champs.nom,
+      p_email:     champs.email,
+      p_telephone: champs.telephone || null,
+      p_portfolio: champs.portfolio || null,
+      p_message:   champs.message || null
+    });
+  },
+
+  seRetirerAccreditation(inscriptionId){
+    return supabaseClient
+      .from('inscriptions_accreditation')
+      .delete().eq('id', inscriptionId).select();
+  },
+
+  livrerPhotos(evenementId, lien){
+    return supabaseClient.rpc('livraison_accreditation', {
+      p_evenement: evenementId,
+      p_lien: lien
+    });
+  },
+
+  tirerAuSort(evenementId){
+    return supabaseClient.rpc('tirage_accreditation', { p_evenement: evenementId });
+  },
+
+  creerEvenementAccreditation(champs){
+    return supabaseClient
+      .from('evenements_accreditation').insert(champs).select().single();
+  },
+
+  majEvenementAccreditation(id, champs){
+    return supabaseClient
+      .from('evenements_accreditation').update(champs).eq('id', id).select();
+  },
+
+  supprimerEvenementAccreditation(id){
+    return supabaseClient
+      .from('evenements_accreditation').delete().eq('id', id).select();
+  },
+
+  majInscriptionAccreditation(id, champs){
+    return supabaseClient
+      .from('inscriptions_accreditation').update(champs).eq('id', id).select();
+  },
+
+
   // ---------- FORUM ----------
 
   postsForum(){
@@ -3543,9 +3814,11 @@ const BD = {
   if(pageId === 'carte') renderCarte(); else arreterCarte();
   if(pageId === 'community') renderCommunity();
   if(pageId === 'profile') renderProfileForm();
-  // Le voile est en position fixe : sans cet appel à chaque page, il
-  // recouvrirait la suivante après un départ de « Soumettre ».
+  if(pageId === 'accreditations') renderAccreditations();
+  // Les voiles sont en position fixe : sans ces appels à chaque page,
+  // ils recouvriraient la suivante après un départ.
   verifierAccesSoumission();
+  verifierAccesAccreditations();
 }
 
 // L'accueil n'a pas d'ancre : une adresse nue reste propre.
@@ -4028,6 +4301,7 @@ const MEMBER_ROLES = [
   { name: 'Manager',              icon: '📈', color: '#ec4899' },
   { name: 'Relation presse',      icon: '📣', color: '#ef4444' },
   { name: 'Média / Presse',       icon: '📰', color: '#06b6d4' },
+  { name: 'Photographe',          icon: '📷', color: '#22d3ee' },
   { name: 'Autre',                icon: '✨', color: '#8a9199' }
 ];
 
@@ -4119,6 +4393,596 @@ function verifierAccesSoumission(){
             onclick="goTo('profile')">Modifier mon rôle</button>`;
 }
 
+// ---------------- ACCRÉDITATIONS ----------------
+//
+// La Wave obtient des places photo pour un concert ; les photographes
+// inscrits sont tirés au sort. La page fait deux choses : proposer les
+// événements ouverts, et tenir le suivi de chacun — inscriptions en
+// attente, places obtenues, photos livrées.
+//
+// Le tirage, lui, n'est pas ici : il se fait en base, où le hasard ne
+// dépend pas du navigateur de celui qui clique.
+
+const ROLES_ACCREDITATION = ['Photographe'];
+
+let accredEvenements = [];
+let accredMesInscriptions = [];
+let accredComptes = {};
+
+function peutAccreditation(){
+  if(!currentUser) return false;
+  if(currentUser.isAdmin) return true;
+  return ROLES_ACCREDITATION.includes(roleNom(currentUser.role));
+}
+
+
+// Le lien du menu n'existe que pour ceux qui peuvent s'en servir, avec
+// une pastille quand un événement ouvert attend encore leur réponse.
+let accredChargeUneFois = false;
+
+function majAccesAccreditations(){
+
+  const lien = document.getElementById('navAccreditations');
+  if(!lien) return;
+
+  lien.hidden = !peutAccreditation();
+
+  // Un photographe qui arrive sur une autre page doit voir la pastille
+  // sans être passé par les accréditations : une lecture, une seule.
+  if(!lien.hidden && !accredChargeUneFois){
+    accredChargeUneFois = true;
+    chargerAccreditations(false).catch(() => {});
+  }
+
+  const pastille = document.getElementById('navAccredPastille');
+  if(!pastille) return;
+
+  const aRepondre = accredEvenements.filter(e =>
+    e.statut === 'ouvert' &&
+    !accredDatePassee(e.inscriptions_jusqu_au) &&
+    !accredMesInscriptions.some(i => i.evenement_id === e.id)
+  ).length;
+
+  pastille.hidden = aRepondre === 0;
+  pastille.textContent = aRepondre || '';
+}
+
+
+function verifierAccesAccreditations(){
+
+  const voile = document.getElementById('accredGate');
+  const page = document.getElementById('page-accreditations');
+
+  if(!voile || !page) return;
+
+  if(!page.classList.contains('active') || peutAccreditation()){
+    voile.classList.remove('open');
+    return;
+  }
+
+  const texte = document.getElementById('accredGateTexte');
+  const actions = document.getElementById('accredGateActions');
+
+  voile.classList.add('open');
+
+  if(!currentUser){
+    texte.textContent =
+      'Cette page est réservée aux comptes photographes. Crée-toi un compte ' +
+      'avec ce rôle : tu pourras t’inscrire aux tirages au sort des places ' +
+      'que La Wave obtient.';
+    actions.innerHTML = `
+      <button type="button" class="btn btn-primary"
+              onclick="openAuthModal('signup')">Créer un compte</button>
+      <button type="button" class="btn btn-ghost"
+              onclick="openAuthModal('login')">J'ai déjà un compte</button>`;
+    return;
+  }
+
+  texte.textContent =
+    'Cette page est réservée aux comptes photographes. Ton profil indique ' +
+    '« ' + roleNom(currentUser.role) + '  » : choisis « Photographe » si ' +
+    'c’est ton cas.';
+
+  actions.innerHTML = `
+    <button type="button" class="btn btn-primary"
+            onclick="goTo('profile')">Modifier mon rôle</button>`;
+}
+
+
+// ---- Petites aides de date ----
+
+function accredDatePassee(valeur){
+  if(!valeur) return false;
+  return new Date(valeur).getTime() < Date.now();
+}
+
+function accredDateTexte(valeur, avecHeure){
+  if(!valeur) return '';
+  const d = new Date(valeur);
+  if(isNaN(d)) return '';
+  const date = d.toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
+  if(!avecHeure) return date;
+  return date + ' à ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+
+// Pour les champs <input type="datetime-local">, qui refusent une date
+// ISO complète.
+function accredPourChamp(valeur){
+  if(!valeur) return '';
+  const d = new Date(valeur);
+  if(isNaN(d)) return '';
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+         'T' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+
+async function chargerAccreditations(pourEquipe){
+
+  const [evenements, inscriptions, comptes] = await Promise.all([
+    BD.evenementsAccreditation(pourEquipe),
+    currentUser ? BD.mesInscriptionsAccreditation() : Promise.resolve({ data: [] }),
+    BD.comptesInscriptionsAccreditation()
+  ]);
+
+  accredEvenements = evenements.data || [];
+  accredMesInscriptions = inscriptions.data || [];
+
+  accredComptes = {};
+  (comptes.data || []).forEach(ligne => {
+    accredComptes[ligne.evenement_id] = Number(ligne.inscrits) || 0;
+  });
+
+  majAccesAccreditations();
+
+  return evenements.error || inscriptions.error || null;
+}
+
+
+async function renderAccreditations(){
+
+  const liste = document.getElementById('accredEvenements');
+  const suivi = document.getElementById('accredSuivi');
+
+  if(!liste || !suivi) return;
+
+  liste.innerHTML = `<div class="empty-state">Chargement...</div>`;
+  suivi.innerHTML = '';
+
+  const erreur = await chargerAccreditations(false);
+
+  if(erreur){
+    liste.innerHTML = `
+      <div class="empty-state">
+        Accréditations indisponibles : ${escapeHtml(erreur.message)}
+      </div>`;
+    return;
+  }
+
+  // Les événements passés restent dans le suivi, pas dans la liste.
+  const ouverts = accredEvenements.filter(e =>
+    e.statut !== 'termine' && !accredDatePassee(e.date_evenement)
+  );
+
+  liste.innerHTML = ouverts.length
+    ? ouverts.map(evenementAccredHtml).join('')
+    : `<div class="empty-state">
+         Aucune accréditation ouverte en ce moment. Reviens bientôt : on
+         en publie dès qu'une salle nous répond.
+       </div>`;
+
+  renderSuiviAccreditations();
+}
+
+
+function evenementAccredHtml(evenement){
+
+  const mienne = accredMesInscriptions.find(i => i.evenement_id === evenement.id);
+  const inscrits = accredComptes[evenement.id] || 0;
+  const limiteDepassee = accredDatePassee(evenement.inscriptions_jusqu_au);
+  const ouvert = evenement.statut === 'ouvert' && !limiteDepassee;
+
+  const etat = mienne
+    ? accredEtatHtml(mienne)
+    : ouvert
+      ? ''
+      : `<span class="accred-etat">Inscriptions closes</span>`;
+
+  return `
+    <article class="accred-carte">
+
+      ${
+        safeUrl(evenement.image_url)
+          ? `<div class="accred-image">
+               <img src="${escapeAttribute(safeUrl(evenement.image_url))}" alt="" loading="lazy">
+             </div>`
+          : ''
+      }
+
+      <div class="accred-corps">
+
+        <div class="accred-entete">
+          <div style="min-width:0;">
+            <h3 style="margin:0 0 4px;">${escapeHtml(evenement.artiste)}</h3>
+            <p class="accred-lieu">
+              ${escapeHtml(evenement.salle)}${evenement.ville ? ' · ' + escapeHtml(evenement.ville) : ''}
+            </p>
+          </div>
+          ${etat}
+        </div>
+
+        <dl class="accred-infos">
+          <div><dt>Date</dt><dd>${escapeHtml(accredDateTexte(evenement.date_evenement, true))}</dd></div>
+          <div><dt>Places</dt><dd>${evenement.places}</dd></div>
+          <div><dt>Inscrits</dt><dd>${inscrits}</dd></div>
+          ${
+            evenement.inscriptions_jusqu_au
+              ? `<div><dt>Inscriptions jusqu'au</dt>
+                   <dd>${escapeHtml(accredDateTexte(evenement.inscriptions_jusqu_au, true))}</dd></div>`
+              : ''
+          }
+        </dl>
+
+        ${
+          evenement.description
+            ? `<p class="accred-description">${escapeHtml(evenement.description)}</p>`
+            : ''
+        }
+
+        ${
+          mienne && mienne.statut === 'retenu' && evenement.consignes
+            ? `<div class="accred-consignes">
+                 <span class="eyebrow" style="margin-bottom:6px;">Tes consignes</span>
+                 <p style="margin:0; white-space:pre-wrap;">${escapeHtml(evenement.consignes)}</p>
+               </div>`
+            : ''
+        }
+
+        <div class="accred-actions">
+          ${accredBoutonsHtml(evenement, mienne, ouvert)}
+        </div>
+
+        <div class="form-msg" id="accred-msg-${escapeAttribute(evenement.id)}"></div>
+
+        ${ouvert && !mienne ? accredFormulaireHtml(evenement) : ''}
+
+      </div>
+    </article>`;
+}
+
+
+// Deux points de vue sur le même statut : le photographe est tutoyé,
+// l'équipe lit un état.
+function accredEtatHtml(inscription, pourEquipe){
+
+  const etats = pourEquipe
+    ? {
+        inscrit:    ['En attente du tirage', 'attente'],
+        retenu:     ['Retenu', 'retenu'],
+        non_retenu: ['Non retenu', 'refuse']
+      }
+    : {
+        inscrit:    ['En attente du tirage', 'attente'],
+        retenu:     ['Tu es tiré au sort', 'retenu'],
+        non_retenu: ['Pas retenu cette fois', 'refuse']
+      };
+
+  const [texte, classe] = etats[inscription.statut] || etats.inscrit;
+  return `<span class="accred-etat ${classe}">${texte}</span>`;
+}
+
+
+function accredBoutonsHtml(evenement, mienne, ouvert){
+
+  const id = escapeAttribute(evenement.id);
+
+  if(!mienne){
+    return ouvert
+      ? `<button type="button" class="btn btn-primary"
+                 onclick="accredOuvrirFormulaire('${id}')">M'inscrire au tirage</button>`
+      : '';
+  }
+
+  if(mienne.statut === 'inscrit'){
+    return `
+      <button type="button" class="btn btn-ghost"
+              onclick="accredSeRetirer('${id}')">Retirer mon inscription</button>`;
+  }
+
+  if(mienne.statut === 'retenu'){
+    return `
+      <button type="button" class="btn btn-primary"
+              onclick="goTo('accreditations'); accredAllerAuSuivi()">Voir mes consignes</button>`;
+  }
+
+  return '';
+}
+
+
+function accredFormulaireHtml(evenement){
+
+  const id = escapeAttribute(evenement.id);
+  const email = emailDuCompte || '';
+  const nom = (currentUser && currentUser.pseudo) || '';
+
+  return `
+    <form class="accred-formulaire" id="accred-form-${id}" hidden
+          onsubmit="accredEnvoyerInscription(event, '${id}')">
+
+      <p class="accred-aide">
+        Ces informations partent à l'équipe pour l'accréditation auprès de
+        la salle, et ne sont visibles que d'elle.
+      </p>
+
+      <div class="field">
+        <label for="accred-nom-${id}">Nom et prénom</label>
+        <input type="text" id="accred-nom-${id}" maxlength="120" required
+               value="${escapeAttribute(nom)}">
+      </div>
+
+      <div class="field">
+        <label for="accred-email-${id}">Email de contact</label>
+        <input type="email" id="accred-email-${id}" maxlength="180" required
+               value="${escapeAttribute(email)}">
+      </div>
+
+      <div class="field">
+        <label for="accred-tel-${id}">Téléphone — facultatif</label>
+        <input type="tel" id="accred-tel-${id}" maxlength="30">
+      </div>
+
+      <div class="field">
+        <label for="accred-portfolio-${id}">Portfolio ou Instagram — facultatif</label>
+        <input type="text" id="accred-portfolio-${id}" maxlength="200"
+               placeholder="Un lien vers tes photos">
+      </div>
+
+      <div class="field">
+        <label for="accred-message-${id}">Message — facultatif</label>
+        <textarea id="accred-message-${id}" rows="3" maxlength="500"
+                  placeholder="Matériel, contraintes, ce que tu veux nous dire"></textarea>
+      </div>
+
+      <div class="inline-actions">
+        <button type="submit" class="btn btn-primary">Valider mon inscription</button>
+        <button type="button" class="btn btn-ghost"
+                onclick="accredFermerFormulaire('${id}')">Annuler</button>
+      </div>
+    </form>`;
+}
+
+
+function accredOuvrirFormulaire(id){
+  const form = document.getElementById('accred-form-' + id);
+  if(!form) return;
+  form.hidden = false;
+  const premier = document.getElementById('accred-nom-' + id);
+  if(premier) premier.focus();
+}
+
+
+function accredFermerFormulaire(id){
+  const form = document.getElementById('accred-form-' + id);
+  if(form) form.hidden = true;
+}
+
+
+function accredMessage(id, texte, ok){
+  const zone = document.getElementById('accred-msg-' + id);
+  if(!zone) return;
+  zone.textContent = texte;
+  zone.className = 'form-msg ' + (ok ? 'ok' : 'err');
+}
+
+
+async function accredEnvoyerInscription(evenement, id){
+
+  evenement.preventDefault();
+
+  const valeur = champ => {
+    const e = document.getElementById(champ + id);
+    return e ? e.value.trim() : '';
+  };
+
+  const nom = valeur('accred-nom-');
+  const email = valeur('accred-email-');
+
+  if(!nom || !email){
+    accredMessage(id, 'Le nom et l’email sont nécessaires.', false);
+    return;
+  }
+
+  const { error } = await BD.sInscrireAccreditation({
+    evenementId: id,
+    nom,
+    email,
+    telephone: valeur('accred-tel-'),
+    portfolio: valeur('accred-portfolio-'),
+    message: valeur('accred-message-')
+  });
+
+  if(error){
+    accredMessage(id, 'Inscription refusée : ' + error.message, false);
+    return;
+  }
+
+  await renderAccreditations();
+  accredMessage(id, '✅ Inscription enregistrée. Le tirage aura lieu après la date limite.', true);
+}
+
+
+async function accredSeRetirer(id){
+
+  const mienne = accredMesInscriptions.find(i => i.evenement_id === id);
+  if(!mienne) return;
+
+  const { data, error } = await BD.seRetirerAccreditation(mienne.id);
+
+  if(error){
+    accredMessage(id, 'Retrait impossible : ' + error.message, false);
+    return;
+  }
+
+  // Le tirage a pu passer entre l'affichage et le clic : la policy
+  // refuse alors la suppression sans erreur, zéro ligne touchée.
+  if(!data || data.length === 0){
+    await renderAccreditations();
+    accredMessage(id, 'Le tirage a déjà eu lieu : ton inscription reste enregistrée.', false);
+    return;
+  }
+
+  await renderAccreditations();
+}
+
+
+function accredAllerAuSuivi(){
+  const suivi = document.getElementById('accredSuivi');
+  if(suivi) suivi.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+
+// ---- Le suivi personnel ----
+
+function renderSuiviAccreditations(){
+
+  const zone = document.getElementById('accredSuivi');
+  if(!zone) return;
+
+  if(!currentUser){
+    zone.innerHTML = `
+      <div class="empty-state">
+        Connecte-toi pour retrouver ici tes inscriptions et tes places obtenues.
+      </div>`;
+    return;
+  }
+
+  if(!accredMesInscriptions.length){
+    zone.innerHTML = `
+      <div class="empty-state">
+        Aucune inscription pour l'instant. Elles apparaîtront ici, avec
+        les consignes des concerts où tu es retenu.
+      </div>`;
+    return;
+  }
+
+  const parEvenement = {};
+  accredEvenements.forEach(e => { parEvenement[e.id] = e; });
+
+  // Les places obtenues d'abord : c'est ce qu'on vient vérifier.
+  const ordre = { retenu: 0, inscrit: 1, non_retenu: 2 };
+
+  const lignes = [...accredMesInscriptions]
+    .sort((a, b) =>
+      (ordre[a.statut] ?? 3) - (ordre[b.statut] ?? 3) ||
+      new Date(b.cree_le) - new Date(a.cree_le)
+    )
+    .map(inscription => suiviAccredHtml(inscription, parEvenement[inscription.evenement_id]))
+    .join('');
+
+  zone.innerHTML = `<div class="accred-suivi">${lignes}</div>`;
+}
+
+
+function suiviAccredHtml(inscription, evenement){
+
+  const id = escapeAttribute(inscription.evenement_id);
+
+  // L'événement peut avoir été retiré : l'inscription, elle, reste.
+  const titre = evenement
+    ? escapeHtml(evenement.artiste) + ' — ' + escapeHtml(evenement.salle)
+    : 'Événement retiré';
+
+  const date = evenement ? accredDateTexte(evenement.date_evenement, true) : '';
+
+  return `
+    <article class="accred-suivi-ligne">
+
+      <div class="accred-suivi-entete">
+        <div style="min-width:0;">
+          <p class="petit-titre" style="margin:0; font-size:16px;">${titre}</p>
+          ${date ? `<span class="accred-lieu">${escapeHtml(date)}</span>` : ''}
+        </div>
+        ${accredEtatHtml(inscription)}
+      </div>
+
+      ${
+        inscription.statut === 'retenu' && evenement && evenement.consignes
+          ? `<div class="accred-consignes">
+               <span class="eyebrow" style="margin-bottom:6px;">Consignes de l'équipe</span>
+               <p style="margin:0; white-space:pre-wrap;">${escapeHtml(evenement.consignes)}</p>
+             </div>`
+          : ''
+      }
+
+      ${inscription.statut === 'retenu' ? livraisonHtml(inscription, id) : ''}
+
+    </article>`;
+}
+
+
+// Après le concert : un lien, pas un envoi de fichiers. Les photos d'un
+// concert pèsent trop lourd pour le stockage du site, et les
+// photographes travaillent déjà avec WeTransfer ou Drive.
+function livraisonHtml(inscription, id){
+
+  const envoye = !!inscription.livraison_url;
+
+  return `
+    <div class="accred-livraison">
+
+      <span class="eyebrow" style="margin-bottom:8px;">Mes photos</span>
+
+      ${
+        envoye
+          ? `<p class="accred-livraison-etat">
+               Lien envoyé le ${escapeHtml(accredDateTexte(inscription.livraison_le))}
+               ${inscription.livraison_recue
+                  ? ' · <strong>reçu par l’équipe</strong>'
+                  : ' · en attente de l’équipe'}
+             </p>`
+          : `<p class="accred-aide" style="margin:0 0 10px;">
+               WeTransfer, Drive, Dropbox : colle le lien de ton dossier.
+             </p>`
+      }
+
+      <form class="accred-livraison-form" onsubmit="accredLivrer(event, '${id}')">
+        <input type="url" id="accred-lien-${id}" required
+               placeholder="https://..."
+               value="${escapeAttribute(inscription.livraison_url || '')}">
+        <button type="submit" class="btn btn-ghost">
+          ${envoye ? 'Mettre à jour' : 'Envoyer le lien'}
+        </button>
+      </form>
+
+      <div class="form-msg" id="accred-livraison-msg-${id}"></div>
+    </div>`;
+}
+
+
+async function accredLivrer(evenement, id){
+
+  evenement.preventDefault();
+
+  const champ = document.getElementById('accred-lien-' + id);
+  const msg = document.getElementById('accred-livraison-msg-' + id);
+
+  if(!champ) return;
+
+  const { error } = await BD.livrerPhotos(id, champ.value.trim());
+
+  if(msg){
+    msg.textContent = error
+      ? 'Envoi refusé : ' + error.message
+      : '✅ Lien enregistré, l’équipe le voit dans son espace.';
+    msg.className = 'form-msg ' + (error ? 'err' : 'ok');
+  }
+
+  if(!error) await renderAccreditations();
+}
+
+
 function roleBadgeHtml(nom, taille){
   const r = roleInfo(nom || 'Auditeur');
   return `<span class="role-chip${taille === 'small' ? ' small' : ''}"
@@ -4149,6 +5013,9 @@ function roleBadgeHtml(nom, taille){
 // onboarding) : seule la persistance a changé.
 
 let currentUser = null;
+
+// Rempli à la reprise de session ; vidé à la déconnexion.
+var emailDuCompte = '';
 
 // Traduit une ligne "profiles" vers la forme utilisée par l'interface.
 function profileToUser(row){
@@ -4187,6 +5054,11 @@ async function fetchProfile(userId){
 // celle du profil. Sans ce rattrapage, la personne reste bloquée
 // dehors avec un compte valide.
 async function ensureProfileExists(authUser){
+
+  // L'email de connexion ne vit que dans la session : la table profiles
+  // ne le stocke pas. Il sert à pré-remplir le champ de contact d'une
+  // inscription en accréditation, que l'intéressé peut changer.
+  emailDuCompte = authUser.email || '';
 
   const existant = await fetchProfile(authUser.id);
   if(existant) return existant;
@@ -4352,6 +5224,8 @@ function refreshAccountUI(){
   // La session revient après le premier affichage : sans ce rappel, un
   // membre arrivé directement sur #submit resterait derrière le voile.
   verifierAccesSoumission();
+  verifierAccesAccreditations();
+  majAccesAccreditations();
 
   if(currentUser){
     loggedOut.style.display = 'none';
@@ -10771,6 +11645,7 @@ const ADMIN_TABS = [
   'content',
   'settings',
   'community',
+  'accreditations',
   'support'
 ];
 
@@ -10798,6 +11673,458 @@ function switchAdminTab(nom){
   if(nom === 'content'){
     loadContentPicker();
   }
+
+  if(nom === 'accreditations'){
+    renderAdminAccreditations();
+  }
+}
+
+
+// ---------------- ESPACE ÉQUIPE : ACCRÉDITATIONS ----------------
+//
+// Le tirage n'est pas fait ici : la fonction de base le fait et renvoie
+// les gagnants. L'espace équipe sert à publier, à suivre, et à récupérer
+// les coordonnées pour écrire — l'envoi des mails reste manuel pour
+// l'instant, d'où les boutons de copie.
+
+let adminInscriptions = {};   // par événement, chargées à l'ouverture
+
+async function renderAdminAccreditations(){
+
+  const zone = document.getElementById('adminEvenementsListe');
+  if(!zone) return;
+
+  zone.innerHTML = `<div class="empty-state">Chargement...</div>`;
+
+  const { data, error } = await BD.evenementsAccreditation(true);
+
+  if(error){
+    zone.innerHTML = `
+      <div class="empty-state">Lecture impossible : ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  const evenements = data || [];
+
+  setAdminTabCount(
+    'accreditations',
+    evenements.filter(e => e.statut === 'ouvert').length
+  );
+
+  if(!evenements.length){
+    zone.innerHTML = `
+      <div class="empty-state">
+        Aucun événement. Crée le premier avec « Nouvel événement » :
+        il restera en brouillon tant que tu ne l'auras pas ouvert.
+      </div>`;
+    return;
+  }
+
+  // Les inscriptions de tous les événements d'un coup : une requête,
+  // la policy ne renvoie ces lignes qu'à l'équipe.
+  const { data: inscriptions } = await supabaseClient
+    .from('inscriptions_accreditation')
+    .select('*')
+    .order('cree_le', { ascending: true });
+
+  adminInscriptions = {};
+  (inscriptions || []).forEach(i => {
+    (adminInscriptions[i.evenement_id] = adminInscriptions[i.evenement_id] || []).push(i);
+  });
+
+  zone.innerHTML = evenements.map(adminEvenementHtml).join('');
+}
+
+
+function adminEvenementHtml(evenement){
+
+  const id = escapeAttribute(evenement.id);
+  const inscrits = adminInscriptions[evenement.id] || [];
+  const retenus = inscrits.filter(i => i.statut === 'retenu');
+  const enAttente = inscrits.filter(i => i.statut === 'inscrit');
+  const livraisons = retenus.filter(i => i.livraison_url);
+
+  const etats = {
+    brouillon: 'Brouillon — invisible du public',
+    ouvert:    'Ouvert aux inscriptions',
+    ferme:     'Inscriptions closes',
+    termine:   'Terminé'
+  };
+
+  return `
+    <div class="admin-row" style="flex-direction:column; align-items:stretch; gap:14px;">
+
+      <div style="display:flex; gap:14px; justify-content:space-between; flex-wrap:wrap;">
+        <div style="min-width:0;">
+          <p style="margin:0 0 3px; font-size:16px; font-weight:500;">
+            ${escapeHtml(evenement.artiste)} — ${escapeHtml(evenement.salle)}
+          </p>
+          <span class="accred-lieu">
+            ${escapeHtml(accredDateTexte(evenement.date_evenement, true))}
+            ${evenement.ville ? ' · ' + escapeHtml(evenement.ville) : ''}
+          </span>
+        </div>
+        <span class="accred-etat${evenement.statut === 'ouvert' ? ' attente' : ''}">
+          ${escapeHtml(etats[evenement.statut] || evenement.statut)}
+        </span>
+      </div>
+
+      <dl class="accred-infos">
+        <div><dt>Places</dt><dd>${evenement.places}</dd></div>
+        <div><dt>Inscrits</dt><dd>${inscrits.length}</dd></div>
+        <div><dt>En attente</dt><dd>${enAttente.length}</dd></div>
+        <div><dt>Retenus</dt><dd>${retenus.length}</dd></div>
+        <div><dt>Photos reçues</dt><dd>${livraisons.length} / ${retenus.length}</dd></div>
+      </dl>
+
+      <div class="inline-actions">
+        ${
+          enAttente.length
+            ? `<button type="button" class="btn btn-primary"
+                       onclick="lancerTirage('${id}')">
+                 Tirer au sort (${Math.max(evenement.places - retenus.length, 0)} place${evenement.places - retenus.length > 1 ? 's' : ''})
+               </button>`
+            : ''
+        }
+        <button type="button" class="btn btn-ghost"
+                onclick="ouvrirFormulaireEvenement('${id}')">Modifier</button>
+        ${
+          inscrits.length
+            ? `<button type="button" class="btn btn-ghost"
+                       onclick="copierAdresses('${id}', 'tous')">Copier les ${inscrits.length} adresses</button>`
+            : ''
+        }
+        ${
+          retenus.length
+            ? `<button type="button" class="btn btn-ghost"
+                       onclick="copierAdresses('${id}', 'retenus')">Copier les adresses des retenus</button>`
+            : ''
+        }
+        <button type="button" class="btn btn-ghost"
+                onclick="openConfirmPanel('ev-suppr-${id}')">Supprimer</button>
+      </div>
+
+      <!-- Confirmation dans la page, jamais confirm() : un navigateur
+           qui a bloqué les boîtes de dialogue rendrait le bouton muet. -->
+      <div class="confirm-panel danger" id="ev-suppr-${id}">
+        <p>
+          Supprimer « ${escapeHtml(evenement.artiste)} — ${escapeHtml(evenement.salle)} »
+          ${inscrits.length
+            ? 'et ses ' + inscrits.length + ' inscription' + (inscrits.length > 1 ? 's' : '')
+            : ''} ? C'est définitif.
+        </p>
+        <div class="inline-actions">
+          <button type="button" class="btn btn-ghost"
+                  onclick="supprimerEvenement('${id}')">Oui, supprimer</button>
+          <button type="button" class="btn btn-ghost"
+                  onclick="closeConfirmPanel('ev-suppr-${id}')">Annuler</button>
+        </div>
+      </div>
+
+      <div class="form-msg" id="admin-accred-msg-${id}"></div>
+
+      ${inscrits.length ? adminInscritsHtml(evenement, inscrits) : `
+        <p class="accred-aide" style="margin:0;">Aucune inscription pour l'instant.</p>`}
+
+    </div>`;
+}
+
+
+function adminInscritsHtml(evenement, inscrits){
+
+  const ordre = { retenu: 0, inscrit: 1, non_retenu: 2 };
+
+  const lignes = [...inscrits]
+    .sort((a, b) => (ordre[a.statut] ?? 3) - (ordre[b.statut] ?? 3) || a.nom.localeCompare(b.nom))
+    .map(i => `
+      <tr>
+        <td>${escapeHtml(i.nom)}</td>
+        <td><a href="mailto:${escapeAttribute(i.email)}" style="color:var(--blue);">${escapeHtml(i.email)}</a></td>
+        <td>${i.telephone ? escapeHtml(i.telephone) : '—'}</td>
+        <td>${
+          safeUrl(i.portfolio)
+            ? `<a href="${escapeAttribute(safeUrl(i.portfolio))}" target="_blank" rel="noopener noreferrer" style="color:var(--blue);">Voir</a>`
+            : (i.portfolio ? escapeHtml(i.portfolio) : '—')
+        }</td>
+        <td>${accredEtatHtml(i, true)}</td>
+        <td>${
+          i.livraison_url
+            ? `<a href="${escapeAttribute(safeUrl(i.livraison_url) || '#')}" target="_blank" rel="noopener noreferrer" style="color:var(--blue);">Lien</a>
+               <label style="display:block; font-size:11px; color:var(--muted); margin-top:4px;">
+                 <input type="checkbox" ${i.livraison_recue ? 'checked' : ''}
+                        onchange="marquerRecue('${escapeAttribute(i.id)}', this.checked, '${escapeAttribute(evenement.id)}')">
+                 reçues
+               </label>`
+            : '—'
+        }</td>
+      </tr>`).join('');
+
+  return `
+    <details>
+      <summary style="cursor:pointer; font-size:13px; color:var(--muted);">
+        Voir les ${inscrits.length} inscription${inscrits.length > 1 ? 's' : ''}
+      </summary>
+      <div style="overflow-x:auto; margin-top:12px;">
+        <table class="accred-table">
+          <thead>
+            <tr><th>Nom</th><th>Email</th><th>Téléphone</th><th>Portfolio</th><th>Statut</th><th>Photos</th></tr>
+          </thead>
+          <tbody>${lignes}</tbody>
+        </table>
+      </div>
+    </details>`;
+}
+
+
+function messageAdminAccred(id, texte, ok){
+  const zone = document.getElementById('admin-accred-msg-' + id);
+  if(!zone) return;
+  zone.textContent = texte;
+  zone.className = 'form-msg ' + (ok ? 'ok' : 'err');
+}
+
+
+async function lancerTirage(id){
+
+  const { data, error } = await BD.tirerAuSort(id);
+
+  if(error){
+    messageAdminAccred(id, 'Tirage impossible : ' + error.message, false);
+    return;
+  }
+
+  const gagnants = data || [];
+
+  await renderAdminAccreditations();
+
+  messageAdminAccred(
+    id,
+    gagnants.length
+      ? '✅ Tirage fait — ' + gagnants.map(g => g.nom).join(', ') +
+        '. Les autres inscrits ont leur réponse dans leur suivi ; à toi de leur écrire.'
+      : 'Aucune place à attribuer.',
+    true
+  );
+}
+
+
+// L'envoi des mails n'est pas automatisé : l'équipe copie les adresses
+// et écrit depuis sa propre boîte.
+async function copierAdresses(id, qui){
+
+  const inscrits = (adminInscriptions[id] || [])
+    .filter(i => qui === 'tous' || i.statut === 'retenu');
+
+  const adresses = inscrits.map(i => i.email).join(', ');
+
+  if(!adresses){
+    messageAdminAccred(id, 'Aucune adresse à copier.', false);
+    return;
+  }
+
+  try{
+    await navigator.clipboard.writeText(adresses);
+    messageAdminAccred(id, '✅ ' + inscrits.length + ' adresse' +
+      (inscrits.length > 1 ? 's copiées' : ' copiée') + ' dans le presse-papiers.', true);
+  }catch(e){
+    // Le navigateur peut refuser l'accès au presse-papiers : on montre
+    // alors les adresses, à sélectionner à la main.
+    messageAdminAccred(id, adresses, true);
+  }
+}
+
+
+async function marquerRecue(inscriptionId, recue, evenementId){
+  const { error } = await BD.majInscriptionAccreditation(inscriptionId, { livraison_recue: recue });
+  if(error) messageAdminAccred(evenementId, 'Enregistrement refusé : ' + error.message, false);
+  else await renderAdminAccreditations();
+}
+
+
+async function supprimerEvenement(id){
+
+  const liste = (await BD.evenementsAccreditation(true)).data || [];
+  const evenement = liste.find(e => e.id === id);
+
+  const { error } = await BD.supprimerEvenementAccreditation(id);
+
+  if(error){
+    messageAdminAccred(id, 'Suppression refusée : ' + error.message, false);
+    return;
+  }
+
+  if(evenement && evenement.image_url){
+    await Fichiers.supprimerParUrl(evenement.image_url);
+  }
+
+  await renderAdminAccreditations();
+}
+
+
+// ---- Le formulaire d'événement ----
+
+function ouvrirFormulaireEvenement(id){
+
+  const zone = document.getElementById('adminEvenementForm');
+  if(!zone) return;
+
+  // Relu en base plutôt que repris de l'affichage : entre-temps, l'autre
+  // membre de l'équipe a pu modifier la fiche.
+  BD.evenementsAccreditation(true).then(({ data }) => {
+    const evenement = id ? (data || []).find(x => x.id === id) : null;
+    zone.innerHTML = formulaireEvenementHtml(evenement);
+    zone.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    const premier = document.getElementById('ev-artiste');
+    if(premier) premier.focus();
+  });
+}
+
+
+function formulaireEvenementHtml(e){
+
+  const v = (champ, defaut) => escapeAttribute(e && e[champ] != null ? e[champ] : (defaut || ''));
+
+  return `
+    <div class="admin-row" style="flex-direction:column; align-items:stretch; gap:0; margin-bottom:18px;">
+      <h4 style="margin:0 0 14px; font-size:15px; font-weight:500;">
+        ${e ? 'Modifier l’événement' : 'Nouvel événement'}
+      </h4>
+
+      <input type="hidden" id="ev-id" value="${v('id')}">
+
+      <div class="field">
+        <label for="ev-artiste">Artiste ou nom de l'événement</label>
+        <input type="text" id="ev-artiste" maxlength="120" value="${v('artiste')}">
+      </div>
+
+      <div class="field">
+        <label for="ev-salle">Salle</label>
+        <input type="text" id="ev-salle" maxlength="120" value="${v('salle')}"
+               placeholder="Zénith de Paris">
+      </div>
+
+      <div class="field">
+        <label for="ev-ville">Ville</label>
+        <input type="text" id="ev-ville" maxlength="120" value="${v('ville')}">
+      </div>
+
+      <div class="field">
+        <label for="ev-date">Date et heure du concert</label>
+        <input type="datetime-local" id="ev-date"
+               value="${escapeAttribute(accredPourChamp(e && e.date_evenement))}">
+      </div>
+
+      <div class="field">
+        <label for="ev-places">Nombre de places</label>
+        <input type="number" id="ev-places" min="1" max="50" value="${v('places', 1)}">
+      </div>
+
+      <div class="field">
+        <label for="ev-limite">Inscriptions jusqu'au — facultatif</label>
+        <input type="datetime-local" id="ev-limite"
+               value="${escapeAttribute(accredPourChamp(e && e.inscriptions_jusqu_au))}">
+      </div>
+
+      <div class="field">
+        <label for="ev-statut">État</label>
+        <select id="ev-statut">
+          ${['brouillon', 'ouvert', 'ferme', 'termine'].map(s => `
+            <option value="${s}" ${e && e.statut === s ? 'selected' : ''}>
+              ${({ brouillon: 'Brouillon (invisible)', ouvert: 'Ouvert aux inscriptions',
+                   ferme: 'Inscriptions closes', termine: 'Terminé' })[s]}
+            </option>`).join('')}
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="ev-description">Description — facultatif</label>
+        <textarea id="ev-description" rows="3" maxlength="600">${escapeHtml((e && e.description) || '')}</textarea>
+      </div>
+
+      <div class="field">
+        <label for="ev-consignes">Consignes aux photographes retenus — facultatif</label>
+        <textarea id="ev-consignes" rows="4" maxlength="1200"
+                  placeholder="Point de rendez-vous, contact sur place, règles de la salle, délai de livraison">${escapeHtml((e && e.consignes) || '')}</textarea>
+        <p class="accred-aide" style="margin:6px 0 0;">
+          Visibles des seuls photographes tirés au sort.
+        </p>
+      </div>
+
+      <div class="field">
+        <label for="ev-image">Image — facultatif</label>
+        <input type="url" id="ev-image" value="${v('image_url')}"
+               placeholder="https://... (affiche du concert)">
+      </div>
+
+      <div class="inline-actions">
+        <button type="button" class="btn btn-primary" onclick="enregistrerEvenement()">
+          ${e ? 'Enregistrer' : 'Créer l’événement'}
+        </button>
+        <button type="button" class="btn btn-ghost" onclick="fermerFormulaireEvenement()">
+          Annuler
+        </button>
+      </div>
+
+      <div class="form-msg" id="ev-msg"></div>
+    </div>`;
+}
+
+
+function fermerFormulaireEvenement(){
+  const zone = document.getElementById('adminEvenementForm');
+  if(zone) zone.innerHTML = '';
+}
+
+
+async function enregistrerEvenement(){
+
+  const msg = document.getElementById('ev-msg');
+  const valeur = id => {
+    const e = document.getElementById(id);
+    return e ? e.value.trim() : '';
+  };
+
+  const champs = {
+    artiste: valeur('ev-artiste'),
+    salle: valeur('ev-salle'),
+    ville: valeur('ev-ville') || null,
+    date_evenement: valeur('ev-date') ? new Date(valeur('ev-date')).toISOString() : null,
+    places: Math.max(1, parseInt(valeur('ev-places'), 10) || 1),
+    inscriptions_jusqu_au: valeur('ev-limite') ? new Date(valeur('ev-limite')).toISOString() : null,
+    statut: valeur('ev-statut') || 'brouillon',
+    description: valeur('ev-description') || null,
+    consignes: valeur('ev-consignes') || null,
+    image_url: valeur('ev-image') || null
+  };
+
+  if(!champs.artiste || !champs.salle || !champs.date_evenement){
+    msg.textContent = "L'artiste, la salle et la date sont nécessaires.";
+    msg.className = 'form-msg err';
+    return;
+  }
+
+  const id = valeur('ev-id');
+
+  const { data, error } = id
+    ? await BD.majEvenementAccreditation(id, champs)
+    : await BD.creerEvenementAccreditation({ ...champs, cree_par: currentUser && currentUser.id });
+
+  if(error){
+    msg.textContent = 'Enregistrement refusé : ' + error.message;
+    msg.className = 'form-msg err';
+    return;
+  }
+
+  // Écriture réservée à l'équipe : sans droits, Supabase ne renvoie
+  // aucune ligne et aucune erreur.
+  if(!data || (Array.isArray(data) && data.length === 0)){
+    msg.textContent = 'Refusé : connecte-toi avec un compte marqué administrateur.';
+    msg.className = 'form-msg err';
+    return;
+  }
+
+  fermerFormulaireEvenement();
+  await renderAdminAccreditations();
 }
 
 
