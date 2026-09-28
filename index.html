@@ -2034,7 +2034,7 @@
               type="text"
               id="artist-ville-public"
               autocomplete="off"
-              placeholder="Commence à taper une commune"
+              placeholder="Commune en France, Belgique ou Suisse"
               oninput="chercherVille('public')">
             <div id="artist-ville-resultats-public" class="recherche-resultats"></div>
 
@@ -9697,7 +9697,7 @@ function panneauProprieteHtml(profil){
           <input type="text"
                  id="artist-ville-${handleSain(profil.instagram_handle)}"
                  autocomplete="off"
-                 placeholder="Commence à taper une commune"
+                 placeholder="Commune en France, Belgique ou Suisse"
                  value="${escapeAttribute(profil.ville || '')}"
                  oninput="chercherVille('${handleSain(profil.instagram_handle)}')">
           <div id="artist-ville-resultats-${handleSain(profil.instagram_handle)}"
@@ -12920,7 +12920,7 @@ function artistProfileRowHtml(profil){
                  type="text"
                  id="artist-ville-${h}"
                  autocomplete="off"
-                 placeholder="Commence à taper une commune"
+                 placeholder="Commune en France, Belgique ou Suisse"
                  data-initial="${escapeAttribute(profil.ville || '')}"
                  value="${escapeAttribute(profil.ville || '')}"
                  oninput="chercherVille('${h}')">
@@ -13119,16 +13119,138 @@ function voirPageArtiste(handle){
 
 // ---- Ville d'un artiste ----
 //
-// Les coordonnées viennent de la Base Adresse Nationale : service
-// public, gratuit, sans clé. Saisir une ville à la main ne suffit
-// donc pas — c'est le choix dans la liste qui fournit la position.
+// Deux services, un par territoire de la carte :
+//
+//   * la Base Adresse Nationale pour la France — service public,
+//     gratuit, sans clé, et surtout la source des coordonnées déjà
+//     enregistrées ;
+//   * Photon, bâti sur OpenStreetMap, pour la Belgique et la Suisse,
+//     que la BAN ne couvre pas. Sans lui, l'équipe ne pouvait placer
+//     personne à Bruxelles ni à Lausanne.
+//
+// Saisir une ville à la main ne suffit donc pas — c'est le choix dans
+// la liste qui fournit la position.
 const villesTrouvees = {};
 const villeChoisie = {};
 const villeMinuteurs = {};
+const villeRequeteEnCours = {};
+
+const PAYS_HORS_FRANCE = { BE: 'Belgique', CH: 'Suisse' };
 
 function chercherVille(handle){
   clearTimeout(villeMinuteurs[handle]);
   villeMinuteurs[handle] = setTimeout(() => lancerRechercheVille(handle), 280);
+}
+
+
+// Un service lent ou en panne ne doit pas retenir l'autre : chacun a
+// son délai, et la liste se contente de ce qui est revenu.
+async function interrogerService(url, delai){
+  const arret = new AbortController();
+  const minuteur = setTimeout(() => arret.abort(), delai || 5000);
+  try{
+    const reponse = await fetch(url, { signal: arret.signal });
+    if(!reponse.ok) throw new Error('Réponse ' + reponse.status);
+    return await reponse.json();
+  } finally {
+    clearTimeout(minuteur);
+  }
+}
+
+
+async function communesFrancaises(requete){
+
+  const donnees = await interrogerService(
+    'https://api-adresse.data.gouv.fr/search/?type=municipality&limit=6&q=' +
+    encodeURIComponent(requete)
+  );
+
+  return (donnees.features || []).map(lieu => ({
+    nom: lieu.properties.city || lieu.properties.name,
+    detail: lieu.properties.postcode || '',
+    lon: lieu.geometry.coordinates[0],
+    lat: lieu.geometry.coordinates[1]
+  }));
+}
+
+
+// Sans accent ni casse, pour comparer un nom tapé à un nom trouvé.
+function texteNu(t){
+  return String(t || '')
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
+
+
+// Le cadre couvre la Belgique et la Suisse ; le filtre sur le pays
+// écarte ce que le cadre attrape autour d'elles.
+async function communesBelgesEtSuisses(requete){
+
+  const donnees = await interrogerService(
+    'https://photon.komoot.io/api/?lang=fr&limit=8&layer=city' +
+    '&bbox=2.4,45.7,10.6,51.6&q=' + encodeURIComponent(requete)
+  );
+
+  const vues = new Set();
+  const communes = [];
+  const cherche = texteNu(requete);
+
+  (donnees.features || [])
+    // La commune elle-même avant sa limite administrative : les deux
+    // remontent parfois pour un même nom.
+    .sort((a, b) =>
+      (a.properties.osm_key === 'place' ? 0 : 1) -
+      (b.properties.osm_key === 'place' ? 0 : 1)
+    )
+    .forEach(lieu => {
+
+      const pays = PAYS_HORS_FRANCE[lieu.properties.countrycode];
+      const nom = lieu.properties.name;
+
+      if(!pays || !nom) return;
+
+      // La recherche est approximative : « Lausanne » remontait La Panne,
+      // « Lille » remontait L'Isle. On garde ce qui contient vraiment ce
+      // qui a été tapé.
+      if(!texteNu(nom).includes(cherche)) return;
+
+      const cle = nom.toLowerCase() + '|' + lieu.properties.countrycode;
+      if(vues.has(cle)) return;
+      vues.add(cle);
+
+      communes.push({
+        nom,
+        detail: pays,
+        lon: lieu.geometry.coordinates[0],
+        lat: lieu.geometry.coordinates[1]
+      });
+    });
+
+  return communes;
+}
+
+
+// Une ville déjà enregistrée garde ses coordonnées : les deux services
+// ne placent pas Genève au même mètre près, et la carte afficherait
+// deux points pour la même ville.
+function communeDejaConnue(commune){
+
+  const nom = commune.nom.toLowerCase();
+
+  const profil = Object.values(artistsByHandle).find(p =>
+    p.ville && p.ville.toLowerCase() === nom &&
+    p.latitude != null && p.longitude != null &&
+    Math.abs(Number(p.latitude) - commune.lat) < 0.05 &&
+    Math.abs(Number(p.longitude) - commune.lon) < 0.05
+  );
+
+  if(!profil) return commune;
+
+  return {
+    ...commune,
+    lat: Number(profil.latitude),
+    lon: Number(profil.longitude)
+  };
 }
 
 
@@ -13150,44 +13272,52 @@ async function lancerRechercheVille(handle){
     return;
   }
 
-  try{
+  villeRequeteEnCours[handle] = requete;
 
-    const reponse = await fetch(
-      'https://api-adresse.data.gouv.fr/search/?type=municipality&limit=6&q=' +
-      encodeURIComponent(requete)
-    );
+  const reponses = await Promise.allSettled([
+    communesFrancaises(requete),
+    communesBelgesEtSuisses(requete)
+  ]);
 
-    const donnees = await reponse.json();
+  // Une frappe plus récente a lancé sa propre recherche : celle-ci est
+  // périmée, l'afficher ferait clignoter une liste dépassée.
+  if(villeRequeteEnCours[handle] !== requete) return;
 
-    villesTrouvees[handle] = (donnees.features || []).map(lieu => ({
-      nom: lieu.properties.city || lieu.properties.name,
-      code: lieu.properties.postcode || '',
-      lon: lieu.geometry.coordinates[0],
-      lat: lieu.geometry.coordinates[1]
-    }));
+  const communes = reponses
+    .filter(r => r.status === 'fulfilled')
+    .flatMap(r => r.value);
 
-    zone.innerHTML =
-      villesTrouvees[handle].map((ville, i) => `
-        <button type="button" class="recherche-resultat"
-                onclick="choisirVille('${handleSain(handle)}', ${i})">
-          <span style="min-width:0;">
-            ${escapeHtml(ville.nom)}
-            <span class="recherche-pseudo">${escapeHtml(ville.code)}</span>
-          </span>
-        </button>`).join('') ||
-      `<p class="recherche-vide">Aucune commune trouvée.</p>`;
+  villesTrouvees[handle] = communes;
 
-  }catch(error){
-    zone.innerHTML =
-      `<p class="recherche-vide">Recherche indisponible : ${escapeHtml(error.message)}</p>`;
+  if(communes.length){
+    zone.innerHTML = communes.map((ville, i) => `
+      <button type="button" class="recherche-resultat"
+              onclick="choisirVille('${handleSain(handle)}', ${i})">
+        <span style="min-width:0;">
+          ${escapeHtml(ville.nom)}
+          <span class="recherche-pseudo">${escapeHtml(ville.detail)}</span>
+        </span>
+      </button>`).join('');
+    return;
   }
+
+  // Aucun résultat : reste à savoir si c'est la requête ou les services.
+  const echec = reponses.find(r => r.status === 'rejected');
+
+  zone.innerHTML = reponses.every(r => r.status === 'rejected')
+    ? `<p class="recherche-vide">
+         Recherche indisponible : ${escapeHtml(echec.reason.message || 'service injoignable')}
+       </p>`
+    : `<p class="recherche-vide">Aucune commune trouvée.</p>`;
 }
 
 
 function choisirVille(handle, index){
 
-  const ville = (villesTrouvees[handle] || [])[index];
-  if(!ville) return;
+  const trouvee = (villesTrouvees[handle] || [])[index];
+  if(!trouvee) return;
+
+  const ville = communeDejaConnue(trouvee);
 
   villeChoisie[handle] = ville;
 
