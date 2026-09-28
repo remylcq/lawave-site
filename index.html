@@ -2299,6 +2299,27 @@
       <h3 style="font-size:18px; margin:6px 0 18px;">Mes accréditations</h3>
       <div id="accredSuivi"></div>
 
+      <div class="hairline" style="margin-top:48px;"></div>
+
+      <!-- L'autre sens de l'échange : les concerts que les photographes
+           aimeraient couvrir, et pour lesquels l'équipe peut aller
+           demander une accréditation. -->
+      <div class="section-head" style="margin-top:32px;">
+        <div>
+          <span class="eyebrow">Vos envies</span>
+          <h3 style="font-size:18px; margin-bottom:6px;">Proposer un concert</h3>
+          <p class="desc">
+            Un concert, un festival, une salle où tu aimerais shooter : dis-le-nous,
+            on ira demander l'accréditation.
+          </p>
+        </div>
+        <button type="button" class="btn btn-ghost" onclick="accredOuvrirSouhait()">
+          ＋ Proposer
+        </button>
+      </div>
+
+      <div id="accredSouhaits"></div>
+
     </section>
   </section>
 
@@ -2733,6 +2754,22 @@
 
     <div id="adminEvenementForm"></div>
     <div id="adminEvenementsListe"></div>
+
+    <div class="hairline" style="margin-top:40px;"></div>
+
+    <div class="section-head" style="margin-top:28px;">
+      <div>
+        <span class="eyebrow">Vos envies</span>
+        <h3 style="font-size:18px; margin-bottom:6px;">
+          Concerts proposés par les photographes
+        </h3>
+        <p class="desc">
+          Ce qu'ils aimeraient couvrir. Une proposition reprise crée l'événement avec ses informations.
+        </p>
+      </div>
+    </div>
+
+    <div id="adminSouhaitsListe"></div>
 
   </div>
 
@@ -3324,12 +3361,12 @@
   <div class="footer-inner">
     <span class="mono">© La Wave — média musical</span>
     <div style="display:flex; gap:18px; flex-wrap:wrap;">
-      <a class="footer-admin-link" onclick="goTo('about')" href="javascript:void(0)">À propos</a>
+      <a class="footer-admin-link" onclick="goTo('admin')" href="javascript:void(0)">Espace équipe</a>
       <!-- Le lien du menu n'apparaît qu'aux photographes : celui-ci reste
            visible de tous, c'est par lui qu'on découvre que ça existe. -->
-      <a class="footer-admin-link" onclick="goTo('accreditations')" href="javascript:void(0)">Accréditations photo</a>
+      <a class="footer-admin-link" onclick="goTo('accreditations')" href="javascript:void(0)">Espace photographe</a>
       <a class="footer-admin-link" onclick="goTo('bugreport')" href="javascript:void(0)">Signaler un bug</a>
-      <a class="footer-admin-link" onclick="goTo('admin')" href="javascript:void(0)">Espace équipe</a>
+      <a class="footer-admin-link" onclick="goTo('about')" href="javascript:void(0)">À propos</a>
     </div>
   </div>
 </footer>
@@ -3667,6 +3704,36 @@ const BD = {
 
   tirerAuSort(evenementId){
     return supabaseClient.rpc('tirage_accreditation', { p_evenement: evenementId });
+  },
+
+  // Les propositions de concerts. La policy ne renvoie à chacun que les
+  // siennes, et tout à l'équipe.
+  souhaitsAccreditation(){
+    return supabaseClient
+      .from('souhaits_accreditation')
+      .select('*')
+      .order('cree_le', { ascending: false });
+  },
+
+  proposerConcert(champs){
+    return supabaseClient.rpc('souhait_accreditation', {
+      p_artiste: champs.artiste,
+      p_salle:   champs.salle || null,
+      p_ville:   champs.ville || null,
+      p_date:    champs.date || null,
+      p_lien:    champs.lien || null,
+      p_message: champs.message || null
+    });
+  },
+
+  retirerSouhait(id){
+    return supabaseClient
+      .from('souhaits_accreditation').delete().eq('id', id).select();
+  },
+
+  majSouhait(id, champs){
+    return supabaseClient
+      .from('souhaits_accreditation').update(champs).eq('id', id).select();
   },
 
   creerEvenementAccreditation(champs){
@@ -4578,7 +4645,14 @@ function accredDateTexte(valeur, avecHeure){
 // Pour les champs <input type="datetime-local">, qui refusent une date
 // ISO complète.
 function accredPourChamp(valeur){
+
   if(!valeur) return '';
+
+  // Une date seule (proposition d'un photographe) est lue comme minuit
+  // UTC, donc 1 h ou 2 h du matin ici : on la garde telle quelle et on
+  // laisse l'heure à régler.
+  if(/^\d{4}-\d{2}-\d{2}$/.test(valeur)) return valeur + 'T20:00';
+
   const d = new Date(valeur);
   if(isNaN(d)) return '';
   const p = n => String(n).padStart(2, '0');
@@ -4638,9 +4712,11 @@ async function renderAccreditations(){
     liste.innerHTML = `
       <div class="empty-state">
         Aucune accréditation ouverte en ce moment. Reviens bientôt : on
-        en publie dès qu'une salle nous répond.
+        en publie dès qu'une salle nous répond — et dis-nous plus bas où
+        tu aimerais shooter.
       </div>`;
     renderSuiviAccreditations();
+    renderSouhaits();
     return;
   }
 
@@ -4662,6 +4738,7 @@ async function renderAccreditations(){
     </div>`;
 
   renderSuiviAccreditations();
+  renderSouhaits();
   majFlechesAccred();
 }
 
@@ -4916,6 +4993,228 @@ function accredOuvrirFormulaire(id){
 function accredFermerModale(){
   const voile = document.getElementById('accredModal');
   if(voile) voile.classList.remove('open');
+}
+
+
+// ---- Proposer un concert ----
+//
+// L'inverse de l'inscription : le photographe dit où il aimerait
+// shooter, l'équipe s'en sert pour savoir à quelle salle écrire.
+
+let accredMesSouhaits = [];
+
+function accredOuvrirSouhait(){
+
+  const voile = document.getElementById('accredModal');
+  const corps = document.getElementById('accredModalCorps');
+
+  if(!voile || !corps) return;
+
+  if(!peutAccreditation()){
+    verifierAccesAccreditations();
+    return;
+  }
+
+  corps.innerHTML = `
+    <span class="eyebrow">Proposer un concert</span>
+    <h3 style="font-size:19px; margin:6px 0 4px;">Où aimerais-tu shooter ?</h3>
+    <p class="accred-aide" style="margin-bottom:16px;">
+      On ne promet rien : certaines salles refusent, d'autres répondent
+      trois jours avant. Mais on ne demande jamais pour un concert dont
+      on ignore qu'il vous intéresse.
+    </p>
+
+    <form onsubmit="accredEnvoyerSouhait(event)">
+
+      <div class="field">
+        <label for="souhait-artiste">Artiste ou festival</label>
+        <input type="text" id="souhait-artiste" maxlength="120" required
+               placeholder="Ben PLG">
+      </div>
+
+      <div class="field">
+        <label for="souhait-salle">Salle — facultatif</label>
+        <input type="text" id="souhait-salle" maxlength="120"
+               placeholder="Zénith de Paris">
+      </div>
+
+      <div class="field">
+        <label for="souhait-ville">Ville — facultatif</label>
+        <input type="text" id="souhait-ville" maxlength="120">
+      </div>
+
+      <div class="field">
+        <label for="souhait-date">Date — facultatif</label>
+        <input type="date" id="souhait-date">
+      </div>
+
+      <div class="field">
+        <label for="souhait-lien">Lien vers l'événement — facultatif</label>
+        <input type="url" id="souhait-lien" maxlength="300"
+               placeholder="https://...">
+      </div>
+
+      <div class="field">
+        <label for="souhait-message">Pourquoi celui-là — facultatif</label>
+        <textarea id="souhait-message" rows="3" maxlength="500"
+                  placeholder="Ce que tu comptes en faire, ce que tu connais de l'artiste"></textarea>
+      </div>
+
+      <div class="inline-actions">
+        <button type="submit" class="btn btn-primary">Envoyer ma proposition</button>
+        <button type="button" class="btn btn-ghost" onclick="accredFermerModale()">Annuler</button>
+      </div>
+
+      <div class="form-msg" id="accred-modal-msg"></div>
+    </form>`;
+
+  voile.classList.add('open');
+
+  const premier = document.getElementById('souhait-artiste');
+  if(premier) premier.focus();
+}
+
+
+async function accredEnvoyerSouhait(evenement){
+
+  evenement.preventDefault();
+
+  const msg = document.getElementById('accred-modal-msg');
+  const valeur = id => {
+    const e = document.getElementById(id);
+    return e ? e.value.trim() : '';
+  };
+
+  const artiste = valeur('souhait-artiste');
+
+  if(!artiste){
+    if(msg){
+      msg.textContent = "Le nom de l'artiste est nécessaire.";
+      msg.className = 'form-msg err';
+    }
+    return;
+  }
+
+  const { error } = await BD.proposerConcert({
+    artiste,
+    salle: valeur('souhait-salle'),
+    ville: valeur('souhait-ville'),
+    date: valeur('souhait-date') || null,
+    lien: valeur('souhait-lien'),
+    message: valeur('souhait-message')
+  });
+
+  if(error){
+    if(msg){
+      msg.textContent = 'Proposition refusée : ' + error.message;
+      msg.className = 'form-msg err';
+    }
+    return;
+  }
+
+  accredFermerModale();
+  await renderSouhaits();
+}
+
+
+async function renderSouhaits(){
+
+  const zone = document.getElementById('accredSouhaits');
+  if(!zone) return;
+
+  if(!peutAccreditation()){
+    zone.innerHTML = `
+      <div class="empty-state">
+        Les propositions sont réservées aux comptes photographes.
+      </div>`;
+    return;
+  }
+
+  const { data, error } = await BD.souhaitsAccreditation();
+
+  if(error){
+    zone.innerHTML = `
+      <div class="empty-state">Propositions indisponibles : ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  // L'équipe voit celles de tout le monde : sur cette page, chacun ne
+  // suit que les siennes.
+  accredMesSouhaits = (data || []).filter(s => !currentUser || s.user_id === currentUser.id);
+
+  if(!accredMesSouhaits.length){
+    zone.innerHTML = `
+      <div class="empty-state">
+        Aucune proposition pour l'instant. Celles que tu envoies restent ici,
+        avec la réponse de l'équipe.
+      </div>`;
+    return;
+  }
+
+  zone.innerHTML = `
+    <div class="accred-suivi">
+      ${accredMesSouhaits.map(souhaitHtml).join('')}
+    </div>`;
+}
+
+
+function souhaitHtml(souhait){
+
+  const etats = {
+    nouveau: ['Envoyée', 'attente'],
+    vu:      ['Vue par l’équipe', 'attente'],
+    retenu:  ['Retenue', 'retenu'],
+    ecarte:  ['Pas pour cette fois', 'refuse']
+  };
+
+  const [texte, classe] = etats[souhait.statut] || etats.nouveau;
+
+  const lieu = [souhait.salle, souhait.ville].filter(Boolean).join(' · ');
+
+  return `
+    <article class="accred-suivi-ligne">
+
+      <div class="accred-suivi-entete">
+        <div style="min-width:0;">
+          <p class="petit-titre" style="margin:0; font-size:16px;">
+            ${escapeHtml(souhait.artiste)}
+          </p>
+          <span class="accred-lieu">
+            ${escapeHtml(lieu)}${lieu && souhait.date_souhaitee ? ' · ' : ''}
+            ${souhait.date_souhaitee ? escapeHtml(accredDateTexte(souhait.date_souhaitee)) : ''}
+          </span>
+        </div>
+        <span class="accred-etat ${classe}">${texte}</span>
+      </div>
+
+      ${
+        souhait.reponse
+          ? `<div class="accred-consignes">
+               <span class="eyebrow" style="margin-bottom:6px;">Réponse de l'équipe</span>
+               <p style="margin:0; white-space:pre-wrap;">${escapeHtml(souhait.reponse)}</p>
+             </div>`
+          : ''
+      }
+
+      ${
+        souhait.statut === 'nouveau'
+          ? `<div class="inline-actions">
+               <button type="button" class="btn btn-ghost"
+                       onclick="accredRetirerSouhait('${escapeAttribute(souhait.id)}')">
+                 Retirer
+               </button>
+             </div>`
+          : ''
+      }
+
+    </article>`;
+}
+
+
+async function accredRetirerSouhait(id){
+  const { error } = await BD.retirerSouhait(id);
+  if(error) return;
+  await renderSouhaits();
 }
 
 
@@ -11856,6 +12155,10 @@ async function renderAdminAccreditations(){
 
   zone.innerHTML = `<div class="empty-state">Chargement...</div>`;
 
+  // Les propositions ne dépendent pas des événements : elles se
+  // chargent à part, sinon un onglet sans événement les escamotait.
+  renderAdminSouhaits();
+
   const { data, error } = await BD.evenementsAccreditation(true);
 
   if(error){
@@ -11893,6 +12196,175 @@ async function renderAdminAccreditations(){
   });
 
   zone.innerHTML = evenements.map(adminEvenementHtml).join('');
+}
+
+
+// ---- Les propositions des photographes ----
+
+let adminSouhaits = [];
+
+async function renderAdminSouhaits(){
+
+  const zone = document.getElementById('adminSouhaitsListe');
+  if(!zone) return;
+
+  const [{ data, error }, membres] = await Promise.all([
+    BD.souhaitsAccreditation(),
+    getUsers()
+  ]);
+
+  if(error){
+    zone.innerHTML = `
+      <div class="empty-state">Lecture impossible : ${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  adminSouhaits = data || [];
+
+  if(!adminSouhaits.length){
+    zone.innerHTML = `
+      <div class="empty-state">Aucune proposition pour l'instant.</div>`;
+    return;
+  }
+
+  const pseudos = {};
+  membres.forEach(m => { pseudos[m.id] = m.pseudo; });
+
+  // Deux photographes qui demandent le même concert, c'est un signal
+  // plus fort qu'une demande isolée : on les compte.
+  const compte = {};
+  adminSouhaits.forEach(s => {
+    const cle = s.artiste.trim().toLowerCase();
+    compte[cle] = (compte[cle] || 0) + 1;
+  });
+
+  const ordre = { nouveau: 0, vu: 1, retenu: 2, ecarte: 3 };
+
+  zone.innerHTML = [...adminSouhaits]
+    .sort((a, b) =>
+      (ordre[a.statut] ?? 4) - (ordre[b.statut] ?? 4) ||
+      new Date(b.cree_le) - new Date(a.cree_le)
+    )
+    .map(s => adminSouhaitHtml(s, pseudos[s.user_id], compte[s.artiste.trim().toLowerCase()]))
+    .join('');
+}
+
+
+function adminSouhaitHtml(souhait, pseudo, demandes){
+
+  const id = escapeAttribute(souhait.id);
+  const lieu = [souhait.salle, souhait.ville].filter(Boolean).join(' · ');
+
+  const etats = {
+    nouveau: 'Nouvelle',
+    vu:      'Vue',
+    retenu:  'Retenue',
+    ecarte:  'Écartée'
+  };
+
+  return `
+    <div class="admin-row" style="flex-direction:column; align-items:stretch; gap:12px;">
+
+      <div style="display:flex; gap:14px; justify-content:space-between; flex-wrap:wrap;">
+        <div style="min-width:0;">
+          <p style="margin:0 0 3px; font-size:16px; font-weight:500;">
+            ${escapeHtml(souhait.artiste)}
+            ${
+              demandes > 1
+                ? `<span class="release-badge" style="border-color:var(--blue); color:var(--blue);">
+                     ${demandes} demandes
+                   </span>`
+                : ''
+            }
+          </p>
+          <span class="accred-lieu">
+            ${escapeHtml(lieu)}${lieu && souhait.date_souhaitee ? ' · ' : ''}
+            ${souhait.date_souhaitee ? escapeHtml(accredDateTexte(souhait.date_souhaitee)) : ''}
+            ${lieu || souhait.date_souhaitee ? ' · ' : ''}proposé par ${escapeHtml(pseudo || 'un photographe')}
+          </span>
+        </div>
+        <span class="accred-etat${souhait.statut === 'retenu' ? ' retenu' : ''}">
+          ${escapeHtml(etats[souhait.statut] || souhait.statut)}
+        </span>
+      </div>
+
+      ${
+        souhait.message
+          ? `<p class="accred-description" style="-webkit-line-clamp:none; display:block;">
+               ${escapeHtml(souhait.message)}
+             </p>`
+          : ''
+      }
+
+      ${
+        safeUrl(souhait.lien)
+          ? `<a href="${escapeAttribute(safeUrl(souhait.lien))}" target="_blank"
+                rel="noopener noreferrer" style="color:var(--blue); font-size:13px;">
+               Voir l'événement
+             </a>`
+          : ''
+      }
+
+      <div class="inline-actions">
+        <button type="button" class="btn btn-primary"
+                onclick="creerDepuisSouhait('${id}')">Créer l'événement</button>
+        ${
+          souhait.statut !== 'vu'
+            ? `<button type="button" class="btn btn-ghost"
+                       onclick="majStatutSouhait('${id}', 'vu')">Marquer vue</button>`
+            : ''
+        }
+        ${
+          souhait.statut !== 'ecarte'
+            ? `<button type="button" class="btn btn-ghost"
+                       onclick="majStatutSouhait('${id}', 'ecarte')">Écarter</button>`
+            : ''
+        }
+        <button type="button" class="btn btn-ghost"
+                onclick="openConfirmPanel('souhait-suppr-${id}')">Supprimer</button>
+      </div>
+
+      <div class="confirm-panel danger" id="souhait-suppr-${id}">
+        <p>Supprimer cette proposition ? Le photographe ne la verra plus.</p>
+        <div class="inline-actions">
+          <button type="button" class="btn btn-ghost"
+                  onclick="supprimerSouhait('${id}')">Oui, supprimer</button>
+          <button type="button" class="btn btn-ghost"
+                  onclick="closeConfirmPanel('souhait-suppr-${id}')">Annuler</button>
+        </div>
+      </div>
+
+    </div>`;
+}
+
+
+async function majStatutSouhait(id, statut){
+  await BD.majSouhait(id, { statut });
+  await renderAdminSouhaits();
+}
+
+
+async function supprimerSouhait(id){
+  await BD.retirerSouhait(id);
+  await renderAdminSouhaits();
+}
+
+
+// Le formulaire d'événement s'ouvre pré-rempli avec la proposition :
+// c'est le passage naturel de l'envie à la place obtenue.
+function creerDepuisSouhait(id){
+
+  const souhait = adminSouhaits.find(s => s.id === id);
+  if(!souhait) return;
+
+  majStatutSouhait(id, 'retenu');
+
+  ouvrirFormulaireEvenement(null, {
+    artiste: souhait.artiste,
+    salle: souhait.salle || '',
+    ville: souhait.ville || '',
+    date_evenement: souhait.date_souhaitee || null
+  });
 }
 
 
@@ -12123,19 +12595,30 @@ async function supprimerEvenement(id){
 
 // ---- Le formulaire d'événement ----
 
-function ouvrirFormulaireEvenement(id){
+// `prefill` sert au passage d'une proposition de photographe à un
+// événement : les champs qu'il a donnés sont déjà là, le reste est à
+// compléter.
+function ouvrirFormulaireEvenement(id, prefill){
 
   const zone = document.getElementById('adminEvenementForm');
   if(!zone) return;
 
-  // Relu en base plutôt que repris de l'affichage : entre-temps, l'autre
-  // membre de l'équipe a pu modifier la fiche.
-  BD.evenementsAccreditation(true).then(({ data }) => {
-    const evenement = id ? (data || []).find(x => x.id === id) : null;
+  const afficher = evenement => {
     zone.innerHTML = formulaireEvenementHtml(evenement);
     zone.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     const premier = document.getElementById('ev-artiste');
     if(premier) premier.focus();
+  };
+
+  if(!id){
+    afficher(prefill || null);
+    return;
+  }
+
+  // Relu en base plutôt que repris de l'affichage : entre-temps, l'autre
+  // membre de l'équipe a pu modifier la fiche.
+  BD.evenementsAccreditation(true).then(({ data }) => {
+    afficher((data || []).find(x => x.id === id) || null);
   });
 }
 
@@ -12144,10 +12627,14 @@ function formulaireEvenementHtml(e){
 
   const v = (champ, defaut) => escapeAttribute(e && e[champ] != null ? e[champ] : (defaut || ''));
 
+  // Un objet sans identifiant est une proposition de photographe reprise
+  // telle quelle : c'est une création, pas une modification.
+  const existant = !!(e && e.id);
+
   return `
     <div class="admin-row" style="flex-direction:column; align-items:stretch; gap:0; margin-bottom:18px;">
       <h4 style="margin:0 0 14px; font-size:15px; font-weight:500;">
-        ${e ? 'Modifier l’événement' : 'Nouvel événement'}
+        ${existant ? 'Modifier l’événement' : 'Nouvel événement'}
       </h4>
 
       <input type="hidden" id="ev-id" value="${v('id')}">
@@ -12218,7 +12705,7 @@ function formulaireEvenementHtml(e){
 
       <div class="inline-actions">
         <button type="button" class="btn btn-primary" onclick="enregistrerEvenement()">
-          ${e ? 'Enregistrer' : 'Créer l’événement'}
+          ${existant ? 'Enregistrer' : 'Créer l’événement'}
         </button>
         <button type="button" class="btn btn-ghost" onclick="fermerFormulaireEvenement()">
           Annuler
