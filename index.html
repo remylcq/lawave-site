@@ -26,7 +26,8 @@
 <meta name="twitter:description" content="Les sorties repérées par La Wave, archivées et mises en avant.">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Work+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root{
     /* ---------- FOND ---------- */
@@ -94,7 +95,12 @@
     background-position:center, center;
     background-attachment:fixed, fixed;
     color:var(--ink);
-    font-family:'Inter', sans-serif;
+    /* Une seule famille pour tout le site : Work Sans, en gras pour les
+       titres et en romain pour le reste. Deux polices de caractères
+       différentes, l'une pour les titres et l'autre pour le texte,
+       donnaient au site l'air d'un gabarit. */
+    font-family:'Work Sans', sans-serif;
+    font-weight:400;
     -webkit-font-smoothing:antialiased;
     line-height:1.5;
   }
@@ -108,15 +114,18 @@
   /* Le contenu repasse au-dessus des halos. */
   main, footer{position:relative; z-index:1;}
   h1,h2,h3,.display{
-    font-family:'Space Grotesk', sans-serif;
     font-weight:700;
-    letter-spacing:-0.03em;
+    /* Work Sans est moins compacte que la police précédente : au même
+       resserrement, les grands titres se touchaient. */
+    letter-spacing:-0.02em;
     margin:0;
     color:var(--ink);
   }
   h1,.display{font-size:clamp(30px,5.2vw,52px); line-height:1.06;}
   h2{font-size:clamp(23px,3.2vw,34px); line-height:1.12;}
-  h3{font-size:clamp(17px,2vw,20px); line-height:1.25;}
+  /* Les petits titres restent en romain : c'est leur taille qui les
+     distingue du texte, pas leur graisse. */
+  h3{font-size:clamp(17px,2vw,20px); line-height:1.25; font-weight:400; letter-spacing:-0.01em;}
   .mono{
     font-family:'IBM Plex Mono', monospace;
     letter-spacing:0.02em;
@@ -843,7 +852,7 @@
   .about-grid p{color:var(--ink-soft); font-size:15px; margin:0 0 16px;}
   .stat-row{display:flex; gap:36px; margin-top:8px; flex-wrap:wrap;}
   .stat{border-left:2px solid var(--blue); padding-left:14px;}
-  .stat .n{font-family:'Space Grotesk'; font-size:26px; font-weight:700; display:block;}
+  .stat .n{font-size:26px; font-weight:700; display:block;}
   .stat .l{font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em;}
   @media (max-width:760px){.about-grid{grid-template-columns:1fr;}}
 
@@ -1002,7 +1011,7 @@
     align-items:center; justify-content:center; gap:6px;
     color:var(--muted);
   }
-  .favori-rang{font-family:'Space Grotesk', sans-serif; font-size:28px; font-weight:700; opacity:.5;}
+  .favori-rang{font-size:28px; font-weight:700; opacity:.5;}
   .favori-invite{font-size:12px;}
   .favori-compte{font-size:11px; color:var(--muted); margin-left:4px;}
   .btn-enregistrer.favori{border-color:var(--gold-favori); color:var(--gold-favori); background:rgba(233,196,106,0.12);}
@@ -1566,7 +1575,7 @@
   .vote-btn:hover{background:rgba(255,255,255,0.08); color:var(--ink);}
   .vote-btn.voted-up{color:var(--blue);}
   .vote-btn.voted-down{color:var(--danger);}
-  .vote-score{font-size:13px; font-weight:700; font-family:'Space Grotesk';}
+  .vote-score{font-size:13px; font-weight:700;}
   .forum-post-main{flex:1; min-width:0;}
   .forum-post-head{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
   .forum-avatar{width:32px; height:32px; border-radius:50%; object-fit:cover; background:rgba(255,255,255,0.08);}
@@ -8716,7 +8725,7 @@ function dessinerCarte(temps){
       // Pas encore de photo réglée par l'équipe : l'initiale, comme
       // partout ailleurs sur le site.
       ctx.fillStyle = '#C4C9D0';
-      ctx.font = '600 ' + Math.round(rayon * 1.05) + 'px "Space Grotesk", sans-serif';
+      ctx.font = '600 ' + Math.round(rayon * 1.05) + 'px "Work Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(
@@ -8753,7 +8762,7 @@ function dessinerCarte(temps){
       ctx.arc(cxp, cyp, rc, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#05070a';
-      ctx.font = '700 ' + Math.round(rc * 1.25) + 'px "Inter", sans-serif';
+      ctx.font = '700 ' + Math.round(rc * 1.25) + 'px "Work Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(groupe.total), cxp, cyp + rc * 0.06);
@@ -8780,7 +8789,7 @@ function dessinerCarte(temps){
 
 function dessinerEtiquetteCarte(ctx, etiquette, largeur){
 
-  ctx.font = '600 12px "Inter", sans-serif';
+  ctx.font = '600 12px "Work Sans", sans-serif';
 
   const l = ctx.measureText(etiquette.texte).width + 18;
   const h = 24;
