@@ -253,6 +253,11 @@
     .nav-inner{padding:6px 12px 6px 18px;}
     .nav-logo img{height:54px;}
   }
+  /* Les sept entrées communes à tous les visiteurs, tout juste, à 761 px. */
+  @media (min-width:761px) and (max-width:860px){
+    .nav-links button.navlink{padding:8px 7px;}
+    .nav-inner{padding:6px 10px 6px 14px;}
+  }
 
   @media (max-width:760px){
     /* Le backdrop-filter de l'en-tête crée un bloc conteneur pour les
@@ -283,6 +288,27 @@
     .nav-inner{padding:8px 16px;}
     .nav-logo img{height:56px;}
     main{padding:0 16px;}
+  }
+
+  /* Huit entrées (photographes et équipe) ne tiennent plus sur une ligne
+     sous 960 px, même resserrées : le menu déroulant prend le relais plus
+     tôt, mais pour eux seuls. La classe est posée par
+     majAccesAccreditations, en même temps que le lien apparaît. */
+  @media (min-width:761px) and (max-width:960px){
+    body.nav-large .nav-links{
+      position:fixed; top:100%; left:0; right:0;
+      height:100vh; height:calc(100dvh - 100%);
+      background:var(--bg); flex-direction:column; align-items:stretch;
+      padding:22px 18px; gap:8px; display:none;
+      border-top:1px solid var(--line);
+      overflow-y:auto;
+    }
+    body.nav-large .nav-links.open{display:flex;}
+    body.nav-large .nav-links button.navlink{
+      width:100%; text-align:left; padding:14px 16px; font-size:16px;
+      border-radius:var(--radius-sm);
+    }
+    body.nav-large .burger{display:flex; align-items:center; justify-content:center; width:44px; height:44px;}
   }
 
   /* ---------- LAYOUT ---------- */
@@ -1924,6 +1950,71 @@
     border-bottom:1px dotted currentColor;
   }
 
+  /* ---------- L'ESPACE DES WAVEURS (porte d'entrée) ---------- */
+  .wv-accueil{
+    display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);
+    gap:28px; align-items:stretch;
+  }
+  @media (max-width:900px){
+    .wv-accueil{grid-template-columns:1fr; gap:22px;}
+  }
+  /* L'affiche : le logo sur une mer de nuit, comme au fond de la salle. */
+  .wv-affiche{
+    position:relative; overflow:hidden; min-height:340px;
+    border-radius:var(--radius); border:1px solid var(--line);
+    background:radial-gradient(120% 90% at 50% 0%, #0c3a5c 0%, #071c30 55%, #040d18 100%);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:var(--ombre-2);
+  }
+  .wv-affiche-vagues{position:absolute; inset:auto 0 0 0; width:200%; height:60%; left:0;}
+  .wv-affiche-vagues path{animation:wvDerive 14s linear infinite;}
+  .wv-affiche-vagues .v1{fill:rgba(79,180,255,.16); animation-duration:18s;}
+  .wv-affiche-vagues .v2{fill:rgba(79,180,255,.20); animation-duration:13s; animation-direction:reverse;}
+  .wv-affiche-vagues .v3{fill:rgba(20,137,222,.30); animation-duration:9s;}
+  @keyframes wvDerive{from{transform:translateX(0)} to{transform:translateX(-25%)}}
+  .wv-affiche-centre{
+    position:relative; display:flex; flex-direction:column; align-items:center;
+    gap:14px; padding:24px; text-align:center;
+  }
+  .wv-affiche-centre img{width:min(300px,62%); filter:drop-shadow(0 0 26px rgba(79,180,255,.55));}
+  .wv-affiche-titre{
+    font-size:clamp(15px,2.4vw,20px); font-weight:700; letter-spacing:.22em; color:#fff;
+    text-shadow:0 0 22px rgba(79,180,255,.9);
+  }
+  .wv-affiche-sous{font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:#9fc4e4;}
+  @media (prefers-reduced-motion:reduce){
+    .wv-affiche-vagues path{animation:none;}
+  }
+
+  .wv-accueil-corps{display:flex; flex-direction:column; gap:16px; min-width:0;}
+  .wv-carte-accueil{
+    background:var(--glass); border:1px solid var(--line);
+    border-radius:var(--radius); padding:18px 20px; box-shadow:var(--ombre-1);
+  }
+  .wv-carte-accueil .wv-etat-titre{
+    font-size:11px; font-weight:500; letter-spacing:.18em; text-transform:uppercase; color:var(--muted);
+  }
+  .wv-carte-accueil .wv-etat-valeur{margin:6px 0 10px; font-size:15px; color:var(--ink);}
+  .wv-carte-accueil .wv-etat-valeur b{font-weight:700;}
+  .wv-pips{display:flex; gap:6px; flex-wrap:wrap;}
+  .wv-pips i{
+    width:14px; height:14px; border-radius:50%;
+    background:rgba(255,255,255,.10); border:1px solid var(--line-strong);
+  }
+  .wv-pips i.on{background:var(--blue-bright); border-color:var(--blue-bright); box-shadow:0 0 10px rgba(79,180,255,.6);}
+  .wv-actions-accueil{display:flex; gap:10px; flex-wrap:wrap;}
+  .wv-regles{
+    list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:12px;
+    font-size:14px; color:var(--ink-soft); line-height:1.55;
+  }
+  .wv-regles b{color:var(--ink); font-weight:500;}
+  .wv-commandes{margin:0; font-size:13px; color:var(--muted); line-height:1.8;}
+  .wv-commandes kbd{
+    display:inline-flex; align-items:center; justify-content:center; min-width:22px; height:22px;
+    margin:0 2px; padding:0 5px; border-radius:6px; font:600 11px/1 inherit;
+    color:var(--ink-soft); background:var(--glass-hi); border:1px solid var(--line-strong);
+  }
+
   /* ---------- FOOTER ---------- */
   footer{border-top:1px solid var(--line); padding:36px 0; margin-top:40px;}
   .footer-inner{
@@ -1959,6 +2050,7 @@
       <button class="navlink" data-page="content">Contenu</button>
       <button class="navlink" data-page="carte">Carte</button>
       <button class="navlink" data-page="community">Communauté</button>
+      <button class="navlink" data-page="waveurs">Waveurs</button>
     </nav>
     <div class="account-zone">
       <button class="account-icon" id="accountIconBtn" onclick="toggleAccountMenu()" aria-label="Compte">
@@ -2349,6 +2441,68 @@
 
       <div id="accredSouhaits"></div>
 
+    </section>
+  </section>
+
+  <!-- L'espace des waveurs : une salle de machines à sous en 3D, dans le
+       navigateur. Cette page n'est que la porte d'entrée. La salle elle-même
+       est dans waveurs.js, chargé seulement quand on clique sur « Entrer »
+       — le reste du site n'en paie pas le poids. -->
+  <section id="page-waveurs" class="page">
+    <section>
+      <div class="section-head">
+        <div>
+          <span class="eyebrow">La salle de la communauté</span>
+          <h2>L'espace des waveurs</h2>
+          <p class="desc">
+            Une salle de machines à sous aux couleurs de La Wave, à parcourir en
+            vue subjective. Chaque jour, des tours offerts : ils rapportent de
+            l'XP, et bientôt des cartes à collectionner.
+          </p>
+        </div>
+      </div>
+
+      <div class="wv-accueil">
+
+        <div class="wv-affiche" aria-hidden="true">
+          <svg class="wv-affiche-vagues" viewBox="0 0 1200 400" preserveAspectRatio="none">
+            <path class="v1" d="M0 250 Q75 210 150 250 T300 250 T450 250 T600 250 T750 250 T900 250 T1050 250 T1200 250 V400 H0Z"/>
+            <path class="v2" d="M0 290 Q75 250 150 290 T300 290 T450 290 T600 290 T750 290 T900 290 T1050 290 T1200 290 V400 H0Z"/>
+            <path class="v3" d="M0 335 Q75 295 150 335 T300 335 T450 335 T600 335 T750 335 T900 335 T1050 335 T1200 335 V400 H0Z"/>
+          </svg>
+          <div class="wv-affiche-centre">
+            <img id="waveursLogo" alt="">
+            <span class="wv-affiche-titre">L'ESPACE DES WAVEURS</span>
+            <span class="wv-affiche-sous">12 machines · 10 tours par jour · jamais d'argent</span>
+          </div>
+        </div>
+
+        <div class="wv-accueil-corps">
+
+          <div class="wv-carte-accueil" id="waveursEtat"></div>
+
+          <div class="wv-actions-accueil">
+            <button type="button" class="btn btn-primary" id="waveursEntrer" onclick="entrerDansLaSalle()">
+              Entrer dans la salle
+            </button>
+          </div>
+          <div class="form-msg" id="waveursMsg"></div>
+
+          <ul class="wv-regles">
+            <li><b>Des tours offerts chaque jour.</b> Ils se remettent à zéro à minuit, heure de Paris.</li>
+            <li><b>De l'XP à gagner, rien à payer.</b> Aucun tour ne s'achète, et l'argent n'intervient jamais.</li>
+            <li><b>Trois logos La Wave alignés :</b> le jackpot.</li>
+            <li><b>Des cartes à collectionner</b> arriveront plus tard : les machines en distribueront.</li>
+          </ul>
+
+          <p class="wv-commandes">
+            Au clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> pour marcher, la souris pour regarder,
+            <kbd>E</kbd> pour jouer. Sur téléphone : un pouce pour avancer, l'autre pour regarder.
+            La salle a du son.
+          </p>
+
+        </div>
+      </div>
     </section>
   </section>
 
@@ -3735,6 +3889,27 @@ const BD = {
     return supabaseClient.rpc('tirage_accreditation', { p_evenement: evenementId });
   },
 
+  // ---------- L'ESPACE DES WAVEURS ----------
+  //
+  // Le tirage se fait en base : le navigateur demande un résultat, il
+  // n'en choisit jamais.
+
+  waveursEtat(){
+    return supabaseClient.rpc('waveurs_etat');
+  },
+
+  waveursGains(){
+    return supabaseClient
+      .from('waveurs_gains')
+      .select('nom, motif, symbole, xp')
+      .order('xp', { ascending: false });
+  },
+
+  waveursTourner(machine){
+    return supabaseClient.rpc('waveurs_tourner', { p_machine: machine });
+  },
+
+
   // Les propositions de concerts. La policy ne renvoie à chacun que les
   // siennes, et tout à l'équipe.
   souhaitsAccreditation(){
@@ -3978,6 +4153,8 @@ const BD = {
   if(pageId === 'community') renderCommunity();
   if(pageId === 'profile') renderProfileForm();
   if(pageId === 'accreditations') renderAccreditations();
+  // La salle recouvre l'écran : on la ferme dès qu'on change de page.
+  if(pageId === 'waveurs') renderWaveurs(); else arreterWaveurs();
   // Les voiles sont en position fixe : sans ces appels à chaque page,
   // ils recouvriraient la suivante après un départ.
   verifierAccesSoumission();
@@ -4590,6 +4767,7 @@ function majAccesAccreditations(){
   if(!lien) return;
 
   lien.hidden = !peutAccreditation();
+  document.body.classList.toggle('nav-large', !lien.hidden);
 
   // Un photographe qui arrive sur une autre page doit voir la pastille
   // sans être passé par les accréditations : une lecture, une seule.
@@ -5478,6 +5656,252 @@ async function accredLivrer(evenement, id){
   }
 
   if(!error) await renderAccreditations();
+}
+
+
+// ---------------- L'ESPACE DES WAVEURS ----------------
+//
+// Une salle de machines à sous en 3D, dans le navigateur. Le jeu vit dans
+// waveurs.js, à côté de ce fichier : il n'est téléchargé que lorsqu'on
+// clique sur « Entrer », pour que le reste du site n'en paie pas le poids.
+//
+// Ce bloc n'est que la jonction. Il donne au jeu ce que le site sait —
+// qui est connecté, où en est son XP — et lui demande ce que la base
+// décide : le résultat de chaque tour. Le hasard n'est jamais tiré ici.
+//
+// Le numéro qui suit l'adresse du fichier force le navigateur à en
+// prendre la dernière version quand on le change. À augmenter chaque fois
+// que waveurs.js est modifié.
+const WAVEURS_FICHIER = 'waveurs.js?v=1';
+
+let waveursChargement = null;
+
+function chargerWaveurs(){
+
+  if(window.Waveurs) return Promise.resolve();
+  if(waveursChargement) return waveursChargement;
+
+  waveursChargement = new Promise((resolve, reject) => {
+
+    const s = document.createElement('script');
+    s.src = WAVEURS_FICHIER;
+
+    s.onload = () => {
+      if(window.Waveurs) resolve();
+      else reject(new Error("Le fichier de la salle s'est chargé, mais il ne s'est pas lancé."));
+    };
+
+    s.onerror = () => {
+      waveursChargement = null;
+      reject(new Error(
+        "Le fichier de la salle (waveurs.js) est introuvable. Il doit être " +
+        "transféré sur le serveur en même temps que index.html."
+      ));
+    };
+
+    document.head.appendChild(s);
+  });
+
+  return waveursChargement;
+}
+
+
+// Traduit une erreur de la base en phrase qu'on peut montrer. Les refus
+// voulus (« Plus de tours aujourd'hui ») sont déjà écrits en français côté
+// SQL et passent tels quels.
+function messageWaveurs(erreur){
+
+  const m = String((erreur && erreur.message) || '');
+
+  if(erreur && (erreur.code === 'PGRST202' || /Could not find the function|schema cache/i.test(m))){
+    return "La salle n'est pas encore activée : le fichier waveurs.sql n'a pas été passé dans Supabase.";
+  }
+
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m)){
+    return "Impossible de joindre le serveur. Vérifie ta connexion.";
+  }
+
+  if(/JWT|not authenticated|permission denied/i.test(m)){
+    return "Ta session a expiré : reconnecte-toi pour jouer.";
+  }
+
+  return m || 'Le tirage a échoué.';
+}
+
+
+// Ce que le jeu peut demander au site.
+function optionsWaveurs(){
+
+  const logo = document.querySelector('.nav-logo img');
+
+  return {
+
+    logo: logo ? logo.src : null,
+
+    connecte: () => !!currentUser,
+
+    utilisateur: () => currentUser
+      ? { pseudo: currentUser.pseudo, xp: currentUser.xp || 0 }
+      : null,
+
+    etat: async () => {
+      const { data, error } = await BD.waveursEtat();
+      if(error) throw new Error(messageWaveurs(error));
+      return data;
+    },
+
+    gains: async () => {
+      const { data, error } = await BD.waveursGains();
+      if(error) throw new Error(messageWaveurs(error));
+      return data || [];
+    },
+
+    // Le résultat arrive, l'XP est déjà écrite en base : on aligne tout de
+    // suite le compte local. Sans cela, le prochain défi accompli
+    // réécrirait l'ancien total par-dessus le gain — awardXP enregistre
+    // l'XP du navigateur, pas un incrément. L'affichage, lui, attend la fin
+    // de l'animation (voir apresTirage).
+    tourner: async (machine) => {
+
+      const { data, error } = await BD.waveursTourner(machine);
+
+      if(error) throw new Error(messageWaveurs(error));
+
+      if(currentUser){
+        data._niveauAvant = levelForXP(currentUser.xp);
+        data._badgeAvant = badgeForXP(currentUser.xp).name;
+        currentUser.xp = data.xp_total;
+      }
+
+      return data;
+    },
+
+    apresTirage: (res) => {
+      if(!currentUser) return;
+      renderXP();
+      annoncerNiveauWaveurs(res);
+    },
+
+    ouvrirConnexion: () => openAuthModal('login'),
+
+    surQuitter: () => renderWaveurs()
+  };
+}
+
+// Une montée de niveau se fête au moment où les rouleaux s'arrêtent, pas
+// avant : sinon la notification gâcherait le suspense.
+function annoncerNiveauWaveurs(res){
+
+  if(!currentUser || res._niveauAvant === undefined) return;
+
+  const niveauApres = levelForXP(currentUser.xp);
+
+  if(niveauApres <= res._niveauAvant) return;
+
+  const badge = badgeForXP(currentUser.xp);
+  const nouveauBadge = badge.name !== res._badgeAvant;
+
+  notifier('Niveau ' + niveauApres + ' atteint', {
+    type: 'succes',
+    icone: nouveauBadge ? badge.icon : '🎉',
+    detail: nouveauBadge
+      ? 'Nouveau badge : ' + badge.name + '.'
+      : 'Gagné dans l’espace des waveurs.',
+    duree: 6500
+  });
+}
+
+
+// La page d'accueil de la salle : où en sont les tours du jour.
+async function renderWaveurs(){
+
+  const logo = document.getElementById('waveursLogo');
+  const source = document.querySelector('.nav-logo img');
+
+  // La même image que l'en-tête : la recopier évite de la porter deux fois
+  // dans le fichier.
+  if(logo && source && !logo.src) logo.src = source.src;
+
+  const zone = document.getElementById('waveursEtat');
+  if(!zone) return;
+
+  if(!currentUser){
+    zone.innerHTML = `
+      <div class="wv-etat-titre">Ton compte</div>
+      <p class="wv-etat-valeur">
+        La visite est libre. Pour tirer le levier et gagner de l'XP, il faut un compte.
+      </p>
+      <div class="inline-actions">
+        <button type="button" class="btn btn-ghost" onclick="openAuthModal('signup')">Créer un compte</button>
+        <button type="button" class="btn btn-ghost" onclick="openAuthModal('login')">J'ai déjà un compte</button>
+      </div>`;
+    return;
+  }
+
+  zone.innerHTML = `
+    <div class="wv-etat-titre">Tes tours du jour</div>
+    <p class="wv-etat-valeur">Chargement...</p>`;
+
+  const { data, error } = await BD.waveursEtat();
+
+  // La page a pu changer pendant la requête.
+  if(!document.getElementById('page-waveurs').classList.contains('active')) return;
+
+  if(error){
+    zone.innerHTML = `
+      <div class="wv-etat-titre">Tes tours du jour</div>
+      <p class="wv-etat-valeur">${escapeHtml(messageWaveurs(error))}</p>`;
+    return;
+  }
+
+  const restants = data.tours_restants;
+  const total = data.tours_par_jour;
+
+  const pips = Array.from({ length: total }, (_, i) =>
+    `<i class="${i < restants ? 'on' : ''}"></i>`).join('');
+
+  const gagne = data.gagne_aujourdhui > 0
+    ? ` · <b style="color:var(--gold-favori);">+${data.gagne_aujourdhui} XP</b> aujourd'hui`
+    : '';
+
+  zone.innerHTML = `
+    <div class="wv-etat-titre">Tes tours du jour</div>
+    <p class="wv-etat-valeur">
+      <b>${restants} sur ${total}</b>${gagne}
+    </p>
+    <div class="wv-pips" aria-hidden="true">${pips}</div>`;
+}
+
+async function entrerDansLaSalle(){
+
+  const bouton = document.getElementById('waveursEntrer');
+  const msg = document.getElementById('waveursMsg');
+
+  if(msg){ msg.textContent = ''; msg.className = 'form-msg'; }
+
+  if(bouton) bouton.disabled = true;
+
+  try{
+
+    await chargerWaveurs();
+    await window.Waveurs.demarrer(optionsWaveurs());
+
+  }catch(e){
+
+    if(msg){
+      msg.textContent = e.message;
+      msg.className = 'form-msg err';
+    }
+
+  }finally{
+    if(bouton) bouton.disabled = false;
+  }
+}
+
+// Quitter la page avec la salle ouverte (bouton Précédent, lien...) doit
+// la fermer : elle recouvre tout l'écran.
+function arreterWaveurs(){
+  if(window.Waveurs && window.Waveurs.ouverte()) window.Waveurs.arreter();
 }
 
 
