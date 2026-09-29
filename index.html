@@ -1857,7 +1857,11 @@
     font-size:14px; color:var(--ink-soft); line-height:1.6;
   }
   .accred-actions{display:flex; gap:10px; flex-wrap:wrap;}
+  /* align-self : dans une rangée flex, un élément s'étire par défaut sur
+     toute la hauteur de la ligne. La pastille devenait un grand
+     rectangle arrondi dès que le titre voisin passait sur deux lignes. */
   .accred-etat{
+    align-self:flex-start;
     flex-shrink:0; padding:6px 12px; border-radius:var(--radius-pill);
     font-size:12px; font-weight:500; white-space:nowrap;
     border:1px solid var(--line-strong); color:var(--muted);
@@ -1893,6 +1897,31 @@
   .accred-table td{
     padding:10px 12px 10px 0; vertical-align:top;
     border-bottom:1px solid var(--line); color:var(--ink-soft);
+  }
+  /* Qui a proposé le concert, ou qui s'est inscrit : sa fiche s'ouvre
+     d'un clic, avec ses réseaux. */
+  .accred-auteur{
+    display:inline-flex; align-items:center; gap:10px; align-self:flex-start;
+    padding:6px 12px 6px 6px; border-radius:var(--radius-pill);
+    border:1px solid var(--line); background:transparent;
+    color:var(--ink-soft); font-family:inherit; font-size:13px; text-align:left;
+    transition:color .2s var(--ease), background .2s var(--ease), border-color .2s var(--ease);
+  }
+  .accred-auteur:hover{color:var(--ink); background:var(--glass-hi); border-color:var(--line-strong);}
+  .accred-auteur b{font-weight:500; margin-right:6px;}
+  .accred-auteur-photo{
+    width:28px; height:28px; flex:0 0 28px; border-radius:50%; overflow:hidden;
+    border:1px solid var(--line); background:rgba(255,255,255,0.06);
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; font-weight:600; color:var(--ink-soft);
+  }
+  .accred-auteur-photo img{width:100%; height:100%; object-fit:cover;}
+  /* Le compte derrière une inscription, dans le tableau de l'équipe :
+     le nom donné à la salle n'est pas forcément le pseudo du site. */
+  .lien-profil{
+    display:block; margin-top:3px; padding:0; border:none; background:none;
+    color:var(--blue); font-family:inherit; font-size:12px; text-align:left;
+    border-bottom:1px dotted currentColor;
   }
 
   /* ---------- FOOTER ---------- */
@@ -5033,25 +5062,33 @@ function accredOuvrirSouhait(){
       </div>
 
       <div class="field">
-        <label for="souhait-salle">Salle — facultatif</label>
-        <input type="text" id="souhait-salle" maxlength="120"
+        <label for="souhait-salle">Salle</label>
+        <input type="text" id="souhait-salle" maxlength="120" required
                placeholder="Zénith de Paris">
+        <p class="accred-aide" style="margin:6px 0 0;">
+          C'est à elle que l'accréditation se demande.
+        </p>
       </div>
 
       <div class="field">
-        <label for="souhait-ville">Ville — facultatif</label>
-        <input type="text" id="souhait-ville" maxlength="120">
+        <label for="souhait-ville">Ville</label>
+        <input type="text" id="souhait-ville" maxlength="120" required>
       </div>
 
       <div class="field">
-        <label for="souhait-date">Date — facultatif</label>
-        <input type="date" id="souhait-date">
+        <label for="souhait-date">Date du concert</label>
+        <input type="date" id="souhait-date" required
+               min="${new Date().toISOString().slice(0, 10)}">
       </div>
 
       <div class="field">
-        <label for="souhait-lien">Lien vers l'événement — facultatif</label>
-        <input type="url" id="souhait-lien" maxlength="300"
+        <label for="souhait-lien">Lien vers l'événement</label>
+        <input type="url" id="souhait-lien" maxlength="300" required
                placeholder="https://...">
+        <p class="accred-aide" style="margin:6px 0 0;">
+          La billetterie, la page Facebook, le post Instagram : de quoi
+          retrouver la date et l'organisateur.
+        </p>
       </div>
 
       <div class="field">
@@ -5085,24 +5122,26 @@ async function accredEnvoyerSouhait(evenement){
     return e ? e.value.trim() : '';
   };
 
-  const artiste = valeur('souhait-artiste');
-
-  if(!artiste){
-    if(msg){
-      msg.textContent = "Le nom de l'artiste est nécessaire.";
-      msg.className = 'form-msg err';
-    }
-    return;
-  }
-
-  const { error } = await BD.proposerConcert({
-    artiste,
+  const champs = {
+    artiste: valeur('souhait-artiste'),
     salle: valeur('souhait-salle'),
     ville: valeur('souhait-ville'),
     date: valeur('souhait-date') || null,
     lien: valeur('souhait-lien'),
     message: valeur('souhait-message')
-  });
+  };
+
+  // Le navigateur retient déjà les champs requis ; la base les exige de
+  // son côté, et ce garde couvre un envoi déclenché autrement.
+  if(!champs.artiste || !champs.salle || !champs.ville || !champs.date || !champs.lien){
+    if(msg){
+      msg.textContent = "Artiste, salle, ville, date et lien sont nécessaires : c'est ce qu'il faut pour écrire à la salle.";
+      msg.className = 'form-msg err';
+    }
+    return;
+  }
+
+  const { error } = await BD.proposerConcert(champs);
 
   if(error){
     if(msg){
@@ -12147,6 +12186,23 @@ function switchAdminTab(nom){
 // l'instant, d'où les boutons de copie.
 
 let adminInscriptions = {};   // par événement, chargées à l'ouverture
+let adminAuteurs = {};        // profils, pour relier une ligne à son compte
+
+
+// Les profils de tous les membres, pour savoir qui est derrière une
+// inscription ou une proposition. Rechargés à l'ouverture de l'onglet,
+// réutilisés ensuite : un pseudo ne change pas pendant qu'on trie.
+async function chargerAuteursAdmin(forcer){
+
+  if(!forcer && Object.keys(adminAuteurs).length) return adminAuteurs;
+
+  const membres = await getUsers();
+
+  adminAuteurs = {};
+  membres.forEach(m => { adminAuteurs[m.id] = m; });
+
+  return adminAuteurs;
+}
 
 async function renderAdminAccreditations(){
 
@@ -12185,10 +12241,13 @@ async function renderAdminAccreditations(){
 
   // Les inscriptions de tous les événements d'un coup : une requête,
   // la policy ne renvoie ces lignes qu'à l'équipe.
-  const { data: inscriptions } = await supabaseClient
-    .from('inscriptions_accreditation')
-    .select('*')
-    .order('cree_le', { ascending: true });
+  const [{ data: inscriptions }] = await Promise.all([
+    supabaseClient
+      .from('inscriptions_accreditation')
+      .select('*')
+      .order('cree_le', { ascending: true }),
+    chargerAuteursAdmin(true)
+  ]);
 
   adminInscriptions = {};
   (inscriptions || []).forEach(i => {
@@ -12208,9 +12267,9 @@ async function renderAdminSouhaits(){
   const zone = document.getElementById('adminSouhaitsListe');
   if(!zone) return;
 
-  const [{ data, error }, membres] = await Promise.all([
+  const [{ data, error }, auteurs] = await Promise.all([
     BD.souhaitsAccreditation(),
-    getUsers()
+    chargerAuteursAdmin()
   ]);
 
   if(error){
@@ -12227,8 +12286,6 @@ async function renderAdminSouhaits(){
     return;
   }
 
-  const pseudos = {};
-  membres.forEach(m => { pseudos[m.id] = m.pseudo; });
 
   // Deux photographes qui demandent le même concert, c'est un signal
   // plus fort qu'une demande isolée : on les compte.
@@ -12245,12 +12302,41 @@ async function renderAdminSouhaits(){
       (ordre[a.statut] ?? 4) - (ordre[b.statut] ?? 4) ||
       new Date(b.cree_le) - new Date(a.cree_le)
     )
-    .map(s => adminSouhaitHtml(s, pseudos[s.user_id], compte[s.artiste.trim().toLowerCase()]))
+    .map(s => adminSouhaitHtml(s, auteurs[s.user_id], compte[s.artiste.trim().toLowerCase()]))
     .join('');
 }
 
 
-function adminSouhaitHtml(souhait, pseudo, demandes){
+// Qui a proposé : sa photo, son pseudo et son rôle, et sa fiche s'ouvre
+// d'un clic — c'est là qu'on trouve ses réseaux pour lui répondre.
+function auteurSouhaitHtml(auteur, userId){
+
+  if(!auteur){
+    return `<span class="accred-lieu">compte supprimé</span>`;
+  }
+
+  const avatar = safeUrl(auteur.avatar);
+
+  return `
+    <button type="button" class="accred-auteur"
+            onclick="viewProfile('${escapeAttribute(userId)}')"
+            title="Voir sa fiche">
+      <span class="accred-auteur-photo">
+        ${
+          avatar
+            ? `<img src="${escapeAttribute(avatar)}" alt="">`
+            : escapeHtml(artistInitial(auteur.pseudo || '?'))
+        }
+      </span>
+      <span style="min-width:0;">
+        <b>${escapeHtml(auteur.pseudo || 'Membre')}</b>
+        ${roleBadgeHtml(auteur.role, 'small')}
+      </span>
+    </button>`;
+}
+
+
+function adminSouhaitHtml(souhait, auteur, demandes){
 
   const id = escapeAttribute(souhait.id);
   const lieu = [souhait.salle, souhait.ville].filter(Boolean).join(' · ');
@@ -12280,13 +12366,14 @@ function adminSouhaitHtml(souhait, pseudo, demandes){
           <span class="accred-lieu">
             ${escapeHtml(lieu)}${lieu && souhait.date_souhaitee ? ' · ' : ''}
             ${souhait.date_souhaitee ? escapeHtml(accredDateTexte(souhait.date_souhaitee)) : ''}
-            ${lieu || souhait.date_souhaitee ? ' · ' : ''}proposé par ${escapeHtml(pseudo || 'un photographe')}
           </span>
         </div>
         <span class="accred-etat${souhait.statut === 'retenu' ? ' retenu' : ''}">
           ${escapeHtml(etats[souhait.statut] || souhait.statut)}
         </span>
       </div>
+
+      ${auteurSouhaitHtml(auteur, souhait.user_id)}
 
       ${
         souhait.message
@@ -12470,7 +12557,17 @@ function adminInscritsHtml(evenement, inscrits){
     .sort((a, b) => (ordre[a.statut] ?? 3) - (ordre[b.statut] ?? 3) || a.nom.localeCompare(b.nom))
     .map(i => `
       <tr>
-        <td>${escapeHtml(i.nom)}</td>
+        <td>
+          ${escapeHtml(i.nom)}
+          ${
+            adminAuteurs[i.user_id]
+              ? `<button type="button" class="lien-profil"
+                         onclick="viewProfile('${escapeAttribute(i.user_id)}')">
+                   ${escapeHtml(adminAuteurs[i.user_id].pseudo || 'sa fiche')}
+                 </button>`
+              : ''
+          }
+        </td>
         <td><a href="mailto:${escapeAttribute(i.email)}" style="color:var(--blue);">${escapeHtml(i.email)}</a></td>
         <td>${i.telephone ? escapeHtml(i.telephone) : '—'}</td>
         <td>${
