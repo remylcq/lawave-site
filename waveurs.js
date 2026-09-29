@@ -2574,8 +2574,7 @@ const joueur = { x: DEPART.x, z: DEPART.z, yaw: 0, pitch: 0, phase: 0, vitesse: 
 
 const focus = { machine: null, cible: 0, t: 0 };
 
-// Le travelling d'ouverture ne se joue qu'une fois par visite du site.
-let introDejaVue = false;
+// L'aide du téléphone ne s'affiche qu'une fois par visite du site.
 let aideTactileVue = false;
 
 const etat = {
@@ -4381,10 +4380,12 @@ function surToucheBas(e){
 
   const code = e.code;
 
-  // Entrée et Espace, sur un bouton de l'interface qui a le focus (Son,
-  // Plein écran, Quitter, Passer), activent ce bouton : le jeu ne les prend
-  // pas.
-  if((code === 'Enter' || code === 'Space') && e.target && e.target.closest && e.target.closest('button')) return;
+  // Entrée et Espace, sur un bouton de l'interface du jeu qui a le focus
+  // (Son, Plein écran, Quitter, Passer), activent ce bouton : le jeu ne les
+  // prend pas. Un bouton de la page, derrière la salle, ne compte pas : il
+  // ne doit rien pouvoir déclencher d'ici (le bouton d'entrée, encore
+  // focalisé après le clic, relançait la salle au point de départ).
+  if((code === 'Enter' || code === 'Space') && e.target instanceof Element && overlay && overlay.contains(e.target) && e.target.closest('button')) return;
 
   // Pendant le travelling, une touche du jeu le passe.
   if(etat.intro){
@@ -4765,14 +4766,12 @@ function lancerIntro(){
   joueur.yaw = 0;
   joueur.pitch = 0;
 
-  // Une seule fois par visite, et jamais pour qui préfère moins de
-  // mouvement.
-  if(introDejaVue || etat.reduit){
+  // À chaque entrée dans la salle, sauf pour qui préfère moins de mouvement.
+  if(etat.reduit){
     etat.intro = false;
     return;
   }
 
-  introDejaVue = true;
   etat.intro = true;
   etat.introT = 0;
   etat.introRapide = false;
@@ -4978,6 +4977,11 @@ async function demarrer(opts){
   document.body.classList.add('wv-en-jeu');
 
   reinitialiserSession();
+
+  // Le clic qui a ouvert la salle laisse le focus sur son bouton, derrière
+  // le jeu : Entrée ou Espace le réactiveraient. On le rend.
+  const focalise = document.activeElement;
+  if(focalise && focalise !== document.body && !overlay.contains(focalise) && focalise.blur) focalise.blur();
 
   actif = true;
 
