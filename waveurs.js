@@ -1,16 +1,16 @@
 /* ======================================================================
    L'ESPACE DES WAVEURS
    ----------------------------------------------------------------------
-   Une salle de machines à sous en vue subjective, dans le navigateur.
-   Les machines rapportent de l'XP, jamais d'argent.
+   Un bar de casino en vue subjective, dans le navigateur, avec une grande
+   machine à sous au milieu. Elle rapporte de l'XP, jamais d'argent.
 
    Ce fichier est chargé à la demande par index.html, quand quelqu'un
    entre dans la salle : le reste du site n'en paie pas le poids. Il
    embarque tout ce qu'il lui faut — modèles, textures, sons, interface —
    et ne dépend que de Three.js, chargé depuis un CDN.
 
-   Rien n'est téléchargé pour les modèles : les machines, la salle et
-   l'aquarium sont construits ici, en code. C'est ce qui permet de les
+   Rien n'est téléchargé pour les modèles : la machine, le bar et le
+   mobilier sont construits ici, en code. C'est ce qui permet de les
    habiller aux couleurs de La Wave, et ce qui les garde assez légers pour
    un téléphone.
 
@@ -29,13 +29,15 @@
      options.ouvrirConnexion()   ouvre la fenêtre de connexion
      options.surQuitter()        appelé quand on quitte la salle
      options.logo                adresse (ou data:) du logo
+     options.musique             (facultatif) liste de pistes à jouer au lieu
+                                 de celles de musique/liste.json
    ====================================================================== */
 (function(){
 'use strict';
 
 if(window.Waveurs) return;
 
-const VERSION = 1;
+const VERSION = 2;
 
 const SOURCES_THREE = [
   'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
@@ -90,7 +92,10 @@ const eclaircir = (hex, t) => melange(hex, '#ffffff', t);
    ---------------------------------------------------------------------- */
 
 // Demi-largeur, demi-profondeur et hauteur de la salle, en mètres.
-const SALLE = { l: 7, p: 12, h: 4.6 };
+const SALLE = { l: 7.5, p: 10, h: 5 };
+
+// Où l'on se tient en entrant : devant la porte, face à la machine.
+const DEPART = { x: 0, z: SALLE.p - 1.8 };
 
 const JOUEUR = {
   rayon: 0.3,
@@ -102,8 +107,8 @@ const JOUEUR = {
   tourne: 1.9          // rad/s aux flèches gauche et droite
 };
 
-// À quelle distance d'une machine on peut la viser.
-const PORTEE = 2.9;
+// À quelle distance de la machine on peut la viser : elle est grande.
+const PORTEE = 4.0;
 
 const SYMBOLES = ['vague', 'poisson', 'coquillage', 'ancre', 'bulle', 'perle', 'logo'];
 
@@ -122,24 +127,13 @@ const BANDES = [
   ['perle', 'poisson', 'bulle', 'logo', 'coquillage', 'vague', 'ancre']
 ];
 
-// Douze machines, six par côté. L'identifiant est celui que la base
-// enregistre avec chaque tour.
-const MACHINES = [
-  { id: 'vague',   nom: 'LA VAGUE', couleur: '#4FB4FF', sombre: '#0a2b4d' },
-  { id: 'corail',  nom: 'CORAIL',   couleur: '#ff6b81', sombre: '#4a1220' },
-  { id: 'abysses', nom: 'ABYSSES',  couleur: '#8b6bff', sombre: '#1d1350' },
-  { id: 'perle',   nom: 'PERLE',    couleur: '#f2dfb0', sombre: '#40361f' },
-  { id: 'maree',   nom: 'MARÉE',    couleur: '#22d3b6', sombre: '#0a3d38' },
-  { id: 'ecume',   nom: 'ÉCUME',    couleur: '#a5e3ff', sombre: '#12384d' },
-  { id: 'recif',   nom: 'RÉCIF',    couleur: '#ff9f43', sombre: '#4a2a08' },
-  { id: 'tempete', nom: 'TEMPÊTE',  couleur: '#5b8cff', sombre: '#0f1f55' },
-  { id: 'lagon',   nom: 'LAGON',    couleur: '#2de2e6', sombre: '#093e45' },
-  { id: 'meduse',  nom: 'MÉDUSE',   couleur: '#e879f9', sombre: '#3d1249' },
-  { id: 'baleine', nom: 'BALEINE',  couleur: '#60a5fa', sombre: '#10254d' },
-  { id: 'murene',  nom: 'MURÈNE',   couleur: '#a3e635', sombre: '#26370c' }
-];
+// La grande machine, seule au milieu de la salle. Son identifiant est celui
+// que la base enregistre avec chaque tour.
+const MACHINE = { id: 'vague', nom: 'LA VAGUE', couleur: '#4FB4FF', sombre: '#0a2b4d' };
 
-const RANGEES_Z = [-9, -7.2, -5.4, -3.6, -1.8, 0];
+// Le modèle est dessiné à la taille d'une machine de bar : on l'agrandit
+// pour en faire l'attraction de la salle.
+const ECHELLE_MACHINE = 1.7;
 
 
 /* ----------------------------------------------------------------------
@@ -679,36 +673,274 @@ function creerVitre(avecLigne){
 }
 
 
-/* ---- Textures de la salle ---- */
+/* ---- Textures de la salle : marbre, bois, tapis, bar ---- */
 
-function creerMoquette(){
+// Un motif qui se répète doit se raccorder sur ses bords : ce qui déborde
+// d'un côté est redessiné de l'autre, en jouant sur les neuf décalages.
+const DECALAGES = [-1, 0, 1];
 
-  const { c, x: g } = creerCanvas(512, 512);
+// Un marbre veiné : des nuages, puis des veines qui serpentent. Sombre pour
+// les murs, clair pour le comptoir du bar.
+function creerMarbre(fond, veine, doree, nombre){
 
-  g.fillStyle = '#0a1c30';
-  g.fillRect(0, 0, 512, 512);
+  const T = 512;
+  const { c, x: g } = creerCanvas(T, T);
 
-  // Des écailles : rangées d'arcs concentriques, décalées une ligne sur deux.
-  // 512 est un multiple de leur période, le motif se raccorde.
+  g.fillStyle = fond;
+  g.fillRect(0, 0, T, T);
+
+  const nuages = Array.from({ length: 22 }, () => ({
+    x: hasard(0, T), y: hasard(0, T), r: hasard(60, 170), a: hasard(0.03, 0.08)
+  }));
+
+  const veines = Array.from({ length: nombre }, () => {
+    let x = hasard(0, T), y = hasard(0, T), a = hasard(0, TAU);
+    const pts = [[x, y]];
+    const n = Math.round(hasard(22, 40));
+    for(let i = 0; i < n; i++){
+      a += hasard(-0.7, 0.7);
+      x += Math.cos(a) * hasard(10, 22);
+      y += Math.sin(a) * hasard(10, 22);
+      pts.push([x, y]);
+    }
+    return { pts, or: Math.random() < 0.3, e: hasard(0.8, 2.2) };
+  });
+
+  DECALAGES.forEach(i => DECALAGES.forEach(j => {
+
+    g.save();
+    g.translate(i * T, j * T);
+
+    nuages.forEach(n => {
+      const rg = g.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r);
+      rg.addColorStop(0, 'rgba(255,255,255,' + n.a + ')');
+      rg.addColorStop(1, 'rgba(255,255,255,0)');
+      g.fillStyle = rg;
+      g.fillRect(n.x - n.r, n.y - n.r, n.r * 2, n.r * 2);
+    });
+
+    g.lineCap = 'round';
+    g.lineJoin = 'round';
+
+    veines.forEach(v => {
+      g.beginPath();
+      v.pts.forEach((p, k) => {
+        if(k === 0) g.moveTo(p[0], p[1]); else g.lineTo(p[0], p[1]);
+      });
+      g.strokeStyle = v.or ? doree : veine;
+      g.globalAlpha = 0.16;
+      g.lineWidth = v.e * 5;
+      g.stroke();
+      g.globalAlpha = 0.5;
+      g.lineWidth = v.e;
+      g.stroke();
+    });
+
+    g.globalAlpha = 1;
+    g.restore();
+  }));
+
+  return c;
+}
+
+// Un parquet de noyer : des lames de tons différents, au fil du bois
+// dessiné, avec un reflet le long de chacune.
+function creerParquet(){
+
+  const T = 512;
+  const { c, x: g } = creerCanvas(T, T);
+
+  // On dessine des lames horizontales, puis on tourne le tout : elles
+  // courent ainsi dans la longueur de la salle.
+  g.translate(T, 0);
+  g.rotate(Math.PI / 2);
+
+  g.fillStyle = '#1a0f08';
+  g.fillRect(0, 0, T, T);
+
+  const lames = 8, h = T / lames;
+
+  for(let r = 0; r < lames; r++){
+
+    const decalage = Math.floor(hasard(0, 4)) * 64;
+
+    [0, 1].forEach(s => {
+
+      const x0 = decalage + s * 256;
+      const base = melange('#3f2515', '#6b4327', hasard(0.1, 0.9));
+
+      [-T, 0].forEach(dx => {
+
+        const x = x0 + dx;
+        const y = r * h;
+
+        g.fillStyle = base;
+        g.fillRect(x + 1, y + 1, 254, h - 2);
+
+        for(let k = 0; k < 9; k++){
+          const yy = y + 4 + k * (h - 8) / 9 + hasard(-1.5, 1.5);
+          g.strokeStyle = 'rgba(' + (k % 2 ? '0,0,0,' : '255,210,160,') + hasard(0.05, 0.12) + ')';
+          g.lineWidth = hasard(0.6, 1.6);
+          g.beginPath();
+          g.moveTo(x, yy);
+          g.bezierCurveTo(x + 80, yy + hasard(-3, 3), x + 170, yy + hasard(-3, 3), x + 256, yy);
+          g.stroke();
+        }
+
+        g.fillStyle = 'rgba(255,225,190,.07)';
+        g.fillRect(x + 1, y + 1, 254, 3);
+      });
+    });
+  }
+
+  return c;
+}
+
+// Des lattes de bois verticales, pour le soubassement des murs et la
+// façade du comptoir.
+function creerLattes(){
+
+  const { c, x: g } = creerCanvas(256, 256);
+  const n = 10, l = 256 / n;
+
+  for(let i = 0; i < n; i++){
+
+    g.fillStyle = melange('#33200f', '#563520', hasard(0.1, 0.9));
+    g.fillRect(i * l, 0, l, 256);
+
+    for(let k = 0; k < 4; k++){
+      const x = i * l + hasard(3, l - 3);
+      g.strokeStyle = 'rgba(0,0,0,' + hasard(0.06, 0.14) + ')';
+      g.lineWidth = hasard(0.6, 1.4);
+      g.beginPath();
+      g.moveTo(x, 0);
+      g.bezierCurveTo(x + hasard(-3, 3), 90, x + hasard(-3, 3), 170, x, 256);
+      g.stroke();
+    }
+
+    g.fillStyle = 'rgba(255,220,180,.09)';
+    g.fillRect(i * l, 0, 2, 256);
+    g.fillStyle = 'rgba(0,0,0,.55)';
+    g.fillRect(i * l + l - 2, 0, 2, 256);
+  }
+
+  return c;
+}
+
+// Un plafond à caissons : du noyer sombre, cerclé de cuivre.
+function creerPlafond(){
+
+  const { c, x: g } = creerCanvas(256, 256);
+
+  g.fillStyle = '#150c07';
+  g.fillRect(0, 0, 256, 256);
+
+  const fond = g.createLinearGradient(0, 0, 0, 256);
+  fond.addColorStop(0, '#2b1a0e');
+  fond.addColorStop(1, '#1d1109');
+  g.fillStyle = fond;
+  g.fillRect(14, 14, 228, 228);
+
+  g.strokeStyle = 'rgba(196,122,58,.8)';
   g.lineWidth = 3;
-  const r = 32;
-  for(let row = -1; row <= 17; row++){
-    for(let col = -1; col <= 8; col++){
-      const cx = col * r * 2 + (row % 2 ? r : 0);
-      const cy = row * r;
-      [1, 0.66, 0.33].forEach((k, i) => {
-        g.strokeStyle = 'rgba(70,150,205,' + (0.24 - i * 0.05) + ')';
+  g.strokeRect(14, 14, 228, 228);
+
+  g.strokeStyle = 'rgba(255,220,180,.10)';
+  g.lineWidth = 1;
+  g.strokeRect(24, 24, 208, 208);
+
+  return c;
+}
+
+// Le tapis de la salle : lie-de-vin, un treillis de losanges à fleurs
+// dorées, une frise d'écailles sur le pourtour. Autour de la machine, des
+// ondes dorées et bleues s'éloignent, comme sur l'eau ; devant, le logo de
+// La Wave, en or. Il mesure 11 m sur 13,75 m, et la machine se tient à 6,4 m
+// de son bord le plus éloigné.
+function creerTapis(logo){
+
+  const L = 1024, H = 1280;
+  const { c, x: g } = creerCanvas(L, H);
+
+  g.fillStyle = '#3f0c18';
+  g.fillRect(0, 0, L, H);
+
+  // Le treillis.
+  const pas = 64;
+  g.lineWidth = 2.5;
+  g.strokeStyle = 'rgba(150,40,62,.55)';
+  for(let k = -H; k < L + H; k += pas){
+    g.beginPath(); g.moveTo(k, 0); g.lineTo(k + H, H); g.stroke();
+    g.beginPath(); g.moveTo(k, 0); g.lineTo(k - H, H); g.stroke();
+  }
+
+  // Une petite fleur dorée à chaque croisement.
+  g.fillStyle = 'rgba(214,170,84,.42)';
+  for(let iy = 0; iy * 32 <= H; iy++){
+    for(let ix = 0; ix * 32 <= L; ix++){
+      if((ix + iy) % 2) continue;
+      const x = ix * 32, y = iy * 32;
+      [[5, 0], [-5, 0], [0, 5], [0, -5]].forEach(([dx, dy]) => {
         g.beginPath();
-        g.arc(cx, cy, r * k, 0, Math.PI);
-        g.stroke();
+        g.arc(x + dx, y + dy, 3.2, 0, TAU);
+        g.fill();
       });
     }
   }
 
+  // Les ondes autour de la machine.
+  const cx = L / 2, cy = H * 0.4636;
+  [[268, 0.9, 5, '214,170,84'], [292, 0.55, 2.5, '79,180,255'],
+   [318, 0.34, 2, '214,170,84'], [346, 0.2, 2, '79,180,255']].forEach(([r, a, e, col]) => {
+    g.strokeStyle = 'rgba(' + col + ',' + a + ')';
+    g.lineWidth = e;
+    g.beginPath();
+    g.arc(cx, cy, r, 0, TAU);
+    g.stroke();
+  });
+
+  // Le logo, devant la machine, du côté de la porte.
+  if(logo){
+    g.globalAlpha = 0.9;
+    ajuster(g, logoTeinte(logo, '#d6aa54'), cx, 1010, 340, 150);
+    g.globalAlpha = 1;
+  }
+
+  // Le pourtour : deux filets et une frise d'écailles.
+  g.strokeStyle = 'rgba(214,170,84,.95)';
+  g.lineWidth = 9;
+  g.strokeRect(22, 22, L - 44, H - 44);
+  g.lineWidth = 3;
+  g.strokeRect(40, 40, L - 80, H - 80);
+
+  g.strokeStyle = 'rgba(214,170,84,.6)';
+  g.lineWidth = 3;
+
+  const r = 20;
+  const frise = (x0, y0, dx, dy, n, a0) => {
+    for(let i = 0; i < n; i++){
+      const x = x0 + dx * (i + 0.5) * 2 * r;
+      const y = y0 + dy * (i + 0.5) * 2 * r;
+      g.beginPath();
+      g.arc(x, y, r, a0, a0 + Math.PI);
+      g.stroke();
+    }
+  };
+
+  const nx = Math.floor((L - 120) / (2 * r)), ny = Math.floor((H - 120) / (2 * r));
+  frise(60, 58, 1, 0, nx, 0);
+  frise(60, H - 58, 1, 0, nx, Math.PI);
+  frise(58, 60, 0, 1, ny, -Math.PI / 2);
+  frise(L - 58, 60, 0, 1, ny, Math.PI / 2);
+
+  g.strokeStyle = 'rgba(79,180,255,.5)';
+  g.lineWidth = 2;
+  g.strokeRect(100, 100, L - 200, H - 200);
+
   // Un peu de grain, pour que le tapis ne paraisse pas plastifié.
-  const img = g.getImageData(0, 0, 512, 512);
+  const img = g.getImageData(0, 0, L, H);
   for(let i = 0; i < img.data.length; i += 4){
-    const v = (Math.random() - 0.5) * 10;
+    const v = (Math.random() - 0.5) * 9;
     img.data[i] += v;
     img.data[i + 1] += v;
     img.data[i + 2] += v;
@@ -718,86 +950,420 @@ function creerMoquette(){
   return c;
 }
 
-function creerTapis(logo){
+// Le dessus de l'estrade : des ondes qui partent du centre.
+function creerEstrade(){
 
-  const L = 512, H = 1408;
-  const { c, x: g } = creerCanvas(L, H);
+  const T = 512;
+  const { c, x: g } = creerCanvas(T, T);
 
-  const fond = g.createLinearGradient(0, 0, 0, H);
-  fond.addColorStop(0, '#0d4a66');
-  fond.addColorStop(0.5, '#0a3550');
-  fond.addColorStop(1, '#0d4a66');
+  const fond = g.createRadialGradient(T / 2, T / 2, 20, T / 2, T / 2, T / 2);
+  fond.addColorStop(0, '#4d1020');
+  fond.addColorStop(1, '#2a0812');
   g.fillStyle = fond;
-  g.fillRect(0, 0, L, H);
+  g.fillRect(0, 0, T, T);
 
-  // Vagues qui traversent le tapis.
-  g.lineWidth = 3;
-  for(let y = 40; y < H; y += 46){
-    g.strokeStyle = 'rgba(120,210,245,' + (0.10 + 0.05 * Math.sin(y / 90)) + ')';
+  for(let i = 1; i <= 6; i++){
+    const bleu = i % 3 === 0;
+    g.strokeStyle = 'rgba(' + (bleu ? '79,180,255' : '214,170,84') + ',' + (0.6 - i * 0.07) + ')';
+    g.lineWidth = bleu ? 2 : 3;
     g.beginPath();
-    for(let x = 0; x <= L; x += 8){
-      const yy = y + Math.sin(x / 46 + y / 60) * 9;
-      if(x === 0) g.moveTo(x, yy); else g.lineTo(x, yy);
-    }
+    g.arc(T / 2, T / 2, 36 + i * 32, 0, TAU);
     g.stroke();
   }
-
-  // Médaillons : un anneau doré, et le logo au centre.
-  [0.16, 0.5, 0.84].forEach((t, i) => {
-    const cy = H * t;
-    g.strokeStyle = 'rgba(233,196,106,.85)';
-    g.lineWidth = 6;
-    g.beginPath();
-    g.arc(L / 2, cy, 150, 0, TAU);
-    g.stroke();
-    g.strokeStyle = 'rgba(120,210,245,.6)';
-    g.lineWidth = 3;
-    g.beginPath();
-    g.arc(L / 2, cy, 132, 0, TAU);
-    g.stroke();
-    g.fillStyle = 'rgba(4,20,36,.55)';
-    g.beginPath();
-    g.arc(L / 2, cy, 126, 0, TAU);
-    g.fill();
-    if(i === 1 && logo){
-      ajuster(g, logoTeinte(logo, '#ffffff'), L / 2, cy, 210, 110);
-    }
-  });
-
-  // Deux filets dorés le long des bords.
-  g.strokeStyle = 'rgba(233,196,106,.9)';
-  g.lineWidth = 8;
-  g.strokeRect(14, 14, L - 28, H - 28);
-  g.strokeStyle = 'rgba(120,210,245,.7)';
-  g.lineWidth = 3;
-  g.strokeRect(32, 32, L - 64, H - 64);
 
   return c;
 }
 
-function creerMur(){
 
-  const { c, x: g } = creerCanvas(256, 590);
+/* ---- Le bar : étagères, néons, disques d'or ---- */
 
-  const fond = g.createLinearGradient(0, 0, 0, 590);
-  fond.addColorStop(0, '#04101c');
-  fond.addColorStop(1, '#0a2238');
-  g.fillStyle = fond;
-  g.fillRect(0, 0, 256, 590);
+// Le mur de bouteilles derrière le comptoir, éclairé par l'arrière.
+// 7,2 m sur 2,7 m.
+function creerEtageres(){
 
-  // Cannelures verticales.
-  for(let x = 0; x < 256; x += 32){
-    g.fillStyle = 'rgba(80,160,210,.06)';
-    g.fillRect(x, 0, 14, 590);
-    g.fillStyle = 'rgba(0,0,0,.25)';
-    g.fillRect(x + 14, 0, 3, 590);
+  const L = 1024, H = 384;
+  const { c, x: g } = creerCanvas(L, H);
+
+  g.fillStyle = '#120a06';
+  g.fillRect(0, 0, L, H);
+
+  const rangs = 5, hr = H / rangs;
+  const couleurs = ['#2f6b41', '#8a531f', '#1f5b6b', '#d8d0bc', '#6a2432', '#c9973a', '#3b3f52'];
+
+  for(let r = 0; r < rangs; r++){
+
+    const yb = (r + 1) * hr - 6;
+
+    // Le fond, éclairé par derrière.
+    const lum = g.createLinearGradient(0, yb - hr, 0, yb);
+    lum.addColorStop(0, 'rgba(255,170,80,.10)');
+    lum.addColorStop(1, 'rgba(255,190,110,.55)');
+    g.fillStyle = lum;
+    g.fillRect(0, yb - hr + 6, L, hr - 6);
+
+    // Les bouteilles, serrées, avec des trous.
+    let x = 14;
+    while(x < L - 30){
+
+      const l = hasard(20, 30);
+
+      if(Math.random() < 0.12){
+        x += l + hasard(6, 16);
+        continue;
+      }
+
+      const h = hasard(40, 60);
+      const corps = h * 0.62;
+
+      g.fillStyle = couleurs[Math.floor(Math.random() * couleurs.length)];
+      g.globalAlpha = 0.92;
+      g.fillRect(x, yb - corps, l, corps);
+      g.fillRect(x + l * 0.31, yb - h, l * 0.38, h - corps + 1);
+      g.globalAlpha = 1;
+
+      g.fillStyle = 'rgba(201,151,58,.9)';
+      g.fillRect(x + l * 0.29, yb - h - 2, l * 0.42, 4);
+
+      g.fillStyle = 'rgba(255,255,255,.3)';
+      g.fillRect(x + l * 0.16, yb - corps + 4, 2.5, corps - 8);
+
+      g.fillStyle = 'rgba(240,225,190,.7)';
+      g.fillRect(x + 2, yb - corps * 0.66, l - 4, corps * 0.3);
+
+      x += l + hasard(3, 9);
+    }
+
+    // La planche, avec un filet de laiton.
+    g.fillStyle = '#3a2412';
+    g.fillRect(0, yb, L, 6);
+    g.fillStyle = 'rgba(214,170,84,.9)';
+    g.fillRect(0, yb, L, 2);
   }
 
-  // Le soubassement, plus sombre, et sa lisse dorée.
-  g.fillStyle = 'rgba(0,8,16,.5)';
-  g.fillRect(0, 430, 256, 160);
-  g.fillStyle = 'rgba(233,196,106,.85)';
-  g.fillRect(0, 428, 256, 4);
+  // Les montants.
+  [0, L / 3 - 8, 2 * L / 3 - 8, L - 16].forEach(x => {
+    g.fillStyle = '#24150b';
+    g.fillRect(x, 0, 16, H);
+    g.fillStyle = 'rgba(214,170,84,.8)';
+    g.fillRect(x + 7, 0, 2, H);
+  });
+
+  return c;
+}
+
+// Un signe de carte en néon : le contour brille de sa couleur, le cœur du
+// tube est presque blanc.
+function creerNeonSigne(type, couleur){
+
+  const T = 256;
+  const { c, x: g } = creerCanvas(T, T);
+
+  g.translate(T / 2, T / 2 + 4);
+
+  const p = new Path2D();
+
+  if(type === 'coeur'){
+    p.moveTo(0, 62);
+    p.bezierCurveTo(-96, -6, -62, -78, 0, -34);
+    p.bezierCurveTo(62, -78, 96, -6, 0, 62);
+  } else if(type === 'pique'){
+    p.moveTo(0, -66);
+    p.bezierCurveTo(-96, 6, -60, 62, 0, 26);
+    p.bezierCurveTo(60, 62, 96, 6, 0, -66);
+    p.moveTo(-3, 22);
+    p.lineTo(-18, 66);
+    p.lineTo(18, 66);
+    p.lineTo(3, 22);
+  } else if(type === 'trefle'){
+    [[0, -34], [-30, 12], [30, 12]].forEach(([x, y]) => {
+      p.moveTo(x + 26, y);
+      p.arc(x, y, 26, 0, TAU);
+    });
+    p.moveTo(-4, 12);
+    p.lineTo(-20, 66);
+    p.lineTo(20, 66);
+    p.lineTo(4, 12);
+  } else {
+    p.moveTo(0, -70);
+    p.lineTo(52, 0);
+    p.lineTo(0, 70);
+    p.lineTo(-52, 0);
+    p.closePath();
+  }
+
+  g.lineJoin = 'round';
+  g.lineCap = 'round';
+
+  g.shadowColor = couleur;
+  g.shadowBlur = 34;
+  g.strokeStyle = couleur;
+  g.lineWidth = 10;
+  g.stroke(p);
+  g.stroke(p);
+
+  g.shadowBlur = 0;
+  g.strokeStyle = '#ffffff';
+  g.lineWidth = 3.5;
+  g.stroke(p);
+
+  return c;
+}
+
+// Le logo de La Wave en néon, au milieu du mur de bouteilles.
+function creerNeonLogo(logo){
+
+  const { c, x: g } = creerCanvas(768, 384);
+
+  if(logo){
+    const clair = logoTeinte(logo, '#d8f2ff');
+    g.shadowColor = '#4FB4FF';
+    g.shadowBlur = 46;
+    ajuster(g, clair, 384, 192, 640, 300);
+    ajuster(g, clair, 384, 192, 640, 300);
+    g.shadowBlur = 0;
+    ajuster(g, logoTeinte(logo, '#ffffff'), 384, 192, 640, 300);
+  } else {
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.font = '700 150px ' + POLICE;
+    g.shadowColor = '#4FB4FF';
+    g.shadowBlur = 46;
+    g.fillStyle = '#d8f2ff';
+    g.fillText('LA WAVE', 384, 192);
+    g.shadowBlur = 0;
+    g.fillStyle = '#ffffff';
+    g.fillText('LA WAVE', 384, 192);
+  }
+
+  return c;
+}
+
+// Un disque d'or encadré : une petite nature morte de label, le long des
+// murs. Le logo de La Wave tient lieu d'étiquette.
+function creerDisqueOr(logo){
+
+  const T = 256;
+  const { c, x: g } = creerCanvas(T, T);
+
+  g.fillStyle = '#1a0f08';
+  g.fillRect(0, 0, T, T);
+  g.strokeStyle = 'rgba(214,170,84,.9)';
+  g.lineWidth = 5;
+  g.strokeRect(6, 6, T - 12, T - 12);
+  g.fillStyle = '#0a0705';
+  g.fillRect(16, 16, T - 32, T - 32);
+
+  const cx = T / 2, cy = T / 2;
+
+  const rg = g.createRadialGradient(cx - 30, cy - 34, 6, cx, cy, 104);
+  rg.addColorStop(0, '#fff0b0');
+  rg.addColorStop(0.55, '#e0b447');
+  rg.addColorStop(1, '#8a6218');
+  g.fillStyle = rg;
+  g.beginPath();
+  g.arc(cx, cy, 102, 0, TAU);
+  g.fill();
+
+  g.lineWidth = 1;
+  for(let r = 50; r < 100; r += 4){
+    g.strokeStyle = 'rgba(90,60,10,.22)';
+    g.beginPath();
+    g.arc(cx, cy, r, 0, TAU);
+    g.stroke();
+  }
+
+  g.fillStyle = 'rgba(255,255,255,.18)';
+  [[-0.9, -0.35], [Math.PI - 0.9, Math.PI - 0.35]].forEach(([a, b]) => {
+    g.beginPath();
+    g.moveTo(cx, cy);
+    g.arc(cx, cy, 102, a, b);
+    g.closePath();
+    g.fill();
+  });
+
+  g.fillStyle = '#0d3550';
+  g.beginPath();
+  g.arc(cx, cy, 36, 0, TAU);
+  g.fill();
+
+  if(logo) ajuster(g, logoTeinte(logo, '#ffffff'), cx, cy, 52, 26);
+
+  g.fillStyle = '#0a0705';
+  g.beginPath();
+  g.arc(cx, cy, 4, 0, TAU);
+  g.fill();
+
+  return c;
+}
+
+// Le faisceau de lumière qui tombe sur la machine : un dégradé vertical.
+function creerFaisceau(){
+
+  const { c, x: g } = creerCanvas(8, 128);
+
+  const d = g.createLinearGradient(0, 0, 0, 128);
+  d.addColorStop(0, 'rgba(255,255,255,.22)');
+  d.addColorStop(0.6, 'rgba(255,255,255,.06)');
+  d.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = d;
+  g.fillRect(0, 0, 8, 128);
+
+  return c;
+}
+
+
+/* ---- Les tables de jeu ---- */
+
+function creerFeutreRoulette(){
+
+  const { c, x: g } = creerCanvas(256, 560);
+
+  g.fillStyle = '#0d5a38';
+  g.fillRect(0, 0, 256, 560);
+
+  const rouges = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
+  const x0 = 41, y0 = 226, l = 58, h = 27;
+
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.font = '700 15px ' + POLICE;
+  g.lineWidth = 1.5;
+
+  for(let r = 0; r < 12; r++){
+    for(let k = 0; k < 3; k++){
+      const n = r * 3 + k + 1;
+      g.fillStyle = rouges.has(n) ? '#a3182b' : '#0b0b0b';
+      g.fillRect(x0 + k * l, y0 + r * h, l, h);
+      g.strokeStyle = 'rgba(255,255,255,.75)';
+      g.strokeRect(x0 + k * l, y0 + r * h, l, h);
+      g.fillStyle = '#ffffff';
+      g.fillText(String(n), x0 + k * l + l / 2, y0 + r * h + h / 2 + 1);
+    }
+  }
+
+  g.fillStyle = '#1a7a48';
+  g.fillRect(x0, y0 - 32, 3 * l, 32);
+  g.strokeStyle = 'rgba(255,255,255,.75)';
+  g.strokeRect(x0, y0 - 32, 3 * l, 32);
+  g.fillStyle = '#ffffff';
+  g.fillText('0', x0 + 1.5 * l, y0 - 15);
+
+  g.strokeStyle = 'rgba(214,170,84,.9)';
+  g.lineWidth = 4;
+  g.strokeRect(6, 6, 244, 548);
+
+  return c;
+}
+
+// Le dessus de la roue : trente-sept alvéoles, rouges et noires, un zéro
+// vert, un anneau doré.
+function creerRoue(){
+
+  const T = 256;
+  const { c, x: g } = creerCanvas(T, T);
+
+  const cx = T / 2, cy = T / 2;
+
+  g.fillStyle = '#c9973a';
+  g.beginPath();
+  g.arc(cx, cy, 126, 0, TAU);
+  g.fill();
+
+  g.fillStyle = '#1d110a';
+  g.beginPath();
+  g.arc(cx, cy, 108, 0, TAU);
+  g.fill();
+
+  const n = 37;
+  for(let i = 0; i < n; i++){
+    const a0 = i / n * TAU, a1 = (i + 1) / n * TAU;
+    g.fillStyle = i === 0 ? '#1a7a48' : (i % 2 ? '#a3182b' : '#0b0b0b');
+    g.beginPath();
+    g.arc(cx, cy, 102, a0, a1);
+    g.arc(cx, cy, 64, a1, a0, true);
+    g.closePath();
+    g.fill();
+  }
+
+  g.fillStyle = '#2b170c';
+  g.beginPath();
+  g.arc(cx, cy, 62, 0, TAU);
+  g.fill();
+  g.strokeStyle = 'rgba(214,170,84,.9)';
+  g.lineWidth = 4;
+  g.beginPath();
+  g.arc(cx, cy, 44, 0, TAU);
+  g.stroke();
+
+  return c;
+}
+
+// Le tapis d'une table de blackjack, en demi-cercle : le bord droit est du
+// côté du croupier (le bas de l'image). On y lit LA WAVE en arc.
+function creerFeutreBlackjack(){
+
+  const { c, x: g } = creerCanvas(512, 256);
+
+  const fond = g.createRadialGradient(256, 256, 20, 256, 256, 256);
+  fond.addColorStop(0, '#0c6473');
+  fond.addColorStop(1, '#083e49');
+  g.fillStyle = fond;
+  g.fillRect(0, 0, 512, 256);
+
+  g.strokeStyle = 'rgba(214,170,84,.85)';
+  g.lineWidth = 3;
+
+  [90, 160].forEach(r => {
+    g.beginPath();
+    g.arc(256, 256, r, Math.PI, TAU);
+    g.stroke();
+  });
+
+  for(let i = 0; i < 5; i++){
+    const a = Math.PI + 0.42 + i * (Math.PI - 0.84) / 4;
+    g.beginPath();
+    g.arc(256 + 205 * Math.cos(a), 256 + 205 * Math.sin(a), 22, 0, TAU);
+    g.stroke();
+  }
+
+  g.fillStyle = 'rgba(214,170,84,.95)';
+  g.font = '700 26px ' + POLICE;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+
+  const mot = 'LA WAVE';
+  mot.split('').forEach((ch, i) => {
+    const a = -Math.PI / 2 - 0.62 + (i + 0.5) * 1.24 / mot.length;
+    g.save();
+    g.translate(256 + 124 * Math.cos(a), 256 + 124 * Math.sin(a));
+    g.rotate(a + Math.PI / 2);
+    g.fillText(ch, 0, 0);
+    g.restore();
+  });
+
+  return c;
+}
+
+function creerFeutrePoker(logo){
+
+  const T = 512;
+  const { c, x: g } = creerCanvas(T, T);
+
+  const fond = g.createRadialGradient(T / 2, T / 2, 10, T / 2, T / 2, T / 2);
+  fond.addColorStop(0, '#5a1224');
+  fond.addColorStop(1, '#3a0b18');
+  g.fillStyle = fond;
+  g.fillRect(0, 0, T, T);
+
+  g.strokeStyle = 'rgba(214,170,84,.85)';
+  g.lineWidth = 4;
+  [232, 214].forEach(r => {
+    g.beginPath();
+    g.arc(T / 2, T / 2, r, 0, TAU);
+    g.stroke();
+  });
+
+  if(logo) ajuster(g, logoTeinte(logo, '#d6aa54'), T / 2, T / 2, 240, 120);
 
   return c;
 }
@@ -853,107 +1419,6 @@ function creerEnseigne(texte, couleur, largeur, hauteur, taille){
   return c;
 }
 
-function creerAquarium(){
-
-  const { c, x: g } = creerCanvas(1024, 512);
-
-  const fond = g.createLinearGradient(0, 0, 0, 512);
-  fond.addColorStop(0, '#0d6a94');
-  fond.addColorStop(0.55, '#0a466f');
-  fond.addColorStop(1, '#06223d');
-  g.fillStyle = fond;
-  g.fillRect(0, 0, 1024, 512);
-
-  // Des rais de lumière qui descendent de la surface.
-  for(let i = 0; i < 9; i++){
-    const x = 50 + i * 118 + hasard(-18, 18);
-    const rg = g.createLinearGradient(x, 0, x + 120, 512);
-    rg.addColorStop(0, 'rgba(170,235,255,.26)');
-    rg.addColorStop(1, 'rgba(170,235,255,0)');
-    g.fillStyle = rg;
-    g.beginPath();
-    g.moveTo(x, 0);
-    g.lineTo(x + 48, 0);
-    g.lineTo(x + 168, 512);
-    g.lineTo(x + 120, 512);
-    g.closePath();
-    g.fill();
-  }
-
-  // Le sable.
-  const sable = g.createLinearGradient(0, 452, 0, 512);
-  sable.addColorStop(0, 'rgba(201,185,138,0)');
-  sable.addColorStop(1, 'rgba(201,185,138,.95)');
-  g.fillStyle = sable;
-  g.fillRect(0, 452, 1024, 60);
-
-  // Des algues.
-  for(let i = 0; i < 26; i++){
-    const x = hasard(0, 1024);
-    const h = hasard(90, 230);
-    g.strokeStyle = 'rgba(' + Math.round(hasard(20, 60)) + ',' + Math.round(hasard(120, 190)) + ',' +
-                    Math.round(hasard(90, 130)) + ',.8)';
-    g.lineWidth = hasard(5, 10);
-    g.lineCap = 'round';
-    g.beginPath();
-    g.moveTo(x, 500);
-    for(let y = 0; y <= h; y += 10){
-      g.lineTo(x + Math.sin(y / 26 + i) * 14, 500 - y);
-    }
-    g.stroke();
-  }
-
-  // Quelques coraux au pied.
-  ['#ff6b81', '#ff9f43', '#e879f9', '#ff8a5c'].forEach((couleur, i) => {
-    for(let k = 0; k < 4; k++){
-      const x = 80 + i * 250 + hasard(-70, 70);
-      g.fillStyle = couleur;
-      g.globalAlpha = 0.85;
-      g.beginPath();
-      g.arc(x, 500, hasard(16, 30), Math.PI, TAU);
-      g.fill();
-    }
-  });
-  g.globalAlpha = 1;
-
-  return c;
-}
-
-function creerPoissonTex(){
-
-  const { c, x: g } = creerCanvas(128, 64);
-
-  g.fillStyle = '#ffffff';
-  g.beginPath();
-  g.moveTo(20, 32);
-  g.lineTo(2, 10);
-  g.quadraticCurveTo(12, 32, 2, 54);
-  g.closePath();
-  g.fill();
-
-  g.beginPath();
-  g.ellipse(64, 32, 44, 23, 0, 0, TAU);
-  g.fill();
-
-  g.beginPath();
-  g.moveTo(48, 12);
-  g.quadraticCurveTo(66, -6, 86, 14);
-  g.closePath();
-  g.fill();
-
-  g.fillStyle = 'rgba(0,0,0,.2)';
-  g.beginPath();
-  g.ellipse(64, 43, 36, 10, 0, 0, TAU);
-  g.fill();
-
-  g.fillStyle = '#04121f';
-  g.beginPath();
-  g.arc(92, 26, 4.5, 0, TAU);
-  g.fill();
-
-  return c;
-}
-
 function creerHalo(){
   const { c, x: g } = creerCanvas(64, 64);
   const rg = g.createRadialGradient(32, 32, 0, 32, 32, 32);
@@ -962,22 +1427,6 @@ function creerHalo(){
   rg.addColorStop(1, 'rgba(255,255,255,0)');
   g.fillStyle = rg;
   g.fillRect(0, 0, 64, 64);
-  return c;
-}
-
-function creerBulleTex(){
-  const { c, x: g } = creerCanvas(64, 64);
-  const rg = g.createRadialGradient(32, 32, 8, 32, 32, 30);
-  rg.addColorStop(0, 'rgba(180,235,255,.04)');
-  rg.addColorStop(0.78, 'rgba(180,235,255,.22)');
-  rg.addColorStop(0.92, 'rgba(230,250,255,.9)');
-  rg.addColorStop(1, 'rgba(230,250,255,0)');
-  g.fillStyle = rg;
-  g.fillRect(0, 0, 64, 64);
-  g.fillStyle = 'rgba(255,255,255,.9)';
-  g.beginPath();
-  g.ellipse(22, 20, 6, 3.5, -0.7, 0, TAU);
-  g.fill();
   return c;
 }
 
@@ -1010,60 +1459,6 @@ function creerOmbre(){
   g.fillRect(0, 0, 128, 128);
   return c;
 }
-
-// La lumière qui danse au fond d'une piscine : les arêtes d'un diagramme
-// de Voronoï, raccordé sur ses bords pour pouvoir se répéter.
-function creerCaustiques(n){
-
-  const { c, x: g } = creerCanvas(n, n);
-  const img = g.createImageData(n, n);
-
-  const cases = 8;
-  const germes = [];
-  for(let j = 0; j < cases; j++){
-    for(let i = 0; i < cases; i++){
-      germes.push([(i + Math.random()) / cases, (j + Math.random()) / cases]);
-    }
-  }
-
-  for(let py = 0; py < n; py++){
-    for(let px = 0; px < n; px++){
-
-      const u = px / n, v = py / n;
-      const ci = Math.floor(u * cases), cj = Math.floor(v * cases);
-
-      let f1 = 9, f2 = 9;
-
-      for(let dj = -1; dj <= 1; dj++){
-        for(let di = -1; di <= 1; di++){
-          const gi = (ci + di + cases) % cases;
-          const gj = (cj + dj + cases) % cases;
-          const s = germes[gj * cases + gi];
-          const sx = s[0] + (ci + di < 0 ? -1 : (ci + di >= cases ? 1 : 0));
-          const sy = s[1] + (cj + dj < 0 ? -1 : (cj + dj >= cases ? 1 : 0));
-          const d = Math.hypot(u - sx, v - sy);
-          if(d < f1){ f2 = f1; f1 = d; } else if(d < f2){ f2 = d; }
-        }
-      }
-
-      // Proche d'une arête, les deux germes les plus proches sont à égale
-      // distance : l'écart tend vers zéro.
-      const e = (f2 - f1) * cases;
-      const val = Math.pow(clamp(1 - e * 3.4, 0, 1), 2.2);
-
-      const o = (py * n + px) * 4;
-      img.data[o] = 150 + val * 105;
-      img.data[o + 1] = 225 + val * 30;
-      img.data[o + 2] = 255;
-      img.data[o + 3] = val * 255;
-    }
-  }
-
-  g.putImageData(img, 0, 0);
-
-  return c;
-}
-
 
 /* ----------------------------------------------------------------------
    Géométries
@@ -1175,7 +1570,13 @@ function construireModeleMachine(){
     boite(W - 0.08, 0.20, D - 0.10, 0, 1.72, 0, cab2),            // boîtier de l'écran
     boite(W + 0.04, 0.34, 0.55, 0, 1.99, 0.12, cab2),             // boîtier du fronton
     boite(W - 0.04, 0.09, 0.42, 0, 0.96, 0.27, cab2, 0.28),       // pupitre incliné
-    boite(0.56, 0.13, 0.12, 0, 0.36, 0.435, noir)                 // bac à pièces
+    boite(0.56, 0.13, 0.12, 0, 0.36, 0.435, noir),                // bac à pièces
+    // Le dos : la machine se tient au milieu de la salle, on en fait le
+    // tour. Sans cette plaque, le puits des rouleaux serait ouvert derrière.
+    boite(W + 0.05, 1.78, 0.03, 0, 0.99, -0.465, cab2),
+    boite(0.5, 0.02, 0.02, 0, 0.3, -0.485, noir),                 // grille d'aération
+    boite(0.5, 0.02, 0.02, 0, 0.35, -0.485, noir),
+    boite(0.5, 0.02, 0.02, 0, 0.4, -0.485, noir)
   ];
 
   const accent = [
@@ -1192,7 +1593,12 @@ function construireModeleMachine(){
     boite(0.035, 0.36, 0.05, -0.545, 1.995, 0.385),
     boite(0.035, 0.36, 0.05, 0.545, 1.995, 0.385),
     // Plaque du levier
-    boite(0.05, 0.18, 0.18, 0.525, 1.02, 0.06)
+    boite(0.05, 0.18, 0.18, 0.525, 1.02, 0.06),
+    // Liserés du dos
+    boite(W + 0.01, 0.05, 0.02, 0, 0.62, -0.485),
+    boite(W + 0.01, 0.04, 0.02, 0, 1.55, -0.485),
+    boite(0.035, 1.3, 0.02, -0.44, 0.9, -0.485),
+    boite(0.035, 1.3, 0.02, 0.44, 0.9, -0.485)
   ];
 
   // Deux ailerons en forme de crête de vague, de part et d'autre du
@@ -1273,10 +1679,11 @@ function construireModeleMachine(){
 
 class Machine {
 
-  constructor(def, x, z, rotY, R){
+  constructor(def, x, z, rotY, R, echelle){
 
     this.def = def;
     this.R = R;
+    this.echelle = echelle || 1;
     this.tourne = false;
     this.eclat = null;      // { fin, jackpot } pendant un gain
     this.levierCible = -0.15;
@@ -1288,6 +1695,7 @@ class Machine {
     const g = new THREE.Group();
     g.position.set(x, 0, z);
     g.rotation.y = rotY;
+    g.scale.setScalar(this.echelle);
     this.groupe = g;
 
     const M = R.modele;
@@ -1373,7 +1781,8 @@ class Machine {
     this.normale = { x: Math.sin(rotY), z: Math.cos(rotY) };
     this.rotY = rotY;
 
-    const hx = 0.58, hz = 0.47;
+    // Le levier dépasse un peu du côté droit : le socle est compté large.
+    const hx = 0.62 * this.echelle, hz = 0.5 * this.echelle;
     const c = Math.abs(Math.cos(rotY)), s = Math.abs(Math.sin(rotY));
     const ex = c * hx + s * hz, ez = s * hx + c * hz;
     this.collision = { x0: x - ex, x1: x + ex, z0: z - ez, z1: z + ez };
@@ -1384,14 +1793,17 @@ class Machine {
   // voir toute la machine.
   vue(aspect){
 
+    // Tout est proportionnel à la taille de la machine : le cadrage reste
+    // celui d'une machine de bar, vue de près.
+    const k = this.echelle;
     const fov = 56;
-    const demiLarge = 0.7;
-    const dFace = clamp(demiLarge / (Math.tan(fov * Math.PI / 360) * aspect), 0.85, 3);
-    const d = 0.45 + dFace;
+    const demiLarge = 0.7 * k;
+    const dFace = clamp(demiLarge / (Math.tan(fov * Math.PI / 360) * aspect), 0.85 * k, 3 * k);
+    const d = 0.45 * k + dFace;
 
     return {
       x: this.centre.x + this.normale.x * d,
-      y: 1.44,
+      y: this.groupe.position.y + 1.44 * k,
       z: this.centre.z + this.normale.z * d,
       yaw: this.rotY,
       pitch: -0.045,
@@ -1555,8 +1967,8 @@ class Machine {
 
       if(eclat){
         // Toutes les lampes à l'unisson, de l'or à la couleur de la
-        // machine.
-        col = pas % 2 === 0 ? R_OR : this.cLampeOn;
+        // machine. Pour qui préfère moins de mouvement : de l'or fixe.
+        col = (reduit || pas % 2 === 0) ? R_OR : this.cLampeOn;
       } else {
         const p = (i + pas) % 3;
         col = p === 0 ? this.cLampeOn : (p === 1 ? this.cLampeMi : this.cLampeOff);
@@ -1589,7 +2001,7 @@ function choisirSymbole(){
 
 const Son = (function(){
 
-  let ctx = null, maitre = null, actif = true, ambiance = null, minuteur = 0;
+  let ctx = null, maitre = null, actif = true, ambiance = null;
 
   try{
     actif = localStorage.getItem('lawave:waveurs:son') !== 'off';
@@ -1613,18 +2025,18 @@ const Son = (function(){
 
   function reprendre(){
     if(ctx && ctx.state === 'suspended') ctx.resume();
-    // Les bulles s'étaient tues avec la suspension.
-    if(ctx && !minuteur) bulle();
   }
 
   function suspendre(){
-    clearTimeout(minuteur);
-    minuteur = 0;
     if(ctx && ctx.state === 'running') ctx.suspend();
   }
 
+  // Un contexte suspendu (onglet caché, salle quittée) garde son horloge
+  // figée : ce qu'on y planifierait s'empilerait pour éclater à la reprise.
+  const enMarche = () => !!ctx && actif && ctx.state === 'running';
+
   function ton(freq, t0, duree, opt){
-    if(!ctx || !actif) return;
+    if(!enMarche()) return;
     const o = opt || {};
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
@@ -1642,7 +2054,7 @@ const Son = (function(){
   }
 
   function bruit(t0, duree, opt){
-    if(!ctx || !actif) return;
+    if(!enMarche()) return;
     const o = opt || {};
     const n = Math.max(1, Math.floor(ctx.sampleRate * duree));
     const buf = ctx.createBuffer(1, n, ctx.sampleRate);
@@ -1662,8 +2074,8 @@ const Son = (function(){
     src.start(t0);
   }
 
-  // Le fond sonore : un grondement sourd de bassin, et de temps à autre
-  // une bulle qui remonte.
+  // Le fond sonore : le souffle sourd d'une grande salle climatisée, très
+  // bas. La musique, elle, est un autre étage (voir Musique).
   function demarrerAmbiance(){
 
     const n = ctx.sampleRate * 2;
@@ -1681,10 +2093,10 @@ const Son = (function(){
 
     const f = ctx.createBiquadFilter();
     f.type = 'lowpass';
-    f.frequency.value = 260;
+    f.frequency.value = 220;
 
     const g = ctx.createGain();
-    g.gain.value = 0.5;
+    g.gain.value = 0.3;
 
     src.connect(f);
     f.connect(g);
@@ -1692,23 +2104,15 @@ const Son = (function(){
     src.start();
 
     ambiance = src;
-    bulle();
-  }
-
-  function bulle(){
-    clearTimeout(minuteur);
-    minuteur = setTimeout(() => {
-      if(ctx && ctx.state === 'running' && actif){
-        ton(hasard(380, 900), ctx.currentTime, 0.14, { glisse: 1.9, vol: 0.04 });
-      }
-      bulle();
-    }, hasard(2500, 7000));
   }
 
   return {
     init, reprendre, suspendre,
 
     estActif(){ return actif; },
+
+    // Ce dont un autre étage sonore a besoin pour se brancher.
+    contexte(){ return ctx ? { ctx, sortie: maitre } : null; },
 
     regler(valeur){
       actif = valeur;
@@ -1787,6 +2191,198 @@ const Son = (function(){
 
 
 /* ----------------------------------------------------------------------
+   La musique des voisins
+   ----------------------------------------------------------------------
+   Une playlist qui tourne au hasard, filtrée pour qu'on l'entende comme à
+   travers une cloison : la basse et le rythme passent, pas les paroles. Les
+   pistes ne sont pas dans ce fichier : elles se déposent dans le dossier
+   musique/, à côté de index.html, avec un fichier liste.json qui les
+   nomme, par exemple  ["une.mp3", "autre.mp3"]  ou  { "pistes": [...] }.
+   Sans ce fichier, la salle reste silencieuse : rien n'échoue.
+   ---------------------------------------------------------------------- */
+
+const Musique = (function(){
+
+  const DOSSIER = 'musique/';
+
+  let liste = null, ordre = [], rang = -1, dernier = '';
+  let lecteur = null, gain = null, marche = false, echecs = 0;
+
+  // Les adresses absolues restent telles quelles ; les noms simples se
+  // cherchent dans le dossier musique/.
+  const adresse = u => /^(https?:|blob:|data:|\/)/.test(u) ? u : DOSSIER + u;
+
+  async function chercher(imposee){
+
+    if(liste) return liste;
+
+    let pistes = Array.isArray(imposee) && imposee.length ? imposee : null;
+
+    if(!pistes){
+      try{
+        const r = await fetch(DOSSIER + 'liste.json', { cache: 'no-cache' });
+        if(!r.ok) throw new Error('absente');
+        const j = await r.json();
+        pistes = Array.isArray(j) ? j : (j.pistes || []);
+      }catch(e){
+        pistes = [];
+      }
+    }
+
+    liste = pistes
+      .map(p => typeof p === 'string' ? p : (p && p.url))
+      .filter(Boolean)
+      .map(adresse);
+
+    return liste;
+  }
+
+  function melanger(a){
+    for(let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      const t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  // La chaîne de filtres : deux passe-bas en cascade, pour une pente
+  // raide, et un peu de graves en plus, que les murs laissent passer.
+  function preparer(){
+
+    if(lecteur) return true;
+
+    const dispo = Son.contexte();
+    if(!dispo) return false;
+
+    const { ctx, sortie } = dispo;
+
+    lecteur = new Audio();
+    lecteur.preload = 'auto';
+    lecteur.crossOrigin = 'anonymous';
+
+    const source = ctx.createMediaElementSource(lecteur);
+
+    const f1 = ctx.createBiquadFilter();
+    f1.type = 'lowpass';
+    f1.frequency.value = 520;
+    f1.Q.value = 0.7;
+
+    const f2 = ctx.createBiquadFilter();
+    f2.type = 'lowpass';
+    f2.frequency.value = 780;
+    f2.Q.value = 0.5;
+
+    const graves = ctx.createBiquadFilter();
+    graves.type = 'lowshelf';
+    graves.frequency.value = 160;
+    graves.gain.value = 4;
+
+    gain = ctx.createGain();
+    gain.gain.value = 0;
+
+    source.connect(f1);
+    f1.connect(f2);
+    f2.connect(graves);
+    graves.connect(gain);
+    gain.connect(sortie);
+
+    lecteur.addEventListener('ended', suivante);
+    lecteur.addEventListener('error', () => {
+      // Une piste illisible est sautée ; quatre de suite, on renonce.
+      echecs++;
+      if(echecs < 4) suivante();
+    });
+    lecteur.addEventListener('playing', () => { echecs = 0; });
+
+    return true;
+  }
+
+  function suivante(){
+
+    if(!liste || !liste.length || !lecteur) return;
+
+    rang++;
+
+    if(rang >= ordre.length){
+      ordre = melanger(liste.slice());
+      // La même piste deux fois de suite, à la jonction, se remarquerait.
+      if(ordre.length > 1 && ordre[0] === dernier){
+        const t = ordre[0]; ordre[0] = ordre[1]; ordre[1] = t;
+      }
+      rang = 0;
+    }
+
+    dernier = ordre[rang];
+    lecteur.src = dernier;
+
+    if(marche){
+      const p = lecteur.play();
+      if(p && p.catch) p.catch(() => {});
+    }
+  }
+
+  return {
+
+    async demarrer(imposee){
+
+      if(marche) return;
+
+      // Son coupé : rien à télécharger ni à décoder. Rallumer le son
+      // (basculerSon) relance la musique.
+      if(!Son.estActif()) return;
+
+      marche = true;
+
+      await chercher(imposee);
+
+      if(!marche || !liste.length || !preparer()) return;
+
+      ordre = [];
+      rang = -1;
+      suivante();
+
+      // Elle monte doucement, à chaque entrée : les voisins n'allument pas
+      // tout d'un coup. Le gain repart de zéro, sinon une entrée sur deux
+      // démarrerait à plein volume.
+      const dispo = Son.contexte();
+      if(dispo && gain){
+        const t = dispo.ctx.currentTime;
+        gain.gain.cancelScheduledValues(t);
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.setTargetAtTime(0.32, t, 1.6);
+      }
+    },
+
+    pause(){
+      if(lecteur && !lecteur.paused) lecteur.pause();
+    },
+
+    reprendre(){
+      if(marche && lecteur && lecteur.src && lecteur.paused){
+        const p = lecteur.play();
+        if(p && p.catch) p.catch(() => {});
+      }
+    },
+
+    arreter(){
+      marche = false;
+      if(lecteur) lecteur.pause();
+    },
+
+    // Pour les essais : où en est le lecteur.
+    etat(){
+      return {
+        marche, pistes: liste ? liste.length : null, rang,
+        enPause: lecteur ? lecteur.paused : null,
+        temps: lecteur ? lecteur.currentTime : null,
+        gain: gain ? gain.gain.value : null
+      };
+    }
+  };
+})();
+
+
+/* ----------------------------------------------------------------------
    Interface
    ---------------------------------------------------------------------- */
 
@@ -1815,11 +2411,13 @@ const CSS = `
 .wv-pastilles i.on{background:#4FB4FF;border-color:#4FB4FF;box-shadow:0 0 8px rgba(79,180,255,.75)}
 .wv-gagne{margin-top:8px;font-size:12px;color:#e9c46a;font-weight:600}
 .wv-gagne[hidden]{display:none}
-.wv-haut-droite{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:calc(14px + env(safe-area-inset-right,0px));display:flex;gap:8px;pointer-events:auto}
+.wv-haut-droite{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));right:calc(14px + env(safe-area-inset-right,0px));display:flex;gap:8px;pointer-events:auto;z-index:4}
+.wv-bouton[hidden]{display:none}
 .wv-bouton{width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.2);background:rgba(6,14,26,.68);color:#dfe7ef;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);transition:background .2s,color .2s,border-color .2s}
 .wv-bouton:hover{background:rgba(20,44,72,.85);color:#fff;border-color:rgba(255,255,255,.4)}
 .wv-bouton:focus-visible,.wv-cta:focus-visible{outline:2px solid #4FB4FF;outline-offset:2px}
-.wv-viseur{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(255,255,255,.8);box-shadow:0 0 0 2px rgba(0,0,0,.35);transition:transform .2s,background .2s}
+.wv-viseur{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:rgba(255,255,255,.8);box-shadow:0 0 0 2px rgba(0,0,0,.35);transition:transform .2s,background .2s,opacity .7s}
+.wv-haut-gauche,.wv-gains{transition:opacity .8s ease}
 .wv-viseur.actif{transform:scale(2.6);background:#4FB4FF}
 .wv-viseur.cache{opacity:0}
 .wv-invite{position:absolute;left:50%;bottom:calc(64px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:10px 18px;border-radius:999px;background:rgba(6,14,26,.8);border:1px solid rgba(79,180,255,.5);font-size:14px;font-weight:500;color:#fff;white-space:nowrap;box-shadow:0 10px 34px rgba(0,0,0,.45);max-width:94vw}
@@ -1860,6 +2458,24 @@ const CSS = `
 .wv-charge{display:flex;align-items:center;gap:14px;color:#c4ccd6;font-size:14px}
 .wv-charge i{width:22px;height:22px;border-radius:50%;border:3px solid rgba(255,255,255,.18);border-top-color:#4FB4FF;animation:wvTourne .9s linear infinite}
 @keyframes wvTourne{to{transform:rotate(360deg)}}
+.wv-cine{position:absolute;inset:0;pointer-events:none;z-index:2}
+.wv-cine::before,.wv-cine::after{content:'';position:absolute;left:0;right:0;height:0;background:#000;transition:height .9s cubic-bezier(.2,.7,.2,1)}
+.wv-cine::before{top:0}
+.wv-cine::after{bottom:0}
+.wv-intro .wv-cine::before,.wv-intro .wv-cine::after{height:11vh}
+.wv-titre{position:absolute;left:0;right:0;bottom:17vh;padding:0 20px;text-align:center;opacity:0;color:#fff;text-shadow:0 2px 24px rgba(0,0,0,.75)}
+.wv-titre span{display:block;margin-bottom:8px;font-size:clamp(11px,1.5vw,14px);font-weight:500;letter-spacing:.32em;text-transform:uppercase;color:#f0d9a8}
+.wv-titre b{font-size:clamp(26px,4.6vw,52px);font-weight:700;letter-spacing:-.01em;line-height:1.1}
+.wv-intro .wv-titre{animation:wvTitre 4.2s ease .9s both}
+@keyframes wvTitre{0%{opacity:0;transform:translateY(14px)}18%{opacity:1;transform:none}78%{opacity:1}100%{opacity:0}}
+.wv-fondu{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;z-index:3}
+.wv-intro .wv-fondu{animation:wvFondu 1.3s ease-out both}
+@keyframes wvFondu{0%{opacity:1}100%{opacity:0}}
+.wv-passer{position:absolute;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(2.4vh + env(safe-area-inset-bottom,0px));z-index:4;display:none;padding:7px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#e8eaed;font:500 12px 'Public Sans',system-ui,sans-serif;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+.wv-passer:hover{background:rgba(255,255,255,.14)}
+.wv-intro .wv-passer{display:block}
+.wv-intro .wv-haut-gauche,.wv-intro .wv-gains,.wv-intro .wv-viseur,.wv-intro .wv-invite{opacity:0}
+.wv-intro .wv-tactile{opacity:0;pointer-events:none}
 .wv-tactile{position:absolute;inset:0;pointer-events:none}
 .wv-tactile[hidden]{display:none}
 .wv-joy{position:absolute;width:124px;height:124px;margin:-62px 0 0 -62px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.07)}
@@ -1880,7 +2496,7 @@ const CSS = `
   .wv-gain{top:21%}
   /* Les notifications du site ne doivent pas couvrir TIRER et Reculer :
      en jeu, elles se rangent sous les cartes du haut. */
-  body.wv-en-jeu .notif-zone{top:calc(172px + env(safe-area-inset-top,0px));bottom:auto}
+  body.wv-en-jeu .notif-zone{top:calc(285px + env(safe-area-inset-top,0px));bottom:auto}
   .wv-panneau{padding:22px 20px 20px}
   .wv-panneau h2{font-size:22px}
 }
@@ -1926,6 +2542,11 @@ const HTML_JEU = `
   <button type="button" class="wv-action" id="wvAction" hidden>JOUER</button>
   <button type="button" class="wv-reculer" id="wvReculer" hidden>Reculer</button>
 </div>
+<div class="wv-cine" aria-hidden="true">
+  <div class="wv-titre"><span>Bienvenue dans</span><b>L’espace des waveurs</b></div>
+</div>
+<div class="wv-fondu" aria-hidden="true"></div>
+<button type="button" class="wv-passer" id="wvPasser">Passer</button>
 <div class="wv-ecran" id="wvEcran" hidden></div>
 `;
 
@@ -1947,14 +2568,21 @@ let ratioMax = 1.75, ratioActuel = 1, lentes = 0;
 const R = {};                     // ressources partagées
 const machines = [];
 const colliders = [];
-const animes = { poissons: [], bulles: null, bullesTubes: null, pieces: null, caustiques: [] };
+const animes = { neons: [], poussiere: null, pieces: null };
 
-const joueur = { x: 0, z: 10, yaw: 0, pitch: 0, phase: 0, vitesse: 0 };
+const joueur = { x: DEPART.x, z: DEPART.z, yaw: 0, pitch: 0, phase: 0, vitesse: 0 };
 
 const focus = { machine: null, cible: 0, t: 0 };
 
+// Le travelling d'ouverture ne se joue qu'une fois par visite du site.
+let introDejaVue = false;
+let aideTactileVue = false;
+
 const etat = {
-  ecran: null,                    // 'chargement' | 'depart' | 'pause' | 'connexion' | 'erreur'
+  intro: false,                   // le travelling d'ouverture est en cours
+  introT: 0,                      // son avancement, en secondes
+  introRapide: false,             // on l'a passé : il se termine en accéléré
+  ecran: null,                    // 'chargement' | 'pause' | 'connexion' | 'erreur'
   sansVerrou: false,              // le navigateur refuse le verrouillage du pointeur
   tactile: false,
   reduit: false,
@@ -2061,14 +2689,19 @@ function construireOverlay(){
     viseur: q('wvViseur'), invite: q('wvInvite'), gain: q('wvGain'), plus: q('wvPlus'),
     gains: q('wvGains'), message: q('wvMessage'), ecran: q('wvEcran'),
     tactile: q('wvTactile'), joy: q('wvJoy'), pouce: q('wvPouce'),
-    action: q('wvAction'), reculer: q('wvReculer')
+    action: q('wvAction'), reculer: q('wvReculer'), passer: q('wvPasser')
   };
+
+  // Safari sur iPhone n'offre pas le plein écran pour un élément : le
+  // bouton ne ferait rien, on ne l'affiche pas.
+  if(!overlay.requestFullscreen && !overlay.webkitRequestFullscreen) H.plein.hidden = true;
 
   H.son.addEventListener('click', basculerSon);
   H.plein.addEventListener('click', basculerPleinEcran);
   H.quitter.addEventListener('click', quitter);
   H.action.addEventListener('click', actionPrincipale);
   H.reculer.addEventListener('click', sortirFocus);
+  H.passer.addEventListener('click', passerIntro);
 
   majBoutonSon();
 }
@@ -2111,8 +2744,8 @@ async function construireMonde(){
   });
 
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x041220);
-  scene.fog = new THREE.FogExp2(0x061a2c, 0.021);
+  scene.background = new THREE.Color(0x0b0706);
+  scene.fog = new THREE.FogExp2(0x0d0806, 0.017);
 
   camera = new THREE.PerspectiveCamera(70, 1, 0.1, 70);
   camera.rotation.order = 'YXZ';
@@ -2156,220 +2789,233 @@ async function construireMonde(){
 
   const halo = R.texture(creerHalo());
   R.matLampes = new THREE.PointsMaterial({
-    size: 0.06, map: halo, vertexColors: true, transparent: true,
+    size: 0.06 * ECHELLE_MACHINE, map: halo, vertexColors: true, transparent: true,
     depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true
   });
+
+  // Les matériaux de la salle. Le laiton et le cuivre n'ont rien à refléter
+  // (pas d'environnement) : leur éclat vient des reflets des lampes.
+  R.matLaiton = new THREE.MeshPhongMaterial({
+    vertexColors: true, specular: 0xb8a070, shininess: 45, side: THREE.DoubleSide
+  });
+  R.matLaitonUni = new THREE.MeshPhongMaterial({ color: OR, specular: 0xb8a070, shininess: 45 });
+  R.matBois = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.05 });
+  R.matTissu = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
+  R.matLed = new THREE.MeshBasicMaterial({ vertexColors: true });
 
   R.modele = construireModeleMachine();
   R.halo = halo;
 
+  HALOS.pos = [];
+  HALOS.col = [];
+
   construireSalle();
-  construireMachines();
+  construireBar();
+  construireMobilier();
+  construireMachine();
+  construireLumieres();
   construireAmbiance();
 
   pret = true;
   redimensionner();
 }
 
+// Les halos de toutes les lampes de la salle : un seul nuage de points.
+const HALOS = { pos: [], col: [] };
+
+function poserHalo(x, y, z, couleur){
+  const c = new THREE.Color(couleur);
+  HALOS.pos.push(x, y, z);
+  HALOS.col.push(c.r, c.g, c.b);
+}
+
+// Colle une liste de formes en un seul objet, pour un seul appel de dessin.
+function fusion(liste, materiau){
+  if(!liste.length) return null;
+  const m = new THREE.Mesh(fusionner(liste), materiau);
+  scene.add(m);
+  return m;
+}
+
+// Pose des formes construites autour de l'origine, tournées puis déplacées.
+function poser(cible, source, x, z, rot){
+  ['tissu', 'laiton', 'bois'].forEach(k => {
+    (source[k] || []).forEach(g => {
+      if(rot) g.rotateY(rot);
+      g.translate(x, 0, z);
+      cible[k].push(g);
+    });
+  });
+}
+
 function construireSalle(){
 
   const L = SALLE.l, P = SALLE.p, Ht = SALLE.h;
 
-  // ---- Lumières ----
-  scene.add(new THREE.HemisphereLight(0x8fd8ff, 0x0a1e33, 0.78));
+  // ---- Lumières : chaudes, comme dans un bar, avec un fil bleu La Wave ----
+  scene.add(new THREE.HemisphereLight(0xffe2c0, 0x1a0e08, 0.6));
 
-  [[-3.4, 4.0, -7.5, 0x4FB4FF], [3.4, 4.0, -7.5, 0x4FB4FF],
-   [-3.4, 4.0, -0.5, 0x3fd0ff], [3.4, 4.0, -0.5, 0x3fd0ff],
-   [0, 3.6, 8.5, 0x7fd6ff]].forEach(([x, y, z, c]) => {
-    const l = new THREE.PointLight(c, 0.85, 15, 1.4);
+  [[0, 4.0, 2.6, 0xffdcb0, 1.15, 13],
+   [-3.2, 3.2, -6.2, 0xffb66a, 0.85, 10], [3.2, 3.2, -6.2, 0xffb66a, 0.85, 10],
+   [-5.0, 3.3, 1.0, 0xffc890, 0.7, 9], [5.0, 3.3, 1.0, 0xffc890, 0.7, 9],
+   [0, 3.3, 7.6, 0xffe4c8, 0.6, 10],
+   [0, 2.2, -2.0, 0x39b8ff, 0.5, 7]].forEach(([x, y, z, c, i, d]) => {
+    const l = new THREE.PointLight(c, i, d, 1.3);
     l.position.set(x, y, z);
     scene.add(l);
   });
 
-  // ---- Sol ----
+  // ---- Sol : parquet, tapis, estrade de la machine ----
   const sol = new THREE.Mesh(
     new THREE.PlaneGeometry(L * 2, P * 2),
-    new THREE.MeshStandardMaterial({
-      map: R.texture(creerMoquette(), { repete: true, rx: L * 2 / 2, ry: P * 2 / 2 }),
-      roughness: 0.92, metalness: 0
+    new THREE.MeshPhongMaterial({
+      map: R.texture(creerParquet(), { repete: true, rx: L, ry: P }),
+      specular: 0x4a3a2a, shininess: 38
     })
   );
   sol.rotation.x = -Math.PI / 2;
   scene.add(sol);
 
   const tapis = new THREE.Mesh(
-    new THREE.PlaneGeometry(4.6, 13),
-    new THREE.MeshStandardMaterial({
-      map: R.texture(creerTapis(R.logo)), roughness: 0.85, metalness: 0
-    })
+    new THREE.PlaneGeometry(11, 13.75),
+    new THREE.MeshLambertMaterial({ map: R.texture(creerTapis(R.logo)) })
   );
   tapis.rotation.x = -Math.PI / 2;
-  tapis.position.set(0, 0.006, -4);
+  tapis.position.set(0, 0.008, 0.5);
   scene.add(tapis);
 
-  // ---- Plafond ----
+  const estrade = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.55, 2.62, 0.14, 56),
+    new THREE.MeshPhongMaterial({ color: 0x3a0f1a, specular: 0x554444, shininess: 26 })
+  );
+  estrade.position.y = 0.07;
+  scene.add(estrade);
+
+  const dessus = new THREE.Mesh(
+    new THREE.CircleGeometry(2.55, 56),
+    new THREE.MeshLambertMaterial({ map: R.texture(creerEstrade()) })
+  );
+  dessus.rotation.x = -Math.PI / 2;
+  dessus.position.y = 0.142;
+  scene.add(dessus);
+
+  const bord = new THREE.Mesh(new THREE.TorusGeometry(2.58, 0.028, 8, 72), R.matLaitonUni);
+  bord.rotation.x = Math.PI / 2;
+  bord.position.y = 0.14;
+  scene.add(bord);
+
+  // ---- Plafond à caissons ----
   const plafond = new THREE.Mesh(
     new THREE.PlaneGeometry(L * 2, P * 2),
-    new THREE.MeshBasicMaterial({ color: 0x030c16 })
+    new THREE.MeshLambertMaterial({
+      map: R.texture(creerPlafond(), { repete: true, rx: L * 2 / 2.5, ry: P * 2 / 2.5 })
+    })
   );
   plafond.rotation.x = Math.PI / 2;
   plafond.position.y = Ht;
   scene.add(plafond);
 
-  // ---- Murs ----
-  const texMur = (largeur) => R.texture(creerMur(), { repete: true, rx: largeur / 2, ry: 1 });
+  // ---- Murs : marbre sombre, soubassement de lattes, garnitures ----
+  const marbre = creerMarbre('#1b1a1e', '#8d8a96', '#c9a25a', 16);
+  const lattes = creerLattes();
 
-  const mur = (l, x, y, z, rotY) => {
-    const m = new THREE.Mesh(
-      new THREE.PlaneGeometry(l, Ht),
-      new THREE.MeshLambertMaterial({ map: texMur(l) })
-    );
-    m.position.set(x, y, z);
-    m.rotation.y = rotY;
-    scene.add(m);
-  };
+  const bois = [], laiton = [], led = [];
 
-  mur(L * 2, 0, Ht / 2, -P, 0);
-  mur(L * 2, 0, Ht / 2, P, Math.PI);
-  mur(P * 2, -L, Ht / 2, 0, Math.PI / 2);
-  mur(P * 2, L, Ht / 2, 0, -Math.PI / 2);
+  [
+    { l: L * 2, x: 0, z: -P, r: 0 },
+    { l: L * 2, x: 0, z: P, r: Math.PI },
+    { l: P * 2, x: -L, z: 0, r: Math.PI / 2 },
+    { l: P * 2, x: L, z: 0, r: -Math.PI / 2 }
+  ].forEach(m => {
 
-  // ---- Néons : plafonniers, corniche, plinthe ----
-  const lumieres = [];
-  [-3.2, 0, 3.2].forEach(x => lumieres.push(boite(0.26, 0.05, 21, x, Ht - 0.03, 0, '#8fe6ff')));
-  [-1, 1].forEach(s => {
-    lumieres.push(boite(0.05, 0.06, P * 2 - 0.4, s * (L - 0.05), 4.25, 0, '#3fb8ff'));
-    lumieres.push(boite(0.04, 0.05, P * 2 - 0.4, s * (L - 0.04), 0.09, 0, '#2de2e6'));
+    // Le mur regarde vers l'intérieur : (nx, nz) est sa normale.
+    const nx = Math.sin(m.r), nz = Math.cos(m.r);
+
+    const placer = (mesh, y, ecart) => {
+      mesh.position.set(m.x + nx * ecart, y, m.z + nz * ecart);
+      mesh.rotation.y = m.r;
+      scene.add(mesh);
+    };
+
+    placer(new THREE.Mesh(
+      new THREE.PlaneGeometry(m.l, Ht),
+      new THREE.MeshLambertMaterial({ map: R.texture(marbre, { repete: true, rx: m.l / 1.8, ry: Ht / 1.8 }) })
+    ), Ht / 2, 0);
+
+    placer(new THREE.Mesh(
+      new THREE.PlaneGeometry(m.l, 1.0),
+      new THREE.MeshLambertMaterial({ map: R.texture(lattes, { repete: true, rx: m.l / 0.8, ry: 1 }) })
+    ), 0.5, 0.02);
+
+    // Les garnitures sont dessinées à plat contre le mur (x le long du mur,
+    // z vers la pièce), puis tournées à sa place.
+    const loc = (liste, ...formes) => formes.forEach(g => {
+      g.rotateY(m.r);
+      g.translate(m.x, 0, m.z);
+      liste.push(g);
+    });
+
+    loc(laiton,
+      boite(m.l, 0.05, 0.05, 0, 1.03, 0.04, LAITON),
+      boite(m.l, 0.04, 0.16, 0, Ht - 0.34, 0.09, LAITON));
+    loc(bois,
+      boite(m.l, 0.12, 0.05, 0, 0.06, 0.035, '#160d07'),
+      boite(m.l, 0.3, 0.16, 0, Ht - 0.15, 0.08, '#1a100a'));
+    loc(led, boite(m.l - 0.3, 0.03, 0.03, 0, Ht - 0.4, 0.07, '#ffb35e'));
+
+    // Des montants de laiton, tous les 2,5 m environ.
+    const n = Math.round(m.l / 2.5);
+    const hauteur = Ht - 1.4;
+    for(let i = 1; i < n; i++){
+      const x = -m.l / 2 + i * m.l / n;
+      // Celui du milieu de la façade d'entrée passerait devant la porte.
+      if(m.r === Math.PI && Math.abs(x) < 1.6) continue;
+      loc(laiton, boite(0.05, hauteur, 0.03, x, 1.06 + hauteur / 2, 0.03, LAITON));
+    }
   });
-  lumieres.push(boite(L * 2 - 0.4, 0.06, 0.05, 0, 4.25, -P + 0.05, '#3fb8ff'));
 
-  scene.add(new THREE.Mesh(
-    fusionner(lumieres),
-    new THREE.MeshBasicMaterial({ vertexColors: true })
-  ));
+  fusion(laiton, R.matLaiton);
+  fusion(bois, R.matBois);
+  fusion(led, R.matLed);
 
-  // Une vague de néon au-dessus des machines.
-  const texNeon = creerNeonVague('#4FB4FF');
+  // ---- Une vague de néon discrète, sur les murs de côté ----
+  const texNeon = creerNeonVague('#39b8ff');
   [-1, 1].forEach(s => {
-    const t = R.texture(texNeon, { repete: true, rx: 3.6, ry: 1 });
+    const t = R.texture(texNeon, { repete: true, rx: (P * 2 - 1) / 5, ry: 1 });
     const p = new THREE.Mesh(
-      new THREE.PlaneGeometry(P * 2 - 1, 0.55),
-      new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false })
+      new THREE.PlaneGeometry(P * 2 - 1, 0.42),
+      new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.45, depthWrite: false })
     );
-    p.position.set(s * (L - 0.02), 3.05, 0);
-    p.rotation.y = s * -Math.PI / 2;
+    p.position.set(s * (L - 0.02), 3.55, 0);
+    p.rotation.y = -s * Math.PI / 2;
     scene.add(p);
   });
 
-  // ---- Le fond de la salle : aquarium, enseigne et logo ----
-  construireFond();
+  // ---- Des disques d'or, le long des murs de côté, sous une lampe ----
+  const disque = R.texture(creerDisqueOr(R.logo));
+  const petits = [];
+
+  [-1, 1].forEach(s => {
+    [-6.4, -0.4, 5.6].forEach(z => {
+
+      const cadre = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.9, 0.9),
+        new THREE.MeshBasicMaterial({ map: disque, color: 0xd8d0c4 })
+      );
+      cadre.position.set(s * (L - 0.03), 2.25, z);
+      cadre.rotation.y = -s * Math.PI / 2;
+      scene.add(cadre);
+
+      // La lampe de tableau : un bras de laiton et un peu de lumière.
+      petits.push(boite(0.05, 0.05, 0.4, s * (L - 0.2), 2.85, z, LAITON));
+      poserHalo(s * (L - 0.36), 2.8, z, '#ffcf8a');
+    });
+  });
+
+  fusion(petits, R.matLaiton);
 
   // ---- La porte de sortie ----
   construirePorte();
-
-  // ---- Les tubes à bulles ----
-  construireTubes();
-
-  // ---- Les murs sont des obstacles ----
-  // (les bords de la salle sont gérés à part, dans libre())
-}
-
-function construireFond(){
-
-  const P = SALLE.p;
-
-  // L'aquarium : un fond peint, des poissons, une vitre.
-  const zA = -P + 0.08;
-
-  const eau = new THREE.Mesh(
-    new THREE.PlaneGeometry(8.4, 2.0),
-    new THREE.MeshBasicMaterial({ map: R.texture(creerAquarium()) })
-  );
-  eau.position.set(0, 1.4, zA);
-  scene.add(eau);
-
-  const poissonTex = R.texture(creerPoissonTex());
-  const couleurs = [0xff9f43, 0x22d3ee, 0xfacc15, 0xff6b81, 0xffffff, 0x8b6bff, 0x7dd3fc, 0xff8a5c];
-
-  for(let i = 0; i < 14; i++){
-
-    const s = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: poissonTex, color: couleurs[i % couleurs.length], transparent: true,
-      depthWrite: false, fog: false
-    }));
-
-    const echelle = hasard(0.3, 0.62);
-    const dir = Math.random() < 0.5 ? -1 : 1;
-
-    s.position.set(hasard(-3.9, 3.9), hasard(0.65, 2.2), zA + 0.03 + Math.random() * 0.12);
-    s.scale.set(echelle * 2 * dir, echelle, 1);
-
-    scene.add(s);
-
-    animes.poissons.push({
-      s, dir, echelle,
-      vitesse: hasard(0.18, 0.55),
-      y0: s.position.y,
-      phase: hasard(0, TAU)
-    });
-  }
-
-  // La vitre et son cadre.
-  const vitre = new THREE.Mesh(
-    new THREE.PlaneGeometry(8.4, 2.0),
-    new THREE.MeshBasicMaterial({
-      map: R.texture(creerVitre(false)), transparent: true, opacity: 0.55, depthWrite: false
-    })
-  );
-  vitre.position.set(0, 1.4, zA + 0.16);
-  vitre.renderOrder = 2;
-  scene.add(vitre);
-
-  const cadre = fusionner([
-    boite(8.7, 0.16, 0.3, 0, 0.32, zA + 0.05, '#0d2036'),
-    boite(8.7, 0.16, 0.3, 0, 2.48, zA + 0.05, '#0d2036'),
-    boite(0.16, 2.3, 0.3, -4.28, 1.4, zA + 0.05, '#0d2036'),
-    boite(0.16, 2.3, 0.3, 4.28, 1.4, zA + 0.05, '#0d2036'),
-    boite(8.4, 0.05, 0.08, 0, 0.25, zA + 0.16, '#4FB4FF'),
-    boite(8.4, 0.05, 0.08, 0, 2.55, zA + 0.16, '#4FB4FF')
-  ]);
-  scene.add(new THREE.Mesh(cadre, new THREE.MeshBasicMaterial({ vertexColors: true })));
-
-  // Enseigne et logo, au-dessus.
-  const enseigne = new THREE.Mesh(
-    new THREE.PlaneGeometry(7.4, 0.9),
-    new THREE.MeshBasicMaterial({
-      map: R.texture(creerEnseigne("L'ESPACE DES WAVEURS", '#4FB4FF', 1600, 194, 112)),
-      transparent: true, depthWrite: false
-    })
-  );
-  enseigne.position.set(0, 2.98, -P + 0.04);
-  scene.add(enseigne);
-
-  if(R.logo){
-
-    const ratio = R.logo.width / R.logo.height;
-    const h = 1.15, l = h * ratio;
-
-    const lumiere = new THREE.Mesh(
-      new THREE.PlaneGeometry(l * 2.1, h * 2.6),
-      new THREE.MeshBasicMaterial({
-        map: R.halo, color: 0x2a8fd8, transparent: true, opacity: 0.55,
-        depthWrite: false, blending: THREE.AdditiveBlending
-      })
-    );
-    lumiere.position.set(0, 3.9, -P + 0.03);
-    scene.add(lumiere);
-
-    const logo = new THREE.Mesh(
-      new THREE.PlaneGeometry(l, h),
-      new THREE.MeshBasicMaterial({
-        map: R.texture(R.logo), transparent: true, depthWrite: false
-      })
-    );
-    logo.position.set(0, 3.9, -P + 0.04);
-    scene.add(logo);
-  }
 }
 
 function construirePorte(){
@@ -2378,16 +3024,20 @@ function construirePorte(){
   const z = P - 0.05;
 
   const porte = fusionner([
-    boite(1.2, 2.5, 0.08, -0.63, 1.25, z, '#0d3550'),
-    boite(1.2, 2.5, 0.08, 0.63, 1.25, z, '#0d3550'),
-    boite(2.7, 0.14, 0.14, 0, 2.6, z, '#1a4a6e'),
-    boite(0.14, 2.6, 0.14, -1.28, 1.3, z, '#1a4a6e'),
-    boite(0.14, 2.6, 0.14, 1.28, 1.3, z, '#1a4a6e'),
-    boite(0.05, 0.9, 0.06, -0.12, 1.1, z - 0.06, '#c9d6e2'),
-    boite(0.05, 0.9, 0.06, 0.12, 1.1, z - 0.06, '#c9d6e2')
+    boite(1.2, 2.5, 0.08, -0.63, 1.25, z, '#2a170c'),
+    boite(1.2, 2.5, 0.08, 0.63, 1.25, z, '#2a170c'),
+    boite(2.7, 0.14, 0.14, 0, 2.6, z, '#8a6420'),
+    boite(0.14, 2.6, 0.14, -1.28, 1.3, z, '#8a6420'),
+    boite(0.14, 2.6, 0.14, 1.28, 1.3, z, '#8a6420'),
+    boite(0.9, 1.9, 0.02, -0.63, 1.3, z - 0.05, '#3a2211'),
+    boite(0.9, 1.9, 0.02, 0.63, 1.3, z - 0.05, '#3a2211'),
+    boite(0.05, 0.9, 0.06, -0.12, 1.1, z - 0.06, LAITON),
+    boite(0.05, 0.9, 0.06, 0.12, 1.1, z - 0.06, LAITON)
   ]);
 
-  scene.add(new THREE.Mesh(porte, new THREE.MeshLambertMaterial({ vertexColors: true })));
+  scene.add(new THREE.Mesh(porte, new THREE.MeshPhongMaterial({
+    vertexColors: true, specular: 0x554422, shininess: 40
+  })));
 
   const panneau = new THREE.Mesh(
     new THREE.PlaneGeometry(1.7, 0.42),
@@ -2396,173 +3046,548 @@ function construirePorte(){
       transparent: true, depthWrite: false
     })
   );
-  panneau.position.set(0, 3.0, z - 0.02);
+  panneau.position.set(0, 3.05, z - 0.02);
   panneau.rotation.y = Math.PI;
   scene.add(panneau);
 
   R.porte = { x: 0, z: P - 0.6 };
 }
 
-function construireTubes(){
 
-  const positions = [[-2.6, 3.4], [2.6, 3.4], [-2.6, -6.6], [2.6, -6.6]];
+/* ---- Le bar : comptoir, étagères, néons, tabourets ---- */
 
-  const verre = new THREE.MeshBasicMaterial({
-    color: 0x6fd8ff, transparent: true, opacity: 0.14, side: THREE.DoubleSide, depthWrite: false
+function construireBar(){
+
+  const P = SALLE.p;
+  const BOIS = '#22140b', CLAIR = '#d9d3c8';
+
+  const bois = [], laiton = [], led = [], tissu = [];
+
+  // Le comptoir : un U, dos au mur. La façade regarde la salle.
+  bois.push(
+    boite(9.0, 1.02, 0.78, 0, 0.51, -7.1, BOIS),
+    boite(0.86, 1.02, 2.5, -4.07, 0.51, -8.75, BOIS),
+    boite(0.86, 1.02, 2.5, 4.07, 0.51, -8.75, BOIS)
+  );
+
+  const lattes = R.texture(creerLattes(), { repete: true, rx: 9 / 0.8, ry: 1 });
+  const facade = new THREE.Mesh(
+    new THREE.PlaneGeometry(9.0, 0.96),
+    new THREE.MeshLambertMaterial({ map: lattes })
+  );
+  facade.position.set(0, 0.52, -6.705);
+  scene.add(facade);
+
+  [-1, 1].forEach(s => {
+    const flanc = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.5, 0.96),
+      new THREE.MeshLambertMaterial({ map: R.texture(creerLattes(), { repete: true, rx: 2.5 / 0.8, ry: 1 }) })
+    );
+    flanc.position.set(s * 4.505, 0.52, -8.75);
+    flanc.rotation.y = s * Math.PI / 2;
+    scene.add(flanc);
   });
 
-  const metal = new THREE.MeshStandardMaterial({ color: 0x1a3a58, roughness: 0.45, metalness: 0.4 });
+  // Le dessus : une dalle de marbre clair, qui déborde côté salle.
+  const dalle = (l, p, x, z) => {
+    bois.push(boite(l, 0.06, p, x, 1.05, z, CLAIR));
+    const t = new THREE.Mesh(
+      new THREE.PlaneGeometry(l, p),
+      new THREE.MeshPhongMaterial({
+        map: R.texture(R.marbreClair, { repete: true, rx: l / 1.8, ry: p / 1.8 }),
+        specular: 0x888888, shininess: 70
+      })
+    );
+    t.rotation.x = -Math.PI / 2;
+    t.position.set(x, 1.081, z);
+    scene.add(t);
+  };
 
-  positions.forEach(([x, z]) => {
+  R.marbreClair = creerMarbre('#e6e1d8', '#7c7468', '#b58f3f', 14);
 
-    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 4.2, 28, 1, true), verre);
-    tube.position.set(x, 2.3, z);
-    tube.renderOrder = 2;
-    scene.add(tube);
+  dalle(9.36, 1.16, 0, -7.08);
+  dalle(1.02, 2.34, -4.11, -8.83);
+  dalle(1.02, 2.34, 4.11, -8.83);
 
-    const socle = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.56, 0.2, 28), metal);
-    socle.position.set(x, 0.1, z);
-    scene.add(socle);
+  // Filets de laiton, repose-pieds, lumière sous le débord.
+  laiton.push(
+    boite(9.0, 0.03, 0.03, 0, 0.98, -6.7, LAITON),
+    boite(9.0, 0.03, 0.03, 0, 0.09, -6.7, LAITON)
+  );
 
-    const chapeau = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.46, 0.2, 28), metal);
-    chapeau.position.set(x, 4.4, z);
-    scene.add(chapeau);
+  const rail = new THREE.CylinderGeometry(0.028, 0.028, 8.8, 14);
+  rail.rotateZ(Math.PI / 2);
+  rail.translate(0, 0.2, -6.32);
+  colorer(rail, LAITON);
+  laiton.push(rail);
 
-    colliders.push({ x0: x - 0.5, x1: x + 0.5, z0: z - 0.5, z1: z + 0.5 });
-  });
-
-  // Les bulles des tubes : un seul nuage pour les quatre.
-  const n = 200;
-  const pos = new Float32Array(n * 3);
-  const donnees = [];
-
-  for(let i = 0; i < n; i++){
-    const t = positions[i % positions.length];
-    const a = Math.random() * TAU;
-    const r = Math.random() * 0.3;
-    donnees.push({ cx: t[0], cz: t[1], a, r, v: hasard(0.35, 0.9), y: hasard(0.3, 4.3) });
-    pos[i * 3] = t[0] + Math.cos(a) * r;
-    pos[i * 3 + 1] = donnees[i].y;
-    pos[i * 3 + 2] = t[1] + Math.sin(a) * r;
+  for(let x = -3.6; x <= 3.7; x += 1.8){
+    laiton.push(boite(0.03, 0.03, 0.4, x, 0.2, -6.5, LAITON));
   }
 
-  animes.bullesTubes = { pos, donnees, points: nuageBulles(pos, 0.11) };
+  led.push(
+    boite(8.8, 0.02, 0.02, 0, 1.012, -6.62, '#ffb35e'),
+    boite(8.8, 0.03, 0.03, 0, 0.13, -6.69, '#39d5ff')
+  );
+
+  // Le meuble arrière et ses étagères éclairées.
+  bois.push(
+    boite(7.2, 0.9, 0.55, 0, 0.45, -P + 0.275, BOIS),
+    boite(7.3, 0.05, 0.6, 0, 0.925, -P + 0.3, CLAIR),
+    boite(0.14, 2.75, 0.12, -3.67, 2.3, -P + 0.07, '#24150b'),
+    boite(0.14, 2.75, 0.12, 3.67, 2.3, -P + 0.07, '#24150b'),
+    boite(7.5, 0.14, 0.14, 0, 3.62, -P + 0.08, '#24150b')
+  );
+  laiton.push(boite(7.5, 0.03, 0.03, 0, 3.53, -P + 0.14, LAITON));
+
+  const etageres = new THREE.Mesh(
+    new THREE.PlaneGeometry(7.2, 2.6),
+    new THREE.MeshBasicMaterial({ map: R.texture(creerEtageres()), color: 0xdddddd })
+  );
+  // Un peu en avant des montants de laiton des murs, qu'elle recouvre.
+  etageres.position.set(0, 2.25, -P + 0.06);
+  scene.add(etageres);
+
+  // Les néons : quatre signes de carte, et le logo de La Wave au milieu.
+  animes.neons = [];
+
+  const neon = (map, l, h, x, y, fond) => {
+    bois.push(boite(l + 0.06, h + 0.06, 0.05, x, y, -P + 0.12, fond || '#07090c'));
+    const mat = new THREE.MeshBasicMaterial({
+      map, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false
+    });
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(l, h), mat);
+    p.position.set(x, y, -P + 0.155);
+    scene.add(p);
+    animes.neons.push({ mat, phase: hasard(0, TAU) });
+    poserHalo(x, y, -P + 0.4, '#8fbfd8');
+  };
+
+  [['coeur', '#ff4d6d', -3.05], ['pique', '#3fd8ff', -1.85], ['trefle', '#3dff9e', 1.85], ['carreau', '#e35bff', 3.05]]
+    .forEach(([type, couleur, x]) => neon(R.texture(creerNeonSigne(type, couleur)), 0.9, 0.9, x, 2.25));
+
+  neon(R.texture(creerNeonLogo(R.logo)), 2.2, 1.1, 0, 2.25);
+
+  // L'enseigne, au-dessus de l'auvent.
+  const enseigne = new THREE.Mesh(
+    new THREE.PlaneGeometry(6.4, 0.78),
+    new THREE.MeshBasicMaterial({
+      map: R.texture(creerEnseigne("L'ESPACE DES WAVEURS", '#f2d9a8', 1600, 194, 112)),
+      transparent: true, depthWrite: false
+    })
+  );
+  enseigne.position.set(0, 4.25, -P + 0.04);
+  scene.add(enseigne);
+
+  // L'auvent de bois qui coiffe le bar, un liseré de cuivre, des spots.
+  bois.push(boite(10.6, 0.16, 4.3, 0, 3.4, -7.85, '#2a190d'));
+  laiton.push(
+    boite(10.6, 0.05, 0.05, 0, 3.33, -5.7, CUIVRE),
+    boite(0.05, 0.05, 4.3, -5.3, 3.33, -7.85, CUIVRE),
+    boite(0.05, 0.05, 4.3, 5.3, 3.33, -7.85, CUIVRE)
+  );
+  led.push(boite(10.2, 0.02, 0.02, 0, 3.315, -5.85, '#ffb35e'));
+
+  for(let x = -3.6; x <= 3.7; x += 1.2){
+    led.push(cylindre(0.06, 0.07, 0.06, x, 3.29, -6.0, '#fff1d6', 12));
+  }
+
+  // Cinq suspensions au-dessus du comptoir.
+  [-3.6, -1.8, 0, 1.8, 3.6].forEach(x => {
+    laiton.push(cylindre(0.006, 0.006, 0.7, x, 2.97, -6.95, CUIVRE, 6));
+    const abat = new THREE.CylinderGeometry(0.05, 0.2, 0.26, 24, 1, true);
+    abat.translate(x, 2.5, -6.95);
+    colorer(abat, CUIVRE);
+    laiton.push(abat);
+    led.push(sphere(0.065, x, 2.42, -6.95, '#fff3d2'));
+    poserHalo(x, 2.32, -6.95, '#ffcf8a');
+  });
+
+  // Huit tabourets, en cuir lie-de-vin, laiton et rondeur.
+  for(let i = 0; i < 8; i++){
+    const x = -3.15 + i * 0.9;
+    poser({ tissu, laiton, bois }, geoTabouret('#6b1a2b', 0.74), x, -6.0, 0);
+    colliders.push({ x0: x - 0.26, x1: x + 0.26, z0: -6.26, z1: -5.74 });
+  }
+
+  // Quelques bouteilles et un seau à glace sur le comptoir.
+  [[-3.6, '#2f6b41', 0.24], [-2.7, '#8a531f', 0.2], [-1.2, '#d8d0bc', 0.26], [0.6, '#1f5b6b', 0.22],
+   [1.9, '#6a2432', 0.24], [3.3, '#c9973a', 0.2]].forEach(([x, couleur, h]) => {
+    bois.push(
+      cylindre(0.038, 0.038, h, x, 1.08 + h / 2, -7.15, couleur, 12),
+      cylindre(0.014, 0.018, 0.11, x, 1.08 + h + 0.05, -7.15, couleur, 8)
+    );
+  });
+  laiton.push(cylindre(0.1, 0.08, 0.17, 2.6, 1.165, -7.05, LAITON, 16));
+
+  fusion(bois, R.matBois);
+  fusion(laiton, R.matLaiton);
+  fusion(led, R.matLed);
+  fusion(tissu, R.matTissu);
+
+  // Le comptoir est un obstacle, retours compris.
+  colliders.push(
+    { x0: -4.75, x1: 4.75, z0: -7.7, z1: -6.35 },
+    { x0: -4.75, x1: -3.4, z0: -P, z1: -7.5 },
+    { x0: 3.4, x1: 4.75, z0: -P, z1: -7.5 }
+  );
 }
 
-// Un nuage de points en forme de bulles.
-function nuageBulles(pos, taille){
 
-  if(!R.matBulles){
-    R.matBulles = new THREE.PointsMaterial({
-      size: taille, map: R.texture(creerBulleTex()), transparent: true, opacity: 0.85,
-      depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true
-    });
+/* ---- Le mobilier : tables de jeu, salons ---- */
+
+const OR = '#c9973a';
+const LAITON = '#c9973a';
+const CUIVRE = '#b87333';
+
+function cylindre(rh, rb, h, x, y, z, couleur, seg){
+  const g = new THREE.CylinderGeometry(rh, rb, h, seg || 20);
+  g.translate(x, y, z);
+  if(couleur) colorer(g, couleur);
+  return g;
+}
+
+function sphere(r, x, y, z, couleur){
+  const g = new THREE.SphereGeometry(r, 12, 9);
+  g.translate(x, y, z);
+  if(couleur) colorer(g, couleur);
+  return g;
+}
+
+function geoTabouret(couleur, hauteur){
+
+  const h = hauteur;
+
+  const anneau = new THREE.TorusGeometry(0.15, 0.012, 6, 22);
+  anneau.rotateX(Math.PI / 2);
+  anneau.translate(0, h * 0.42, 0);
+  colorer(anneau, LAITON);
+
+  return {
+    tissu: [cylindre(0.2, 0.19, 0.1, 0, h, 0, couleur, 24)],
+    laiton: [
+      cylindre(0.026, 0.026, h - 0.05, 0, (h - 0.05) / 2 + 0.03, 0, LAITON, 10),
+      cylindre(0.22, 0.24, 0.03, 0, 0.015, 0, LAITON, 24),
+      anneau
+    ]
+  };
+}
+
+// Un fauteuil de salon, tourné vers +z.
+function geoFauteuil(couleur){
+
+  const pieds = [[-0.26, -0.24], [0.26, -0.24], [-0.26, 0.24], [0.26, 0.24]]
+    .map(([x, z]) => cylindre(0.018, 0.014, 0.2, x, 0.1, z, LAITON, 8));
+
+  return {
+    tissu: [
+      boite(0.66, 0.16, 0.62, 0, 0.3, 0, couleur),
+      boite(0.66, 0.5, 0.12, 0, 0.62, -0.25, couleur),
+      boite(0.1, 0.22, 0.56, -0.38, 0.47, 0, couleur),
+      boite(0.1, 0.22, 0.56, 0.38, 0.47, 0, couleur)
+    ],
+    laiton: pieds
+  };
+}
+
+// Une banquette : le dossier au fond (-z), l'assise devant.
+function geoBanquette(longueur, couleur){
+
+  const tissu = [
+    boite(longueur, 0.24, 0.72, 0, 0.32, 0, couleur),
+    boite(longueur, 0.56, 0.16, 0, 0.7, -0.28, couleur)
+  ];
+
+  const n = Math.floor(longueur / 0.9);
+  for(let i = 1; i < n; i++){
+    tissu.push(boite(0.02, 0.5, 0.02, -longueur / 2 + i * longueur / n, 0.7, -0.19, '#0a2d33'));
+  }
+
+  return { tissu, bois: [boite(longueur, 0.2, 0.7, 0, 0.1, 0, '#150c07')] };
+}
+
+// Une petite table ronde : plateau sombre, fût et pied de laiton.
+function geoTableRonde(r, h){
+  return {
+    bois: [cylindre(r, r, 0.04, 0, h, 0, '#1a100a', 28)],
+    laiton: [
+      cylindre(0.03, 0.03, h - 0.04, 0, (h - 0.04) / 2, 0, LAITON, 10),
+      cylindre(r * 0.55, r * 0.6, 0.03, 0, 0.015, 0, LAITON, 24)
+    ]
+  };
+}
+
+// Un demi-disque à plat, pour le tapis d'une table de blackjack : la
+// courbe est du côté -z, le bord droit sur l'axe x.
+function demiDisque(r, n){
+
+  const pos = [0, 0, 0], nor = [0, 1, 0], uv = [0.5, 0], idx = [];
+
+  for(let i = 0; i <= n; i++){
+    const a = Math.PI / 2 + Math.PI * i / n;
+    const x = r * Math.sin(a), z = r * Math.cos(a);
+    pos.push(x, 0, z);
+    nor.push(0, 1, 0);
+    uv.push(0.5 + x / (2 * r), -z / r);
+    if(i < n) idx.push(0, i + 1, i + 2);
   }
 
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
 
-  const mat = R.matBulles.clone();
-  mat.size = taille;
-
-  const pts = new THREE.Points(g, mat);
-  pts.frustumCulled = false;
-  pts.renderOrder = 3;
-  scene.add(pts);
-
-  return pts;
+  return g;
 }
 
-function construireMachines(){
+function construireMobilier(){
 
-  const ombres = [];
+  const liste = { tissu: [], laiton: [], bois: [] };
+  const CUIR = '#4a1120', VELOURS = '#0f5560', VELOURS2 = '#6b1a2b';
 
-  const ajouterOmbre = (x, z, l, p) => {
-    const g = new THREE.PlaneGeometry(l, p);
-    g.rotateX(-Math.PI / 2);
-    g.translate(x, 0.011, z);
-    ombres.push(g);
-  };
+  const boiteCollision = (x0, x1, z0, z1) => colliders.push({ x0, x1, z0, z1 });
 
-  let i = 0;
+  // ---- Roulette, contre le mur de gauche ----
+  {
+    const x = -5.7, z = -3.4;
 
-  [-1, 1].forEach(cote => {
+    liste.bois.push(boite(1.2, 0.86, 2.7, x, 0.43, z, '#1d110a'));
+    liste.tissu.push(boite(1.42, 0.09, 2.92, x, 0.905, z, CUIR));
+    liste.laiton.push(boite(1.24, 0.03, 2.74, x, 0.875, z, LAITON));
 
-    RANGEES_Z.forEach(z => {
+    const feutre = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.24, 2.74),
+      new THREE.MeshLambertMaterial({ map: R.texture(creerFeutreRoulette()) })
+    );
+    feutre.rotation.x = -Math.PI / 2;
+    feutre.position.set(x, 0.954, z);
+    scene.add(feutre);
 
-      const def = MACHINES[i++];
+    // La roue, à l'extrémité nord.
+    const zr = z - 1.37 + 0.55;
+    liste.bois.push(cylindre(0.46, 0.48, 0.09, x, 0.995, zr, '#2b170c', 32));
 
-      // Le dos contre le mur, la face vers l'allée : la machine de gauche
-      // regarde vers +x, celle de droite vers -x.
-      const x = cote * (SALLE.l - 0.1 - 0.45);
-      const rotY = cote === -1 ? Math.PI / 2 : -Math.PI / 2;
+    const roue = new THREE.Mesh(
+      new THREE.CircleGeometry(0.42, 40),
+      new THREE.MeshLambertMaterial({ map: R.texture(creerRoue()) })
+    );
+    roue.rotation.x = -Math.PI / 2;
+    roue.position.set(x, 1.042, zr);
+    scene.add(roue);
 
-      const m = new Machine(def, x, z, rotY, R);
+    liste.laiton.push(cylindre(0.035, 0.06, 0.07, x, 1.075, zr, LAITON, 12));
 
-      scene.add(m.groupe);
-      machines.push(m);
-      colliders.push(m.collision);
+    boiteCollision(x - 0.75, x + 0.75, z - 1.5, z + 1.5);
+  }
 
-      ajouterOmbre(x - cote * 0.05, z, 1.9, 1.7);
+  // ---- Blackjack : une demi-lune, le croupier côté mur ----
+  {
+    const cx = -6.55, cz = 2.4, rot = -Math.PI / 2;
 
-      m.surArret = () => Son.arret();
-    });
+    const corps = new THREE.CylinderGeometry(1.2, 1.2, 0.86, 40, 1, false, Math.PI / 2, Math.PI);
+    corps.translate(0, 0.43, 0);
+    colorer(corps, '#1d110a');
+
+    const rebord = new THREE.CylinderGeometry(1.34, 1.34, 0.09, 40, 1, false, Math.PI / 2, Math.PI);
+    rebord.translate(0, 0.905, 0);
+    colorer(rebord, CUIR);
+
+    // La table est dessinée autour de l'origine, puis tournée à sa place.
+    poser(liste, {
+      bois: [corps, boite(2.68, 0.95, 0.03, 0, 0.475, 0, '#1d110a')],
+      tissu: [rebord]
+    }, cx, cz, rot);
+
+    const geoFeutre = demiDisque(1.26, 32);
+    geoFeutre.rotateY(rot);
+    geoFeutre.translate(cx, 0.954, cz);
+    scene.add(new THREE.Mesh(geoFeutre, new THREE.MeshLambertMaterial({ map: R.texture(creerFeutreBlackjack()) })));
+
+    // Les tabourets, sur la courbe.
+    for(let i = 0; i < 4; i++){
+      const a = Math.PI / 2 + Math.PI * (i + 0.5) / 4;
+      const lx = 1.85 * Math.sin(a), lz = 1.85 * Math.cos(a);
+      // Rotation de la table : (lx, lz) → monde.
+      const wx = cx + lx * Math.cos(rot) + lz * Math.sin(rot);
+      const wz = cz - lx * Math.sin(rot) + lz * Math.cos(rot);
+      poser(liste, geoTabouret(VELOURS2, 0.68), wx, wz, 0);
+      boiteCollision(wx - 0.26, wx + 0.26, wz - 0.26, wz + 0.26);
+    }
+
+    boiteCollision(-SALLE.l, cx + 1.4, cz - 1.4, cz + 1.4);
+  }
+
+  // ---- Un coin de salon près de la porte, à gauche ----
+  poser(liste, geoTableRonde(0.45, 0.7), -6.4, 6.6, 0);
+  poser(liste, geoFauteuil(VELOURS), -6.4, 5.75, 0);
+  poser(liste, geoFauteuil(VELOURS), -6.4, 7.45, Math.PI);
+  boiteCollision(-6.9, -5.9, 5.4, 7.8);
+
+  // ---- À droite : la banquette de velours et ses deux tables ----
+  poser(liste, geoBanquette(4.4, VELOURS), 7.08, -2.5, -Math.PI / 2);
+  boiteCollision(6.6, SALLE.l, -4.75, -0.25);
+
+  [-3.6, -1.4].forEach(z => {
+    poser(liste, geoTableRonde(0.42, 0.68), 5.9, z, 0);
+    poser(liste, geoFauteuil(VELOURS2), 5.05, z, Math.PI / 2);
+    boiteCollision(4.7, 6.35, z - 0.5, z + 0.5);
   });
 
+  // ---- La table de poker, ronde, entourée de cinq fauteuils ----
+  {
+    const cx = 5.6, cz = 4.6;
+
+    liste.bois.push(cylindre(1.2, 1.2, 0.09, cx, 0.905, cz, '#2b170c', 40));
+    liste.tissu.push(cylindre(1.24, 1.24, 0.07, cx, 0.875, cz, CUIR, 40));
+    liste.laiton.push(
+      cylindre(0.3, 0.34, 0.8, cx, 0.4, cz, LAITON, 16),
+      cylindre(0.65, 0.7, 0.04, cx, 0.02, cz, LAITON, 30)
+    );
+
+    const feutre = new THREE.Mesh(
+      new THREE.CircleGeometry(1.12, 48),
+      new THREE.MeshLambertMaterial({ map: R.texture(creerFeutrePoker(R.logo)) })
+    );
+    feutre.rotation.x = -Math.PI / 2;
+    feutre.position.set(cx, 0.954, cz);
+    scene.add(feutre);
+
+    for(let i = 0; i < 5; i++){
+      // Départ à 0,94 rad : avec moins, deux fauteuils passeraient dans le
+      // mur de droite.
+      const a = 0.94 + i * TAU / 5;
+      const x = cx + Math.sin(a) * 1.85, z = cz + Math.cos(a) * 1.85;
+      poser(liste, geoFauteuil(VELOURS2), x, z, a + Math.PI);
+      boiteCollision(x - 0.36, x + 0.36, z - 0.36, z + 0.36);
+    }
+
+    boiteCollision(cx - 1.3, cx + 1.3, cz - 1.3, cz + 1.3);
+  }
+
+  fusion(liste.bois, R.matBois);
+  fusion(liste.tissu, R.matTissu);
+  fusion(liste.laiton, R.matLaiton);
+}
+
+
+/* ---- La grande machine, ses lumières, l'air de la salle ---- */
+
+function construireMachine(){
+
+  const m = new Machine(MACHINE, 0, 0, 0, R, ECHELLE_MACHINE);
+  m.groupe.position.y = 0.14;
+
+  scene.add(m.groupe);
+  machines.push(m);
+  colliders.push(m.collision);
   animes.machines = machines;
 
-  // Ombres au sol de toutes les machines et des tubes, en un seul objet.
-  [[-2.6, 3.4], [2.6, 3.4], [-2.6, -6.6], [2.6, -6.6]].forEach(([x, z]) => ajouterOmbre(x, z, 1.7, 1.7));
+  m.surArret = () => Son.arret();
 
-  const g = fusionner(ombres);
+  // Son ombre, posée sur l'estrade.
+  const ombre = new THREE.Mesh(
+    new THREE.PlaneGeometry(3.0, 2.6),
+    new THREE.MeshBasicMaterial({ map: R.texture(creerOmbre()), transparent: true, depthWrite: false })
+  );
+  ombre.rotation.x = -Math.PI / 2;
+  ombre.position.set(0, 0.146, -0.05);
+  scene.add(ombre);
+}
 
-  scene.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({
-    map: R.texture(creerOmbre()), transparent: true, depthWrite: false
-  })));
+function construireLumieres(){
+
+  const laiton = [], led = [];
+
+  // Le lustre en anneau, au-dessus de la machine : seize ampoules.
+  const yAnneau = SALLE.h - 0.42;
+
+  const anneau = new THREE.TorusGeometry(2.4, 0.035, 8, 72);
+  anneau.rotateX(Math.PI / 2);
+  anneau.translate(0, yAnneau, 0);
+  colorer(anneau, LAITON);
+  laiton.push(anneau);
+
+  for(let i = 0; i < 3; i++){
+    const a = i * TAU / 3 + 0.5;
+    laiton.push(cylindre(0.008, 0.008, 0.42, Math.sin(a) * 2.4, yAnneau + 0.21, Math.cos(a) * 2.4, LAITON, 6));
+  }
+
+  for(let i = 0; i < 16; i++){
+    const a = i * TAU / 16;
+    const x = Math.sin(a) * 2.4, z = Math.cos(a) * 2.4;
+    led.push(sphere(0.06, x, yAnneau - 0.07, z, '#fff1d6'));
+    poserHalo(x, yAnneau - 0.13, z, '#ffd9a0');
+  }
+
+  fusion(laiton, R.matLaiton);
+  fusion(led, R.matLed);
+
+  // Le faisceau qui tombe du lustre sur l'estrade.
+  const hCone = yAnneau - 0.1;
+
+  const cone = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.4, 2.4, hCone, 40, 1, true),
+    new THREE.MeshBasicMaterial({
+      map: R.texture(creerFaisceau()), color: 0xffd9a8, transparent: true,
+      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false
+    })
+  );
+  cone.position.y = 0.1 + hCone / 2;
+  cone.renderOrder = 2;
+  scene.add(cone);
+
+  // Il s'efface quand on s'assoit devant la machine : on regarderait les
+  // rouleaux à travers un voile de lumière.
+  R.faisceau = cone;
+
+  // Tous les halos, en un seul nuage de points.
+  if(HALOS.pos.length){
+
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(HALOS.pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(HALOS.col, 3));
+
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({
+      size: 0.75, map: R.halo, vertexColors: true, transparent: true, opacity: 0.55,
+      depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true
+    }));
+    pts.frustumCulled = false;
+    pts.renderOrder = 4;
+    scene.add(pts);
+  }
 }
 
 function construireAmbiance(){
 
-  // Des bulles dans toute la salle : discrètes, mais elles rendent l'air
-  // liquide.
-  const n = 220;
+  // De la poussière dorée dans le faisceau : à peine visible, mais l'air
+  // paraît épais de lumière.
+  const n = 90;
   const pos = new Float32Array(n * 3);
-  const v = new Float32Array(n);
+  const grains = [];
 
   for(let i = 0; i < n; i++){
-    pos[i * 3] = hasard(-SALLE.l + 0.6, SALLE.l - 0.6);
-    pos[i * 3 + 1] = hasard(0, SALLE.h);
-    pos[i * 3 + 2] = hasard(-SALLE.p + 0.6, SALLE.p - 0.6);
-    v[i] = hasard(0.1, 0.32);
+    const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * 2.2;
+    grains.push({ a, r, y: hasard(0.3, 4.4), v: hasard(0.02, 0.07), w: hasard(0.03, 0.1) });
+    pos[i * 3] = Math.sin(a) * r;
+    pos[i * 3 + 1] = grains[i].y;
+    pos[i * 3 + 2] = Math.cos(a) * r;
   }
 
-  animes.bulles = { pos, v, points: nuageBulles(pos, 0.07) };
+  const gp = new THREE.BufferGeometry();
+  gp.setAttribute('position', new THREE.BufferAttribute(pos, 3));
 
-  // Les reflets de l'eau sur le sol : deux couches qui glissent en sens
-  // contraires.
-  const caust = creerCaustiques(256);
+  const poussiere = new THREE.Points(gp, new THREE.PointsMaterial({
+    size: 0.035, map: R.halo, color: 0xffe2b0, transparent: true, opacity: 0.55,
+    depthWrite: false, blending: THREE.AdditiveBlending, sizeAttenuation: true
+  }));
+  poussiere.frustumCulled = false;
+  poussiere.renderOrder = 3;
+  scene.add(poussiere);
 
-  [[3.4, 5.6, 0.018, 0.012], [2.2, 3.8, -0.014, 0.02]].forEach(([rx, ry, vx, vy], k) => {
+  animes.poussiere = { pos, grains, points: poussiere };
 
-    const t = R.texture(caust, { repete: true, rx, ry });
-
-    const p = new THREE.Mesh(
-      new THREE.PlaneGeometry(SALLE.l * 2, SALLE.p * 2),
-      new THREE.MeshBasicMaterial({
-        map: t, color: 0x5fd6ff, transparent: true, opacity: 0.2 - k * 0.04,
-        blending: THREE.AdditiveBlending, depthWrite: false
-      })
-    );
-
-    p.rotation.x = -Math.PI / 2;
-    p.position.y = 0.016 + k * 0.002;
-    p.renderOrder = 1;
-    scene.add(p);
-
-    animes.caustiques.push({ t, vx, vy });
-  });
-
-  // Les pièces qui jaillissent d'une machine gagnante.
+  // Les pièces qui jaillissent de la machine quand elle gagne.
   const nP = 90;
   const posP = new Float32Array(nP * 3).fill(-10);
 
@@ -2570,7 +3595,7 @@ function construireAmbiance(){
   g.setAttribute('position', new THREE.BufferAttribute(posP, 3));
 
   const pts = new THREE.Points(g, new THREE.PointsMaterial({
-    size: 0.08, map: R.texture(creerPieceTex()), transparent: true, depthWrite: false,
+    size: 0.1, map: R.texture(creerPieceTex()), transparent: true, depthWrite: false,
     sizeAttenuation: true
   }));
   pts.frustumCulled = false;
@@ -2714,17 +3739,22 @@ async function tirer(machine){
     return;
   }
 
+  // Le tirage est engagé dès maintenant : la requête du compteur, plus bas,
+  // laisserait sinon passer un second appel (deux frappes de E) qui
+  // consommerait un second tour.
+  etat.enTirage = true;
+
   // Le compteur est chargé à l'ouverture ; s'il manque, on va le chercher.
   if(!etat.tours) await chargerEtat();
 
   if(etat.tours && etat.tours.restants <= 0){
+    etat.enTirage = false;
     Son.erreur();
     afficherMessage("Tu as joué tous tes tours d'aujourd'hui. Reviens demain !", 3400);
     machine.ecrire('À DEMAIN', 'plus de tours aujourd\'hui', '#9fb0c2');
     return;
   }
 
-  etat.enTirage = true;
   effacerGain();
 
   machine.ecrire('...', 'les rouleaux tournent', machine.def.couleur);
@@ -2758,6 +3788,7 @@ async function tirer(machine){
     // La salle a été quittée pendant le tirage : le gain est déjà en base.
     if(options.apresTirage) options.apresTirage(res);
     etat.enTirage = false;
+    poserMachine(machine, res);
     return;
   }
 
@@ -2772,6 +3803,14 @@ async function tirer(machine){
   // Attendre que le dernier soit immobile.
   while(machine.rouleaux.some(r => r.etat !== 'repos') && actif){
     await attendre(60);
+  }
+
+  // Quitter la salle pendant l'arrêt : arreter() a déjà transmis le résultat
+  // (voir etat.attente), le redonner ferait fêter deux fois le même niveau.
+  if(!actif){
+    etat.enTirage = false;
+    poserMachine(machine, res);
+    return;
   }
 
   await attendre(260);
@@ -2792,10 +3831,21 @@ async function tirer(machine){
   majHud();
 }
 
+// La salle a été quittée avec les rouleaux en route : ils se posent sur le
+// résultat reçu (la boucle les finira à la prochaine entrée) et l'écran de
+// la machine retrouve son message d'accueil, au lieu de « les rouleaux
+// tournent ».
+function poserMachine(machine, res){
+  machine.rouleaux.forEach((r, i) => {
+    if(r.etat === 'tourne') machine.arreter(i, res.symboles[i]);
+  });
+  machine.ecrire('TENTE TA CHANCE', 'tire le levier', machine.def.couleur);
+}
+
 // Le bruit des rouleaux : un tic-tic qui s'accélère et se calme avec eux.
 function ticsRouleaux(machine){
   const boucle = () => {
-    if(!machine.tourne || !actif) return;
+    if(!machine.tourne || !actif || document.hidden) return;
     Son.tic();
     setTimeout(boucle, 75);
   };
@@ -2822,7 +3872,9 @@ function annoncerResultat(machine, res){
     if(jackpot) Son.jackpot();
     else Son.gain(Math.min(4, Math.floor(xp / 5)));
 
-    jaillir(machine, jackpot ? 60 : Math.min(28, 8 + xp));
+    // La gerbe de pièces est un mouvement de trop pour qui a demandé d'en
+    // avoir moins.
+    if(!etat.reduit) jaillir(machine, jackpot ? 60 : Math.min(28, 8 + xp));
 
   } else {
     machine.ecrire('PAS CETTE FOIS', 'retente ta chance', '#9fb0c2');
@@ -2836,7 +3888,7 @@ function jaillir(machine, nombre){
   const P = animes.pieces;
   if(!P) return;
 
-  const origine = new THREE.Vector3(0, 0.5, 0.55);
+  const origine = new THREE.Vector3(0, 0.42, 0.5);
   machine.groupe.localToWorld(origine);
 
   const nx = machine.normale.x, nz = machine.normale.z;
@@ -2924,6 +3976,15 @@ function basculerSon(){
   Son.reprendre();
   Son.regler(!Son.estActif());
   majBoutonSon();
+
+  // Coupé, la musique ne doit pas continuer à se télécharger et à défiler
+  // sans qu'on l'entende.
+  if(Son.estActif()){
+    Musique.demarrer(options.musique).catch(() => {});
+    Musique.reprendre();
+  } else {
+    Musique.pause();
+  }
 }
 
 function basculerPleinEcran(){
@@ -3072,7 +4133,7 @@ function majInvite(){
 
   let texte = '';
 
-  if(etat.ecran){
+  if(etat.ecran || etat.intro){
     texte = '';
   } else if(focus.cible === 1){
 
@@ -3090,6 +4151,15 @@ function majInvite(){
       const nom = c.machine.def.nom;
       texte = etat.tactile ? '' : '<span class="wv-touche">E</span> Jouer sur ' + nom;
     }
+
+  } else if(!etat.tactile && document.pointerLockElement !== H.canvas){
+
+    // Le navigateur n'a pas donné la souris (le verrou se demande sur un
+    // clic) : une petite invite, seulement dans ce cas. Si le verrou est
+    // indisponible, on dit comment regarder autour de soi.
+    texte = etat.sansVerrou
+      ? '<small>Maintiens le clic et glisse pour regarder</small>'
+      : '<span class="wv-touche">Clic</span> <small>pour prendre les commandes</small>';
   }
 
   if(texte !== majInvite.dernier){
@@ -3118,7 +4188,7 @@ function majInvite(){
 
 
 /* ----------------------------------------------------------------------
-   Écrans : chargement, départ, pause, connexion, erreur
+   Écrans : chargement, pause, connexion, erreur
    ---------------------------------------------------------------------- */
 
 function montrerEcran(type, texte){
@@ -3139,33 +4209,22 @@ function montrerEcran(type, texte){
 
     html = '<div class="wv-panneau"><div class="wv-charge"><i></i><span>Chargement de la salle…</span></div></div>';
 
-  } else if(type === 'depart'){
+  } else if(type === 'pause'){
 
-    const parJour = etat.tours ? etat.tours.parJour : 10;
-
+    // Les commandes ne sont rappelées qu'ici, à la demande : la salle
+    // s'ouvre sans mode d'emploi.
     const aide = etat.tactile
       ? '<li class="wv-texte">Glisse le pouce à gauche pour avancer, à droite pour regarder.</li>' +
-        '<li class="wv-texte">Approche-toi d’une machine, touche <b>JOUER</b>, puis <b>TIRER</b>.</li>'
+        '<li class="wv-texte">Approche-toi de la machine, touche <b>JOUER</b>, puis <b>TIRER</b>.</li>'
       : '<li><span class="wv-touche">Z</span><span class="wv-touche">Q</span><span class="wv-touche">S</span><span class="wv-touche">D</span><span>ou les flèches : se déplacer</span></li>' +
         '<li><span class="wv-touche">Souris</span><span>regarder autour de soi</span></li>' +
         '<li><span class="wv-touche">E</span><span>ou clic : jouer, tirer le levier</span></li>' +
-        '<li><span class="wv-touche">Maj</span><span>courir &nbsp;·&nbsp;</span><span class="wv-touche">Échap</span><span>pause</span></li>';
-
-    html = '<div class="wv-panneau">' + enTete +
-      '<h2>Bienvenue dans la salle</h2>' +
-      '<p>Chaque jour, tu as ' + parJour + ' tours offerts. Une machine peut te rapporter de l’XP ; ' +
-      'un alignement de logos La Wave, beaucoup plus. Rien ne s’achète, tout se gagne en jouant.</p>' +
-      '<ul class="wv-aide">' + aide + '</ul>' +
-      '<div class="wv-actions">' +
-      '<button type="button" class="wv-cta" id="wvEntrer">' + (etat.tactile ? 'Toucher pour entrer' : 'Cliquer pour entrer') + '</button>' +
-      '<button type="button" class="wv-cta discret" id="wvSortir">Retour au site</button>' +
-      '</div></div>';
-
-  } else if(type === 'pause'){
+        '<li><span class="wv-touche">Maj</span><span>courir &nbsp;·&nbsp;</span><span class="wv-touche">M</span><span>son</span></li>';
 
     html = '<div class="wv-panneau">' + enTete +
       '<h2>Pause</h2>' +
       '<p>La salle t’attend. Tes tours et ton XP sont enregistrés à chaque tirage.</p>' +
+      '<ul class="wv-aide">' + aide + '</ul>' +
       '<div class="wv-actions">' +
       '<button type="button" class="wv-cta" id="wvEntrer">Reprendre</button>' +
       '<button type="button" class="wv-cta discret" id="wvSortir">Quitter la salle</button>' +
@@ -3192,6 +4251,12 @@ function montrerEcran(type, texte){
 
   H.ecran.innerHTML = html;
   H.ecran.hidden = false;
+
+  // Un pointeur verrouillé ne peut pas cliquer : les écrans à boutons le
+  // libèrent.
+  if((type === 'erreur' || type === 'pause' || type === 'connexion') && document.pointerLockElement){
+    document.exitPointerLock();
+  }
 
   const t = H.ecran.querySelector('#wvErreurTexte');
   if(t) t.textContent = texte || '';
@@ -3224,6 +4289,7 @@ async function reprendre(){
 
   Son.init();
   Son.reprendre();
+  Musique.reprendre();
 
   const etaitConnexion = etat.ecran === 'connexion';
 
@@ -3256,7 +4322,7 @@ function demanderVerrou(){
 
 function surChangementVerrou(){
 
-  if(!actif || etat.tactile) return;
+  if(!actif || etat.tactile || etat.intro) return;
 
   const verrouille = document.pointerLockElement === H.canvas;
 
@@ -3268,6 +4334,8 @@ function surChangementVerrou(){
 
   // Le verrou a sauté (Échap) : la salle se met en pause, sauf si un autre
   // écran est déjà là ou si on a quitté.
+  etat.verrouPerduA = performance.now();
+
   if(!etat.ecran && !etat.sansVerrou){
     touches.clear();
     montrerEcran('pause');
@@ -3279,6 +4347,11 @@ function surChangementVerrou(){
 // échecs de suite, en revanche, veulent dire que le verrou est
 // indisponible ici — on joue alors en faisant glisser la souris.
 function surErreurVerrou(){
+
+  // Un refus dans les deux secondes qui suivent la perte du verrou est celui
+  // de Chrome, temporaire : il ne compte pas.
+  if(performance.now() - (etat.verrouPerduA || -1e9) < 2000) return;
+
   etat.echecsVerrou = (etat.echecsVerrou || 0) + 1;
   if(etat.echecsVerrou >= 3) etat.sansVerrou = true;
 }
@@ -3302,11 +4375,25 @@ function surToucheBas(e){
 
   if(!actif || champActif() || modaleOuverte()) return;
 
-  // Un écran est affiché (départ, pause...) : ses boutons doivent rester
+  // Un écran est affiché (pause, connexion...) : ses boutons doivent rester
   // activables au clavier, avec Entrée ou Espace. Le jeu se tait.
   if(etat.ecran) return;
 
   const code = e.code;
+
+  // Entrée et Espace, sur un bouton de l'interface qui a le focus (Son,
+  // Plein écran, Quitter, Passer), activent ce bouton : le jeu ne les prend
+  // pas.
+  if((code === 'Enter' || code === 'Space') && e.target && e.target.closest && e.target.closest('button')) return;
+
+  // Pendant le travelling, une touche du jeu le passe.
+  if(etat.intro){
+    if(TOUCHES_JEU.has(code)){
+      e.preventDefault();
+      passerIntro();
+    }
+    return;
+  }
 
   if(TOUCHES_JEU.has(code)) e.preventDefault();
 
@@ -3316,7 +4403,9 @@ function surToucheBas(e){
 
   if(code === 'KeyE' || code === 'Enter' || code === 'Space'){
     actionPrincipale();
-  } else if(code === 'KeyM'){
+  } else if(e.key && e.key.toLowerCase() === 'm'){
+    // La lettre, pas la position : sur un clavier AZERTY, la touche M porte
+    // le code Semicolon, et KeyM est la virgule.
     basculerSon();
   } else if(code === 'KeyF'){
     basculerPleinEcran();
@@ -3334,7 +4423,7 @@ function surToucheHaut(e){
 
 function surSouris(e){
 
-  if(!actif || etat.ecran || focus.cible === 1) return;
+  if(!actif || etat.ecran || etat.intro || focus.cible === 1) return;
 
   if(document.pointerLockElement === H.canvas){
     regarder(-e.movementX * JOUEUR.souris, -e.movementY * JOUEUR.souris);
@@ -3351,6 +4440,18 @@ function surClic(e){
 
   if(!actif || etat.ecran || e.button !== 0) return;
 
+  // Si le navigateur a refusé la musique au démarrage, ce geste le lui fait
+  // accepter.
+  Son.reprendre();
+  Musique.reprendre();
+
+  // Ce clic passe le travelling ; c'est aussi le geste qu'il faut pour
+  // verrouiller le pointeur si le premier essai n'a pas abouti.
+  if(etat.intro){
+    passerIntro();
+    return;
+  }
+
   if(document.pointerLockElement === H.canvas){
     actionPrincipale();
     return;
@@ -3362,11 +4463,29 @@ function surClic(e){
   // glisser la souris permet déjà de regarder autour de soi.
   etat.glisse = true;
 
-  if(!etat.sansVerrou) demanderVerrou();
+  if(etat.sansVerrou){
+    // Le verrou est indisponible : on note où et quand le bouton est
+    // enfoncé, pour que le relâcher sans avoir glissé vaille un E.
+    etat.clic = { x: e.clientX, y: e.clientY, t: performance.now() };
+  } else {
+    demanderVerrou();
+  }
 }
 
-function surRelacheSouris(){
+function surRelacheSouris(e){
+
   etat.glisse = false;
+
+  const c = etat.clic;
+  etat.clic = null;
+
+  if(!c || !e || !actif || etat.ecran || etat.intro || !etat.sansVerrou) return;
+
+  // Sans verrou, un clic bref, sans glisser, fait ce que fait E : jouer,
+  // tirer le levier.
+  if(Math.hypot(e.clientX - c.x, e.clientY - c.y) < 6 && performance.now() - c.t < 450){
+    actionPrincipale();
+  }
 }
 
 // Tactile : le pouce gauche conduit (le joystick apparaît où il se pose),
@@ -3375,6 +4494,14 @@ function surDoigtBas(e){
 
   if(!actif || !etat.tactile || e.pointerType === 'mouse') return;
   if(etat.ecran || e.target.closest('button')) return;
+
+  Son.reprendre();
+  Musique.reprendre();
+
+  if(etat.intro){
+    passerIntro();
+    return;
+  }
 
   if(e.clientX < overlay.clientWidth * 0.45 && joy.id === null){
 
@@ -3474,11 +4601,13 @@ function surVisibilite(){
   if(document.hidden){
     cancelAnimationFrame(raf);
     raf = 0;
+    Musique.pause();
     Son.suspendre();
   } else if(!raf){
     dernier = 0;
     raf = requestAnimationFrame(boucle);
     Son.reprendre();
+    Musique.reprendre();
   }
 }
 
@@ -3532,7 +4661,7 @@ function boucle(t){
   majCamera(dt);
   majMonde(dt);
 
-  etat.cible = (focus.cible === 0 && !etat.ecran) ? viser() : null;
+  etat.cible = (focus.cible === 0 && !etat.ecran && !etat.intro) ? viser() : null;
   majInvite();
 
   renderer.render(scene, camera);
@@ -3542,7 +4671,7 @@ function boucle(t){
 
 function majJoueur(dt){
 
-  if(etat.ecran || focus.cible === 1 || focus.t > 0.001) {
+  if(etat.ecran || etat.intro || focus.cible === 1 || focus.t > 0.001) {
     joueur.vitesse = 0;
     return;
   }
@@ -3590,7 +4719,126 @@ function majJoueur(dt){
   }
 }
 
+/* ----------------------------------------------------------------------
+   Le travelling d'ouverture
+   ----------------------------------------------------------------------
+   La caméra part de derrière la machine, côté bar, en hauteur, en fait le
+   tour par la gauche en descendant, et se pose au point de départ, à hauteur
+   d'yeux, le regard droit devant. Un clic ou une touche le passe : il finit
+   alors en accéléré, sans saut de caméra.
+   ---------------------------------------------------------------------- */
+
+const DUREE_INTRO = 5.4;
+
+function positionIntro(u){
+
+  const e = entreeSortie(clamp(u, 0, 1));
+
+  // Sur un écran en hauteur, le champ est étroit : on part plus loin.
+  const portrait = camera.aspect < 1;
+
+  const th = lerp(-2.1, 0, e);
+  // Le rayon reste sous ~7 m tant que la caméra est sur le côté : au-delà,
+  // elle sortirait de la salle (les murs sont invisibles vus de dehors).
+  const r = lerp(portrait ? 6.4 : 6.0, DEPART.z, e);
+
+  const x = Math.sin(th) * r, z = Math.cos(th) * r;
+  const y = lerp(portrait ? 3.9 : 3.3, JOUEUR.yeux, e);
+
+  // On regarde la machine ; à l'arrivée, droit devant.
+  const tx = 0, ty = lerp(2.4, JOUEUR.yeux, e), tz = -6 * e * e;
+
+  const dx = tx - x, dz = tz - z;
+
+  return {
+    x, y, z,
+    yaw: Math.atan2(-dx, -dz),
+    pitch: Math.atan2(ty - y, Math.hypot(dx, dz)),
+    fov: lerp(portrait ? 66 : 52, portrait ? 78 : 70, e)
+  };
+}
+
+function lancerIntro(){
+
+  joueur.x = DEPART.x;
+  joueur.z = DEPART.z;
+  joueur.yaw = 0;
+  joueur.pitch = 0;
+
+  // Une seule fois par visite, et jamais pour qui préfère moins de
+  // mouvement.
+  if(introDejaVue || etat.reduit){
+    etat.intro = false;
+    return;
+  }
+
+  introDejaVue = true;
+  etat.intro = true;
+  etat.introT = 0;
+  etat.introRapide = false;
+
+  // Retirer puis remettre la classe relance les animations CSS.
+  overlay.classList.remove('wv-intro');
+  void overlay.offsetWidth;
+  overlay.classList.add('wv-intro');
+}
+
+function finirIntro(){
+
+  if(!etat.intro) return;
+
+  etat.intro = false;
+  etat.introRapide = false;
+  overlay.classList.remove('wv-intro');
+
+  // La caméra reprend la main droit devant, exactement où le travelling
+  // s'est posé : une souris qui aurait bougé pendant l'ouverture ne doit pas
+  // la faire pivoter d'un coup.
+  joueur.yaw = 0;
+  joueur.pitch = 0;
+
+  // Sur téléphone, rien n'a dit comment jouer : une seule ligne, une seule
+  // fois, qui s'efface d'elle-même.
+  if(etat.tactile && !aideTactileVue){
+    aideTactileVue = true;
+    afficherMessage('Pouce gauche : avancer · pouce droit : regarder. Approche-toi de la machine.', 5200);
+  }
+}
+
+// Un geste de la personne : le travelling se termine en accéléré, et c'est
+// l'occasion de demander le verrou du pointeur, qu'un geste seul permet.
+function passerIntro(){
+
+  if(!etat.intro) return;
+
+  etat.introRapide = true;
+
+  if(!etat.tactile && !etat.sansVerrou && document.pointerLockElement !== H.canvas){
+    demanderVerrou();
+  }
+}
+
 function majCamera(dt){
+
+  if(etat.intro){
+
+    etat.introT += dt * (etat.introRapide ? 7 : 1);
+
+    const u = etat.introT / DUREE_INTRO;
+
+    if(u >= 1){
+      finirIntro();
+    } else {
+      const v = positionIntro(u);
+      camera.position.set(v.x, v.y, v.z);
+      camera.rotation.set(v.pitch, v.yaw, 0);
+      if(Math.abs(camera.fov - v.fov) > 0.01){
+        camera.fov = v.fov;
+        camera.updateProjectionMatrix();
+      }
+      return;
+    }
+  }
 
   // Transition vers ou depuis la machine.
   const cap = focus.cible === 1 ? 1 : 0;
@@ -3636,49 +4884,31 @@ function majMonde(dt){
 
   machines.forEach(m => m.maj(dt, t, etat.reduit));
 
-  // Poissons de l'aquarium.
-  animes.poissons.forEach(p => {
-    p.s.position.x += p.dir * p.vitesse * dt;
-    p.s.position.y = p.y0 + Math.sin(t * 0.9 + p.phase) * 0.08;
-    if(p.s.position.x > 4.3){ p.dir = -1; p.s.scale.x = -Math.abs(p.s.scale.x); p.y0 = hasard(0.65, 2.2); }
-    else if(p.s.position.x < -4.3){ p.dir = 1; p.s.scale.x = Math.abs(p.s.scale.x); p.y0 = hasard(0.65, 2.2); }
-  });
-
-  // Bulles de la salle.
-  const B = animes.bulles;
-  if(B){
-    for(let i = 0; i < B.v.length; i++){
-      B.pos[i * 3 + 1] += B.v[i] * dt;
-      B.pos[i * 3] += Math.sin(t * 0.6 + i) * 0.03 * dt;
-      if(B.pos[i * 3 + 1] > SALLE.h){
-        B.pos[i * 3 + 1] = 0;
-        B.pos[i * 3] = hasard(-SALLE.l + 0.6, SALLE.l - 0.6);
-        B.pos[i * 3 + 2] = hasard(-SALLE.p + 0.6, SALLE.p - 0.6);
-      }
-    }
-    B.points.geometry.attributes.position.needsUpdate = true;
+  if(R.faisceau){
+    R.faisceau.material.opacity = 1 - clamp(focus.t * 1.5, 0, 1);
+    R.faisceau.visible = R.faisceau.material.opacity > 0.01;
   }
 
-  // Bulles des tubes.
-  const T = animes.bullesTubes;
-  if(T){
-    for(let i = 0; i < T.donnees.length; i++){
-      const d = T.donnees[i];
-      d.y += d.v * dt;
-      if(d.y > 4.3) d.y = 0.3;
-      T.pos[i * 3 + 1] = d.y;
-      T.pos[i * 3] = d.cx + Math.cos(d.a + d.y * 1.4) * d.r;
-      T.pos[i * 3 + 2] = d.cz + Math.sin(d.a + d.y * 1.4) * d.r;
-    }
-    T.points.geometry.attributes.position.needsUpdate = true;
-  }
-
-  // Reflets sur le sol.
-  const lent = etat.reduit ? 0.3 : 1;
-  animes.caustiques.forEach(c => {
-    c.t.offset.x += c.vx * dt * lent;
-    c.t.offset.y += c.vy * dt * lent;
+  // Les néons du bar respirent à peine ; jamais deux au même rythme.
+  animes.neons.forEach(n => {
+    n.mat.opacity = etat.reduit ? 0.95 : 0.88 + 0.12 * Math.sin(t * 1.6 + n.phase);
   });
+
+  // La poussière dorée du faisceau dérive lentement.
+  const D = animes.poussiere;
+  if(D){
+    const lent = etat.reduit ? 0.3 : 1;
+    for(let i = 0; i < D.grains.length; i++){
+      const g = D.grains[i];
+      g.a += g.w * dt * lent;
+      g.y += g.v * dt * lent;
+      if(g.y > 4.5) g.y = 0.3;
+      D.pos[i * 3] = Math.sin(g.a) * g.r;
+      D.pos[i * 3 + 1] = g.y;
+      D.pos[i * 3 + 2] = Math.cos(g.a) * g.r;
+    }
+    D.points.geometry.attributes.position.needsUpdate = true;
+  }
 
   // Pièces.
   const P = animes.pieces;
@@ -3709,6 +4939,26 @@ function majMonde(dt){
    Ouvrir et fermer la salle
    ---------------------------------------------------------------------- */
 
+// Ce qui traîne de la visite précédente : un pouce resté sur le joystick
+// (le relâcher n'a jamais été vu, les écouteurs étaient retirés), un gain
+// à moitié affiché, le panneau des combinaisons.
+function reinitialiserSession(){
+
+  touches.clear();
+
+  joy.id = null;
+  joy.x = 0;
+  joy.y = 0;
+  regard.id = null;
+  etat.glisse = false;
+  etat.clic = null;
+
+  if(H.joy) H.joy.hidden = true;
+  if(H.gains) H.gains.hidden = true;
+  if(H.message) H.message.hidden = true;
+  if(H.gain) effacerGain();
+}
+
 async function demarrer(opts){
 
   options = opts || {};
@@ -3727,7 +4977,25 @@ async function demarrer(opts){
   document.documentElement.style.overflow = 'hidden';
   document.body.classList.add('wv-en-jeu');
 
+  reinitialiserSession();
+
   actif = true;
+
+  // Le clic qui a ouvert la salle est le geste dont le navigateur a besoin
+  // pour le son et pour verrouiller le pointeur : on s'en sert tout de
+  // suite, avant le chargement, qui peut durer plus que ce que le navigateur
+  // veut bien attendre. Si le verrou est refusé, un clic dans la salle le
+  // redemandera.
+  etat.sansVerrou = false;
+  etat.echecsVerrou = 0;
+
+  Son.init();
+  Son.reprendre();
+  // Sans pistes déposées, ou si le navigateur refuse la lecture, la salle
+  // reste simplement silencieuse.
+  Musique.demarrer(options.musique).catch(() => {});
+
+  if(!etat.tactile) demanderVerrou();
 
   montrerEcran('chargement');
 
@@ -3742,6 +5010,9 @@ async function demarrer(opts){
     if(!pret) await construireMonde();
 
   }catch(e){
+    // Rien à écouter sur un écran d'erreur.
+    Musique.arreter();
+    Son.suspendre();
     if(actif) montrerEcran('erreur', e.message);
     return;
   }
@@ -3752,9 +5023,9 @@ async function demarrer(opts){
   brancherEvenements();
   redimensionner();
 
-  // Toujours au point de départ : devant la porte, face à l'aquarium.
-  joueur.x = 0;
-  joueur.z = 10;
+  // Toujours au point de départ : devant la porte, face à la machine.
+  joueur.x = DEPART.x;
+  joueur.z = DEPART.z;
   joueur.yaw = 0;
   joueur.pitch = 0;
   focus.cible = 0;
@@ -3764,15 +5035,15 @@ async function demarrer(opts){
   etat.enTirage = false;
   majInvite.dernier = null;
 
+  // Plus d'écran d'accueil : on entre directement, par un travelling. Le
+  // compteur de tours se charge pendant qu'il tourne.
+  montrerEcran(null);
+  lancerIntro();
+
   dernier = 0;
   if(!raf) raf = requestAnimationFrame(boucle);
 
-  await chargerEtat();
-
-  if(!actif) return;
-
-  majHud();
-  montrerEcran('depart');
+  chargerEtat();
 }
 
 function quitter(){
@@ -3798,14 +5069,17 @@ function arreter(){
   if(document.pointerLockElement) document.exitPointerLock();
   if(document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
 
-  touches.clear();
-  joy.id = null;
-  regard.id = null;
-  etat.glisse = false;
+  reinitialiserSession();
   etat.enTirage = false;
 
   debrancherEvenements();
+  Musique.arreter();
   Son.suspendre();
+
+  // Quitter en plein travelling ne doit pas laisser l'interface masquée.
+  etat.intro = false;
+  etat.introRapide = false;
+  overlay.classList.remove('wv-intro');
 
   overlay.hidden = true;
   document.documentElement.style.overflow = '';
@@ -3828,6 +5102,7 @@ window.Waveurs = {
   _essai: {
     etat: () => ({ joueur, focus, etat, actif, pret, ratioActuel }),
     machines: () => machines,
+    musique: () => Musique.etat(),
     placer(x, z, yaw, pitch){
       joueur.x = x; joueur.z = z;
       joueur.yaw = yaw || 0;

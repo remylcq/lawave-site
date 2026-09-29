@@ -253,12 +253,6 @@
     .nav-inner{padding:6px 12px 6px 18px;}
     .nav-logo img{height:54px;}
   }
-  /* Les sept entrées communes à tous les visiteurs, tout juste, à 761 px. */
-  @media (min-width:761px) and (max-width:860px){
-    .nav-links button.navlink{padding:8px 7px;}
-    .nav-inner{padding:6px 10px 6px 14px;}
-  }
-
   @media (max-width:760px){
     /* Le backdrop-filter de l'en-tête crée un bloc conteneur pour les
        descendants en position:fixed : ce menu se positionne donc par
@@ -288,27 +282,6 @@
     .nav-inner{padding:8px 16px;}
     .nav-logo img{height:56px;}
     main{padding:0 16px;}
-  }
-
-  /* Huit entrées (photographes et équipe) ne tiennent plus sur une ligne
-     sous 960 px, même resserrées : le menu déroulant prend le relais plus
-     tôt, mais pour eux seuls. La classe est posée par
-     majAccesAccreditations, en même temps que le lien apparaît. */
-  @media (min-width:761px) and (max-width:960px){
-    body.nav-large .nav-links{
-      position:fixed; top:100%; left:0; right:0;
-      height:100vh; height:calc(100dvh - 100%);
-      background:var(--bg); flex-direction:column; align-items:stretch;
-      padding:22px 18px; gap:8px; display:none;
-      border-top:1px solid var(--line);
-      overflow-y:auto;
-    }
-    body.nav-large .nav-links.open{display:flex;}
-    body.nav-large .nav-links button.navlink{
-      width:100%; text-align:left; padding:14px 16px; font-size:16px;
-      border-radius:var(--radius-sm);
-    }
-    body.nav-large .burger{display:flex; align-items:center; justify-content:center; width:44px; height:44px;}
   }
 
   /* ---------- LAYOUT ---------- */
@@ -1229,20 +1202,23 @@
   }
   .carte-plan{position:relative;}
   /* Trois cartes, un onglet chacune : même dessin que les onglets de
-     l'espace équipe, le compteur en retrait. */
-  .carte-pays{
+     l'espace équipe, le compteur en retrait. La page Communauté (onglets
+     Communauté / Waveurs) reprend ce dessin tel quel. */
+  .carte-pays, .onglets-communaute{
     display:inline-flex; gap:6px; flex-wrap:wrap; margin:0 0 24px;
     padding:6px; background:rgba(255,255,255,0.05); border-radius:var(--radius);
   }
   .carte-pays:empty{display:none;}
-  .carte-pays button{
+  .carte-pays button, .onglets-communaute button{
     display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
     padding:9px 16px; font-size:13px; font-weight:600;
     color:var(--muted); background:transparent; border:none;
     border-radius:var(--radius-pill); transition:color .15s, background .15s;
   }
-  .carte-pays button:hover{color:var(--ink);}
-  .carte-pays button[aria-selected="true"]{color:var(--ink); background:rgba(255,255,255,0.12);}
+  .carte-pays button:hover, .onglets-communaute button:hover{color:var(--ink);}
+  .carte-pays button[aria-selected="true"], .onglets-communaute button[aria-selected="true"]{
+    color:var(--ink); background:rgba(255,255,255,0.12);
+  }
   .carte-pays-compte{
     font-size:11px; font-weight:500; letter-spacing:.04em;
     color:var(--muted); font-variant-numeric:tabular-nums;
@@ -1578,6 +1554,85 @@
     font-size:12px; font-weight:600; padding:7px 12px; border:1px solid var(--blue); color:var(--blue); background:transparent; border-radius:var(--radius-pill);
   }
   .challenge-item button:hover{background:var(--blue); color:#fff;}
+
+  /* ---------- DÉFIS DU JOUR : BOUTON FLOTTANT ----------
+     Les défis ne sont plus un volet de la page Communauté : un bouton rond
+     au coin de l'écran les ouvre d'où l'on est. z-index 90 : sous l'en-tête
+     (100), la salle des waveurs (150), les fenêtres (200) et les
+     notifications (400). Il ne doit jamais recouvrir ce que la personne
+     est en train de faire. */
+  .defis-flottant{position:fixed; right:20px; bottom:20px; z-index:90;}
+  /* Une classe qui pose display l'emporte sur [hidden] : on le redit. */
+  .defis-flottant[hidden], .defis-panneau[hidden]{display:none;}
+  .defis-bouton{
+    position:relative; width:48px; height:48px; padding:0; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(8,10,14,0.78); border:1px solid rgba(255,255,255,0.16);
+    color:var(--ink-soft);
+    backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+    box-shadow:var(--ombre-2), var(--reflet-int);
+    transition:color .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
+  }
+  .defis-bouton:hover, .defis-bouton[aria-expanded="true"]{
+    color:var(--ink); border-color:rgba(255,255,255,0.32); background:rgba(20,26,34,0.86);
+  }
+  .defis-icone{width:20px; height:20px;}
+  /* L'anneau est la jauge du jour : il se remplit quand le défi est fait.
+     pathLength=100 ramène le tour complet à 100 unités, donc le
+     décalage se règle directement en pourcentage. */
+  .defis-anneau{
+    position:absolute; inset:0; width:100%; height:100%;
+    transform:rotate(-90deg); pointer-events:none;
+  }
+  .defis-anneau circle{fill:none; stroke-width:2.5;}
+  .defis-anneau .fond{stroke:rgba(255,255,255,0.10);}
+  .defis-anneau .jauge{
+    stroke:var(--blue-bright); stroke-dasharray:100; stroke-dashoffset:100;
+    transition:stroke-dashoffset .6s cubic-bezier(.2,.8,.3,1), stroke .3s;
+  }
+  .defis-bouton.defis-tous-faits .defis-anneau .jauge{stroke:#8fe3ab;}
+  .defis-bouton .new-dot{
+    position:absolute; top:-4px; right:-4px;
+    box-shadow:0 0 0 2px rgba(8,10,14,0.9);
+  }
+  .defis-bouton-compteur{
+    position:absolute; bottom:-6px; left:50%; transform:translateX(-50%);
+    padding:1px 6px; border-radius:var(--radius-pill);
+    background:rgba(8,10,14,0.92); border:1px solid var(--line-strong);
+    font-size:10px; font-weight:600; line-height:1.4; letter-spacing:.04em;
+    color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap;
+    pointer-events:none;
+  }
+  /* Le panneau s'ouvre au-dessus du bouton, aligné à droite. */
+  .defis-panneau{
+    position:absolute; right:0; bottom:calc(100% + 12px);
+    width:min(340px, calc(100vw - 40px));
+    max-height:60vh; max-height:min(420px, 60vh); overflow-y:auto;
+    padding:16px 16px 14px; border-radius:var(--radius);
+    background:rgba(8,10,14,0.92); border:1px solid rgba(255,255,255,0.16);
+    backdrop-filter:blur(var(--glass-blur)); -webkit-backdrop-filter:blur(var(--glass-blur));
+    box-shadow:var(--ombre-3), var(--reflet-int);
+    animation:defisEntre .22s var(--ease);
+  }
+  @keyframes defisEntre{
+    from{opacity:0; transform:translateY(8px) scale(.98);}
+    to{opacity:1; transform:none;}
+  }
+  .defis-panneau-tete{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  /* Le panneau défile lui-même : le plafond propre à la liste ne sert plus. */
+  .defis-panneau .challenge-list{max-height:none; overflow:visible; margin:0;}
+  /* À 520 px la règle générale masque le libellé pour gagner de la place ;
+     le panneau, lui, a la largeur de l'écran. */
+  .defis-panneau .defis-compteur{display:inline;}
+  /* Sur téléphone : bouton plus proche du bord, et le panneau devient une
+     feuille qui prend la largeur de l'écran moins les deux marges. Le
+     bouton (44 px, à 16 px du bas) reste sous la pile des notifications,
+     posée à 74 px du bas. */
+  @media (max-width:760px){
+    .defis-flottant{right:16px; bottom:16px;}
+    .defis-bouton{width:44px; height:44px;}
+    .defis-panneau{width:calc(100vw - 32px);}
+  }
 
   /* ---------- FORUM ---------- */
   .forum-new{display:flex; flex-direction:column; gap:12px; margin-bottom:24px;}
@@ -2017,6 +2072,7 @@
 
   /* ---------- FOOTER ---------- */
   footer{border-top:1px solid var(--line); padding:36px 0; margin-top:40px;}
+  body.avec-defis footer{padding-bottom:84px;}
   .footer-inner{
     max-width:1180px; margin:0 auto; padding:0 24px;
     display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;
@@ -2050,7 +2106,6 @@
       <button class="navlink" data-page="content">Contenu</button>
       <button class="navlink" data-page="carte">Carte</button>
       <button class="navlink" data-page="community">Communauté</button>
-      <button class="navlink" data-page="waveurs">Waveurs</button>
     </nav>
     <div class="account-zone">
       <button class="account-icon" id="accountIconBtn" onclick="toggleAccountMenu()" aria-label="Compte">
@@ -2444,68 +2499,6 @@
     </section>
   </section>
 
-  <!-- L'espace des waveurs : une salle de machines à sous en 3D, dans le
-       navigateur. Cette page n'est que la porte d'entrée. La salle elle-même
-       est dans waveurs.js, chargé seulement quand on clique sur « Entrer »
-       — le reste du site n'en paie pas le poids. -->
-  <section id="page-waveurs" class="page">
-    <section>
-      <div class="section-head">
-        <div>
-          <span class="eyebrow">La salle de la communauté</span>
-          <h2>L'espace des waveurs</h2>
-          <p class="desc">
-            Une salle de machines à sous aux couleurs de La Wave, à parcourir en
-            vue subjective. Chaque jour, des tours offerts : ils rapportent de
-            l'XP, et bientôt des cartes à collectionner.
-          </p>
-        </div>
-      </div>
-
-      <div class="wv-accueil">
-
-        <div class="wv-affiche" aria-hidden="true">
-          <svg class="wv-affiche-vagues" viewBox="0 0 1200 400" preserveAspectRatio="none">
-            <path class="v1" d="M0 250 Q75 210 150 250 T300 250 T450 250 T600 250 T750 250 T900 250 T1050 250 T1200 250 V400 H0Z"/>
-            <path class="v2" d="M0 290 Q75 250 150 290 T300 290 T450 290 T600 290 T750 290 T900 290 T1050 290 T1200 290 V400 H0Z"/>
-            <path class="v3" d="M0 335 Q75 295 150 335 T300 335 T450 335 T600 335 T750 335 T900 335 T1050 335 T1200 335 V400 H0Z"/>
-          </svg>
-          <div class="wv-affiche-centre">
-            <img id="waveursLogo" alt="">
-            <span class="wv-affiche-titre">L'ESPACE DES WAVEURS</span>
-            <span class="wv-affiche-sous">12 machines · 10 tours par jour · jamais d'argent</span>
-          </div>
-        </div>
-
-        <div class="wv-accueil-corps">
-
-          <div class="wv-carte-accueil" id="waveursEtat"></div>
-
-          <div class="wv-actions-accueil">
-            <button type="button" class="btn btn-primary" id="waveursEntrer" onclick="entrerDansLaSalle()">
-              Entrer dans la salle
-            </button>
-          </div>
-          <div class="form-msg" id="waveursMsg"></div>
-
-          <ul class="wv-regles">
-            <li><b>Des tours offerts chaque jour.</b> Ils se remettent à zéro à minuit, heure de Paris.</li>
-            <li><b>De l'XP à gagner, rien à payer.</b> Aucun tour ne s'achète, et l'argent n'intervient jamais.</li>
-            <li><b>Trois logos La Wave alignés :</b> le jackpot.</li>
-            <li><b>Des cartes à collectionner</b> arriveront plus tard : les machines en distribueront.</li>
-          </ul>
-
-          <p class="wv-commandes">
-            Au clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> pour marcher, la souris pour regarder,
-            <kbd>E</kbd> pour jouer. Sur téléphone : un pouce pour avancer, l'autre pour regarder.
-            La salle a du son.
-          </p>
-
-        </div>
-      </div>
-    </section>
-  </section>
-
   <section id="page-content" class="page">
     <section>
       <div class="section-head">
@@ -2564,78 +2557,151 @@
   <!-- ================= COMMUNITY (DEMO) ================= -->
   <section id="page-community" class="page">
     <section>
-      <div class="section-head">
-        <div>
-          <span class="eyebrow mono">Espace communauté — démo</span>
-          <h2>Communauté La Wave</h2>
-          <p class="desc">Discute, partage, gagne de l'XP en participant à la vie de La Wave.</p>
-        </div>
+
+      <!-- Deux onglets : la communauté, et l'espace des waveurs (la salle
+           de machines à sous, qui avait sa page dans le menu). La barre est
+           placée avant les blocs connecté / déconnecté et le panneau
+           Waveurs en est indépendant : les deux onglets se visitent sans
+           compte. Gérés par afficherOngletCommunaute (navigation). -->
+      <div class="onglets-communaute" id="ongletsCommunaute" role="tablist"
+           aria-label="Sections de la communauté"
+           onkeydown="clavierOngletsCommunaute(event)">
+        <button type="button" role="tab" id="ongletCommunaute-communaute"
+                aria-selected="true" aria-controls="panneauCommunaute-communaute"
+                tabindex="0" onclick="choisirOngletCommunaute('communaute')">Communauté</button>
+        <button type="button" role="tab" id="ongletCommunaute-waveurs"
+                aria-selected="false" aria-controls="panneauCommunaute-waveurs"
+                tabindex="-1" onclick="choisirOngletCommunaute('waveurs')">Waveurs</button>
       </div>
 
-      <!-- Annuaire visible de tous : c'est ce qui permet de repérer
-           les artistes et beatmakers sans avoir de compte. -->
-      <span class="eyebrow mono">Annuaire</span>
-      <h3 style="font-size:18px; margin:6px 0 4px;">Les membres</h3>
-      <p class="desc" style="margin-bottom:18px;">
-        Repère les artistes, beatmakers et DJ de la communauté.
-        Clique sur un membre pour voir son profil et ses réseaux.
-      </p>
+      <div role="tabpanel" id="panneauCommunaute-communaute"
+           aria-labelledby="ongletCommunaute-communaute">
 
-      <div class="role-filters" id="roleFilters"></div>
-      <div class="member-grid" id="memberGrid"></div>
-
-      <div class="hairline" style="margin:40px 0;"></div>
-
-      <div id="communityLoggedOut" class="empty-state" style="padding:40px 24px;">
-        Connecte-toi ou crée un compte pour poster, répondre et suivre ton XP.
-        <div style="margin-top:16px;">
-          <button class="btn btn-primary" onclick="openAuthModal('signup')">Créer un compte</button>
-        </div>
-      </div>
-
-      <div id="communityLoggedIn" style="display:none;">
-        <div class="xp-card">
-          <div class="xp-top">
-            <span class="mono" id="xpLevelLabel">Niveau 1</span>
-            <span class="mono" id="xpNumberLabel">0 XP</span>
-          </div>
-          <div class="xp-bar-track"><div class="xp-bar-fill" id="xpBarFill"></div></div>
-        </div>
-
-        <details class="challenge-dropdown" id="onboardingDetails">
-          <summary><span class="eyebrow mono" style="margin:0;">Pour bien démarrer</span><span class="new-dot" id="onboardingNewDot">!</span><span class="chevron">⌄</span></summary>
-          <div class="challenge-list" id="onboardingList"></div>
-        </details>
-
-        <details class="challenge-dropdown" id="dailyDetails" open>
-          <summary>
-            <span class="eyebrow mono" style="margin:0;">Défis du jour</span>
-            <span class="new-dot" id="dailyNewDot">!</span>
-            <span class="defis-progression" id="defisProgression"></span>
-            <span class="chevron">⌄</span>
-          </summary>
-          <div class="challenge-list" id="challengeList"></div>
-        </details>
-
-        <div class="hairline" style="margin:36px 0;"></div>
-
-        <div class="forum-new">
-          <textarea id="forumNewPost" placeholder="Quoi de neuf ? Partage un son, une question, une actu..." rows="3"></textarea>
-          <div id="forumImagePreview" class="forum-image-preview"></div>
-          <div class="forum-new-actions">
-            <button type="button" class="forum-attach-btn" onclick="document.getElementById('forumImageInput').click()">📷 Ajouter une image</button>
-            <input type="file" id="forumImageInput" accept="image/*" style="display:none;" onchange="attachForumImage(this)">
-            <button class="btn btn-primary" onclick="submitForumPost()">Publier</button>
+        <div class="section-head">
+          <div>
+            <span class="eyebrow mono">Espace communauté — démo</span>
+            <h2>Communauté La Wave</h2>
+            <p class="desc">Discute, partage, gagne de l'XP en participant à la vie de La Wave.</p>
           </div>
         </div>
 
-        <div class="forum-sort">
-          <button class="sort-btn active" id="sortNewBtn" onclick="setForumSort('new')">Nouveaux</button>
-          <button class="sort-btn" id="sortTopBtn" onclick="setForumSort('top')">Tendances</button>
+        <!-- Annuaire visible de tous : c'est ce qui permet de repérer
+             les artistes et beatmakers sans avoir de compte. -->
+        <span class="eyebrow mono">Annuaire</span>
+        <h3 style="font-size:18px; margin:6px 0 4px;">Les membres</h3>
+        <p class="desc" style="margin-bottom:18px;">
+          Repère les artistes, beatmakers et DJ de la communauté.
+          Clique sur un membre pour voir son profil et ses réseaux.
+        </p>
+
+        <div class="role-filters" id="roleFilters"></div>
+        <div class="member-grid" id="memberGrid"></div>
+
+        <div class="hairline" style="margin:40px 0;"></div>
+
+        <div id="communityLoggedOut" class="empty-state" style="padding:40px 24px;">
+          Connecte-toi ou crée un compte pour poster, répondre et suivre ton XP.
+          <div style="margin-top:16px;">
+            <button class="btn btn-primary" onclick="openAuthModal('signup')">Créer un compte</button>
+          </div>
         </div>
 
-        <div class="forum-list" id="forumList"></div>
+        <div id="communityLoggedIn" style="display:none;">
+          <!-- La carte d'XP et les défis du jour ne sont plus ici : l'XP se lit
+               dans le profil, et les défis vivent dans le bouton flottant
+               #defisFlottant, présent sur toutes les pages. -->
+          <details class="challenge-dropdown" id="onboardingDetails">
+            <summary><span class="eyebrow mono" style="margin:0;">Pour bien démarrer</span><span class="new-dot" id="onboardingNewDot">!</span><span class="chevron">⌄</span></summary>
+            <div class="challenge-list" id="onboardingList"></div>
+          </details>
+
+          <div class="hairline" style="margin:36px 0;"></div>
+
+          <div class="forum-new">
+            <textarea id="forumNewPost" placeholder="Quoi de neuf ? Partage un son, une question, une actu..." rows="3"></textarea>
+            <div id="forumImagePreview" class="forum-image-preview"></div>
+            <div class="forum-new-actions">
+              <button type="button" class="forum-attach-btn" onclick="document.getElementById('forumImageInput').click()">📷 Ajouter une image</button>
+              <input type="file" id="forumImageInput" accept="image/*" style="display:none;" onchange="attachForumImage(this)">
+              <button class="btn btn-primary" onclick="submitForumPost()">Publier</button>
+            </div>
+          </div>
+
+          <div class="forum-sort">
+            <button class="sort-btn active" id="sortNewBtn" onclick="setForumSort('new')">Nouveaux</button>
+            <button class="sort-btn" id="sortTopBtn" onclick="setForumSort('top')">Tendances</button>
+          </div>
+
+          <div class="forum-list" id="forumList"></div>
+        </div>
+
       </div>
+
+      <!-- L'espace des waveurs : une salle de casino en 3D, dans le
+           navigateur. Cet onglet n'est que la porte d'entrée. La salle
+           elle-même est dans waveurs.js, chargé seulement quand on clique
+           sur « Entrer » — le reste du site n'en paie pas le poids.
+           Hors de #communityLoggedIn : la carte d'état gère elle-même le
+           cas du visiteur sans compte (voir renderWaveurs). -->
+      <div role="tabpanel" id="panneauCommunaute-waveurs"
+           aria-labelledby="ongletCommunaute-waveurs" hidden>
+
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">La salle de la communauté</span>
+            <h2>L'espace des waveurs</h2>
+            <p class="desc">
+              Une salle de casino aux couleurs de La Wave, avec sa grande
+              machine à sous à parcourir en vue subjective. Chaque jour, des
+              tours offerts : ils rapportent de l'XP, et bientôt des cartes à
+              collectionner.
+            </p>
+          </div>
+        </div>
+
+        <div class="wv-accueil">
+
+          <div class="wv-affiche" aria-hidden="true">
+            <svg class="wv-affiche-vagues" viewBox="0 0 1200 400" preserveAspectRatio="none">
+              <path class="v1" d="M0 250 Q75 210 150 250 T300 250 T450 250 T600 250 T750 250 T900 250 T1050 250 T1200 250 V400 H0Z"/>
+              <path class="v2" d="M0 290 Q75 250 150 290 T300 290 T450 290 T600 290 T750 290 T900 290 T1050 290 T1200 290 V400 H0Z"/>
+              <path class="v3" d="M0 335 Q75 295 150 335 T300 335 T450 335 T600 335 T750 335 T900 335 T1050 335 T1200 335 V400 H0Z"/>
+            </svg>
+            <div class="wv-affiche-centre">
+              <img id="waveursLogo" alt="">
+              <span class="wv-affiche-titre">L'ESPACE DES WAVEURS</span>
+              <span class="wv-affiche-sous">Une grande machine · 10 tours par jour · jamais d'argent</span>
+            </div>
+          </div>
+
+          <div class="wv-accueil-corps">
+
+            <div class="wv-carte-accueil" id="waveursEtat"></div>
+
+            <div class="wv-actions-accueil">
+              <button type="button" class="btn btn-primary" id="waveursEntrer" onclick="entrerDansLaSalle()">
+                Entrer dans la salle
+              </button>
+            </div>
+            <div class="form-msg" id="waveursMsg"></div>
+
+            <ul class="wv-regles">
+              <li><b>Des tours offerts chaque jour.</b> Ils se remettent à zéro à minuit, heure de Paris.</li>
+              <li><b>De l'XP à gagner, rien à payer.</b> Aucun tour ne s'achète, et l'argent n'intervient jamais.</li>
+              <li><b>Trois logos La Wave alignés :</b> le jackpot.</li>
+              <li><b>Des cartes à collectionner</b> arriveront plus tard : la machine en distribuera.</li>
+            </ul>
+
+            <p class="wv-commandes">
+              Au clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> pour marcher, la souris pour regarder,
+              <kbd>E</kbd> pour jouer. Sur téléphone : un pouce pour avancer, l'autre pour regarder.
+              La salle a du son.
+            </p>
+
+          </div>
+        </div>
+      </div>
+
     </section>
   </section>
 
@@ -3554,6 +3620,35 @@
   </div>
 </footer>
 
+<!-- Défis du jour : un bouton rond au coin de l'écran, sur toutes les pages,
+     pour un membre connecté seulement (majDefisFlottant le montre et le cache).
+     Le panneau reprend #challengeList et #defisProgression : renderChallenges
+     les remplit comme avant. Ce bloc est un enfant direct du body : dans
+     <main>, son z-index resterait prisonnier du contexte d'empilement de la
+     page. -->
+<div class="defis-flottant" id="defisFlottant" hidden>
+  <button type="button" class="defis-bouton" id="defisBouton"
+          aria-label="Défis du jour" aria-expanded="false" aria-controls="defisPanneau">
+    <svg class="defis-anneau" viewBox="0 0 48 48" aria-hidden="true">
+      <circle class="fond" cx="24" cy="24" r="22"/>
+      <circle class="jauge" id="defisAnneau" cx="24" cy="24" r="22" pathLength="100"/>
+    </svg>
+    <svg class="defis-icone" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M6 21V4"/><path d="M6 5h11l-2.5 4 2.5 4H6"/>
+    </svg>
+    <span class="new-dot" id="dailyNewDot" aria-hidden="true">!</span>
+    <span class="defis-bouton-compteur" id="defisBoutonCompteur" aria-hidden="true">0/1</span>
+  </button>
+  <div class="defis-panneau" id="defisPanneau" role="region" aria-label="Défis du jour" hidden>
+    <div class="defis-panneau-tete">
+      <span class="eyebrow mono" style="margin:0;">Défis du jour</span>
+      <span class="defis-progression" id="defisProgression"></span>
+    </div>
+    <div class="challenge-list" id="challengeList"></div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
@@ -4125,8 +4220,91 @@ const BD = {
   // l'adresse qu'on est justement en train de lire.
   let lectureAdresseEnCours = false;
 
+  // L'espace des waveurs n'a plus de page à lui : c'est un onglet de la
+  // page Communauté. L'adresse #waveurs reste valable, et ouvre cet onglet.
+  const ONGLETS_COMMUNAUTE = ['communaute', 'waveurs'];
+  let ongletCommunaute = 'communaute';
+
+  // Vrai quand l'onglet Waveurs est réellement à l'écran : sert aux
+  // requêtes qui reviennent après un changement de page ou d'onglet.
+  function ongletWaveursVisible(){
+    const page = document.getElementById('page-community');
+    return !!page && page.classList.contains('active') && ongletCommunaute === 'waveurs';
+  }
+
+  // Bascule l'affichage vers l'onglet demandé, sans toucher à l'adresse ni
+  // au reste de la page. Passer sur Communauté ferme la salle si elle était
+  // ouverte : elle recouvre tout l'écran ; passer sur Waveurs n'y touche pas.
+  function afficherOngletCommunaute(nom){
+    if(!ONGLETS_COMMUNAUTE.includes(nom)) nom = 'communaute';
+    ongletCommunaute = nom;
+
+    ONGLETS_COMMUNAUTE.forEach(cle => {
+      const actif = cle === nom;
+      const onglet = document.getElementById('ongletCommunaute-' + cle);
+      const panneau = document.getElementById('panneauCommunaute-' + cle);
+      if(onglet){
+        onglet.setAttribute('aria-selected', actif ? 'true' : 'false');
+        // Un seul onglet dans l'ordre de tabulation ; les flèches font le reste.
+        onglet.tabIndex = actif ? 0 : -1;
+      }
+      if(panneau) panneau.hidden = !actif;
+    });
+
+    if(nom === 'waveurs') renderWaveurs(); else arreterWaveurs();
+  }
+
+  // Clic ou flèche sur un onglet. L'adresse suit, comme pour une page :
+  // le bouton Précédent revient à l'onglet d'avant.
+  function choisirOngletCommunaute(nom, depuisClavier){
+    if(!ONGLETS_COMMUNAUTE.includes(nom) || nom === ongletCommunaute) return;
+
+    afficherOngletCommunaute(nom);
+    ecrireAdresse(nom === 'waveurs' ? 'waveurs' : 'community');
+
+    // Les onglets ne sont pas redessinés, mais le focus doit suivre la
+    // flèche, sinon il resterait sur l'onglet qu'on vient de quitter.
+    if(depuisClavier){
+      const onglet = document.getElementById('ongletCommunaute-' + nom);
+      if(onglet) onglet.focus();
+    }
+  }
+
+  // Flèches gauche et droite entre les onglets, comme le veut le rôle
+  // tablist.
+  function clavierOngletsCommunaute(evenement){
+
+    const i = ONGLETS_COMMUNAUTE.indexOf(ongletCommunaute);
+    const n = ONGLETS_COMMUNAUTE.length;
+
+    let suivant = null;
+    if(evenement.key === 'ArrowRight') suivant = ONGLETS_COMMUNAUTE[(i + 1) % n];
+    if(evenement.key === 'ArrowLeft') suivant = ONGLETS_COMMUNAUTE[(i - 1 + n) % n];
+    if(evenement.key === 'Home') suivant = ONGLETS_COMMUNAUTE[0];
+    if(evenement.key === 'End') suivant = ONGLETS_COMMUNAUTE[n - 1];
+
+    if(!suivant) return;
+
+    evenement.preventDefault();
+    choisirOngletCommunaute(suivant, true);
+  }
+
   function goTo(pageId, options){
     const opt = options || {};
+
+    // Le panneau des défis est posé sur la page, pas dedans : il ne doit
+    // pas suivre d'une page à l'autre, y compris via Précédent.
+    fermerDefis();
+
+    // #waveurs ouvre la page Communauté sur son onglet Waveurs ; toute autre
+    // entrée vers la communauté (menu, #community) ouvre l'onglet Communauté.
+    // L'adresse écrite garde le nom demandé.
+    const adresse = pageId;
+    let onglet = 'communaute';
+    if(pageId === 'waveurs'){
+      pageId = 'community';
+      onglet = 'waveurs';
+    }
 
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     const page = document.getElementById('page-'+pageId);
@@ -4140,7 +4318,7 @@ const BD = {
   window.scrollTo({top:0, behavior:'instant'});
 
   if(!lectureAdresseEnCours && !opt.sansAdresse){
-    ecrireAdresse(pageId, opt.parametre);
+    ecrireAdresse(adresse, opt.parametre);
   }
 
   if(pageId === 'catalogue' || pageId === 'home') renderCatalogue();
@@ -4153,8 +4331,10 @@ const BD = {
   if(pageId === 'community') renderCommunity();
   if(pageId === 'profile') renderProfileForm();
   if(pageId === 'accreditations') renderAccreditations();
-  // La salle recouvre l'écran : on la ferme dès qu'on change de page.
-  if(pageId === 'waveurs') renderWaveurs(); else arreterWaveurs();
+  // La salle recouvre l'écran : on la ferme dès qu'on quitte la page
+  // Communauté, ou qu'on y revient sur l'onglet Communauté. L'onglet
+  // Waveurs, lui, ne l'arrête pas (voir afficherOngletCommunaute).
+  if(pageId === 'community') afficherOngletCommunaute(onglet); else arreterWaveurs();
   // Les voiles sont en position fixe : sans ces appels à chaque page,
   // ils recouvriraient la suivante après un départ.
   verifierAccesSoumission();
@@ -4199,7 +4379,8 @@ function lireAdresse(){
     const pays = decodeURIComponent(parametre || '');
     cartePays = paysCarteValide(pays) ? pays : 'france';
     goTo('carte');
-  } else if(document.getElementById('page-' + page)){
+  } else if(page === 'waveurs' || document.getElementById('page-' + page)){
+    // 'waveurs' n'a plus de page : goTo l'ouvre comme onglet de la communauté.
     goTo(page);
   } else {
     goTo('home');
@@ -4767,7 +4948,6 @@ function majAccesAccreditations(){
   if(!lien) return;
 
   lien.hidden = !peutAccreditation();
-  document.body.classList.toggle('nav-large', !lien.hidden);
 
   // Un photographe qui arrive sur une autre page doit voir la pastille
   // sans être passé par les accréditations : une lecture, une seule.
@@ -5672,7 +5852,7 @@ async function accredLivrer(evenement, id){
 // Le numéro qui suit l'adresse du fichier force le navigateur à en
 // prendre la dernière version quand on le change. À augmenter chaque fois
 // que waveurs.js est modifié.
-const WAVEURS_FICHIER = 'waveurs.js?v=1';
+const WAVEURS_FICHIER = 'waveurs.js?v=2';
 
 let waveursChargement = null;
 
@@ -5778,7 +5958,6 @@ function optionsWaveurs(){
 
     apresTirage: (res) => {
       if(!currentUser) return;
-      renderXP();
       annoncerNiveauWaveurs(res);
     },
 
@@ -5844,8 +6023,8 @@ async function renderWaveurs(){
 
   const { data, error } = await BD.waveursEtat();
 
-  // La page a pu changer pendant la requête.
-  if(!document.getElementById('page-waveurs').classList.contains('active')) return;
+  // La page ou l'onglet ont pu changer pendant la requête.
+  if(!ongletWaveursVisible()) return;
 
   if(error){
     zone.innerHTML = `
@@ -6149,6 +6328,16 @@ function refreshAccountUI(){
   verifierAccesAccreditations();
   majAccesAccreditations();
 
+  // Le bouton flottant des défis suit la session : visible connecté, caché sinon.
+  majDefisFlottant();
+
+  // La session arrive après l'adresse : un rechargement direct sur #waveurs
+  // ou #community a dessiné la page en invité, et personne ne la
+  // redessinerait. La salle, si elle est ouverte, n'est pas touchée : seule
+  // la carte de la page l'est.
+  if(ongletWaveursVisible()) renderWaveurs();
+  else if(document.getElementById('page-community').classList.contains('active')) renderCommunity();
+
   if(currentUser){
     loggedOut.style.display = 'none';
     loggedIn.style.display = 'block';
@@ -6276,7 +6465,8 @@ async function submitLogin(){
   currentUser = user;
   refreshAccountUI();
   closeAuthModal();
-  goTo('community');
+  // Se connecter depuis la salle des waveurs ramène à l'onglet Waveurs.
+  goTo(ongletWaveursVisible() ? 'waveurs' : 'community');
 }
 
 // ---- Profil ----
@@ -6511,14 +6701,7 @@ async function renderProfileForm(){
       ${currentUser.bio ? `<p class="profil-bio">${escapeHtml(currentUser.bio)}</p>` : ''}
     </div>`;
 
-  document.getElementById('profilXp').innerHTML = `
-    <div class="xp-top">
-      <span id="xpLevelLabel">Niveau ${niveau}</span>
-      <span id="xpNumberLabel">${xp} XP · ${100 - dansLeNiveau} XP avant le niveau ${niveau + 1}</span>
-    </div>
-    <div class="xp-bar-track">
-      <span class="xp-bar-fill" style="width:${dansLeNiveau}%"></span>
-    </div>`;
+  majCarteXpProfil();
 
   const obtenus = nombreDeSucces(currentUser);
 
@@ -6867,14 +7050,26 @@ async function checkOnboarding(){
   }
 }
 
-function renderXP(){
-  const levelEl = document.getElementById('xpLevelLabel');
-  if(!levelEl) return;
-  const level = Math.floor(currentUser.xp / 100) + 1;
-  const pct = currentUser.xp % 100;
-  levelEl.textContent = 'Niveau ' + level;
-  document.getElementById('xpNumberLabel').textContent = currentUser.xp + ' XP';
-  document.getElementById('xpBarFill').style.width = pct + '%';
+// La carte d'XP du profil : le niveau, l'XP et ce qu'il en reste avant le
+// suivant. La page Communauté n'en montre plus ; le profil est le seul
+// endroit où elle vit, et un gain d'XP la redessine sur place.
+function majCarteXpProfil(){
+
+  const carte = document.getElementById('profilXp');
+  if(!carte || !currentUser) return;
+
+  const xp = currentUser.xp || 0;
+  const niveau = levelForXP(xp);
+  const dansLeNiveau = xp % 100;
+
+  carte.innerHTML = `
+    <div class="xp-top">
+      <span id="xpLevelLabel">Niveau ${niveau}</span>
+      <span id="xpNumberLabel">${xp} XP · ${100 - dansLeNiveau} XP avant le niveau ${niveau + 1}</span>
+    </div>
+    <div class="xp-bar-track">
+      <span class="xp-bar-fill" style="width:${dansLeNiveau}%"></span>
+    </div>`;
 }
 
 function renderOnboarding(){
@@ -6932,15 +7127,31 @@ function renderChallenges(){
       ${action}
     </div>`;
 
-  // Progression du jour, affichée dans l'en-tête repliée du volet.
+  const pct = total ? Math.round((faits / total) * 100) : 0;
+  const tousFaits = faits === total && total > 0;
+
+  // Progression du jour, affichée dans l'en-tête du panneau.
   const entete = document.getElementById('defisProgression');
   if(entete){
-    const pct = total ? Math.round((faits / total) * 100) : 0;
     entete.innerHTML = `
       <span class="defis-compteur">${fait ? 'Fait' : 'À faire'}</span>
       <span class="defis-jauge"><span style="width:${pct}%"></span></span>`;
-    entete.classList.toggle('defis-tous-faits', faits === total && total > 0);
+    entete.classList.toggle('defis-tous-faits', tousFaits);
   }
+
+  // La même progression, en petit, sur le bouton flottant : l'anneau se
+  // remplit, le compteur suit, et l'infobulle dit le détail.
+  const bouton = document.getElementById('defisBouton');
+  if(bouton){
+    const anneau = document.getElementById('defisAnneau');
+    const compteur = document.getElementById('defisBoutonCompteur');
+    if(anneau) anneau.style.strokeDashoffset = 100 - pct;
+    if(compteur) compteur.textContent = faits + '/' + total;
+    bouton.classList.toggle('defis-tous-faits', tousFaits);
+    bouton.title = 'Défis du jour : ' + faits + '/' + total + (tousFaits ? ' (fait)' : '');
+  }
+
+  refreshChallengeDots();
 }
 
 async function declareChallenge(key){
@@ -6970,7 +7181,7 @@ async function awardXP(challengeKey, amount){
   // à null : l'affichage n'a plus rien à mettre à jour.
   if(!currentUser) return;
 
-  renderXP();
+  majCarteXpProfil();
   renderChallenges();
 
   // L'XP se gagnait jusqu'ici en silence : rien ne signalait le gain
@@ -7003,9 +7214,10 @@ async function awardXP(challengeKey, amount){
     });
   }
 
-  // Petite impulsion sur la carte d'XP si elle est à l'écran.
-  const carte = document.querySelector('.xp-card');
-  if(carte){
+  // Petite impulsion sur la carte d'XP du profil, seulement si elle est à
+  // l'écran.
+  const carte = document.getElementById('profilXp');
+  if(carte && carte.offsetParent !== null){
     carte.classList.remove('gagne');
     void carte.offsetWidth; // force le redémarrage de l'animation
     carte.classList.add('gagne');
@@ -7030,7 +7242,6 @@ async function renderCommunity(){
   ensureDailyChallenges(currentUser);
   ensureOnboarding(currentUser);
   await checkOnboarding();
-  renderXP();
   renderOnboarding();
   renderChallenges();
   refreshChallengeDots();
@@ -7570,8 +7781,89 @@ function refreshChallengeDots(){
   const onboardingDot = document.getElementById('onboardingNewDot');
   const dailyDot = document.getElementById('dailyNewDot');
   if(onboardingDot) onboardingDot.style.display = currentUser.seenOnboarding ? 'none' : 'inline-block';
-  if(dailyDot) dailyDot.style.display = (currentUser.seenDailyDate === todayStr()) ? 'none' : 'inline-block';
+
+  // Le point du bouton flottant reste tant que le défi du jour n'est pas
+  // fait : ouvrir le panneau ne l'éteint plus, puisque c'est le défi à
+  // accomplir qu'il signale, pas un message à lire.
+  if(dailyDot){
+    ensureDailyChallenges(currentUser);
+    const fait = !!currentUser.challenges[defiDuJour().key];
+    dailyDot.style.display = fait ? 'none' : 'inline-block';
+  }
 }
+
+// ---- Bouton flottant des défis du jour ----
+//
+// Le bouton (#defisBouton) et son panneau (#defisPanneau) vivent hors de
+// toute page, en position fixe. Le panneau garde la liste que dessine
+// renderChallenges : seul son emplacement a changé.
+
+function defisOuverts(){
+  const panneau = document.getElementById('defisPanneau');
+  return !!panneau && !panneau.hidden;
+}
+
+function ouvrirDefis(){
+  const panneau = document.getElementById('defisPanneau');
+  const bouton = document.getElementById('defisBouton');
+  if(!panneau || !bouton || !currentUser) return;
+
+  // Repeint à l'ouverture : le jour a pu changer depuis le dernier rendu.
+  renderChallenges();
+  panneau.hidden = false;
+  bouton.setAttribute('aria-expanded', 'true');
+
+  // « Vu aujourd'hui » reste consigné comme avant, même si le point ne
+  // s'en sert plus.
+  markSeen('seenDailyDate', todayStr());
+}
+
+function fermerDefis(rendreLeFocus){
+  const panneau = document.getElementById('defisPanneau');
+  const bouton = document.getElementById('defisBouton');
+  if(!panneau || !bouton) return;
+
+  panneau.hidden = true;
+  bouton.setAttribute('aria-expanded', 'false');
+  if(rendreLeFocus) bouton.focus();
+}
+
+// Le bouton n'existe que pour un membre connecté : montré à la connexion,
+// caché (panneau refermé) à la déconnexion. Appelée par refreshAccountUI,
+// qui passe à chaque changement de session.
+function majDefisFlottant(){
+  const zone = document.getElementById('defisFlottant');
+  if(!zone) return;
+
+  zone.hidden = !currentUser;
+
+  // Le pied de page laisse la place du bouton : sans cela, il recouvrirait
+  // le lien le plus à droite en bas de chaque page.
+  document.body.classList.toggle('avec-defis', !!currentUser);
+
+  if(currentUser) renderChallenges();
+  else fermerDefis();
+}
+
+document.getElementById('defisBouton').addEventListener('click', function(){
+  if(defisOuverts()) fermerDefis(); else ouvrirDefis();
+});
+
+// Un clic ailleurs referme le panneau. Le chemin de l'événement est lu
+// plutôt que zone.contains(cible) : un clic sur « J'ai fait ce défi » peut
+// faire redessiner la liste, et la cible, retirée de la page, ne serait
+// plus reconnue comme faisant partie du panneau.
+document.addEventListener('click', function(e){
+  const zone = document.getElementById('defisFlottant');
+  if(!zone || !defisOuverts()) return;
+  const chemin = e.composedPath ? e.composedPath() : [];
+  const dedans = chemin.length ? chemin.includes(zone) : zone.contains(e.target);
+  if(!dedans) fermerDefis();
+});
+
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape' && defisOuverts()) fermerDefis(true);
+});
 
 // "A-t-on déjà déplié ce panneau ?" est un état d'affichage propre à
 // l'appareil : il reste dans localStorage plutôt qu'en base.
@@ -7590,9 +7882,6 @@ function loadSeenFlags(user){
 
 document.getElementById('onboardingDetails').addEventListener('toggle', function(){
   if(this.open) markSeen('seenOnboarding', true);
-});
-document.getElementById('dailyDetails').addEventListener('toggle', function(){
-  if(this.open) markSeen('seenDailyDate', todayStr());
 });
 
 // ---------------- PLATEFORMES D'ÉCOUTE ----------------
