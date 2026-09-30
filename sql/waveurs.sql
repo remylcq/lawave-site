@@ -4,10 +4,12 @@
 -- La machine à sous de la salle rapporte de l'XP et des pièces, jamais
 -- d'argent : aucun tour n'est vendu, et les pièces ne s'achètent pas avec
 -- de l'argent, ni ne se convertissent en argent. Elles se gagnent en jouant
--- et se dépensent chez le croupier, en boosters de cartes La Wave TCG.
--- C'est la règle du jeu, et la limite à ne pas franchir.
+-- et se dépensent chez le croupier, en boosters de cartes La Wave TCG, que
+-- l'on ouvre ensuite pour en tirer des cartes à collectionner. Ni les
+-- boosters ni les cartes ne s'achètent avec de l'argent, ni ne se revendent :
+-- c'est la règle du jeu, et la limite à ne pas franchir.
 --
--- Quatre principes tiennent tout le fichier :
+-- Cinq principes tiennent tout le fichier :
 --
 --   1. le tirage se fait ici, en base. Les rouleaux du navigateur ne
 --      font qu'illustrer un résultat déjà décidé : personne ne peut
@@ -19,8 +21,12 @@
 --      par un tirage, n'en sortent que par un achat, et un achat ne passe
 --      que si le solde suffit ;
 --   4. tout ce qui se règle (nombre de tours, prix d'un booster, gains,
---      probabilités) est dans une table modifiable depuis l'éditeur de
---      tables de Supabase, sans toucher au code ni relancer ce fichier.
+--      probabilités, cartes) est dans une table modifiable depuis l'éditeur
+--      de tables de Supabase, sans toucher au code ni relancer ce fichier ;
+--   5. l'ouverture d'un booster se fait ici aussi : les cartes sont tirées
+--      par la base, ajoutées à la collection du membre dans le même geste
+--      que le booster est retiré de son stock. Le navigateur ne fait que
+--      montrer ce qui est sorti.
 --
 -- À exécuter dans Supabase → SQL Editor, d'un seul bloc. Sans danger si
 -- on le relance : rien n'est écrasé, et une installation déjà en service
@@ -193,6 +199,141 @@ create index if not exists waveurs_achats_user_idx
 
 
 -- ---------------------------------------------------------------------
+-- 3 ter. Les cartes
+--
+-- La série « Premières vagues » compte 36 cartes, en quatre raretés :
+-- 16 communes, 11 rares, 6 épiques et 3 légendaires. Chaque ligne du
+-- catalogue est une carte :
+--
+--   id        : son numéro dans la série
+--   nom       : ce qui est écrit en haut de la carte
+--   rarete    : commune, rare, epique ou legendaire
+--   categorie : instrument, objet, mer, lieu... (affiché sous l'image)
+--   motif     : le dessin, choisi parmi ceux que sait tracer le jeu
+--               (guitare, micro, batterie, piano, saxo, violon, platines,
+--               synthe, trompette, vinyle, casque, enceinte, cassette,
+--               note, vague, coquillage, poisson, ancre, bulle, perle,
+--               phare, voilier, bouee, projecteur, scene, flamme,
+--               couronne, soleil, eclair, lune, meduse, hippocampe,
+--               baleine, mouette, etoile, logo)
+--   legende   : la phrase en italique
+--   actif     : décocher pour retirer une carte du jeu sans la supprimer
+--
+-- Les cartes de départ ne sont posées que si leur numéro est libre :
+-- relancer le fichier ne remet pas à zéro une carte renommée. Pour en
+-- ajouter une, donner la ligne suivante de la table (id 37, 38...).
+-- ---------------------------------------------------------------------
+
+create table if not exists public.waveurs_cartes (
+  id        integer primary key,
+  nom       text not null,
+  rarete    text not null check (rarete in ('commune', 'rare', 'epique', 'legendaire')),
+  categorie text not null,
+  motif     text not null,
+  legende   text not null default '',
+  actif     boolean not null default true
+);
+
+insert into public.waveurs_cartes (id, nom, rarete, categorie, motif, legende) values
+  ( 1, 'La Guitare Électrique',       'commune',    'Instrument', 'guitare',    'Trois accords et la salle chavire.'),
+  ( 2, 'Le Micro du Soir',            'commune',    'Instrument', 'micro',      'Premier couplet, dernière lumière.'),
+  ( 3, 'La Caisse Claire',            'commune',    'Instrument', 'batterie',   'Le tempo de la marée.'),
+  ( 4, 'Le Piano du Hall',            'commune',    'Instrument', 'piano',      'Il a vu passer toutes les tempêtes.'),
+  ( 5, 'Le Casque Fidèle',            'commune',    'Objet',      'casque',     'Le monde entier, en stéréo.'),
+  ( 6, 'L''Enceinte de Quai',         'commune',    'Objet',      'enceinte',   'Elle fait trembler les amarres.'),
+  ( 7, 'La Cassette Oubliée',         'commune',    'Objet',      'cassette',   'Face B : les souvenirs.'),
+  ( 8, 'La Note Bleue',               'commune',    'Son',        'note',       'Celle qu''on fredonne sans le savoir.'),
+  ( 9, 'La Vague du Matin',           'commune',    'Mer',        'vague',      'Elle arrive toujours à l''heure.'),
+  (10, 'Le Coquillage Sonore',        'commune',    'Mer',        'coquillage', 'Colle-le à ton oreille.'),
+  (11, 'Le Petit Poisson',            'commune',    'Mer',        'poisson',    'Il nage à contre-courant, et ça lui va bien.'),
+  (12, 'L''Ancre du Bar',             'commune',    'Mer',        'ancre',      'Quand on arrive, on reste.'),
+  (13, 'La Bulle de Basse',           'commune',    'Son',        'bulle',      'Elle monte avec la basse.'),
+  (14, 'Le Projecteur',               'commune',    'Scène',      'projecteur', 'Chacun cherche sa lumière.'),
+  (15, 'La Mouette Rieuse',           'commune',    'Mer',        'mouette',    'Elle chante faux, avec assurance.'),
+  (16, 'La Bouée de Sauvetage',       'commune',    'Mer',        'bouee',      'Pour les mauvais jours d''écoute.'),
+  (17, 'Le Saxophone des Marées',     'rare',       'Instrument', 'saxo',       'Il souffle quand la mer monte.'),
+  (18, 'Le Violon du Phare',          'rare',       'Instrument', 'violon',     'Une corde pour chaque navire.'),
+  (19, 'Les Platines de Minuit',      'rare',       'Instrument', 'platines',   'Le set qui ne finit jamais.'),
+  (20, 'Le Synthé Néon',              'rare',       'Instrument', 'synthe',     'Des couleurs qui n''existent pas encore.'),
+  (21, 'La Trompette d''Écume',       'rare',       'Instrument', 'trompette',  'Elle réveille les sirènes.'),
+  (22, 'Le Vinyle Rayé',              'rare',       'Objet',      'vinyle',     'Le même sillon, mille fois aimé.'),
+  (23, 'Le Phare de La Wave',         'rare',       'Lieu',       'phare',      'Il guide les oreilles égarées.'),
+  (24, 'Le Voilier Fantôme',          'rare',       'Mer',        'voilier',    'Il ne navigue qu''au son du blues.'),
+  (25, 'La Méduse Électrique',        'rare',       'Mer',        'meduse',     'Elle s''illumine aux refrains.'),
+  (26, 'La Scène Flottante',          'rare',       'Lieu',       'scene',      'Un concert entre deux vagues.'),
+  (27, 'L''Éclair de Basse',          'rare',       'Son',        'eclair',     'Il frappe toujours sur le temps fort.'),
+  (28, 'La Perle Noire',              'epique',     'Trésor',     'perle',      'Une seule par océan.'),
+  (29, 'L''Hippocampe Doré',          'epique',     'Mer',        'hippocampe', 'Il danse sur trois temps.'),
+  (30, 'La Baleine Chanteuse',        'epique',     'Mer',        'baleine',    'Sa voix traverse les océans.'),
+  (31, 'La Lune sur le Quai',         'epique',     'Lieu',       'lune',       'La nuit est à nous.'),
+  (32, 'La Flamme du Festival',       'epique',     'Lieu',       'flamme',     'Elle ne s''éteint qu''au petit matin.'),
+  (33, 'Le Soleil sur la Mer',        'epique',     'Lieu',       'soleil',     'Dernier morceau, premières lueurs.'),
+  (34, 'La Couronne des Waveurs',     'legendaire', 'Légende',    'couronne',   'Elle va à qui écoute vraiment.'),
+  (35, 'Le Vinyle d''Or',             'legendaire', 'Légende',    'vinyle',     'Tout le monde en rêve, peu l''entendent.'),
+  (36, 'La Wave',                     'legendaire', 'Légende',    'logo',       'Le son qui les réunit tous.')
+on conflict (id) do nothing;
+
+
+-- Le tirage d'un booster : un emplacement par carte. Avec les valeurs de
+-- départ, un booster contient cinq cartes : trois communes en général, un
+-- quatrième emplacement un peu plus généreux, et un dernier qui donne au
+-- moins une rare. Le tirage choisit une rareté en proportion du poids, puis
+-- une carte de cette rareté au hasard.
+--
+--   emplacement : 1, 2, 3... (autant de lignes distinctes, autant de cartes)
+--   rarete      : commune, rare, epique ou legendaire
+--   poids       : probabilité relative, dans cet emplacement
+--
+-- Pour un booster de six cartes, ajouter des lignes avec l'emplacement 6.
+-- Un poids à zéro retire une rareté d'un emplacement.
+
+create table if not exists public.waveurs_tirage (
+  emplacement integer not null check (emplacement >= 1),
+  rarete      text    not null check (rarete in ('commune', 'rare', 'epique', 'legendaire')),
+  poids       integer not null check (poids >= 0),
+  primary key (emplacement, rarete)
+);
+
+insert into public.waveurs_tirage (emplacement, rarete, poids)
+select v.emplacement, v.rarete, v.poids
+from (values
+  (1, 'commune', 7800), (1, 'rare', 1800), (1, 'epique', 350), (1, 'legendaire',  50),
+  (2, 'commune', 7800), (2, 'rare', 1800), (2, 'epique', 350), (2, 'legendaire',  50),
+  (3, 'commune', 7800), (3, 'rare', 1800), (3, 'epique', 350), (3, 'legendaire',  50),
+  (4, 'commune', 5500), (4, 'rare', 3500), (4, 'epique', 900), (4, 'legendaire', 100),
+  (5, 'commune',    0), (5, 'rare', 7000), (5, 'epique', 2400), (5, 'legendaire', 600)
+) as v(emplacement, rarete, poids)
+where not exists (select 1 from public.waveurs_tirage);
+
+
+-- La collection de chaque membre : une ligne par carte possédée, avec le
+-- nombre d'exemplaires. Elle n'est jamais écrite depuis le navigateur :
+-- seule waveurs_ouvrir_booster y ajoute des cartes.
+--
+-- Le journal des ouvertures garde, pour chaque booster ouvert, les numéros
+-- des cartes sorties.
+
+create table if not exists public.waveurs_collection (
+  user_id     uuid    not null references auth.users(id) on delete cascade,
+  carte_id    integer not null references public.waveurs_cartes(id) on delete cascade,
+  quantite    integer not null default 1 check (quantite >= 1),
+  premiere_le timestamptz not null default now(),
+  derniere_le timestamptz not null default now(),
+  primary key (user_id, carte_id)
+);
+
+create table if not exists public.waveurs_ouvertures (
+  id      bigserial primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  cartes  integer[] not null,
+  cree_le timestamptz not null default now()
+);
+
+create index if not exists waveurs_ouvertures_user_idx
+  on public.waveurs_ouvertures (user_id, cree_le desc);
+
+
+-- ---------------------------------------------------------------------
 -- 4. Règles d'accès
 --
 -- Les gains sont publics : la salle affiche la table des combinaisons,
@@ -208,7 +349,17 @@ alter table public.waveurs_gains       enable row level security;
 alter table public.waveurs_tours       enable row level security;
 alter table public.waveurs_portefeuille enable row level security;
 alter table public.waveurs_achats      enable row level security;
+alter table public.waveurs_cartes      enable row level security;
+alter table public.waveurs_tirage      enable row level security;
+alter table public.waveurs_collection  enable row level security;
+alter table public.waveurs_ouvertures  enable row level security;
 
+drop policy if exists "cartes lisibles"            on public.waveurs_cartes;
+drop policy if exists "cartes ecrites par equipe"  on public.waveurs_cartes;
+drop policy if exists "tirage lisible"             on public.waveurs_tirage;
+drop policy if exists "tirage ecrit par equipe"    on public.waveurs_tirage;
+drop policy if exists "collection visible"         on public.waveurs_collection;
+drop policy if exists "ouvertures visibles"        on public.waveurs_ouvertures;
 drop policy if exists "reglages lisibles"          on public.waveurs_reglages;
 drop policy if exists "reglages ecrits par equipe" on public.waveurs_reglages;
 drop policy if exists "gains lisibles"             on public.waveurs_gains;
@@ -254,6 +405,42 @@ on public.waveurs_achats for select
 to authenticated
 using (user_id = auth.uid() or public.est_equipe());
 
+-- Le catalogue est public, comme la table des gains : les cartes se
+-- montrent, seules celles qu'on possède sont à soi. Les probabilités de
+-- tirage sont lisibles elles aussi : un jeu de cartes honnête annonce ses
+-- chances.
+create policy "cartes lisibles"
+on public.waveurs_cartes for select
+to anon, authenticated
+using (actif);
+
+create policy "cartes ecrites par equipe"
+on public.waveurs_cartes for all
+to authenticated
+using (public.est_equipe())
+with check (public.est_equipe());
+
+create policy "tirage lisible"
+on public.waveurs_tirage for select
+to anon, authenticated
+using (true);
+
+create policy "tirage ecrit par equipe"
+on public.waveurs_tirage for all
+to authenticated
+using (public.est_equipe())
+with check (public.est_equipe());
+
+create policy "collection visible"
+on public.waveurs_collection for select
+to authenticated
+using (user_id = auth.uid() or public.est_equipe());
+
+create policy "ouvertures visibles"
+on public.waveurs_ouvertures for select
+to authenticated
+using (user_id = auth.uid() or public.est_equipe());
+
 -- Aucune règle d'écriture n'existe pour ces deux tables : sans elle, RLS
 -- refuse tout. On retire en plus les droits d'écriture eux-mêmes, que
 -- Supabase accorde par défaut : une règle ajoutée par erreur plus tard ne
@@ -265,6 +452,17 @@ revoke insert, update, delete, truncate on public.waveurs_achats       from anon
 revoke insert, update, delete, truncate on public.waveurs_tours        from anon, authenticated;
 revoke all on public.waveurs_portefeuille from anon;
 revoke all on public.waveurs_achats       from anon;
+
+-- La collection et le journal des ouvertures sont écrits par la seule
+-- fonction d'ouverture : personne ne s'ajoute une carte depuis le
+-- navigateur. Le catalogue et le tirage, eux, peuvent être modifiés par
+-- l'équipe (policies ci-dessus), jamais par les visiteurs.
+revoke insert, update, delete, truncate on public.waveurs_collection from anon, authenticated;
+revoke insert, update, delete, truncate on public.waveurs_ouvertures from anon, authenticated;
+revoke all on public.waveurs_collection from anon;
+revoke all on public.waveurs_ouvertures from anon;
+revoke insert, update, delete, truncate on public.waveurs_cartes from anon;
+revoke insert, update, delete, truncate on public.waveurs_tirage from anon;
 
 
 -- ---------------------------------------------------------------------
@@ -294,6 +492,8 @@ declare
   v_pieces   integer;
   v_boosters integer;
   v_prix     integer;
+  v_cartes   integer;
+  v_catalogue integer;
 begin
 
   if auth.uid() is null then
@@ -307,6 +507,16 @@ begin
 
   select coalesce((select valeur from public.waveurs_reglages where cle = 'prix_booster'), 60)
     into v_prix;
+
+  -- Les cartes différentes possédées, et la taille du catalogue en jeu.
+  select count(*) into v_cartes
+  from public.waveurs_collection k
+  join public.waveurs_cartes c on c.id = k.carte_id and c.actif
+  where k.user_id = auth.uid();
+
+  select count(*) into v_catalogue
+  from public.waveurs_cartes
+  where actif;
 
   select count(*), coalesce(sum(xp), 0), coalesce(sum(pieces), 0)
     into v_utilises, v_gagne, v_pieces_j
@@ -326,7 +536,9 @@ begin
     'pieces_aujourdhui', v_pieces_j,
     'pieces',            v_pieces,
     'boosters',          v_boosters,
-    'prix_booster',      v_prix
+    'prix_booster',      v_prix,
+    'cartes_possedees',  v_cartes,
+    'cartes_total',      v_catalogue
   );
 end $$;
 
@@ -516,8 +728,8 @@ end $$;
 -- l'un après l'autre, et le second voit le solde laissé par le premier.
 -- Sans ce verrou, on pourrait dépenser deux fois les mêmes pièces.
 --
--- Les boosters achetés s'ajoutent au stock du membre ; leur ouverture
--- viendra avec les cartes.
+-- Les boosters achetés s'ajoutent au stock du membre ; on les ouvre avec
+-- waveurs_ouvrir_booster, plus bas.
 -- ---------------------------------------------------------------------
 
 create or replace function public.waveurs_acheter_booster(p_quantite integer default 1)
@@ -586,6 +798,163 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
+-- 6 ter. Ouvrir un booster
+--
+-- Un booster est retiré du stock, les cartes sont tirées (une par
+-- emplacement de la table waveurs_tirage) et ajoutées à la collection, le
+-- tout dans le même appel : si quelque chose échoue en route, rien n'est
+-- débité ni ajouté. La fonction renvoie les cartes dans l'ordre des
+-- emplacements, avec pour chacune « nouvelle » (première fois qu'on la
+-- sort) et le nombre d'exemplaires possédés ensuite.
+--
+-- La ligne du portefeuille est verrouillée : deux ouvertures lancées au
+-- même instant avec un seul booster ne passent pas toutes les deux.
+-- ---------------------------------------------------------------------
+
+create or replace function public.waveurs_ouvrir_booster()
+returns json
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_boosters  integer;
+  v_catalogue integer;
+  v_place     integer;
+  v_total     integer;
+  v_tirage    integer;
+  v_rarete    text;
+  v_carte     record;
+  v_quantite  integer;
+  v_cartes    jsonb := '[]'::jsonb;
+  v_ids       integer[] := '{}';
+  v_possedees integer;
+begin
+
+  if auth.uid() is null then
+    raise exception 'Connecte-toi pour ouvrir un booster.';
+  end if;
+
+  select count(*) into v_catalogue
+  from public.waveurs_cartes
+  where actif;
+
+  if v_catalogue = 0 then
+    raise exception 'Les cartes ne sont pas encore imprimées : reviens plus tard.';
+  end if;
+
+  if not exists (select 1 from public.waveurs_tirage where poids > 0) then
+    raise exception 'Les boosters sont vides pour le moment : reviens plus tard.';
+  end if;
+
+  select w.boosters into v_boosters
+  from public.waveurs_portefeuille w
+  where w.user_id = auth.uid()
+  for update;
+
+  if not found or v_boosters < 1 then
+    raise exception 'Tu n''as aucun booster à ouvrir : passe voir le croupier.';
+  end if;
+
+  update public.waveurs_portefeuille
+     set boosters = boosters - 1,
+         maj      = now()
+   where user_id = auth.uid()
+  returning boosters into v_boosters;
+
+  for v_place in
+    select distinct t.emplacement
+    from public.waveurs_tirage t
+    where t.poids > 0
+    order by t.emplacement
+  loop
+
+    -- Les raretés possibles à cet emplacement : celles dont au moins une
+    -- carte est en jeu.
+    select coalesce(sum(t.poids), 0) into v_total
+    from public.waveurs_tirage t
+    where t.emplacement = v_place and t.poids > 0
+      and exists (select 1 from public.waveurs_cartes c where c.actif and c.rarete = t.rarete);
+
+    if v_total > 0 then
+
+      v_tirage := floor(random() * v_total)::integer;
+
+      select r.rarete into v_rarete
+      from (
+        select t.rarete, sum(t.poids) over (order by t.rarete) as cumul
+        from public.waveurs_tirage t
+        where t.emplacement = v_place and t.poids > 0
+          and exists (select 1 from public.waveurs_cartes c where c.actif and c.rarete = t.rarete)
+      ) r
+      where r.cumul > v_tirage
+      order by r.cumul
+      limit 1;
+
+      select c.id, c.nom, c.rarete, c.categorie, c.motif, c.legende
+        into v_carte
+      from public.waveurs_cartes c
+      where c.actif and c.rarete = v_rarete
+      order by random()
+      limit 1;
+
+    else
+
+      -- Aucune des raretés prévues pour cet emplacement n'a de carte en
+      -- jeu : n'importe quelle carte en jeu plutôt qu'un booster raté.
+      select c.id, c.nom, c.rarete, c.categorie, c.motif, c.legende
+        into v_carte
+      from public.waveurs_cartes c
+      where c.actif
+      order by random()
+      limit 1;
+
+    end if;
+
+    if not found then
+      raise exception 'Les cartes ne sont pas encore imprimées : reviens plus tard.';
+    end if;
+
+    insert into public.waveurs_collection as k (user_id, carte_id)
+    values (auth.uid(), v_carte.id)
+    on conflict (user_id, carte_id) do update
+       set quantite    = k.quantite + 1,
+           derniere_le = now()
+    returning k.quantite into v_quantite;
+
+    v_ids := v_ids || v_carte.id;
+
+    v_cartes := v_cartes || jsonb_build_object(
+      'id',        v_carte.id,
+      'nom',       v_carte.nom,
+      'rarete',    v_carte.rarete,
+      'categorie', v_carte.categorie,
+      'motif',     v_carte.motif,
+      'legende',   v_carte.legende,
+      'nouvelle',  v_quantite = 1,
+      'quantite',  v_quantite
+    );
+
+  end loop;
+
+  insert into public.waveurs_ouvertures (user_id, cartes)
+  values (auth.uid(), v_ids);
+
+  select count(*) into v_possedees
+  from public.waveurs_collection k
+  join public.waveurs_cartes c on c.id = k.carte_id and c.actif
+  where k.user_id = auth.uid();
+
+  return json_build_object(
+    'cartes',           v_cartes,
+    'boosters_total',   v_boosters,
+    'cartes_possedees', v_possedees,
+    'cartes_total',     v_catalogue
+  );
+end $$;
+
+
+-- ---------------------------------------------------------------------
 -- 7. Qui peut appeler quoi
 --
 -- Seuls les comptes connectés jouent et achètent. Les visiteurs se
@@ -598,33 +967,40 @@ end $$;
 revoke all on function public.waveurs_etat() from public, anon;
 revoke all on function public.waveurs_tourner(text) from public, anon;
 revoke all on function public.waveurs_acheter_booster(integer) from public, anon;
+revoke all on function public.waveurs_ouvrir_booster() from public, anon;
 
 grant execute on function public.waveurs_etat() to authenticated;
 grant execute on function public.waveurs_tourner(text) to authenticated;
 grant execute on function public.waveurs_acheter_booster(integer) to authenticated;
+grant execute on function public.waveurs_ouvrir_booster() to authenticated;
 
 
 -- ---------------------------------------------------------------------
 -- 8. Vérification
 --
--- La première requête doit lister les cinq tables avec RLS activée, la
--- deuxième les trois fonctions, la troisième les six gains de départ, la
--- quatrième les droits d'écriture sur le portefeuille, les achats et les
--- tours (aucune ligne : ni les visiteurs ni les membres ne peuvent y
--- écrire). La dernière donne le gain moyen par tour : autour de 2 XP et de
--- 5,6 pièces.
+-- La première requête doit lister les neuf tables avec RLS activée, la
+-- deuxième les quatre fonctions, la troisième les six gains de départ, la
+-- quatrième les droits d'écriture sur le portefeuille, les achats, les
+-- tours, la collection et les ouvertures (aucune ligne : ni les visiteurs
+-- ni les membres ne peuvent y écrire). La cinquième compte les cartes par
+-- rareté (16, 11, 6 et 3 au départ) et la sixième donne les chances de
+-- chaque emplacement d'un booster, en pourcentage. La dernière donne le
+-- gain moyen par tour : autour de 2 XP et de 5,6 pièces.
 -- ---------------------------------------------------------------------
 
 select relname as table_name, relrowsecurity as rls_active
 from pg_class
 where relname in ('waveurs_reglages', 'waveurs_gains', 'waveurs_tours',
-                  'waveurs_portefeuille', 'waveurs_achats')
+                  'waveurs_portefeuille', 'waveurs_achats',
+                  'waveurs_cartes', 'waveurs_tirage',
+                  'waveurs_collection', 'waveurs_ouvertures')
 order by relname;
 
 select proname as fonction, prosecdef as security_definer
 from pg_proc
 where pronamespace = 'public'::regnamespace
-  and proname in ('waveurs_etat', 'waveurs_tourner', 'waveurs_acheter_booster')
+  and proname in ('waveurs_etat', 'waveurs_tourner', 'waveurs_acheter_booster',
+                  'waveurs_ouvrir_booster')
 order by proname;
 
 select id, nom, motif, symbole, poids, xp, pieces, actif
@@ -634,9 +1010,20 @@ order by xp desc, id;
 select grantee, table_name, privilege_type
 from information_schema.role_table_grants
 where table_schema = 'public'
-  and table_name in ('waveurs_portefeuille', 'waveurs_achats', 'waveurs_tours')
+  and table_name in ('waveurs_portefeuille', 'waveurs_achats', 'waveurs_tours',
+                     'waveurs_collection', 'waveurs_ouvertures')
   and grantee in ('anon', 'authenticated')
   and privilege_type in ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE');
+
+select rarete, count(*) as cartes, count(*) filter (where actif) as en_jeu
+from public.waveurs_cartes
+group by rarete
+order by min(id);
+
+select emplacement, rarete,
+       round(100.0 * poids / nullif(sum(poids) over (partition by emplacement), 0), 1) as pourcent
+from public.waveurs_tirage
+order by emplacement, rarete;
 
 select round(sum(poids::numeric * xp) / nullif(sum(poids), 0), 2)     as gain_moyen_par_tour_en_xp,
        round(sum(poids::numeric * pieces) / nullif(sum(poids), 0), 2) as gain_moyen_par_tour_en_pieces,
@@ -682,6 +1069,25 @@ where actif;
 --     group by 1
 --   ) a using (jour)
 --   order by j.jour desc;
+--
+--   -- Boosters ouverts par jour, et cartes légendaires sorties
+--   select (o.cree_le at time zone 'Europe/Paris')::date as jour,
+--          count(*) as boosters_ouverts,
+--          count(*) filter (where exists (
+--            select 1 from public.waveurs_cartes c
+--            where c.id = any (o.cartes) and c.rarete = 'legendaire'
+--          )) as avec_une_legendaire
+--   from public.waveurs_ouvertures o
+--   where o.cree_le > now() - interval '14 days'
+--   group by 1 order by 1 desc;
+--
+--   -- Les collections les plus avancées
+--   select p.pseudo, count(*) as cartes_differentes, sum(k.quantite) as exemplaires
+--   from public.waveurs_collection k
+--   join public.profiles p on p.id = k.user_id
+--   group by p.pseudo
+--   order by cartes_differentes desc, exemplaires desc
+--   limit 20;
 --
 --   -- Les plus gros portefeuilles (pour repérer une anomalie)
 --   select p.pseudo, w.pieces, w.boosters
