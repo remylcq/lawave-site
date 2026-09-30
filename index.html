@@ -2653,8 +2653,8 @@
             <p class="desc">
               Une salle de casino aux couleurs de La Wave, avec sa grande
               machine à sous à parcourir en vue subjective. Chaque jour, des
-              tours offerts : ils rapportent de l'XP, et bientôt des cartes à
-              collectionner.
+              tours offerts : ils rapportent de l'XP et des pièces, à
+              dépenser chez le croupier en boosters de cartes La Wave TCG.
             </p>
           </div>
         </div>
@@ -2687,14 +2687,14 @@
 
             <ul class="wv-regles">
               <li><b>Des tours offerts chaque jour.</b> Ils se remettent à zéro à minuit, heure de Paris.</li>
-              <li><b>De l'XP à gagner, rien à payer.</b> Aucun tour ne s'achète, et l'argent n'intervient jamais.</li>
+              <li><b>De l'XP et des pièces à gagner, rien à payer.</b> Aucun tour ne s'achète, et l'argent n'intervient jamais : les pièces ne s'achètent pas et ne se convertissent pas.</li>
               <li><b>Trois logos La Wave alignés :</b> le jackpot.</li>
-              <li><b>Des cartes à collectionner</b> arriveront plus tard : la machine en distribuera.</li>
+              <li><b>Le croupier</b> vend des boosters de cartes La Wave TCG contre des pièces. Leur ouverture arrivera avec les cartes.</li>
             </ul>
 
             <p class="wv-commandes">
               Au clavier : <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> pour marcher, la souris pour regarder,
-              <kbd>E</kbd> pour jouer. Sur téléphone : un pouce pour avancer, l'autre pour regarder.
+              <kbd>E</kbd> pour jouer ou parler au croupier. Sur téléphone : un pouce pour avancer, l'autre pour regarder.
               La salle a du son.
             </p>
 
@@ -3993,15 +3993,34 @@ const BD = {
     return supabaseClient.rpc('waveurs_etat');
   },
 
-  waveursGains(){
-    return supabaseClient
+  async waveursGains(){
+
+    const essai = await supabaseClient
       .from('waveurs_gains')
-      .select('nom, motif, symbole, xp')
+      .select('nom, motif, symbole, xp, pieces')
       .order('xp', { ascending: false });
+
+    // Base pas encore passée au nouveau waveurs.sql : la colonne des pièces
+    // n'existe pas. La salle montre alors la table sans elles, plutôt que
+    // rien du tout.
+    if(essai.error && (essai.error.code === '42703' || /pieces/i.test(essai.error.message || ''))){
+      return supabaseClient
+        .from('waveurs_gains')
+        .select('nom, motif, symbole, xp')
+        .order('xp', { ascending: false });
+    }
+
+    return essai;
   },
 
   waveursTourner(machine){
     return supabaseClient.rpc('waveurs_tourner', { p_machine: machine });
+  },
+
+  // Un achat de boosters chez le croupier : le prix et le solde sont ceux
+  // de la base, jamais ceux du navigateur.
+  waveursAcheter(quantite){
+    return supabaseClient.rpc('waveurs_acheter_booster', { p_quantite: quantite });
   },
 
 
@@ -5852,7 +5871,7 @@ async function accredLivrer(evenement, id){
 // Le numéro qui suit l'adresse du fichier force le navigateur à en
 // prendre la dernière version quand on le change. À augmenter chaque fois
 // que waveurs.js est modifié.
-const WAVEURS_FICHIER = 'waveurs.js?v=3';
+const WAVEURS_FICHIER = 'waveurs.js?v=5';
 
 let waveursChargement = null;
 
@@ -5961,6 +5980,15 @@ function optionsWaveurs(){
       annoncerNiveauWaveurs(res);
     },
 
+    // Les boosters du croupier, payés en pièces. Le refus (pas assez de
+    // pièces, caisse fermée) est écrit en français côté SQL et s'affiche tel
+    // quel dans la boutique.
+    acheter: async (quantite) => {
+      const { data, error } = await BD.waveursAcheter(quantite);
+      if(error) throw new Error(messageWaveurs(error));
+      return data;
+    },
+
     ouvrirConnexion: () => openAuthModal('login'),
 
     surQuitter: () => renderWaveurs()
@@ -6043,12 +6071,25 @@ async function renderWaveurs(){
     ? ` · <b style="color:var(--gold-favori);">+${data.gagne_aujourdhui} XP</b> aujourd'hui`
     : '';
 
+  // Le portefeuille : les pièces de la machine, et les boosters achetés
+  // chez le croupier.
+  const pieces = Number(data.pieces) || 0;
+  const boosters = Number(data.boosters) || 0;
+
+  const bourse = `
+    <p class="wv-etat-valeur wv-bourse-accueil">
+      <b style="color:var(--gold-favori);">${pieces}</b> pièce${pieces > 1 ? 's' : ''}
+      · <b>${boosters}</b> booster${boosters > 1 ? 's' : ''}
+    </p>`;
+
   zone.innerHTML = `
     <div class="wv-etat-titre">Tes tours du jour</div>
     <p class="wv-etat-valeur">
       <b>${restants} sur ${total}</b>${gagne}
     </p>
-    <div class="wv-pips" aria-hidden="true">${pips}</div>`;
+    <div class="wv-pips" aria-hidden="true">${pips}</div>
+    <div class="wv-etat-titre" style="margin-top:16px;">Ton portefeuille</div>
+    ${bourse}`;
 }
 
 async function entrerDansLaSalle(){
@@ -6465,8 +6506,11 @@ async function submitLogin(){
   currentUser = user;
   refreshAccountUI();
   closeAuthModal();
-  // Se connecter depuis la salle des waveurs ramène à l'onglet Waveurs.
+  // Se connecter depuis la salle des waveurs ramène à l'onglet Waveurs, et
+  // la salle, si elle est ouverte, recharge ce qu'elle sait du membre (la
+  // boutique du croupier en était restée à « Se connecter »).
   goTo(ongletWaveursVisible() ? 'waveurs' : 'community');
+  if(window.Waveurs && window.Waveurs.ouverte && window.Waveurs.ouverte()) window.Waveurs.actualiser();
 }
 
 // ---- Profil ----

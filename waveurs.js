@@ -22,9 +22,14 @@
      options.connecte()          vrai si un compte est connecté
      options.utilisateur()       { pseudo, xp } ou null
      options.etat()              Promise<{ tours_restants, tours_par_jour,
-                                           gagne_aujourdhui }> ou null
-     options.gains()             Promise<[{ nom, motif, symbole, xp }]>
+                                           gagne_aujourdhui, pieces_aujourdhui,
+                                           pieces, boosters, prix_booster }>
+     options.gains()             Promise<[{ nom, motif, symbole, xp, pieces }]>
      options.tourner(machineId)  Promise<résultat de waveurs_tourner>
+     options.acheter(quantite)   Promise<{ quantite, prix_unitaire,
+                                           pieces_total, boosters_total }>
+                                 (chez le croupier ; lève une Error dont le
+                                 message est montré tel quel)
      options.apresTirage(res)    appelé une fois les rouleaux arrêtés
      options.ouvrirConnexion()   ouvre la fenêtre de connexion
      options.surQuitter()        appelé quand on quitte la salle
@@ -1460,9 +1465,211 @@ function creerOmbre(){
   return c;
 }
 
+/* ---- Le booster La Wave TCG ----
+   Presque rien : un papier d'aluminium bleu nuit, le logo en blanc, TCG en
+   capitales espacées, un filet. C'est ce qui fait le luxe, et ce qui garde
+   le logo lisible de loin. */
+
+const BOOSTER_L = 512, BOOSTER_H = 768;
+
+// Le fond commun aux deux faces : un dégradé bleu nuit, des reflets verticaux
+// de feuille métallique, et les deux soudures, striées.
+function fondBooster(g){
+
+  const L = BOOSTER_L, H = BOOSTER_H;
+
+  const fond = g.createLinearGradient(0, 0, 0, H);
+  fond.addColorStop(0, '#040a1a');
+  fond.addColorStop(0.5, '#0b2645');
+  fond.addColorStop(1, '#050c1d');
+  g.fillStyle = fond;
+  g.fillRect(0, 0, L, H);
+
+  // Les reflets d'une feuille froissée à peine : des bandes très douces.
+  for(let x = 0; x < L; x += 32){
+    g.fillStyle = 'rgba(255,255,255,' + (0.016 + 0.018 * Math.sin(x * 0.11)) + ')';
+    g.fillRect(x, 0, 16, H);
+  }
+
+  const lueur = g.createLinearGradient(0, 0, L, H);
+  lueur.addColorStop(0.3, 'rgba(120,190,255,0)');
+  lueur.addColorStop(0.5, 'rgba(140,205,255,.11)');
+  lueur.addColorStop(0.7, 'rgba(120,190,255,0)');
+  g.fillStyle = lueur;
+  g.fillRect(0, 0, L, H);
+
+  // Les soudures.
+  [[0, 46], [H - 46, 46]].forEach(([y, h]) => {
+    g.fillStyle = 'rgba(14,33,56,.9)';
+    g.fillRect(0, y, L, h);
+    for(let k = 0; k < h; k += 4){
+      g.fillStyle = k % 8 ? 'rgba(0,0,0,.34)' : 'rgba(255,255,255,.10)';
+      g.fillRect(0, y + k, L, 2);
+    }
+  });
+
+  g.fillStyle = 'rgba(255,255,255,.14)';
+  g.fillRect(0, 46, L, 1.5);
+  g.fillRect(0, H - 47.5, L, 1.5);
+}
+
+// La face avant. Avec decoupe, les bords haut et bas prennent la dentelure
+// des soudures et le reste est transparent : c'est l'image de la boutique.
+function creerBoosterFace(logo, decoupe){
+
+  const L = BOOSTER_L, H = BOOSTER_H;
+  const { c, x: g } = creerCanvas(L, H);
+
+  if(decoupe){
+    const dent = 8, n = Math.ceil(L / dent);
+    g.beginPath();
+    g.moveTo(0, 8);
+    for(let i = 0; i <= n; i++) g.lineTo(Math.min(L, i * dent), i % 2 ? 0 : 8);
+    g.lineTo(L, H - 8);
+    for(let i = n; i >= 0; i--) g.lineTo(Math.min(L, i * dent), H - (i % 2 ? 0 : 8));
+    g.closePath();
+    g.clip();
+  }
+
+  fondBooster(g);
+
+  // Un cadre fin.
+  g.strokeStyle = 'rgba(255,255,255,.17)';
+  g.lineWidth = 2;
+  g.strokeRect(34, 84, L - 68, H - 168);
+
+  // Le logo, en blanc, avec une lueur bleue à peine perceptible.
+  if(logo){
+    const blanc = logoTeinte(logo, '#ffffff');
+    g.shadowColor = '#4FB4FF';
+    g.shadowBlur = 16;
+    ajuster(g, blanc, L / 2, 290, 330, 190);
+    g.shadowBlur = 0;
+    ajuster(g, blanc, L / 2, 290, 330, 190);
+  } else {
+    g.fillStyle = '#ffffff';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.font = '700 88px ' + POLICE;
+    g.fillText('LA WAVE', L / 2, 290);
+  }
+
+  // Un filet bleu, puis TCG.
+  const filet = g.createLinearGradient(170, 0, 342, 0);
+  filet.addColorStop(0, 'rgba(79,180,255,0)');
+  filet.addColorStop(0.5, 'rgba(79,180,255,.95)');
+  filet.addColorStop(1, 'rgba(79,180,255,0)');
+  g.fillStyle = filet;
+  g.fillRect(170, 446, 172, 2);
+
+  g.textBaseline = 'middle';
+  g.font = '700 96px ' + POLICE;
+  g.fillStyle = '#ffffff';
+  g.shadowColor = 'rgba(79,180,255,.55)';
+  g.shadowBlur = 16;
+  texteEspace(g, 'TCG', L / 2, 528, 22);
+  g.shadowBlur = 0;
+
+  g.font = '500 24px ' + POLICE;
+  g.fillStyle = '#8fb8d8';
+  texteEspace(g, 'BOOSTER', L / 2, 610, 12);
+
+  // Une seule vague, en bas.
+  g.strokeStyle = 'rgba(79,180,255,.32)';
+  g.lineWidth = 2;
+  g.beginPath();
+  for(let x = 60; x <= L - 60; x += 4){
+    const y = 676 + Math.sin((x - 60) / (L - 120) * TAU * 2) * 8;
+    if(x === 60) g.moveTo(x, y); else g.lineTo(x, y);
+  }
+  g.stroke();
+
+  return c;
+}
+
+// Le dos : le même fond, un petit logo et la vague.
+function creerBoosterDos(logo){
+
+  const L = BOOSTER_L, H = BOOSTER_H;
+  const { c, x: g } = creerCanvas(L, H);
+
+  fondBooster(g);
+
+  if(logo){
+    g.globalAlpha = 0.5;
+    ajuster(g, logoTeinte(logo, '#ffffff'), L / 2, H / 2, 180, 100);
+    g.globalAlpha = 1;
+  }
+
+  g.strokeStyle = 'rgba(79,180,255,.28)';
+  g.lineWidth = 2;
+  g.beginPath();
+  for(let x = 60; x <= L - 60; x += 4){
+    const y = H / 2 + 90 + Math.sin((x - 60) / (L - 120) * TAU * 2) * 8;
+    if(x === 60) g.moveTo(x, y); else g.lineTo(x, y);
+  }
+  g.stroke();
+
+  return c;
+}
+
+// Le reflet arc-en-ciel du foil : des bandes de couleur, en diagonale, qui
+// glissent sur le sachet.
+function creerRefletFoil(){
+
+  const { c, x: g } = creerCanvas(256, 256);
+
+  // Deux cycles de couleurs sur la diagonale : un décalage d'une demi-
+  // diagonale (256 px de côté) retombe sur la même teinte, donc la texture se
+  // raccorde sur ses bords quand elle se répète et que son offset glisse.
+  const d = g.createLinearGradient(0, 0, 256, 256);
+  const couleurs = ['255,90,160', '255,205,90', '90,255,195', '95,165,255', '205,95,255'];
+  const n = couleurs.length;
+  for(let cycle = 0; cycle < 2; cycle++){
+    couleurs.forEach((col, i) => {
+      d.addColorStop((cycle + i / n) / 2, 'rgba(' + col + ',0.85)');
+    });
+  }
+  d.addColorStop(1, 'rgba(' + couleurs[0] + ',0.85)');
+  g.fillStyle = d;
+  g.fillRect(0, 0, 256, 256);
+
+  return c;
+}
+
+
 /* ----------------------------------------------------------------------
    Géométries
    ---------------------------------------------------------------------- */
+
+// Un sachet de foil : plat aux deux soudures, gonflé entre elles, pincé sur
+// les côtés. Le devant fait face à +z.
+function geoBooster(largeur, hauteur, epaisseur){
+
+  const g = new THREE.PlaneGeometry(largeur, hauteur, 8, 36);
+  const pos = g.attributes.position;
+
+  for(let i = 0; i < pos.count; i++){
+
+    const x = pos.getX(i), y = pos.getY(i);
+    const u = 2 * x / largeur;
+    const v = y / hauteur + 0.5;
+
+    // Distance à la soudure la plus proche : le sachet ne gonfle qu'au-delà.
+    const bord = Math.min(v, 1 - v);
+    const t = clamp((bord - 0.07) / 0.10, 0, 1);
+    const gonfle = t * t * (3 - 2 * t);
+
+    const corps = Math.pow(Math.max(0, 1 - u * u), 0.7);
+    const strie = bord < 0.07 ? Math.sin(x / largeur * 90) * 0.0007 : 0;
+
+    pos.setZ(i, epaisseur / 2 * gonfle * corps + 0.0006 + strie);
+  }
+
+  g.computeVertexNormals();
+
+  return g;
+}
 
 function colorer(g, hex){
   const n = g.attributes.position.count;
@@ -2182,6 +2389,30 @@ const Son = (function(){
       ton(165, t + 0.16, 0.26, { type: 'square', vol: 0.06 });
     },
 
+    // Une pluie de pièces : de petits tintements aigus, plus nombreux quand
+    // le gain est gros.
+    pieces(n){
+      if(!ctx) return;
+      const t = ctx.currentTime + 0.05;
+      const k = clamp(Math.round(n / 4) + 3, 3, 14);
+      for(let i = 0; i < k; i++){
+        const f = hasard(1900, 3100);
+        const d = t + i * 0.065 + hasard(0, 0.02);
+        ton(f, d, 0.18, { type: 'sine', vol: 0.05 });
+        ton(f * 1.51, d, 0.1, { type: 'sine', vol: 0.02 });
+      }
+    },
+
+    // La caisse : le tiroir, puis deux notes de clochette.
+    achat(){
+      if(!ctx) return;
+      const t = ctx.currentTime;
+      bruit(t, 0.08, { freq: 900, vol: 0.1 });
+      ton(1568, t + 0.09, 0.5, { type: 'triangle', vol: 0.12 });
+      ton(2093, t + 0.2, 0.7, { type: 'triangle', vol: 0.10 });
+      ton(3136, t + 0.2, 0.4, { type: 'sine', vol: 0.03 });
+    },
+
     pas(){
       if(!ctx) return;
       bruit(ctx.currentTime, 0.09, { type: 'lowpass', freq: 240, vol: 0.09 });
@@ -2390,7 +2621,8 @@ const ICONES_UI = {
   son: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>',
   muet: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>',
   plein: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>',
-  quitter: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>'
+  quitter: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+  piece: '<svg class="wv-ico" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="#e9b949"/><circle cx="12" cy="12" r="10" fill="none" stroke="#a87817" stroke-width="1.5"/><circle cx="12" cy="12" r="6.4" fill="none" stroke="#a87817" stroke-width="1.2"/><path d="M8.6 9.4 10.2 15l1.8-4.2L13.8 15l1.6-5.6" fill="none" stroke="#7a5510" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
 
 const CSS = `
@@ -2427,17 +2659,17 @@ const CSS = `
 .wv-gain{position:absolute;left:50%;top:11%;transform:translate(-50%,0);font-size:clamp(36px,7vw,76px);font-weight:700;letter-spacing:-.02em;color:#ffe08a;text-shadow:0 0 34px rgba(255,200,80,.65),0 4px 24px rgba(0,0,0,.65);opacity:0;pointer-events:none;white-space:nowrap;text-align:center;line-height:1.05}
 .wv-gain small{display:block;font-size:.26em;letter-spacing:.22em;text-transform:uppercase;color:#fff;font-weight:500;margin-top:6px}
 .wv-gain.anim{animation:wvGain 2.8s cubic-bezier(.2,.7,.2,1) forwards}
-.wv-plus{position:absolute;top:calc(168px + env(safe-area-inset-top,0px));left:calc(16px + env(safe-area-inset-left,0px));font-size:22px;font-weight:700;color:#ffe08a;text-shadow:0 0 18px rgba(255,200,80,.6),0 2px 10px rgba(0,0,0,.7);opacity:0;pointer-events:none;white-space:nowrap}
+.wv-plus{position:absolute;top:calc(196px + env(safe-area-inset-top,0px));left:calc(16px + env(safe-area-inset-left,0px));font-size:22px;font-weight:700;color:#ffe08a;text-shadow:0 0 18px rgba(255,200,80,.6),0 2px 10px rgba(0,0,0,.7);opacity:0;pointer-events:none;white-space:nowrap}
 .wv-plus.anim{animation:wvPlus 2.2s cubic-bezier(.2,.7,.2,1) forwards}
 @keyframes wvPlus{0%{opacity:0;transform:translateY(10px)}14%{opacity:1;transform:translateY(0)}72%{opacity:1}100%{opacity:0;transform:translateY(-22px)}}
 @keyframes wvGain{0%{opacity:0;transform:translate(-50%,26px) scale(.7)}12%{opacity:1;transform:translate(-50%,0) scale(1.08)}22%{transform:translate(-50%,0) scale(1)}78%{opacity:1}100%{opacity:0;transform:translate(-50%,-44px) scale(1)}}
-.wv-gains{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:246px;padding:14px 16px}
+.wv-gains{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:288px;padding:14px 16px}
 .wv-gains[hidden]{display:none}
 .wv-gains h3{margin:0 0 10px;font-size:11px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:#9fb0c2}
 .wv-gains ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .wv-gains li{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:#dfe7ef;font-weight:400}
 .wv-gains li b{font-weight:700;color:#ffe08a;font-variant-numeric:tabular-nums;white-space:nowrap}
-.wv-message{position:absolute;left:50%;top:20%;transform:translateX(-50%);padding:12px 18px;border-radius:14px;background:rgba(6,14,26,.88);border:1px solid rgba(255,255,255,.22);font-size:14px;max-width:min(440px,88vw);text-align:center;line-height:1.5;color:#fff}
+.wv-message{position:absolute;left:50%;top:max(20%,200px);transform:translateX(-50%);padding:12px 18px;border-radius:14px;background:rgba(6,14,26,.88);border:1px solid rgba(255,255,255,.22);font-size:14px;max-width:min(440px,88vw);text-align:center;line-height:1.5;color:#fff}
 .wv-message[hidden]{display:none}
 .wv-ecran{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:20px;background:radial-gradient(120% 90% at 50% 40%,rgba(6,20,36,.7),rgba(2,6,12,.95));-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:5}
 .wv-ecran[hidden]{display:none}
@@ -2458,6 +2690,40 @@ const CSS = `
 .wv-charge{display:flex;align-items:center;gap:14px;color:#c4ccd6;font-size:14px}
 .wv-charge i{width:22px;height:22px;border-radius:50%;border:3px solid rgba(255,255,255,.18);border-top-color:#4FB4FF;animation:wvTourne .9s linear infinite}
 @keyframes wvTourne{to{transform:rotate(360deg)}}
+.wv-bourse{margin-top:9px;align-items:center}
+.wv-bourse[hidden]{display:none}
+.wv-piece{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:#ffe08a}
+.wv-piece b{font-weight:700;font-variant-numeric:tabular-nums}
+.wv-ico{flex:none;display:block}
+.wv-boosters{font-size:11px;font-weight:500;letter-spacing:.06em;color:#9fb0c2;white-space:nowrap}
+.wv-panneau.wv-boutique{width:min(760px,100%);padding:26px 28px 22px}
+.wv-vitrine{display:grid;grid-template-columns:minmax(150px,240px) 1fr;gap:28px;align-items:center}
+.wv-pack{display:flex;justify-content:center;perspective:900px}
+.wv-pack img{width:100%;max-width:220px;height:auto;display:block;filter:drop-shadow(0 18px 26px rgba(0,0,0,.6)) drop-shadow(0 0 22px rgba(79,180,255,.22));transform:rotateY(-16deg) rotateX(4deg);animation:wvPack 6s ease-in-out infinite}
+@keyframes wvPack{0%,100%{transform:rotateY(-16deg) rotateX(4deg) translateY(0)}50%{transform:rotateY(16deg) rotateX(2deg) translateY(-6px)}}
+.wv-panneau .wv-parole{margin:0 0 14px;padding-left:12px;border-left:2px solid #4FB4FF;font-size:14px;line-height:1.55;color:#dfe7ef;font-style:italic;font-weight:300}
+.wv-panneau:focus{outline:none}
+.wv-prix{display:flex;align-items:baseline;gap:9px;margin:0 0 12px}
+.wv-prix b{font-size:30px;font-weight:700;color:#ffe08a;font-variant-numeric:tabular-nums}
+.wv-prix span{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#9fb0c2}
+.wv-portefeuille{display:flex;gap:6px 18px;flex-wrap:wrap;margin:0 0 16px;font-size:13px;color:#c4ccd6}
+.wv-portefeuille b{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+.wv-achat{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.wv-quantite{display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,.22);border-radius:999px;overflow:hidden}
+.wv-quantite button{width:40px;height:42px;background:transparent;border:0;color:#fff;font:600 20px 'Public Sans',system-ui,sans-serif;cursor:pointer}
+.wv-quantite button:hover:not(:disabled){background:rgba(255,255,255,.1)}
+.wv-quantite button:focus-visible{outline:2px solid #4FB4FF;outline-offset:-3px}
+.wv-quantite button:disabled{opacity:.35;cursor:default}
+.wv-quantite span{min-width:36px;text-align:center;font-weight:700;font-variant-numeric:tabular-nums}
+.wv-cta:disabled{opacity:.45;cursor:default}
+.wv-panneau .wv-alerte{margin:0 0 12px;padding:10px 14px;border-radius:12px;background:rgba(229,105,92,.14);border:1px solid rgba(229,105,92,.45);font-size:13px;line-height:1.5;color:#ffc8c0;font-weight:400}
+.wv-panneau .wv-reussite{margin:0 0 12px;padding:10px 14px;border-radius:12px;background:rgba(80,200,140,.13);border:1px solid rgba(80,200,140,.4);font-size:13px;line-height:1.5;color:#c6f1d9;font-weight:400}
+.wv-panneau .wv-note{margin:10px 0 0;font-size:12px;line-height:1.5;color:#8a9bb0}
+@media (min-width:761px){
+  .wv-ecran.wv-ecran-boutique{justify-content:flex-end;padding-right:4vw;background:linear-gradient(90deg,rgba(2,6,12,0) 12%,rgba(2,6,12,.6) 52%,rgba(2,6,12,.88) 100%);-webkit-backdrop-filter:none;backdrop-filter:none}
+  .wv-panneau.wv-boutique{width:min(620px,60vw)}
+  .wv-boutique .wv-vitrine{grid-template-columns:minmax(120px,190px) 1fr;gap:22px}
+}
 .wv-cine{position:absolute;inset:0;pointer-events:none;z-index:2}
 .wv-cine::before,.wv-cine::after{content:'';position:absolute;left:0;right:0;height:0;background:#000;transition:height .9s cubic-bezier(.2,.7,.2,1)}
 .wv-cine::before{top:0}
@@ -2493,20 +2759,34 @@ const CSS = `
   .wv-pastilles{gap:4px;flex-wrap:nowrap}
   .wv-pastilles i{width:9px;height:9px}
   .wv-gagne{font-size:11px;white-space:nowrap}
-  .wv-gain{top:21%}
+  .wv-gain{top:26%}
+  .wv-message{top:30%}
+  .wv-vitrine{grid-template-columns:1fr;gap:14px}
+  .wv-pack img{max-width:120px}
+  .wv-panneau.wv-boutique{padding:18px 18px 16px}
   /* Les notifications du site ne doivent pas couvrir TIRER et Reculer :
      en jeu, elles se rangent sous les cartes du haut. */
-  body.wv-en-jeu .notif-zone{top:calc(285px + env(safe-area-inset-top,0px));bottom:auto}
+  body.wv-en-jeu .notif-zone{top:calc(310px + env(safe-area-inset-top,0px));bottom:auto}
   .wv-panneau{padding:22px 20px 20px}
   .wv-panneau h2{font-size:22px}
 }
 @media (max-height:520px){
+  .wv-message{top:110px}
+  .wv-boutique .wv-pack{display:none}
+  .wv-panneau.wv-boutique{padding:14px 16px}
+  .wv-boutique h2{font-size:18px;margin:4px 0 8px}
+  .wv-boutique .wv-parole{margin-bottom:8px}
+  .wv-boutique .wv-prix{margin-bottom:8px}
+  .wv-boutique .wv-prix b{font-size:22px}
+  .wv-boutique .wv-portefeuille{margin-bottom:10px}
+  .wv-panneau .wv-note{display:none}
   .wv-haut-gauche .wv-carte:nth-child(2){display:none}
   body.wv-en-jeu .notif-zone{top:14px;bottom:auto;left:264px;right:170px;max-width:none}
 }
 @media (prefers-reduced-motion:reduce){
   .wv-gain.anim,.wv-plus.anim{animation:wvGainDoux 2.6s linear forwards}
   .wv-barre span{transition:none}
+  .wv-pack img{animation:none;transform:rotateY(-8deg) rotateX(4deg)}
 }
 @keyframes wvGainDoux{0%{opacity:0}15%{opacity:1}80%{opacity:1}100%{opacity:0}}
 `;
@@ -2518,6 +2798,10 @@ const HTML_JEU = `
     <div class="wv-carte">
       <div class="wv-ligne"><span class="wv-etiquette" id="wvNiveau">Niveau 1</span><span class="wv-valeur" id="wvXp">0 XP</span></div>
       <div class="wv-barre"><span id="wvBarre"></span></div>
+      <div class="wv-ligne wv-bourse" id="wvBourse" hidden>
+        <span class="wv-piece">${ICONES_UI.piece}<b id="wvPieces">—</b></span>
+        <span class="wv-boosters" id="wvBoosters"></span>
+      </div>
     </div>
     <div class="wv-carte">
       <div class="wv-ligne"><span class="wv-etiquette">Tours<span class="wv-long"> du jour</span></span><span class="wv-valeur" id="wvTours">—</span></div>
@@ -2567,6 +2851,7 @@ let ratioMax = 1.75, ratioActuel = 1, lentes = 0;
 
 const R = {};                     // ressources partagées
 const machines = [];
+let croupier = null;
 const colliders = [];
 const animes = { neons: [], poussiere: null, pieces: null };
 
@@ -2588,6 +2873,11 @@ const etat = {
   enTirage: false,
   cible: null,                    // ce que le joueur vise
   tours: null,                    // { restants, parJour, gagne }
+  bourse: null,                   // { pieces, boosters, prix } : le portefeuille
+  qte: 1,                         // combien de boosters à l'achat
+  achat: false,                   // un achat est en cours
+  alerte: null,                   // ce que la boutique a à dire de travers
+  remarque: null,                 // ce que dit le croupier
   gains: null,
   glisse: false,
   attente: null                   // résultat reçu, pas encore annoncé
@@ -2684,6 +2974,7 @@ function construireOverlay(){
   H = {
     canvas: q('wvCanvas'), niveau: q('wvNiveau'), xp: q('wvXp'), barre: q('wvBarre'),
     tours: q('wvTours'), pastilles: q('wvPastilles'), gagne: q('wvGagne'),
+    bourse: q('wvBourse'), pieces: q('wvPieces'), boosters: q('wvBoosters'),
     son: q('wvSon'), plein: q('wvPlein'), quitter: q('wvQuitter'),
     viseur: q('wvViseur'), invite: q('wvInvite'), gain: q('wvGain'), plus: q('wvPlus'),
     gains: q('wvGains'), message: q('wvMessage'), ecran: q('wvEcran'),
@@ -2812,6 +3103,7 @@ async function construireMonde(){
   construireBar();
   construireMobilier();
   construireMachine();
+  construireBoutique();
   construireLumieres();
   construireAmbiance();
 
@@ -2967,8 +3259,11 @@ function construireSalle(){
     const hauteur = Ht - 1.4;
     for(let i = 1; i < n; i++){
       const x = -m.l / 2 + i * m.l / n;
-      // Celui du milieu de la façade d'entrée passerait devant la porte.
+      // Celui du milieu de la façade d'entrée passerait devant la porte, et
+      // un montant du mur de gauche couperait l'enseigne du croupier (le
+      // long de ce mur, la position x du mur est l'opposée du z du monde).
       if(m.r === Math.PI && Math.abs(x) < 1.6) continue;
+      if(m.r === Math.PI / 2 && Math.abs(-x - CROUPIER.z) < 0.9) continue;
       loc(laiton, boite(0.05, hauteur, 0.03, x, 1.06 + hauteur / 2, 0.03, LAITON));
     }
   });
@@ -3494,6 +3789,320 @@ function construireMachine(){
   scene.add(ombre);
 }
 
+/* ---- Le croupier et son étal de boosters ---- */
+
+// Où se tient le croupier : derrière la table de blackjack, le dos au mur de
+// gauche, face à la salle. Sa table lui sert de comptoir.
+const CROUPIER = { x: -6.95, z: 2.4, rot: Math.PI / 2 };
+
+// Un booster : un sachet de foil de largeur l, hauteur h et épaisseur e,
+// avec son reflet arc-en-ciel en surimpression. Le devant fait face à +z.
+function fabriquerBooster(l, h, e){
+
+  const groupe = new THREE.Group();
+
+  const devant = geoBooster(l, h, e);
+  const dos = geoBooster(l, h, e);
+  dos.rotateY(Math.PI);
+
+  groupe.add(new THREE.Mesh(devant, R.matBoosterFace));
+  groupe.add(new THREE.Mesh(dos, R.matBoosterDos));
+
+  const reflet = new THREE.Mesh(devant, R.matFoil);
+  reflet.position.z = 0.0008;
+  reflet.renderOrder = 3;
+  groupe.add(reflet);
+
+  return groupe;
+}
+
+// Le croupier : un personnage un peu stylisé, à la casino d'autrefois —
+// gilet, nœud papillon, visière verte, moustache. Il se compose de pièces
+// qui bougent (la tête, les bras) et d'un reste immobile. Il regarde la
+// personne qui s'approche, tend un booster quand on lui parle, et le
+// pousse d'un geste quand on achète.
+class Croupier {
+
+  constructor(x, z, rotY){
+
+    this.type = 'croupier';
+    this.def = { nom: 'LE CROUPIER', couleur: '#f2d9a8', sombre: '#2a190d' };
+    this.centre = { x, z };
+    this.rotY = rotY;
+    this.normale = { x: Math.sin(rotY), z: Math.cos(rotY) };
+    this.phase = hasard(0, TAU);
+
+    this.accueil = 0;           // 0 au repos, 1 quand il tend un booster
+    this.accueilCible = 0;
+    this.remerciement = 0;      // une impulsion, après un achat
+    this.regard = 0;            // orientation de sa tête
+
+    const PEAU = '#d8a47f', CHEMISE = '#f2f0ea', GILET = '#15171d', PANTALON = '#101116';
+    const BORDEAUX = '#7a1526', CHEVEUX = '#20130c', VISIERE = '#2f7d5b';
+
+    const g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.rotation.y = rotY;
+    this.groupe = g;
+
+    const piece = liste => new THREE.Mesh(fusionner(liste), R.matBois);
+
+    // Jambes, chaussures, ceinture : immobiles.
+    g.add(piece([
+      cylindre(0.085, 0.072, 0.9, -0.11, 0.5, 0, PANTALON, 14),
+      cylindre(0.085, 0.072, 0.9, 0.11, 0.5, 0, PANTALON, 14),
+      boite(0.11, 0.07, 0.27, -0.11, 0.035, 0.05, '#050505'),
+      boite(0.11, 0.07, 0.27, 0.11, 0.035, 0.05, '#050505'),
+      boite(0.40, 0.14, 0.25, 0, 0.98, 0, PANTALON)
+    ]));
+
+    // Le buste : chemise, gilet à liserés bleus, nœud papillon, badge.
+    const torse = new THREE.Group();
+    this.torse = torse;
+    torse.add(piece([
+      boite(0.40, 0.52, 0.23, 0, 1.25, 0, CHEMISE),
+      boite(0.41, 0.48, 0.03, 0, 1.26, -0.10, GILET),
+      boite(0.165, 0.46, 0.03, -0.115, 1.25, 0.115, GILET),
+      boite(0.165, 0.46, 0.03, 0.115, 1.25, 0.115, GILET),
+      boite(0.012, 0.44, 0.034, -0.032, 1.25, 0.118, '#2fb8ff'),
+      boite(0.012, 0.44, 0.034, 0.032, 1.25, 0.118, '#2fb8ff'),
+      sphere(0.078, -0.22, 1.47, 0, CHEMISE),
+      sphere(0.078, 0.22, 1.47, 0, CHEMISE),
+      cylindre(0.078, 0.09, 0.05, 0, 1.52, 0, CHEMISE, 14),
+      boite(0.028, 0.03, 0.025, 0, 1.50, 0.105, BORDEAUX),
+      boite(0.055, 0.05, 0.02, -0.042, 1.50, 0.105, BORDEAUX),
+      boite(0.055, 0.05, 0.02, 0.042, 1.50, 0.105, BORDEAUX),
+      boite(0.07, 0.03, 0.008, -0.12, 1.37, 0.135, LAITON)
+    ]));
+    g.add(torse);
+
+    // La tête, autour du cou.
+    const tete = new THREE.Group();
+    tete.position.set(0, 1.56, 0);
+    this.tete = tete;
+
+    const oy = -1.56;
+
+    const crane = new THREE.SphereGeometry(0.108, 22, 16);
+    crane.scale(1, 1.15, 1);
+    crane.translate(0, 1.68 + oy, 0);
+    colorer(crane, PEAU);
+
+    // Les cheveux : une calotte qui s'arrête au front (au-dessus des yeux et
+    // des sourcils), et une seconde, derrière, qui descend jusqu'à la nuque.
+    const cheveux = new THREE.SphereGeometry(0.113, 22, 12, 0, TAU, 0, Math.PI * 0.36);
+    cheveux.scale(1, 1.15, 1.02);
+    cheveux.translate(0, 1.685 + oy, -0.005);
+    colorer(cheveux, CHEVEUX);
+
+    const nuque = new THREE.SphereGeometry(0.113, 22, 12, Math.PI, Math.PI, 0, Math.PI * 0.62);
+    nuque.scale(1, 1.15, 1.02);
+    nuque.translate(0, 1.685 + oy, -0.005);
+    colorer(nuque, CHEVEUX);
+
+    // La visière : un bec court, relevé vers l'avant, posé sur le front.
+    const bec = new THREE.CylinderGeometry(0.118, 0.118, 0.006, 22, 1, false, -Math.PI / 2, Math.PI);
+    bec.rotateX(-0.5);
+    bec.translate(0, 1.768 + oy, 0.04);
+    colorer(bec, VISIERE);
+
+    tete.add(piece([
+      crane, cheveux, nuque, bec,
+      cylindre(0.112, 0.112, 0.03, 0, 1.755 + oy, 0, VISIERE, 22),
+      cylindre(0.048, 0.055, 0.09, 0, 1.585 + oy, 0, PEAU, 12),
+      sphere(0.02, 0, 1.66 + oy, 0.108, PEAU),
+      sphere(0.013, -0.037, 1.695 + oy, 0.098, '#1b1210'),
+      sphere(0.013, 0.037, 1.695 + oy, 0.098, '#1b1210'),
+      boite(0.05, 0.008, 0.01, -0.037, 1.72 + oy, 0.102, CHEVEUX),
+      boite(0.05, 0.008, 0.01, 0.037, 1.72 + oy, 0.102, CHEVEUX),
+      boite(0.075, 0.014, 0.014, 0, 1.635 + oy, 0.108, '#2a1a10'),
+      boite(0.034, 0.006, 0.008, 0, 1.612 + oy, 0.104, '#8a3a3a'),
+      sphere(0.022, -0.108, 1.68 + oy, 0, PEAU),
+      sphere(0.022, 0.108, 1.68 + oy, 0, PEAU)
+    ]));
+    torse.add(tete);
+
+    // Les bras : l'épaule, puis le coude. Au repos, les mains reposent sur
+    // la table ; l'un des deux tend le booster.
+    const bras = cote => {
+      const epaule = new THREE.Group();
+      epaule.position.set(cote * 0.235, 1.46, 0);
+      epaule.add(piece([
+        cylindre(0.052, 0.046, 0.28, 0, -0.14, 0, CHEMISE, 12),
+        cylindre(0.056, 0.056, 0.03, 0, -0.085, 0, BORDEAUX, 12)
+      ]));
+      const coude = new THREE.Group();
+      coude.position.set(0, -0.28, 0);
+      coude.add(piece([
+        cylindre(0.043, 0.036, 0.25, 0, -0.125, 0, CHEMISE, 12),
+        sphere(0.042, 0, -0.275, 0, PEAU)
+      ]));
+      epaule.add(coude);
+      torse.add(epaule);
+      return { epaule, coude };
+    };
+
+    this.brasMain = bras(-1);
+    this.brasRepos = bras(1);
+
+    // Le booster qu'il tend : dans la main, à plat vers la personne.
+    this.paquet = fabriquerBooster(0.13, 0.195, 0.014);
+    this.paquet.rotation.x = Math.PI / 2;
+    this.paquet.position.set(0, -0.30, 0.06);
+    this.paquet.visible = false;
+    this.brasMain.coude.add(this.paquet);
+
+    // Son ombre au sol.
+    const ombre = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.95, 0.95),
+      new THREE.MeshBasicMaterial({ map: R.texture(creerOmbre()), transparent: true, depthWrite: false })
+    );
+    ombre.rotation.x = -Math.PI / 2;
+    ombre.position.y = 0.012;
+    g.add(ombre);
+  }
+
+  // Ce que voit la caméra quand on lui parle : lui, de face, à deux mètres et
+  // demi, un peu plus loin sur un écran en hauteur.
+  vue(aspect){
+
+    const d = clamp(1.05 / Math.max(0.5, aspect), 2.3, 3.4);
+
+    // Sur un écran large, la boutique s'affiche à droite : la caméra se
+    // décale de ce côté (à droite de sa propre direction) pour que le
+    // croupier apparaisse à gauche, visible, au lieu de passer derrière la
+    // fenêtre.
+    const lateral = aspect > 1.15 ? 0.85 : 0;
+    const droiteX = Math.cos(this.rotY), droiteZ = -Math.sin(this.rotY);
+
+    return {
+      x: this.centre.x + this.normale.x * d + droiteX * lateral,
+      y: 1.52,
+      z: this.centre.z + this.normale.z * d + droiteZ * lateral,
+      yaw: this.rotY,
+      pitch: -0.02,
+      fov: 50
+    };
+  }
+
+  accueillir(oui){
+    this.accueilCible = oui ? 1 : 0;
+  }
+
+  remercier(){
+    this.remerciement = 1;
+  }
+
+  maj(dt, t, reduit, cible){
+
+    const k = 1 - Math.exp(-dt * 6);
+
+    this.accueil += (this.accueilCible - this.accueil) * k;
+    this.remerciement = Math.max(0, this.remerciement - dt * 1.4);
+
+    // Il respire, à peine.
+    this.torse.position.y = reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.004;
+
+    // La tête suit la personne quand elle est proche ; sinon, son regard
+    // balaie lentement la salle.
+    let psi = 0;
+
+    if(!reduit){
+      psi = Math.sin(t * 0.4 + this.phase) * 0.25;
+
+      if(cible){
+        const dx = cible.x - this.centre.x, dz = cible.z - this.centre.z;
+        if(Math.hypot(dx, dz) < 9){
+          const c = Math.cos(this.rotY), s = Math.sin(this.rotY);
+          const lx = dx * c - dz * s, lz = dx * s + dz * c;
+          psi = clamp(Math.atan2(lx, lz), -1.0, 1.0);
+        }
+      }
+    }
+
+    this.regard += (psi - this.regard) * (1 - Math.exp(-dt * 4));
+    this.tete.rotation.y = this.regard;
+    this.tete.rotation.x = reduit ? 0 : Math.sin(t * 0.9 + this.phase) * 0.02 + this.remerciement * 0.22;
+
+    // Le bras libre reste posé ; l'autre bat les cartes au repos, puis
+    // tend le booster à l'accueil et le pousse à l'achat.
+    const r = this.accueil;
+    const frottement = reduit ? 0 : Math.sin(t * 3.4 + this.phase) * 0.07 * (1 - r);
+
+    this.brasRepos.epaule.rotation.x = -0.35;
+    this.brasRepos.coude.rotation.x = -0.7;
+
+    this.brasMain.epaule.rotation.x = lerp(-0.35, -0.9, r) - this.remerciement * 0.28;
+    this.brasMain.coude.rotation.x = lerp(-0.7, -0.6, r) + frottement;
+
+    this.paquet.visible = r > 0.06;
+  }
+}
+
+// Le croupier, son étal de boosters sur la table, l'enseigne au mur et un
+// booster qui flotte au-dessus, pour qu'on le repère de loin.
+function construireBoutique(){
+
+  R.matBoosterFace = new THREE.MeshPhongMaterial({
+    map: R.texture(creerBoosterFace(R.logo, false)), specular: 0x9cc8ff, shininess: 120
+  });
+
+  R.matBoosterDos = new THREE.MeshPhongMaterial({
+    map: R.texture(creerBoosterDos(R.logo)), specular: 0x9cc8ff, shininess: 120
+  });
+
+  R.reflet = R.texture(creerRefletFoil(), { repete: true });
+
+  R.matFoil = new THREE.MeshBasicMaterial({
+    map: R.reflet, transparent: true, opacity: 0.2, depthWrite: false,
+    blending: THREE.AdditiveBlending
+  });
+
+  croupier = new Croupier(CROUPIER.x, CROUPIER.z, CROUPIER.rot);
+  scene.add(croupier.groupe);
+
+  // Trois boosters posés contre un rail de laiton, sur le feutre.
+  const tx = -6.28, tz = CROUPIER.z;
+
+  [-0.24, 0, 0.24].forEach(dz => {
+    const socle = new THREE.Group();
+    socle.position.set(tx, 0.954, tz + dz);
+    socle.rotation.y = Math.PI / 2;
+
+    const p = fabriquerBooster(0.13, 0.195, 0.014);
+    p.position.set(0, 0.098, -0.012);
+    p.rotation.x = -0.22;
+
+    socle.add(p);
+    scene.add(socle);
+  });
+
+  const rail = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.035, 0.76), R.matLaitonUni);
+  rail.position.set(tx + 0.07, 0.972, tz);
+  scene.add(rail);
+
+  // L'enseigne au mur, derrière lui.
+  const enseigne = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.3, 0.42),
+    new THREE.MeshBasicMaterial({
+      map: R.texture(creerEnseigne('LA WAVE TCG', '#4FB4FF', 1200, 220, 116)),
+      transparent: true, depthWrite: false
+    })
+  );
+  enseigne.position.set(-SALLE.l + 0.04, 3.0, CROUPIER.z);
+  enseigne.rotation.y = Math.PI / 2;
+  scene.add(enseigne);
+
+  // Un booster qui flotte et tourne au-dessus de la table, avec sa lueur.
+  const flotte = fabriquerBooster(0.26, 0.39, 0.026);
+  flotte.position.set(-5.95, 2.25, CROUPIER.z);
+  scene.add(flotte);
+
+  poserHalo(-5.95, 2.25, CROUPIER.z, '#6fb8ff');
+
+  animes.boutique = { flotte, y0: 2.25 };
+}
+
 function construireLumieres(){
 
   const laiton = [], led = [];
@@ -3669,6 +4278,18 @@ function viser(){
 
   if(meilleure) return { type: 'machine', machine: meilleure };
 
+  // Le croupier, de face : il faut être de son côté de la table et le
+  // regarder.
+  if(croupier){
+    const dx = croupier.centre.x - joueur.x, dz = croupier.centre.z - joueur.z;
+    const d = Math.hypot(dx, dz);
+    const devant = -dx * croupier.normale.x - dz * croupier.normale.z;
+
+    if(d < 4.6 && d > 0.05 && devant > 0.6 && (dx * fx + dz * fz) / d > 0.72){
+      return { type: 'croupier', machine: croupier };
+    }
+  }
+
   // La porte, derrière le point de départ.
   if(R.porte){
     const dx = R.porte.x - joueur.x, dz = R.porte.z + 0.6 - joueur.z;
@@ -3691,7 +4312,8 @@ function entrerFocus(machine){
   focus.machine = machine;
   focus.cible = 1;
   Son.clic();
-  afficherGains(true);
+  // La table des combinaisons est celle de la machine, pas du croupier.
+  afficherGains(machine.type !== 'croupier');
 }
 
 function sortirFocus(){
@@ -3709,9 +4331,13 @@ function actionPrincipale(){
 
   if(!actif || etat.ecran) return;
 
+  // Juste après avoir fermé la boutique, un second clic ne vaut pas action.
+  if(performance.now() - (etat.fermeeA || -1e9) < 600) return;
+
   // En cours de transition, on attend d'être arrivé.
   if(focus.cible === 1 && focus.t > 0.9){
-    tirer(focus.machine);
+    if(focus.machine.type === 'croupier') ouvrirBoutique();
+    else tirer(focus.machine);
     return;
   }
 
@@ -3819,8 +4445,18 @@ async function tirer(machine){
   etat.tours = {
     restants: res.tours_restants,
     parJour: res.tours_par_jour,
-    gagne: ((etat.tours && etat.tours.gagne) || 0) + (res.gain || 0)
+    gagne: ((etat.tours && etat.tours.gagne) || 0) + (res.gain || 0),
+    pieces: ((etat.tours && etat.tours.pieces) || 0) + (res.pieces || 0)
   };
+
+  // Le solde de pièces renvoyé par la base fait foi.
+  if(res.pieces_total !== undefined){
+    etat.bourse = {
+      pieces: res.pieces_total,
+      boosters: (etat.bourse && etat.bourse.boosters) || 0,
+      prix: (etat.bourse && etat.bourse.prix) || null
+    };
+  }
 
   etat.attente = null;
   etat.enTirage = false;
@@ -3854,26 +4490,34 @@ function ticsRouleaux(machine){
 function annoncerResultat(machine, res){
 
   const xp = res.gain || 0;
+  const pieces = res.pieces || 0;
   const jackpot = res.motif === 'trio' && res.symbole === 'logo';
 
-  if(xp > 0){
+  if(xp > 0 || pieces > 0){
 
     machine.gagner(jackpot);
 
+    const mot = pluriel(pieces, 'pièce');
+
+    const detail = (xp > 0 ? '+' + xp + ' XP' : '') + (xp > 0 && pieces > 0 ? ' · ' : '') +
+                   (pieces > 0 ? '+' + pieces + ' ' + mot : '');
+
     machine.ecrire(
-      jackpot ? 'JACKPOT !' : '+' + xp + ' XP',
-      jackpot ? '+' + xp + ' XP' : res.nom,
+      jackpot ? 'JACKPOT !' : (xp > 0 ? '+' + xp + ' XP' : '+' + pieces + ' ' + mot),
+      jackpot ? detail : (xp > 0 && pieces > 0 ? '+' + pieces + ' ' + mot : res.nom),
       jackpot ? '#ffe08a' : '#7dffb2'
     );
 
-    afficherGain(xp, jackpot ? 'jackpot' : res.nom);
+    afficherGain(xp, jackpot ? 'jackpot' : res.nom, pieces);
 
     if(jackpot) Son.jackpot();
     else Son.gain(Math.min(4, Math.floor(xp / 5)));
 
+    if(pieces > 0) Son.pieces(pieces);
+
     // La gerbe de pièces est un mouvement de trop pour qui a demandé d'en
-    // avoir moins.
-    if(!etat.reduit) jaillir(machine, jackpot ? 60 : Math.min(28, 8 + xp));
+    // avoir moins. Elle est à la mesure de ce qui est gagné.
+    if(!etat.reduit) jaillir(machine, jackpot ? 70 : Math.min(30, 6 + Math.round(pieces / 2)));
 
   } else {
     machine.ecrire('PAS CETTE FOIS', 'retente ta chance', '#9fb0c2');
@@ -3921,27 +4565,49 @@ function jaillir(machine, nombre){
    Données : tours, XP, gains
    ---------------------------------------------------------------------- */
 
+// Numéro de la dernière demande d'état : une réponse qui arrive après une
+// plus récente (ou après un achat) ne doit pas repasser par-dessus.
+let seqEtat = 0;
+
 async function chargerEtat(){
 
   if(!options.connecte || !options.connecte() || !options.etat){
+    seqEtat++;
     etat.tours = null;
+    etat.bourse = null;
     majHud();
     return;
   }
 
+  const numero = ++seqEtat;
+
   try{
+
     const e = await options.etat();
+
+    if(numero !== seqEtat) return;
+
     if(e){
       etat.tours = {
         restants: e.tours_restants,
         parJour: e.tours_par_jour,
-        gagne: e.gagne_aujourdhui || 0
+        gagne: e.gagne_aujourdhui || 0,
+        pieces: e.pieces_aujourdhui || 0
+      };
+
+      // Une base pas encore mise à jour ne connaît pas les pièces : on ne
+      // fabrique pas un portefeuille vide, on n'en montre pas.
+      etat.bourse = e.pieces === undefined ? null : {
+        pieces: e.pieces || 0,
+        boosters: e.boosters || 0,
+        prix: e.prix_booster || null
       };
     }
+
   }catch(err){
-    // Sans le compteur, on laisse quand même essayer : c'est la base qui
-    // décide, l'affichage n'est qu'un confort.
-    etat.tours = null;
+    // Sans réponse, on garde ce qu'on savait (rien, à la première fois : le
+    // compteur manque alors, et on laisse quand même essayer — c'est la base
+    // qui décide, l'affichage n'est qu'un confort).
   }
 
   majHud();
@@ -4041,6 +4707,22 @@ function majHud(){
     H.tours.textContent = u ? '—' : 'connecte-toi';
     H.gagne.hidden = true;
   }
+
+  // Le portefeuille : les pièces, et les boosters en attente. Un visiteur
+  // n'en a pas.
+  const b = etat.bourse;
+
+  H.bourse.hidden = !u || !b;
+  H.pieces.textContent = b ? b.pieces : '—';
+  H.boosters.textContent = b && b.boosters
+    ? b.boosters + ' ' + pluriel(b.boosters, 'booster')
+    : '';
+
+  if(b){
+    H.bourse.setAttribute('aria-label',
+      b.pieces + ' ' + pluriel(b.pieces, 'pièce') +
+      (b.boosters ? ', ' + b.boosters + ' ' + pluriel(b.boosters, 'booster') : ''));
+  }
 }
 
 function afficherMessage(texte, duree){
@@ -4056,18 +4738,23 @@ function afficherMessage(texte, duree){
 // la machine, juste devant les yeux, dit déjà tout, et un grand « +5 XP »
 // posé par-dessus se superposait à son propre texte. Le grand affichage
 // est gardé pour le jackpot, qui mérite qu'on l'entende de loin.
-function afficherGain(xp, legende){
+function afficherGain(xp, legende, pieces){
 
   const el = legende === 'jackpot' ? H.gain : H.plus;
 
+  const mot = pluriel(pieces, 'pièce');
+
+  const gagne = (xp > 0 ? '+' + xp + ' XP' : '') + (xp > 0 && pieces > 0 ? ' · ' : '') +
+                (pieces > 0 ? '+' + pieces + ' ' + mot : '');
+
   if(legende === 'jackpot'){
     el.innerHTML = '';
-    el.appendChild(document.createTextNode('+' + xp + ' XP'));
+    el.appendChild(document.createTextNode(xp > 0 ? '+' + xp + ' XP' : '+' + pieces + ' ' + mot));
     const s = document.createElement('small');
-    s.textContent = 'jackpot';
+    s.textContent = xp > 0 && pieces > 0 ? 'jackpot · +' + pieces + ' ' + mot : 'jackpot';
     el.appendChild(s);
   } else {
-    el.textContent = '+' + xp + ' XP';
+    el.textContent = gagne;
   }
 
   el.classList.remove('anim');
@@ -4098,30 +4785,26 @@ async function afficherGains(voir){
 
   if(!etat.gains || focus.cible !== 1) return;
 
-  const lignes = etat.gains
-    .filter(g => g.motif !== 'rien' && g.xp > 0)
-    .sort((a, b) => b.xp - a.xp)
-    .map(g => '<li><span></span><b>+' + g.xp + ' XP</b></li>');
+  const payantes = etat.gains
+    .filter(g => g.motif !== 'rien' && (g.xp > 0 || g.pieces > 0))
+    .sort((a, b) => (b.xp - a.xp) || ((b.pieces || 0) - (a.pieces || 0)));
 
-  if(!lignes.length) return;
+  if(!payantes.length) return;
 
   H.gains.innerHTML = '<h3>Combinaisons</h3><ul></ul>';
 
   const ul = H.gains.querySelector('ul');
 
-  etat.gains
-    .filter(g => g.motif !== 'rien' && g.xp > 0)
-    .sort((a, b) => b.xp - a.xp)
-    .forEach(g => {
-      const li = document.createElement('li');
-      const nom = document.createElement('span');
-      nom.textContent = libelleCombinaison(g);
-      const val = document.createElement('b');
-      val.textContent = '+' + g.xp + ' XP';
-      li.appendChild(nom);
-      li.appendChild(val);
-      ul.appendChild(li);
-    });
+  payantes.forEach(g => {
+    const li = document.createElement('li');
+    const nom = document.createElement('span');
+    nom.textContent = libelleCombinaison(g);
+    const val = document.createElement('b');
+    val.textContent = '+' + g.xp + ' XP' + (g.pieces > 0 ? ' · ' + g.pieces + ' ' + pluriel(g.pieces, 'pièce') : '');
+    li.appendChild(nom);
+    li.appendChild(val);
+    ul.appendChild(li);
+  });
 
   H.gains.hidden = false;
 }
@@ -4136,7 +4819,10 @@ function majInvite(){
     texte = '';
   } else if(focus.cible === 1){
 
-    if(focus.t > 0.9 && !etat.enTirage){
+    // Face au croupier, la boutique s'ouvre d'elle-même : rien à indiquer.
+    const auCroupier = focus.machine && focus.machine.type === 'croupier';
+
+    if(focus.t > 0.9 && !etat.enTirage && !auCroupier){
       texte = etat.tactile
         ? ''
         : '<span class="wv-touche">E</span> ou clic <small>tirer le levier</small> &nbsp;·&nbsp; <span class="wv-touche">S</span> <small>reculer</small>';
@@ -4146,6 +4832,8 @@ function majInvite(){
 
     if(c.type === 'porte'){
       texte = etat.tactile ? '' : '<span class="wv-touche">E</span> Quitter la salle';
+    } else if(c.type === 'croupier'){
+      texte = etat.tactile ? '' : '<span class="wv-touche">E</span> Parler au croupier';
     } else {
       const nom = c.machine.def.nom;
       texte = etat.tactile ? '' : '<span class="wv-touche">E</span> Jouer sur ' + nom;
@@ -4180,7 +4868,7 @@ function majInvite(){
     if(!H.action.hidden){
       H.action.textContent = enFocus
         ? 'TIRER'
-        : (c && c.type === 'porte' ? 'SORTIR' : 'JOUER');
+        : (c && c.type === 'porte' ? 'SORTIR' : (c && c.type === 'croupier' ? 'PARLER' : 'JOUER'));
     }
   }
 }
@@ -4193,6 +4881,10 @@ function majInvite(){
 function montrerEcran(type, texte){
 
   etat.ecran = type;
+
+  // La boutique se range à droite sur un grand écran, pour laisser voir le
+  // croupier ; les autres écrans restent centrés.
+  H.ecran.classList.toggle('wv-ecran-boutique', type === 'boutique');
 
   if(!type){
     H.ecran.hidden = true;
@@ -4240,6 +4932,54 @@ function montrerEcran(type, texte){
       '<button type="button" class="wv-cta discret" id="wvEntrer">Continuer la visite</button>' +
       '</div></div>';
 
+  } else if(type === 'boutique'){
+
+    const connecte = !!(options.connecte && options.connecte());
+
+    // Le squelette n'est posé qu'une fois ; ensuite majBoutique() en change
+    // les valeurs sur place. Reconstruire la fenêtre à chaque clic détruisait
+    // le bouton qui avait le focus (le clavier sautait sur « Acheter ») et
+    // relançait l'animation du booster.
+    let corps;
+
+    if(!connecte){
+
+      corps = '<p class="wv-parole" id="wvParole"></p>' +
+        '<p>Un booster de cartes La Wave TCG, payé avec les pièces gagnées à la machine. Il faut un compte pour jouer et pour acheter : c’est gratuit.</p>' +
+        '<div class="wv-actions">' +
+        '<button type="button" class="wv-cta" id="wvConnexion">Se connecter</button>' +
+        '<button type="button" class="wv-cta discret" id="wvFermer">Plus tard</button>' +
+        '</div>';
+
+    } else {
+
+      corps = '<p class="wv-parole" id="wvParole"></p>' +
+        '<div class="wv-prix"><b id="wvPrix">—</b><span id="wvPrixMot">pièces le booster</span></div>' +
+        '<div class="wv-portefeuille">' +
+          '<span>Tes pièces : <b id="wvMesPieces">—</b></span>' +
+          '<span>Tes boosters : <b id="wvMesBoosters">—</b></span>' +
+        '</div>' +
+        '<div id="wvMessages"></div>' +
+        '<div class="wv-achat">' +
+          '<div class="wv-quantite">' +
+            '<button type="button" id="wvMoins" aria-label="Un booster de moins">−</button>' +
+            '<span id="wvQte" aria-live="polite">1</span>' +
+            '<button type="button" id="wvPlusUn" aria-label="Un booster de plus">+</button>' +
+          '</div>' +
+          '<button type="button" class="wv-cta" id="wvAcheter">Acheter</button>' +
+          '<button type="button" class="wv-cta discret" id="wvFermer">Fermer</button>' +
+        '</div>' +
+        '<p class="wv-note">Les pièces se gagnent à la machine, elles ne s’achètent pas. L’ouverture des boosters arrive avec les cartes.</p>';
+    }
+
+    html = '<div class="wv-panneau wv-boutique" role="dialog" aria-label="Boutique du croupier" tabindex="-1">' +
+      '<span class="wv-sur">Le croupier</span>' +
+      '<h2>Booster La Wave TCG</h2>' +
+      '<div class="wv-vitrine">' +
+        '<div class="wv-pack"><img alt="Un booster La Wave TCG" src="' + imageBooster() + '"></div>' +
+        '<div>' + corps + '</div>' +
+      '</div></div>';
+
   } else if(type === 'erreur'){
 
     html = '<div class="wv-panneau">' + enTete +
@@ -4253,7 +4993,7 @@ function montrerEcran(type, texte){
 
   // Un pointeur verrouillé ne peut pas cliquer : les écrans à boutons le
   // libèrent.
-  if((type === 'erreur' || type === 'pause' || type === 'connexion') && document.pointerLockElement){
+  if((type === 'erreur' || type === 'pause' || type === 'connexion' || type === 'boutique') && document.pointerLockElement){
     document.exitPointerLock();
   }
 
@@ -4271,6 +5011,270 @@ function montrerEcran(type, texte){
   });
 
   if(entrer) entrer.focus({ preventScroll: true });
+
+  if(type === 'boutique') brancherBoutique();
+}
+
+
+/* ----------------------------------------------------------------------
+   La boutique du croupier
+   ---------------------------------------------------------------------- */
+
+const PAROLES_CROUPIER = [
+  'Bonsoir, waveur. Un booster pour ce soir ?',
+  'Ici, les pièces de la machine trouvent enfin leur usage.',
+  'La maison offre les tours ; les cartes, elles, se méritent.',
+  'Prends ton temps : les meilleurs tirages se font à tête froide.'
+];
+
+const REMERCIEMENTS_CROUPIER = [
+  'Excellent choix. Il t’attend dans ton stock.',
+  'Voilà, waveur. Que la chance t’accompagne.',
+  'Bien joué. Reviens quand la machine aura été généreuse.'
+];
+
+const choisir = liste => liste[Math.floor(Math.random() * liste.length)];
+
+// « 1 pièce », « 60 pièces » : le mot s'accorde avec le nombre.
+const pluriel = (n, mot) => mot + (Math.abs(Number(n)) > 1 ? 's' : '');
+
+// L'image du booster pour la boutique : la face, avec ses soudures
+// dentelées, transparente autour. Dessinée une fois.
+function imageBooster(){
+  if(!R.imageBooster) R.imageBooster = creerBoosterFace(R.logo, true).toDataURL('image/png');
+  return R.imageBooster;
+}
+
+function ouvrirBoutique(){
+
+  if(etat.ecran || !croupier) return;
+
+  etat.alerte = null;
+  etat.reussite = null;
+  etat.remarque = choisir(PAROLES_CROUPIER);
+
+  croupier.accueillir(true);
+  montrerEcran('boutique');
+  Son.clic();
+
+  // Le solde à jour, sans attendre : la fenêtre s'ouvre avec ce qu'on sait
+  // déjà, et se corrige si la base répond autre chose.
+  chargerEtat().then(() => {
+    if(!etat.achat) majBoutique();
+  });
+}
+
+function fermerBoutique(){
+
+  // On ne ferme pas pendant un achat : sa réponse ne se lirait nulle part.
+  if(etat.ecran !== 'boutique' || etat.achat) return;
+
+  croupier.accueillir(false);
+  montrerEcran(null);
+  sortirFocus();
+
+  // Un double-clic sur « Fermer » ne doit pas rouvrir la boutique : son
+  // second clic, sur le canvas devenu actif, vaudrait un E devant le croupier.
+  etat.fermeeA = performance.now();
+
+  // Le clic sur « Fermer » est le geste qu'il faut pour reprendre la souris.
+  if(!etat.tactile && !etat.sansVerrou) demanderVerrou();
+}
+
+// Appelée par le site quand quelque chose a changé hors du jeu (on vient de
+// se connecter depuis la fenêtre du croupier, par exemple) : le solde se
+// recharge et la fenêtre se redessine.
+function actualiser(){
+  if(!actif) return;
+  chargerEtat().then(() => { if(etat.ecran === 'boutique') majBoutique(); });
+}
+
+function changerQuantite(delta){
+  etat.qte = clamp(etat.qte + delta, 1, 5);
+  etat.alerte = null;
+  etat.reussite = null;
+  majBoutique();
+}
+
+async function acheterBooster(){
+
+  if(etat.achat) return;
+
+  // Une version mêlée du site (index.html pas encore à jour) n'offre pas
+  // l'achat : on le dit, plutôt que de ne rien faire.
+  if(!options.acheter){
+    etat.alerte = 'La boutique n’est pas disponible : recharge la page.';
+    Son.erreur();
+    majBoutique();
+    return;
+  }
+
+  etat.achat = true;
+  etat.alerte = null;
+  etat.reussite = null;
+  majBoutique();
+
+  try{
+
+    const res = await options.acheter(etat.qte);
+
+    // Les réponses plus anciennes d'un chargerEtat encore en route ne
+    // doivent pas repasser par-dessus ce solde.
+    seqEtat++;
+
+    etat.bourse = {
+      pieces: res.pieces_total,
+      boosters: res.boosters_total,
+      prix: res.prix_unitaire || (etat.bourse && etat.bourse.prix) || null
+    };
+
+    etat.reussite = res.quantite > 1
+      ? res.quantite + ' boosters ajoutés à ton stock.'
+      : 'Un booster ajouté à ton stock.';
+    etat.remarque = choisir(REMERCIEMENTS_CROUPIER);
+
+    Son.achat();
+    if(croupier) croupier.remercier();
+    majHud();
+
+  }catch(e){
+
+    // La base a refusé (pas assez de pièces, caisse fermée...) ou n'a pas
+    // répondu. En cas de refus, rien n'est débité ; après une erreur de
+    // réseau, on ne sait pas : le rechargement du solde, juste après, dit ce
+    // qu'il en est.
+    etat.alerte = e && e.message ? e.message : 'L’achat a échoué : réessaie.';
+    etat.remarque = /^Pas assez de pièces/.test(etat.alerte)
+      ? 'Reviens quand la machine aura été généreuse, waveur.'
+      : 'Un contretemps, waveur. Réessaie dans un instant.';
+    Son.erreur();
+    await chargerEtat();
+  }
+
+  etat.achat = false;
+
+  majBoutique();
+}
+
+// Ce que la boutique affiche du portefeuille et du prix. Le bouton d'achat
+// n'est qu'un confort : c'est la base qui décide de ce qui est vendu.
+function valeursBoutique(){
+
+  const b = etat.bourse;
+  const prix = b && b.prix ? Number(b.prix) : null;
+  const cout = prix ? prix * etat.qte : null;
+
+  // Sans prix, la base n'a pas répondu (ou n'est pas à jour) : pas d'achat.
+  const disponible = !!options.acheter && prix !== null;
+  const assez = !disponible || (b && Number(b.pieces) >= cout);
+
+  let libelle;
+
+  if(etat.achat) libelle = 'Un instant…';
+  else if(!disponible) libelle = 'Boutique pas encore ouverte';
+  else if(!assez) libelle = 'Pas assez de pièces';
+  else libelle = 'Acheter · ' + cout + ' ' + pluriel(cout, 'pièce');
+
+  return { b, prix, cout, disponible, assez, libelle };
+}
+
+// Met la fenêtre de la boutique à jour sur place : les boutons gardent leur
+// focus, le booster son animation, la quantité sa région vocale.
+function majBoutique(){
+
+  if(etat.ecran !== 'boutique') return;
+
+  const connecte = !!(options.connecte && options.connecte());
+  const racine = H.ecran.querySelector('.wv-boutique');
+
+  // Pas encore dessinée, ou l'état de connexion a changé (on vient de se
+  // connecter depuis la boutique) : on la redessine.
+  if(!racine || connecte !== !!H.ecran.querySelector('#wvAcheter')){
+    montrerEcran('boutique');
+    return;
+  }
+
+  const dire = (id, texte) => {
+    const el = H.ecran.querySelector('#' + id);
+    if(el) el.textContent = texte;
+  };
+
+  dire('wvParole', '« ' + (etat.remarque || PAROLES_CROUPIER[0]) + ' »');
+
+  if(!connecte) return;
+
+  const v = valeursBoutique();
+
+  // Les nombres viennent de la base : on les ramène à des nombres avant de
+  // les écrire dans la page.
+  const nb = x => Number.isFinite(Number(x)) ? Number(x) : '—';
+
+  dire('wvPrix', v.prix !== null ? String(nb(v.prix)) : '—');
+  dire('wvPrixMot', pluriel(v.prix, 'pièce') + ' le booster');
+  dire('wvMesPieces', v.b ? String(nb(v.b.pieces)) : '—');
+  dire('wvMesBoosters', v.b ? String(nb(v.b.boosters)) : '—');
+  dire('wvQte', String(etat.qte));
+
+  // L'alerte et la confirmation : posées s'il y en a une, retirées sinon.
+  const zone = H.ecran.querySelector('#wvMessages');
+
+  const poser = (id, classe, role, texte) => {
+    let el = zone.querySelector('#' + id);
+    if(!texte){
+      if(el) el.remove();
+      return;
+    }
+    if(!el){
+      el = document.createElement('p');
+      el.id = id;
+      el.className = classe;
+      el.setAttribute('role', role);
+      zone.appendChild(el);
+    }
+    el.textContent = texte;
+  };
+
+  poser('wvAlerte', 'wv-alerte', 'alert', etat.alerte);
+  poser('wvReussite', 'wv-reussite', 'status', etat.reussite);
+
+  const moins = H.ecran.querySelector('#wvMoins');
+  const plus = H.ecran.querySelector('#wvPlusUn');
+  const acheter = H.ecran.querySelector('#wvAcheter');
+  const fermer = H.ecran.querySelector('#wvFermer');
+
+  moins.disabled = etat.qte <= 1 || etat.achat;
+  plus.disabled = etat.qte >= 5 || etat.achat;
+  acheter.disabled = etat.achat || !v.disponible || !v.assez;
+  acheter.textContent = v.libelle;
+  fermer.disabled = etat.achat;
+
+  // Un bouton qui vient d'être désactivé rend son focus : à la fenêtre, pas
+  // à un autre bouton, dont une frappe aurait un effet.
+  const actif = document.activeElement;
+  if(actif && actif !== document.body && H.ecran.contains(actif) && actif.disabled) racine.focus({ preventScroll: true });
+}
+
+// Les boutons de la fenêtre. Les textes qui viennent du serveur sont posés
+// avec textContent : rien de ce que la base renvoie n'est lu comme du HTML.
+function brancherBoutique(){
+
+  const par = (id, fn) => {
+    const el = H.ecran.querySelector('#' + id);
+    if(el) el.addEventListener('click', fn);
+  };
+
+  par('wvMoins', () => changerQuantite(-1));
+  par('wvPlusUn', () => changerQuantite(1));
+  par('wvAcheter', acheterBooster);
+  par('wvFermer', fermerBoutique);
+
+  majBoutique();
+
+  // Le focus va à la fenêtre, pas à « Acheter » : une frappe d'Entrée encore
+  // enfoncée depuis le dialogue avec le croupier, ou un clic posé trop vite,
+  // ne doit pas dépenser de pièces.
+  const racine = H.ecran.querySelector('.wv-boutique');
+  if(racine) racine.focus({ preventScroll: true });
 }
 
 function demanderConnexion(){
@@ -4328,6 +5332,12 @@ function surChangementVerrou(){
   if(verrouille){
     etat.sansVerrou = false;
     etat.echecsVerrou = 0;
+
+    // Un verrou accordé alors que la boutique s'est ouverte entre-temps
+    // (on reprenait la pause pendant le trajet vers le croupier) la
+    // rendrait inutilisable à la souris : on le relâche.
+    if(etat.ecran === 'boutique') document.exitPointerLock();
+
     return;
   }
 
@@ -4373,6 +5383,15 @@ function modaleOuverte(){
 function surToucheBas(e){
 
   if(!actif || champActif() || modaleOuverte()) return;
+
+  // Échap ferme la boutique du croupier.
+  if(etat.ecran === 'boutique'){
+    if(e.code === 'Escape'){
+      e.preventDefault();
+      fermerBoutique();
+    }
+    return;
+  }
 
   // Un écran est affiché (pause, connexion...) : ses boutons doivent rester
   // activables au clavier, avec Entrée ou Espace. Le jeu se tait.
@@ -4662,6 +5681,12 @@ function boucle(t){
   majCamera(dt);
   majMonde(dt);
 
+  // Arrivé face au croupier, on ouvre sa boutique sans rien demander de plus.
+  if(focus.cible === 1 && focus.t > 0.92 && focus.machine && focus.machine.type === 'croupier' &&
+     !etat.ecran && !etat.intro){
+    ouvrirBoutique();
+  }
+
   etat.cible = (focus.cible === 0 && !etat.ecran && !etat.intro) ? viser() : null;
   majInvite();
 
@@ -4888,6 +5913,31 @@ function majMonde(dt){
     R.faisceau.visible = R.faisceau.material.opacity > 0.01;
   }
 
+  // Le croupier suit du regard qui s'approche ; pas pendant le travelling.
+  if(croupier){
+
+    // Il regarde la personne : là où elle est, et pas à sa place sur la carte
+    // quand la caméra est allée se mettre en face de lui.
+    const faceAuCroupier = focus.cible === 1 && focus.machine === croupier;
+    const regard = faceAuCroupier
+      ? { x: camera.position.x, z: camera.position.z }
+      : { x: joueur.x, z: joueur.z };
+
+    croupier.maj(dt, t, etat.reduit, etat.intro ? null : regard);
+  }
+
+  // Le booster qui flotte : il tourne lentement et se balance. Le reflet du
+  // foil glisse sur tous les boosters à la fois.
+  const B = animes.boutique;
+  if(B){
+    B.flotte.rotation.y = etat.reduit ? Math.PI / 2 : t * 0.55;
+    B.flotte.position.y = B.y0 + (etat.reduit ? 0 : Math.sin(t * 1.1) * 0.05);
+  }
+  if(R.reflet && !etat.reduit){
+    R.reflet.offset.x = (t * 0.045) % 1;
+    R.reflet.offset.y = (t * 0.02) % 1;
+  }
+
   // Les néons du bar respirent à peine ; jamais deux au même rythme.
   animes.neons.forEach(n => {
     n.mat.opacity = etat.reduit ? 0.95 : 0.88 + 0.12 * Math.sin(t * 1.6 + n.phase);
@@ -4951,6 +6001,10 @@ function reinitialiserSession(){
   regard.id = null;
   etat.glisse = false;
   etat.clic = null;
+  etat.alerte = null;
+  etat.reussite = null;
+
+  if(croupier) croupier.accueillir(false);
 
   if(H.joy) H.joy.hidden = true;
   if(H.gains) H.gains.hidden = true;
@@ -5099,6 +6153,7 @@ window.Waveurs = {
   version: VERSION,
   demarrer,
   arreter,
+  actualiser,
   ouverte: () => actif,
 
   // Petit accès réservé aux essais : il ne sert qu'à vérifier le jeu sans
@@ -5106,7 +6161,10 @@ window.Waveurs = {
   _essai: {
     etat: () => ({ joueur, focus, etat, actif, pret, ratioActuel }),
     machines: () => machines,
+    croupier: () => croupier,
+    ouvrirBoutique,
     musique: () => Musique.etat(),
+    majBoutique,
     placer(x, z, yaw, pitch){
       joueur.x = x; joueur.z = z;
       joueur.yaw = yaw || 0;
