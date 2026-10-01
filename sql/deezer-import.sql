@@ -390,11 +390,13 @@ begin
           else
             insert into public.submissions (
               artist_name, track_title, listen_url, deezer_url, cover_url,
-              status, validated_at, catalog_number, release_date, release_type,
+              status, validated_at, created_at, updated_at,
+              catalog_number, release_date, release_type,
               artist_handle, featuring, source, deezer_album_id
             ) values (
               v_artiste.display_name, v_titre, v_lien, v_lien, v_cover,
-              'approved', now(), nextval('public.catalogue_import_seq'), v_date, v_type,
+              'approved', now(), now(), now(),
+              nextval('public.catalogue_import_seq'), v_date, v_type,
               v_artiste.instagram_handle, '[]'::jsonb, 'deezer', v_id
             )
             on conflict do nothing;
