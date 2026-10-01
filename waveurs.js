@@ -3236,6 +3236,9 @@ async function construireMonde(){
   HALOS.pos = [];
   HALOS.col = [];
 
+  PERSONNAGES.jambes = [];
+  PERSONNAGES.ombres = [];
+
   construireSalle();
   construireBar();
   construireMobilier();
@@ -4165,7 +4168,7 @@ function pointCrane(ux, uy, uz, marge, menton){
 // angles depuis le sommet, en demi-tours (0,5 = l'équateur).
 function calotte(rx, ry, rz, front, cote, dos, teinte, dy, dz){
 
-  const g = new THREE.SphereGeometry(1, 30, 20, 0, TAU, 0, Math.PI * 0.85);
+  const g = new THREE.SphereGeometry(1, 26, 16, 0, TAU, 0, Math.PI * 0.85);
   const p = g.attributes.position, nr = g.attributes.normal;
   const col = new Float32Array(p.count * 3);
   const c = new THREE.Color();
@@ -4310,7 +4313,7 @@ function geoCoiffure(d){
 // seule forme, centrée sur la tête.
 function geoTete(d){
 
-  const g = new THREE.SphereGeometry(1, 32, 24);
+  const g = new THREE.SphereGeometry(1, 28, 20);
   const p = g.attributes.position, nr = g.attributes.normal;
   const col = new Float32Array(p.count * 3);
 
@@ -4465,8 +4468,11 @@ function geoTorse(d){
     { y: 0.56, rx: 0.064, rz: 0.062 }
   ];
 
+  // Un anneau tous les deux centimètres : les bords de couleur obliques (le
+  // triangle de chemise) sont des formes à part, plus besoin de mailles très
+  // fines pour qu'ils restent nets.
   const S = [];
-  for(let y = -0.13; y < 0.55; y += 0.017){
+  for(let y = -0.13; y < 0.55; y += 0.021){
     S.push({ y, rx: interpAnneau(C, y, 'rx'), rz: interpAnneau(C, y, 'rz') });
   }
   S.push(C[C.length - 1]);
@@ -4508,7 +4514,7 @@ function geoTorse(d){
     couleur = (a, y) => y < -0.02 ? d.pantalon : d.veste;
   }
 
-  const liste = [lofter(S, couleur, 48)];
+  const liste = [lofter(S, couleur, 36)];
 
   // Le triangle de chemise sous le gilet ou la veste ouverte.
   if(d.tenue === 'gilet'){
@@ -4857,16 +4863,13 @@ class Humain {
       return { epaule, coude, s, avantBras, poignet: null };
     });
 
-    // Une ombre au sol : le même matériau pour tous.
+    // L'ombre au sol et les jambes ne bougent plus une fois le personnage
+    // installé : leurs formes se posent dans le repère de la salle et sont
+    // collées avec celles des autres personnages (voir fusionnerPersonnages),
+    // deux appels de dessin pour tous au lieu de deux par personnage.
     if(!R.matOmbreHumain){
       R.matOmbreHumain = new THREE.MeshBasicMaterial({ map: R.texture(creerOmbre()), transparent: true, depthWrite: false });
     }
-
-    const ombre = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.95), R.matOmbreHumain);
-    ombre.rotation.x = -Math.PI / 2;
-    ombre.position.y = 0.012;
-    racine.add(ombre);
-    this.ombre = ombre;
   }
 
   // Où il se trouve et comment. `p` : x, z, yaw, sol (hauteur du sol),
@@ -4925,7 +4928,17 @@ class Humain {
       morceaux.push(pose(cuisse, hanche), pose(tibia, genou), pose(geoPied(d, s), cheville));
     });
 
-    this.bassin.add(new THREE.Mesh(fusionner(morceaux), R.matHumain));
+    // Les jambes et l'ombre, dans le repère de la salle, pour le collage.
+    racine.updateMatrixWorld(true);
+
+    const jambes = fusionner(morceaux);
+    jambes.applyMatrix4(this.bassin.matrixWorld);
+    PERSONNAGES.jambes.push(jambes);
+
+    const ombre = new THREE.PlaneGeometry(0.95, 0.95);
+    ombre.rotateX(-Math.PI / 2);
+    ombre.translate(p.x, (p.sol || 0) + 0.012, p.z);
+    PERSONNAGES.ombres.push(ombre);
 
     this.majBras(true);
   }
@@ -5258,6 +5271,10 @@ const SIEGES = [];
 
 const habitues = [];
 
+// Les jambes et les ombres des personnages, posées dans le repère de la salle à
+// mesure qu'ils s'installent, puis collées en deux objets (fusionnerPersonnages).
+const PERSONNAGES = { jambes: [], ombres: [] };
+
 // Qui est où, et ce qu'il fait. Les mains sont données dans le repère du
 // siège (x : vers la gauche de la personne, y : hauteur au sol, z : en
 // avant), la pronation dit si la paume regarde le côté (0) ou le dessous (±1,3).
@@ -5386,6 +5403,19 @@ function construireHabitues(){
     scene.add(h.groupe);
     habitues.push(h);
   });
+
+  // Le croupier (construit avant, avec sa boutique) et les habitués sont tous
+  // installés : leurs jambes et leurs ombres, qui ne bougent plus, se collent.
+  fusionnerPersonnages();
+}
+
+// Les jambes de tous les personnages en un seul objet, leurs ombres en un autre :
+// deux appels de dessin, au lieu de deux par personnage.
+function fusionnerPersonnages(){
+  fusion(PERSONNAGES.jambes, R.matHumain);
+  fusion(PERSONNAGES.ombres, R.matOmbreHumain);
+  PERSONNAGES.jambes = [];
+  PERSONNAGES.ombres = [];
 }
 
 class Habitue extends Humain {
