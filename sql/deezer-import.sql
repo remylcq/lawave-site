@@ -194,6 +194,9 @@ $$;
 --     aujourd'hui — le site masque de toute façon une sortie tant que
 --     sa date n'est pas arrivée ;
 --   · un titre déjà connu pour le même artiste n'est pas rajouté ;
+--   · deux sorties du même artiste qui partagent la même pochette n'en
+--     font qu'une — un album et les singles qu'on en détache : l'album
+--     (ou l'EP) est gardé ;
 --   · les versions instrumentales et karaoké sont ignorées ;
 --   · une erreur sur un artiste n'arrête pas les autres : il sera
 --     revu une heure plus tard ;
@@ -232,6 +235,8 @@ declare
   -- Du type de la colonne, quel qu'il soit (texte ou énumération).
   v_type        public.submissions.release_type%type;
   v_cover       text;
+  v_md5         text;
+  v_empreintes  text[];
   v_lien        text;
   v_n           integer;
   v_ajout       integer;
@@ -279,6 +284,7 @@ begin
     v_erreur  := null;
     v_ajout   := 0;
     v_vus     := '{}';
+    v_empreintes := '{}';
     v_pages   := 0;
     v_url     := 'https://api.deezer.com/artist/' || v_artiste.deezer_artist_id
                  || '/albums?limit=100';
@@ -316,12 +322,16 @@ begin
           exit;
         end if;
 
-        -- Du plus ancien au plus récent ; à titre égal, l'édition
-        -- explicite d'abord (c'est l'originale, pour le rap).
+        -- Les albums et les EP d'abord, puis les singles : quand un album
+        -- et ses singles partagent la même pochette, c'est l'album qui
+        -- reste (voir « même pochette » plus bas). Ensuite du plus ancien
+        -- au plus récent ; à titre égal, l'édition explicite d'abord
+        -- (c'est l'originale, pour le rap).
         for v_alb in
           select e.value
             from jsonb_array_elements(coalesce(v_json->'data', '[]'::jsonb)) as e
-           order by e.value->>'release_date',
+           order by (e.value->>'record_type') = 'single',
+                    e.value->>'release_date',
                     e.value->>'explicit_lyrics' desc,
                     e.value->>'id'
         loop
@@ -378,6 +388,25 @@ begin
                and coalesce(nullif(public.titre_normalise(s.track_title), ''),
                             lower(s.track_title)) = v_norme
           );
+
+          -- Même pochette = même sortie. Un artiste qui sort un album puis
+          -- en détache les titres en singles leur garde la même image :
+          -- un catalogue de pochettes n'a pas à la montrer huit fois.
+          v_md5 := substring(v_cover from 'cover/([0-9a-f]{32})/');
+
+          if v_md5 is not null then
+
+            continue when v_md5 = any(v_empreintes);
+
+            continue when exists (
+              select 1 from public.submissions s
+               where s.artist_handle = v_artiste.instagram_handle
+                 and s.cover_url like ('%/cover/' || v_md5 || '/%')
+            );
+
+            v_empreintes := v_empreintes || v_md5;
+
+          end if;
 
           v_vus  := v_vus || v_norme;
           v_type := case when lower(coalesce(v_alb->>'record_type', '')) = 'single'
