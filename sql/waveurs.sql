@@ -65,9 +65,12 @@ on conflict (cle) do nothing;
 --   motif   : 'rien'  aucun gain, trois symboles tous différents
 --             'paire' deux symboles identiques et un autre
 --             'trio'  trois symboles identiques
---   symbole : le symbole concerné (vague, poisson, coquillage, ancre,
---             bulle, perle, logo). Vide, il est tiré au hasard parmi
---             les cinq symboles courants.
+--   symbole : le symbole concerné : waveur (le supporter au drapeau),
+--             capybara (le surfeur), main ou logo (le logo La Wave). Vide,
+--             il est tiré au hasard parmi les deux symboles courants, le
+--             waveur et le capybara ; la main et le logo sont les symboles
+--             rares, qui n'apparaissent en trio ou en paire que dans les
+--             lignes qui les nomment.
 --   poids   : probabilité relative
 --   xp      : XP gagnée
 --   pieces  : pièces gagnées, en plus de l'XP
@@ -84,7 +87,7 @@ create table if not exists public.waveurs_gains (
   id      serial primary key,
   nom     text not null,
   motif   text not null check (motif in ('rien', 'paire', 'trio')),
-  symbole text check (symbole in ('vague', 'poisson', 'coquillage', 'ancre', 'bulle', 'perle', 'logo')),
+  symbole text check (symbole in ('waveur', 'capybara', 'main', 'logo')),
   poids   integer not null check (poids >= 0),
   xp      integer not null default 0 check (xp >= 0),
   pieces  integer not null default 0 check (pieces >= 0),
@@ -125,6 +128,49 @@ begin
   end if;
 end $$;
 
+-- Les symboles des rouleaux ont changé : le waveur, le capybara, la main et
+-- le logo ont remplacé la vague, le poisson, le coquillage, l'ancre, la
+-- bulle et la perle. Une installation d'avant ce changement garde l'ancienne
+-- liste dans sa règle de contrôle : on la remplace, la ligne « Trois perles »
+-- devient « Trois mains » (la main prend la place de la perle, deuxième
+-- symbole rare), et une ligne que l'équipe aurait ajoutée pour l'un des cinq
+-- anciens symboles courants est mise de côté (décochée), puisque ce symbole
+-- n'existe plus. Le test porte sur la règle elle-même : une fois remplacée,
+-- relancer le fichier ne refait rien. Les tours déjà joués gardent, dans le
+-- journal, les anciens noms de symboles.
+do $$
+declare
+  v_nom text;
+begin
+
+  select c.conname into v_nom
+  from pg_constraint c
+  where c.conrelid = 'public.waveurs_gains'::regclass
+    and c.contype  = 'c'
+    and pg_get_constraintdef(c.oid) like '%''vague''%';
+
+  if v_nom is not null then
+
+    execute format('alter table public.waveurs_gains drop constraint %I', v_nom);
+
+    update public.waveurs_gains
+       set symbole = 'main',
+           nom     = case when nom = 'Trois perles' then 'Trois mains' else nom end
+     where symbole = 'perle';
+
+    update public.waveurs_gains
+       set symbole = null,
+           actif   = false
+     where symbole in ('vague', 'poisson', 'coquillage', 'ancre', 'bulle');
+
+    alter table public.waveurs_gains
+      add constraint waveurs_gains_symbole_check
+      check (symbole in ('waveur', 'capybara', 'main', 'logo'));
+
+  end if;
+
+end $$;
+
 -- Les lignes de départ ne sont posées qu'une fois : relancer le fichier
 -- après avoir réglé les gains à sa main ne les remet pas à zéro.
 insert into public.waveurs_gains (nom, motif, symbole, poids, xp, pieces)
@@ -134,7 +180,7 @@ from (values
   ('Une paire',            'paire', null::text, 3000,  1,   3),
   ('Trois identiques',     'trio',  null::text, 1000,  5,  12),
   ('Deux logos La Wave',   'paire', 'logo',       50, 10,  20),
-  ('Trois perles',         'trio',  'perle',     350, 15,  40),
+  ('Trois mains',          'trio',  'main',      350, 15,  40),
   ('Trois logos — jackpot','trio',  'logo',      100, 60, 200)
 ) as v(nom, motif, symbole, poids, xp, pieces)
 where not exists (select 1 from public.waveurs_gains);
@@ -564,8 +610,8 @@ security definer
 set search_path = public
 as $$
 declare
-  c_tous    constant text[] := array['vague','poisson','coquillage','ancre','bulle','perle','logo'];
-  c_communs constant text[] := array['vague','poisson','coquillage','ancre','bulle'];
+  c_tous    constant text[] := array['waveur','capybara','main','logo'];
+  c_communs constant text[] := array['waveur','capybara'];
 
   v_debut    timestamptz;
   v_limite   integer;
