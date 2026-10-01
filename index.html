@@ -473,6 +473,15 @@
   .cat-recherche:focus-within svg{color:var(--ink-soft);}
   .cat-recherche input::-webkit-search-cancel-button,
   .cat-recherche input::-webkit-search-decoration{-webkit-appearance:none;}
+  /* Si un gestionnaire de mots de passe y glisse quand même quelque
+     chose, le champ ne devient pas un rectangle clair sur fond sombre :
+     le fond d'autoremplissage est repoussé à l'infini. */
+  .cat-recherche input:-webkit-autofill,
+  .cat-recherche input:-webkit-autofill:hover,
+  .cat-recherche input:-webkit-autofill:focus{
+    -webkit-text-fill-color:var(--ink); caret-color:var(--ink);
+    transition:background-color 600000s 0s, color 600000s 0s;
+  }
 
   /* Le bouton qui charge des sorties plus anciennes : petit, sans
      remplissage, pour rester derrière les pochettes. */
@@ -2232,17 +2241,25 @@
     <section class="cat-page">
       <h2 class="sr-only">Catalogue</h2>
 
-      <div class="cat-recherche">
+      <!-- Un formulaire à lui seul. Les champs de connexion de la page
+           (cachés, hors de tout <form>) forment pour le navigateur un
+           pseudo-formulaire d'identification, et la seule zone de texte
+           visible de la page — celle-ci — y recevait l'adresse mail
+           enregistrée. Enfermée ici, la recherche n'a plus rien d'un
+           champ d'identifiant. -->
+      <form class="cat-recherche" role="search" autocomplete="off"
+            onsubmit="event.preventDefault(); document.getElementById('rechercheCataloguePublic').blur();">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
         </svg>
-        <input type="search" id="rechercheCataloguePublic" autocomplete="off"
+        <input type="search" id="rechercheCataloguePublic" name="q" autocomplete="off"
+               data-lpignore="true" data-1p-ignore="true" data-bwignore="true"
                spellcheck="false" enterkeyhint="search"
                placeholder="Rechercher"
                aria-label="Rechercher un titre ou un artiste"
                oninput="onRechercheCatalogue()">
-      </div>
+      </form>
 
       <div class="cat-grid" id="catalogueGrid"></div>
       <div class="cat-reste" id="catalogueReste"></div>
