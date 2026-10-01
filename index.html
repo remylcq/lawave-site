@@ -1210,7 +1210,9 @@
     outline:2px solid var(--blue-bright); outline-offset:1px;
   }
 
-  .cal-corps{min-height:232px;}
+  /* Hauteur d'un mois de six semaines : l'agenda ne bouge pas quand on
+     passe des jours aux mois ou aux années. */
+  .cal-corps{min-height:296px;}
   .cal-corps.glisse-suivant > *{animation:calSuivant .4s var(--ease);}
   .cal-corps.glisse-precedent > *{animation:calPrecedent .4s var(--ease);}
   .cal-corps.zoom > *{animation:calZoom .4s var(--ease);}
@@ -1224,6 +1226,7 @@
     letter-spacing:.08em; color:var(--muted);
   }
   .cal-jours{row-gap:2px;}
+  .cal-vide{aspect-ratio:1/1;}
   .cal-jour{
     position:relative; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
     border:0; border-radius:50%; background:transparent; color:var(--ink-soft);
@@ -13075,7 +13078,7 @@ const Calendrier = (() => {
         '</div>' +
         '<div class="cal-jours" role="group" aria-label="' + MOIS[etat.mois] + ' ' + etat.annee + '">';
 
-      for(let i = 0; i < decalage; i++) h += '<span></span>';
+      for(let i = 0; i < decalage; i++) h += '<span class="cal-vide"></span>';
 
       for(let j = 1; j <= nb; j++){
         const ce = { a: etat.annee, m: etat.mois, j };
@@ -13088,6 +13091,10 @@ const Calendrier = (() => {
              ' aria-pressed="' + estChoisi + '"' +
              ' tabindex="' + (j === cible ? 0 : -1) + '">' + j + '</button>';
       }
+
+      // Toujours six semaines : l'agenda garde la même hauteur d'un mois
+      // à l'autre, au lieu de sauter quand un mois en demande cinq ou six.
+      for(let i = decalage + nb; i < 42; i++) h += '<span class="cal-vide"></span>';
 
       return h + '</div>';
     }
@@ -13227,13 +13234,18 @@ const Calendrier = (() => {
 
       const r = declencheur.getBoundingClientRect();
       const hauteur = fenetre.offsetHeight + 12;
+
+      // L'en-tête du site est fixe : ce qui passe dessous est perdu.
+      const enTete = document.querySelector('.site-nav');
+      const libreHaut = r.top - (enTete ? enTete.getBoundingClientRect().bottom : 0);
       const libreBas = window.innerHeight - r.bottom;
 
+      // La place est en dessous : rien à faire.
       if(libreBas >= hauteur) return;
 
-      // Plus de place en haut qu'en bas : l'agenda s'ouvre vers le haut ;
-      // sinon on fait défiler la page pour le découvrir.
-      if(r.top > libreBas){
+      // Sinon au-dessus, s'il y en a assez ; à défaut, on fait défiler
+      // la page pour que l'agenda tienne en entier vers le bas.
+      if(libreHaut >= hauteur){
         fenetre.classList.add('au-dessus');
       } else {
         window.scrollBy({ top: hauteur - libreBas + 8, behavior: 'smooth' });
