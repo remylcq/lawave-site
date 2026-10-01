@@ -3387,22 +3387,24 @@ function construireSalle(){
 
   // ---- Lumières : chaudes, comme dans un bar, avec un fil bleu La Wave ----
   //
-  // Un fond d'hémisphère assez fort pour que rien ne soit noir, puis une
-  // lampe par « quartier » de la salle : chacune éclaire ce qui s'y passe
-  // (les habitués du bar, les tables de jeu, la banquette), plutôt que de
-  // tout baigner d'une seule lumière. Le nombre est compté : chaque lampe se
-  // paie à chaque image, sur chaque surface.
-  scene.add(new THREE.HemisphereLight(0xffe9d2, 0x5e3d2a, 1.05));
+  // La salle reste dans la pénombre : un fond d'hémisphère faible, et une lampe
+  // par « quartier » (les habitués du bar, les tables de jeu, la banquette)
+  // qui découpe ce qui compte dans le noir, plutôt qu'une lumière qui baigne
+  // tout. Repère : une luminosité moyenne autour de 0,14 sur l'image, mesurée
+  // depuis plusieurs points de vue ; au-dessus de 0,18, c'est trop clair. Le
+  // nombre de lampes est compté : chacune se paie à chaque image, sur chaque
+  // surface.
+  scene.add(new THREE.HemisphereLight(0xffe9d2, 0x22130b, 0.62));
 
   [
-    [0, 4.2, 0.6, 0xffe2bc, 1.35, 14],          // le lustre, sur la machine et le podium
-    [-2.4, 2.7, -5.2, 0xffbd75, 1.1, 8.5],      // le bar, côté gauche
-    [2.4, 2.7, -5.2, 0xffbd75, 1.1, 8.5],       // le bar, côté droit
-    [-5.4, 3.1, 2.6, 0xffcf9a, 1.0, 8.5],       // le blackjack et son croupier
-    [5.4, 3.2, 4.4, 0xffd7a8, 1.0, 8.5],        // le poker
-    [5.6, 3.0, -2.4, 0xffc58e, 0.95, 8],        // la banquette
-    [0, 3.4, 7.2, 0xffe9d2, 0.85, 11],          // l'entrée
-    [0, 2.2, -2.0, 0x39b8ff, 0.5, 7]            // le fil bleu La Wave
+    [0, 4.2, 0.6, 0xffe2bc, 1.2, 14],           // le lustre, sur la machine et le podium
+    [-2.4, 2.7, -5.2, 0xffbd75, 0.8, 8.5],      // le bar, côté gauche
+    [2.4, 2.7, -5.2, 0xffbd75, 0.8, 8.5],       // le bar, côté droit
+    [-5.4, 3.1, 2.6, 0xffcf9a, 0.9, 8.5],       // le blackjack et son croupier
+    [5.4, 3.2, 4.4, 0xffd7a8, 0.9, 8.5],        // le poker
+    [5.6, 3.0, -2.4, 0xffc58e, 0.85, 8],        // la banquette
+    [0, 3.4, 7.2, 0xffe9d2, 0.76, 11],          // l'entrée
+    [0, 2.2, -2.0, 0x39b8ff, 0.45, 7]           // le fil bleu La Wave
   ].forEach(([x, y, z, c, i, d]) => {
     const l = new THREE.PointLight(c, i, d, 1.2);
     l.position.set(x, y, z);
@@ -3461,7 +3463,8 @@ function construireSalle(){
   const plafond = new THREE.Mesh(
     new THREE.PlaneGeometry(L * 2, P * 2),
     new THREE.MeshLambertMaterial({
-      map: R.texture(creerPlafond(), { repete: true, rx: L * 2 / 2.5, ry: P * 2 / 2.5 })
+      map: R.texture(creerPlafond(), { repete: true, rx: L * 2 / 2.5, ry: P * 2 / 2.5 }),
+      color: 0xd9d9d9
     })
   );
   plafond.rotation.x = Math.PI / 2;
@@ -3492,7 +3495,7 @@ function construireSalle(){
 
     placer(new THREE.Mesh(
       new THREE.PlaneGeometry(m.l, Ht),
-      new THREE.MeshLambertMaterial({ map: R.texture(marbre, { repete: true, rx: m.l / 1.8, ry: Ht / 1.8 }) })
+      new THREE.MeshLambertMaterial({ map: R.texture(marbre, { repete: true, rx: m.l / 1.8, ry: Ht / 1.8 }), color: 0xb8b8b8 })
     ), Ht / 2, 0);
 
     placer(new THREE.Mesh(
@@ -3549,7 +3552,7 @@ function construireSalle(){
 
   // ---- Des disques d'or, le long des murs de côté, sous une lampe ----
   R.matLueurMur = new THREE.MeshBasicMaterial({
-    map: R.texture(creerLueurMur()), color: 0xffc887, transparent: true, opacity: 0.5,
+    map: R.texture(creerLueurMur()), color: 0xffc887, transparent: true, opacity: 0.34,
     depthWrite: false, blending: THREE.AdditiveBlending
   });
 
@@ -3663,7 +3666,7 @@ function construireBar(){
       new THREE.PlaneGeometry(l, p),
       new THREE.MeshPhongMaterial({
         map: R.texture(R.marbreClair, { repete: true, rx: l / 1.8, ry: p / 1.8 }),
-        specular: 0x888888, shininess: 70
+        color: 0xc8c4bc, specular: 0x666666, shininess: 70
       })
     );
     t.rotation.x = -Math.PI / 2;
@@ -5678,6 +5681,14 @@ const REFLET = {
   actif: false, plan: 0.142, rt: null, cam: null, matrice: null, surfaces: [], prets: false
 };
 
+// L'étalonnage final. Dans la salle : une exposition de 1, des noirs
+// approfondis (gamma au-dessus de 1) et une vignette marquée, pour une
+// pénombre où seul ce qui est éclairé ressort.
+const GRADE = {
+  salle: { exposition: 1.02, gamma: 1.06, vignette: 0.46, halo: 0.75 },
+  cartes: { exposition: 1.06, gamma: 1.0, vignette: 0.30, halo: 0.75 }
+};
+
 const VS_ECRAN = `
 varying vec2 vUv;
 void main(){
@@ -5720,14 +5731,18 @@ uniform float uT;
 uniform vec2 uRes;
 uniform float uVignette;
 uniform float uGrain;
+uniform float uExposition;
+uniform float uGamma;
 varying vec2 vUv;
 
 vec3 etalonner(vec3 c){
-  // Une courbe douce : les hautes lumières s'écrasent un peu, les ombres
-  // remontent, et l'ensemble gagne en contraste.
-  c = c * 1.06;
+  // Une courbe douce, pour une salle tamisée : les hautes lumières
+  // s'écrasent un peu, les ombres s'approfondissent (uGamma > 1 : seul ce qui
+  // est éclairé reste clair), et l'ensemble gagne en contraste.
+  c = c * uExposition;
   c = c / (1.0 + 0.16 * c);
   c = mix(c, c * c * (3.0 - 2.0 * c), 0.20);
+  c = pow(max(c, vec3(0.0)), vec3(uGamma));
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   c = mix(vec3(l), c, 1.05);
   // Des ombres un peu chaudes, des lumières un peu plus neutres.
@@ -5799,7 +5814,8 @@ function creerPost(){
     POST.mat.final = mat(VS_ECRAN, FS_FINAL, {
       tScene: { value: POST.rt.texture }, tBloom: { value: POST.flouA.texture },
       uBloom: { value: 0.75 }, uT: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
-      uVignette: { value: 0.36 }, uGrain: { value: 0.02 }
+      uVignette: { value: 0.36 }, uGrain: { value: 0.02 },
+      uExposition: { value: 1.06 }, uGamma: { value: 1.0 }
     });
 
     POST.actif = true;
@@ -5872,8 +5888,16 @@ function rendre(sc, cam){
     }
   }
 
-  POST.mat.final.uniforms.uBloom.value = POST.bloom ? 0.75 : 0;
-  POST.mat.final.uniforms.uT.value = temps;
+  // L'étalonnage de la salle (sombre, vignetté) n'est pas celui de la scène
+  // des cartes, qui doit rester claire et vive.
+  const g = sc === scene ? GRADE.salle : GRADE.cartes;
+  const u = POST.mat.final.uniforms;
+
+  u.uBloom.value = POST.bloom ? g.halo : 0;
+  u.uExposition.value = g.exposition;
+  u.uGamma.value = g.gamma;
+  u.uVignette.value = g.vignette;
+  u.uT.value = temps;
 
   passe(POST.mat.final, null);
 }
