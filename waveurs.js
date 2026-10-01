@@ -112,8 +112,8 @@ const JOUEUR = {
   tourne: 1.9          // rad/s aux flèches gauche et droite
 };
 
-// À quelle distance de la machine on peut la viser : elle est grande.
-const PORTEE = 4.0;
+// À quelle distance de la machine on peut la viser.
+const PORTEE = 3.2;
 
 const SYMBOLES = ['vague', 'poisson', 'coquillage', 'ancre', 'bulle', 'perle', 'logo'];
 
@@ -132,13 +132,21 @@ const BANDES = [
   ['perle', 'poisson', 'bulle', 'logo', 'coquillage', 'vague', 'ancre']
 ];
 
-// La grande machine, seule au milieu de la salle. Son identifiant est celui
-// que la base enregistre avec chaque tour.
+// La machine, seule au milieu de la salle. Son identifiant est celui que la
+// base enregistre avec chaque tour.
 const MACHINE = { id: 'vague', nom: 'LA VAGUE', couleur: '#4FB4FF', sombre: '#0a2b4d' };
 
-// Le modèle est dessiné à la taille d'une machine de bar : on l'agrandit
-// pour en faire l'attraction de la salle.
-const ECHELLE_MACHINE = 1.7;
+// Le modèle est dessiné 2,2 m de haut, ailerons compris (2,5 m). À cette
+// échelle, le fronton arrive à la tête des personnages (1,75 m) et les
+// rouleaux à hauteur de poitrine : une vraie machine de salle, pas un
+// monument.
+const ECHELLE_MACHINE = 0.8;
+
+// Les habitants de la salle : leur taille, en mètres.
+const TAILLE_HUMAIN = 1.75;
+
+// Le podium de la machine.
+const RAYON_PODIUM = 1.7;
 
 
 /* ----------------------------------------------------------------------
@@ -837,12 +845,12 @@ function creerPlafond(){
 
   const { c, x: g } = creerCanvas(256, 256);
 
-  g.fillStyle = '#150c07';
+  g.fillStyle = '#21140b';
   g.fillRect(0, 0, 256, 256);
 
   const fond = g.createLinearGradient(0, 0, 0, 256);
-  fond.addColorStop(0, '#2b1a0e');
-  fond.addColorStop(1, '#1d1109');
+  fond.addColorStop(0, '#47301c');
+  fond.addColorStop(1, '#33200f');
   g.fillStyle = fond;
   g.fillRect(14, 14, 228, 228);
 
@@ -1202,16 +1210,84 @@ function creerDisqueOr(logo){
 }
 
 // Le faisceau de lumière qui tombe sur la machine : un dégradé vertical.
-function creerFaisceau(){
+// Le faisceau du lustre est un shader (voir construireLumieres) : une lumière
+// plus dense en haut, qui s'adoucit sur les bords et que des nappes de
+// poussière traversent.
+function creerMateriauFaisceau(){
 
-  const { c, x: g } = creerCanvas(8, 128);
+  return new THREE.ShaderMaterial({
+    uniforms: { uT: { value: 0 }, uOpacite: { value: 1 }, uCouleur: { value: new THREE.Color(0xffdcae) } },
+    vertexShader: `
+      varying vec2 vUv;
+      varying vec3 vN;
+      varying vec3 vV;
+      void main(){
+        vUv = uv;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vV = -mv.xyz;
+        vN = normalMatrix * normal;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform float uT;
+      uniform float uOpacite;
+      uniform vec3 uCouleur;
+      varying vec2 vUv;
+      varying vec3 vN;
+      varying vec3 vV;
 
-  const d = g.createLinearGradient(0, 0, 0, 128);
-  d.addColorStop(0, 'rgba(255,255,255,.22)');
-  d.addColorStop(0.6, 'rgba(255,255,255,.06)');
-  d.addColorStop(1, 'rgba(255,255,255,0)');
-  g.fillStyle = d;
-  g.fillRect(0, 0, 8, 128);
+      float hasard(vec2 p){ return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
+
+      float bruit(vec2 p){
+        vec2 i = floor(p), f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hasard(i), hasard(i + vec2(1.0, 0.0)), f.x),
+                   mix(hasard(i + vec2(0.0, 1.0)), hasard(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+
+      void main(){
+        // Le long du cône : dense en haut, il s'efface vers le sol.
+        float haut = pow(clamp(vUv.y, 0.0, 1.0), 1.4);
+
+        // Sur la largeur : le bord s'adoucit, comme un volume qu'on traverse.
+        float ang = abs(dot(normalize(vN), normalize(vV)));
+        float bord = pow(clamp(ang, 0.0, 1.0), 1.35);
+
+        // La poussière : des nappes qui montent lentement.
+        float n1 = bruit(vec2(vUv.x * 10.0 + uT * 0.05, vUv.y * 3.5 - uT * 0.11));
+        float n2 = bruit(vec2(vUv.x * 23.0 - uT * 0.03, vUv.y * 7.0 - uT * 0.20));
+        float nappe = 0.62 + 0.38 * (n1 * 0.6 + n2 * 0.4);
+
+        float a = (0.05 + 0.24 * haut) * bord * nappe * uOpacite;
+        gl_FragColor = vec4(uCouleur, a);
+      }`,
+    transparent: true, side: THREE.DoubleSide, depthWrite: false,
+    blending: THREE.AdditiveBlending, fog: false
+  });
+}
+
+// Une flaque de lumière le long d'un mur, sous une lampe de tableau : dense
+// en haut, près de la lampe, qui s'éteint en descendant.
+function creerLueurMur(){
+
+  const { c, x: g } = creerCanvas(64, 128);
+
+  const v = g.createLinearGradient(0, 0, 0, 128);
+  v.addColorStop(0, 'rgba(255,255,255,.95)');
+  v.addColorStop(0.35, 'rgba(255,255,255,.4)');
+  v.addColorStop(1, 'rgba(255,255,255,0)');
+
+  g.fillStyle = v;
+  g.fillRect(0, 0, 64, 128);
+
+  // Un adoucissement latéral : on multiplie par un dégradé horizontal.
+  g.globalCompositeOperation = 'destination-in';
+  const h = g.createLinearGradient(0, 0, 64, 0);
+  h.addColorStop(0, 'rgba(0,0,0,0)');
+  h.addColorStop(0.5, 'rgba(0,0,0,1)');
+  h.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = h;
+  g.fillRect(0, 0, 64, 128);
 
   return c;
 }
@@ -2416,6 +2492,53 @@ const Son = (function(){
     pas(){
       if(!ctx) return;
       bruit(ctx.currentTime, 0.09, { type: 'lowpass', freq: 240, vol: 0.09 });
+    },
+
+    // Le papier d'aluminium qui cède : un long froissement, puis le claquement
+    // de la soudure. `fin` : le moment où la bande part.
+    dechire(fin){
+      if(!ctx) return;
+      const t = ctx.currentTime;
+      if(!fin){
+        bruit(t, 0.55, { type: 'highpass', freq: 2400, q: 0.7, vol: 0.12 });
+        ton(180, t, 0.4, { type: 'sawtooth', glisse: 2.6, vol: 0.05 });
+        return;
+      }
+      bruit(t, 0.35, { type: 'bandpass', freq: 4200, q: 0.6, vol: 0.2 });
+      bruit(t, 0.18, { type: 'lowpass', freq: 600, vol: 0.14 });
+      ton(1400, t, 0.3, { type: 'sine', glisse: 0.5, vol: 0.06 });
+    },
+
+    // Une carte qui tourne : un souffle bref.
+    flip(){
+      if(!ctx) return;
+      const t = ctx.currentTime;
+      bruit(t, 0.14, { type: 'bandpass', freq: 2100, q: 0.9, vol: 0.12 });
+      ton(520, t, 0.12, { type: 'triangle', glisse: 1.6, vol: 0.05 });
+    },
+
+    // La carte apparaît : d'autant plus de notes qu'elle est rare.
+    carte(rar, nouvelle){
+      if(!ctx) return;
+      const t = ctx.currentTime + 0.03;
+      const gammes = {
+        commune: [523.25],
+        rare: [659.25, 987.77],
+        epique: [523.25, 659.25, 783.99, 1046.5],
+        legendaire: [392, 523.25, 659.25, 783.99, 1046.5, 1318.5, 1567.98]
+      };
+      const notes = gammes[rar] || gammes.commune;
+      const pas = rar === 'legendaire' ? 0.1 : 0.085;
+      notes.forEach((f, i) => {
+        ton(f, t + i * pas, 0.5, { type: 'triangle', vol: 0.12 });
+        if(rar !== 'commune') ton(f * 2, t + i * pas, 0.3, { type: 'sine', vol: 0.04 });
+      });
+      if(rar === 'epique' || rar === 'legendaire'){
+        const n = rar === 'legendaire' ? 16 : 8;
+        for(let i = 0; i < n; i++) ton(hasard(2200, 3800), t + 0.25 + i * 0.06, 0.1, { type: 'sine', vol: 0.04 });
+      }
+      // Une carte qu'on n'avait pas : une petite note de plus.
+      if(nouvelle) ton(1760, t + notes.length * pas + 0.05, 0.25, { type: 'sine', vol: 0.05 });
     }
   };
 })();
@@ -2783,10 +2906,80 @@ const CSS = `
   .wv-haut-gauche .wv-carte:nth-child(2){display:none}
   body.wv-en-jeu .notif-zone{top:14px;bottom:auto;left:264px;right:170px;max-width:none}
 }
+.wv-cartes-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.wv-cartes-actions .wv-cta{padding:9px 16px;font-size:13px}
+
+.wv-en-ouverture .wv-haut-gauche,.wv-en-ouverture .wv-viseur,.wv-en-ouverture .wv-invite,.wv-en-ouverture .wv-gains{display:none}
+.wv-ouv{position:absolute;inset:0;z-index:4;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;align-items:center;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(22px + env(safe-area-inset-bottom,0px))}
+.wv-ouv[hidden]{display:none}
+.wv-ouv-haut{text-align:center;max-width:calc(100% - 200px);min-height:28px}
+.wv-ouv-haut h2{margin:0;font-size:clamp(20px,3.4vw,32px);font-weight:700;letter-spacing:.01em;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.6)}
+.wv-ouv-haut p{margin:6px 0 0;font-size:15px;line-height:1.4;color:#b4cde4;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.wv-ouv-bas{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%}
+.wv-ouv-indice{margin:0;font-size:15px;letter-spacing:.02em;color:#d3e3f3;text-shadow:0 1px 10px rgba(0,0,0,.75)}
+.wv-ouv-indice[hidden]{display:none}
+.wv-ouv-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;pointer-events:auto}
+.wv-ouv-actions[hidden]{display:none}
+.wv-ouv-actions .wv-cta[hidden]{display:none}
+.wv-ouv-flash{position:absolute;inset:0;pointer-events:none;opacity:0;mix-blend-mode:screen}
+.wv-ouv-flash.on{animation:wvOuvEclair .75s ease-out}
+@keyframes wvOuvEclair{0%{opacity:var(--wv-force,.5)}100%{opacity:0}}
+.wv-ouv-etiq-zone{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.wv-ouv-etiq{position:absolute;transform:translate(-50%,0);padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;background:rgba(6,14,26,.8);border:1px solid rgba(255,255,255,.22);color:#cfe0f0}
+.wv-ouv-etiq.nouvelle{background:linear-gradient(135deg,#ffd36b,#ff9f43);color:#2a1800;border-color:transparent}
+
+.wv-ecran.wv-ecran-collection{padding:14px}
+.wv-panneau.wv-collection{position:relative;width:min(1000px,100%);max-height:100%;padding:22px 24px 20px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.wv-coll-tete{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.wv-coll-tete h2{margin:4px 0 0}
+.wv-panneau .wv-coll-compte{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em;color:#ffd36b;font-variant-numeric:tabular-nums}
+.wv-coll-filtres{display:flex;flex-wrap:wrap;gap:6px}
+.wv-coll-filtres button{padding:7px 14px;border-radius:99px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#cfd8e3;font:600 12.5px 'Public Sans',system-ui,sans-serif;cursor:pointer}
+.wv-coll-filtres button[aria-pressed="true"]{background:#1489de;border-color:#1489de;color:#fff}
+.wv-coll-filtres button:focus-visible{outline:2px solid #4FB4FF;outline-offset:2px}
+.wv-coll-grille{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:12px;align-items:start;align-content:start;overflow:auto;min-height:120px;padding:4px 2px 8px;flex:1 1 auto}
+.wv-panneau .wv-coll-charge{grid-column:1/-1;margin:20px 0;text-align:center;color:#8a9bb0}
+.wv-coll-grille .wv-alerte{grid-column:1/-1}
+.wv-tuile{position:relative;display:block;width:100%;height:0;padding:0 0 139.84%;border:0;background:none;border-radius:6.6%/4.75%;cursor:pointer;color:inherit;font:inherit;overflow:hidden;transition:transform .18s}
+.wv-tuile canvas{position:absolute;left:0;top:0;display:block;width:100%;height:100%}
+.wv-tuile:hover{transform:translateY(-3px) scale(1.03)}
+.wv-tuile:focus-visible{outline:2px solid #4FB4FF;outline-offset:3px}
+.wv-tuile.vide{cursor:default;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.wv-tuile-fond{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.wv-tuile.vide:hover{transform:none}
+.wv-tuile-pt{font-size:30px;font-weight:700;color:rgba(255,255,255,.22)}
+.wv-tuile-num{font-size:12px;letter-spacing:.14em;color:rgba(255,255,255,.32);font-weight:600}
+.wv-tuile-qte{position:absolute;right:6px;top:6px;padding:2px 7px;border-radius:99px;background:rgba(6,14,26,.86);border:1px solid rgba(255,255,255,.25);font-size:11px;font-weight:700;color:#fff}
+.wv-coll-grille[data-filtre="commune"] .wv-tuile:not(.rar-commune),
+.wv-coll-grille[data-filtre="rare"] .wv-tuile:not(.rar-rare),
+.wv-coll-grille[data-filtre="epique"] .wv-tuile:not(.rar-epique),
+.wv-coll-grille[data-filtre="legendaire"] .wv-tuile:not(.rar-legendaire){display:none}
+.wv-coll-zoom{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px;border-radius:20px;background:rgba(3,8,16,.95)}
+.wv-coll-zoom[hidden]{display:none}
+.wv-zoom-scene{position:relative;height:min(62vh,560px);aspect-ratio:512/716;perspective:900px;transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));transition:transform .12s ease-out;border-radius:6.6%/4.75%;box-shadow:0 20px 60px rgba(0,0,0,.6);overflow:hidden;--mx:50%;--my:50%}
+.wv-zoom-carte{display:block;width:100%;height:100%}
+.wv-zoom-reflet{position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;mix-blend-mode:color-dodge}
+.wv-zoom-scene.rar-rare .wv-zoom-reflet,.wv-zoom-scene.rar-epique .wv-zoom-reflet,.wv-zoom-scene.rar-legendaire .wv-zoom-reflet{opacity:.26;background:radial-gradient(circle at var(--mx) var(--my),rgba(255,255,255,.9),rgba(255,255,255,0) 40%),linear-gradient(115deg,rgba(255,0,128,.55),rgba(255,210,80,.55),rgba(60,255,190,.55),rgba(80,150,255,.55),rgba(200,90,255,.55))}
+.wv-zoom-scene.rar-epique .wv-zoom-reflet{opacity:.34}
+.wv-zoom-scene.rar-legendaire .wv-zoom-reflet{opacity:.42}
+.wv-panneau .wv-zoom-legende{margin:0;font-size:14px;color:#cfe0f0;text-align:center}
+@media (max-width:760px){
+  .wv-panneau.wv-collection{padding:16px 14px 14px}
+  .wv-coll-grille{grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:9px}
+  .wv-ouv-haut{padding-top:54px}
+}
+@media (max-height:520px){
+  .wv-panneau.wv-collection{padding:12px 14px}
+  .wv-coll-tete h2{font-size:18px}
+  .wv-zoom-scene{height:min(70vh,560px)}
+  .wv-ouv-bas{gap:8px}
+}
 @media (prefers-reduced-motion:reduce){
   .wv-gain.anim,.wv-plus.anim{animation:wvGainDoux 2.6s linear forwards}
   .wv-barre span{transition:none}
   .wv-pack img{animation:none;transform:rotateY(-8deg) rotateX(4deg)}
+  .wv-ouv-flash.on{animation-duration:.01s}
+  .wv-tuile,.wv-zoom-scene{transition:none}
 }
 @keyframes wvGainDoux{0%{opacity:0}15%{opacity:1}80%{opacity:1}100%{opacity:0}}
 `;
@@ -2831,6 +3024,26 @@ const HTML_JEU = `
 </div>
 <div class="wv-fondu" aria-hidden="true"></div>
 <button type="button" class="wv-passer" id="wvPasser">Passer</button>
+<div class="wv-ouv" id="wvOuv" hidden>
+  <div class="wv-ouv-etiq-zone" id="wvOuvEtiq"></div>
+  <div class="wv-ouv-flash" id="wvOuvFlash" aria-hidden="true"></div>
+  <div class="wv-ouv-haut">
+    <h2 id="wvOuvTitre"></h2>
+    <p id="wvOuvResume" hidden></p>
+  </div>
+  <div class="wv-ouv-bas">
+    <p class="wv-ouv-indice" id="wvOuvIndice" role="status" aria-live="polite"></p>
+    <div class="wv-ouv-actions">
+      <button type="button" class="wv-cta" id="wvOuvAction">Ouvrir le booster</button>
+      <button type="button" class="wv-cta discret" id="wvOuvPasser" hidden>Tout révéler</button>
+    </div>
+    <div class="wv-ouv-actions" id="wvOuvBilan" hidden>
+      <button type="button" class="wv-cta" id="wvOuvAutre">Ouvrir un autre booster</button>
+      <button type="button" class="wv-cta discret" id="wvOuvAlbum">Ma collection</button>
+      <button type="button" class="wv-cta discret" id="wvOuvFin">Terminer</button>
+    </div>
+  </div>
+</div>
 <div class="wv-ecran" id="wvEcran" hidden></div>
 `;
 
@@ -2843,6 +3056,7 @@ let options = {};
 let overlay = null;
 let H = {};                       // éléments de l'interface
 
+let sessionJeu = 0;               // change à chaque entrée et sortie de la salle
 let renderer = null, scene = null, camera = null;
 let pret = false;                 // la salle est construite
 let actif = false;                // la salle est ouverte
@@ -2979,7 +3193,11 @@ function construireOverlay(){
     viseur: q('wvViseur'), invite: q('wvInvite'), gain: q('wvGain'), plus: q('wvPlus'),
     gains: q('wvGains'), message: q('wvMessage'), ecran: q('wvEcran'),
     tactile: q('wvTactile'), joy: q('wvJoy'), pouce: q('wvPouce'),
-    action: q('wvAction'), reculer: q('wvReculer'), passer: q('wvPasser')
+    action: q('wvAction'), reculer: q('wvReculer'), passer: q('wvPasser'),
+    ouv: q('wvOuv'), ouvEtiq: q('wvOuvEtiq'), ouvFlash: q('wvOuvFlash'), ouvTitre: q('wvOuvTitre'),
+    ouvResume: q('wvOuvResume'), ouvIndice: q('wvOuvIndice'), ouvAction: q('wvOuvAction'),
+    ouvPasser: q('wvOuvPasser'), ouvBilan: q('wvOuvBilan'), ouvAutre: q('wvOuvAutre'),
+    ouvAlbum: q('wvOuvAlbum'), ouvFin: q('wvOuvFin')
   };
 
   // Safari sur iPhone n'offre pas le plein écran pour un élément : le
@@ -2992,6 +3210,12 @@ function construireOverlay(){
   H.action.addEventListener('click', actionPrincipale);
   H.reculer.addEventListener('click', sortirFocus);
   H.passer.addEventListener('click', passerIntro);
+
+  H.ouvAction.addEventListener('click', avancerOuverture);
+  H.ouvPasser.addEventListener('click', toutRevelerOuverture);
+  H.ouvAutre.addEventListener('click', ouvrirUnAutre);
+  H.ouvAlbum.addEventListener('click', () => { fermerOuverture(true); ouvrirCollection(); });
+  H.ouvFin.addEventListener('click', () => fermerOuverture(true));
 
   majBoutonSon();
 }
@@ -3027,6 +3251,12 @@ async function construireMonde(){
   ratioMax = Math.min(window.devicePixelRatio || 1, etat.tactile ? 1.5 : 1.75);
   ratioActuel = ratioMax;
   renderer.setPixelRatio(ratioActuel);
+
+  // Les effets de rendu (halo, étalonnage, reflets du sol). Les reflets sont
+  // réservés aux ordinateurs : sur un téléphone, un second rendu de la salle
+  // coûterait trop.
+  creerPost();
+  if(!etat.tactile) creerReflet();
 
   H.canvas.addEventListener('webglcontextlost', e => {
     e.preventDefault();
@@ -3092,6 +3322,16 @@ async function construireMonde(){
   R.matBois = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.05 });
   R.matTissu = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
   R.matLed = new THREE.MeshBasicMaterial({ vertexColors: true });
+  R.matHumain = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.68, metalness: 0 });
+
+  // Un liseré chaud sur le contour des personnages : c'est ce qui les détache
+  // d'un mur sombre, et donne à la peau un peu de la lumière de la salle.
+  R.matHumain.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', `
+      float lisere = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 2.6);
+      gl_FragColor.rgb += lisere * vec3(0.30, 0.22, 0.15) * 0.36;
+      #include <dithering_fragment>`);
+  };
 
   R.modele = construireModeleMachine();
   R.halo = halo;
@@ -3104,6 +3344,8 @@ async function construireMonde(){
   construireMobilier();
   construireMachine();
   construireBoutique();
+  construireHabitues();
+  construireJetons();
   construireLumieres();
   construireAmbiance();
 
@@ -3144,53 +3386,73 @@ function construireSalle(){
   const L = SALLE.l, P = SALLE.p, Ht = SALLE.h;
 
   // ---- Lumières : chaudes, comme dans un bar, avec un fil bleu La Wave ----
-  scene.add(new THREE.HemisphereLight(0xffe2c0, 0x1a0e08, 0.6));
+  //
+  // Un fond d'hémisphère assez fort pour que rien ne soit noir, puis une
+  // lampe par « quartier » de la salle : chacune éclaire ce qui s'y passe
+  // (les habitués du bar, les tables de jeu, la banquette), plutôt que de
+  // tout baigner d'une seule lumière. Le nombre est compté : chaque lampe se
+  // paie à chaque image, sur chaque surface.
+  scene.add(new THREE.HemisphereLight(0xffe9d2, 0x5e3d2a, 1.05));
 
-  [[0, 4.0, 2.6, 0xffdcb0, 1.15, 13],
-   [-3.2, 3.2, -6.2, 0xffb66a, 0.85, 10], [3.2, 3.2, -6.2, 0xffb66a, 0.85, 10],
-   [-5.0, 3.3, 1.0, 0xffc890, 0.7, 9], [5.0, 3.3, 1.0, 0xffc890, 0.7, 9],
-   [0, 3.3, 7.6, 0xffe4c8, 0.6, 10],
-   [0, 2.2, -2.0, 0x39b8ff, 0.5, 7]].forEach(([x, y, z, c, i, d]) => {
-    const l = new THREE.PointLight(c, i, d, 1.3);
+  [
+    [0, 4.2, 0.6, 0xffe2bc, 1.35, 14],          // le lustre, sur la machine et le podium
+    [-2.4, 2.7, -5.2, 0xffbd75, 1.1, 8.5],      // le bar, côté gauche
+    [2.4, 2.7, -5.2, 0xffbd75, 1.1, 8.5],       // le bar, côté droit
+    [-5.4, 3.1, 2.6, 0xffcf9a, 1.0, 8.5],       // le blackjack et son croupier
+    [5.4, 3.2, 4.4, 0xffd7a8, 1.0, 8.5],        // le poker
+    [5.6, 3.0, -2.4, 0xffc58e, 0.95, 8],        // la banquette
+    [0, 3.4, 7.2, 0xffe9d2, 0.85, 11],          // l'entrée
+    [0, 2.2, -2.0, 0x39b8ff, 0.5, 7]            // le fil bleu La Wave
+  ].forEach(([x, y, z, c, i, d]) => {
+    const l = new THREE.PointLight(c, i, d, 1.2);
     l.position.set(x, y, z);
     scene.add(l);
   });
 
   // ---- Sol : parquet, tapis, estrade de la machine ----
+  // Le parquet et le podium reflètent ce qui est au-dessus d'eux (voir
+  // refleter) ; le tapis, velours mat, n'en garde qu'un voile aux angles
+  // rasants.
   const sol = new THREE.Mesh(
     new THREE.PlaneGeometry(L * 2, P * 2),
-    new THREE.MeshPhongMaterial({
+    refleter(new THREE.MeshPhongMaterial({
       map: R.texture(creerParquet(), { repete: true, rx: L, ry: P }),
-      specular: 0x4a3a2a, shininess: 38
-    })
+      specular: 0x6a5238, shininess: 46
+    }), 0.34, 0.010)
   );
   sol.rotation.x = -Math.PI / 2;
   scene.add(sol);
 
   const tapis = new THREE.Mesh(
     new THREE.PlaneGeometry(11, 13.75),
-    new THREE.MeshLambertMaterial({ map: R.texture(creerTapis(R.logo)) })
+    refleter(new THREE.MeshPhongMaterial({
+      map: R.texture(creerTapis(R.logo)), color: 0xbca8aa, specular: 0x1a0a0c, shininess: 6
+    }), 0.05, 0.02)
   );
   tapis.rotation.x = -Math.PI / 2;
   tapis.position.set(0, 0.008, 0.5);
   scene.add(tapis);
 
   const estrade = new THREE.Mesh(
-    new THREE.CylinderGeometry(2.55, 2.62, 0.14, 56),
+    new THREE.CylinderGeometry(RAYON_PODIUM, RAYON_PODIUM + 0.07, 0.14, 56),
     new THREE.MeshPhongMaterial({ color: 0x3a0f1a, specular: 0x554444, shininess: 26 })
   );
   estrade.position.y = 0.07;
   scene.add(estrade);
 
   const dessus = new THREE.Mesh(
-    new THREE.CircleGeometry(2.55, 56),
-    new THREE.MeshLambertMaterial({ map: R.texture(creerEstrade()) })
+    new THREE.CircleGeometry(RAYON_PODIUM, 56),
+    refleter(new THREE.MeshPhongMaterial({
+      map: R.texture(creerEstrade()), specular: 0x7a6650, shininess: 70
+    }), 0.78, 0.004, 0.42)
   );
   dessus.rotation.x = -Math.PI / 2;
   dessus.position.y = 0.142;
   scene.add(dessus);
 
-  const bord = new THREE.Mesh(new THREE.TorusGeometry(2.58, 0.028, 8, 72), R.matLaitonUni);
+  if(REFLET.actif) REFLET.surfaces.push(sol, tapis, dessus);
+
+  const bord = new THREE.Mesh(new THREE.TorusGeometry(RAYON_PODIUM + 0.03, 0.028, 8, 72), R.matLaitonUni);
   bord.rotation.x = Math.PI / 2;
   bord.position.y = 0.14;
   scene.add(bord);
@@ -3207,7 +3469,7 @@ function construireSalle(){
   scene.add(plafond);
 
   // ---- Murs : marbre sombre, soubassement de lattes, garnitures ----
-  const marbre = creerMarbre('#1b1a1e', '#8d8a96', '#c9a25a', 16);
+  const marbre = creerMarbre('#2e2d35', '#9d9aa8', '#d6b06a', 16);
   const lattes = creerLattes();
 
   const bois = [], laiton = [], led = [];
@@ -3286,6 +3548,11 @@ function construireSalle(){
   });
 
   // ---- Des disques d'or, le long des murs de côté, sous une lampe ----
+  R.matLueurMur = new THREE.MeshBasicMaterial({
+    map: R.texture(creerLueurMur()), color: 0xffc887, transparent: true, opacity: 0.5,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  });
+
   const disque = R.texture(creerDisqueOr(R.logo));
   const petits = [];
 
@@ -3299,6 +3566,13 @@ function construireSalle(){
       cadre.position.set(s * (L - 0.03), 2.25, z);
       cadre.rotation.y = -s * Math.PI / 2;
       scene.add(cadre);
+
+      // La flaque de lumière de la lampe, sur le mur.
+      const flaque = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 3.0), R.matLueurMur);
+      flaque.position.set(s * (L - 0.028), 1.75, z);
+      flaque.rotation.y = -s * Math.PI / 2;
+      flaque.renderOrder = 1;
+      scene.add(flaque);
 
       // La lampe de tableau : un bras de laiton et un peu de lumière.
       petits.push(boite(0.05, 0.05, 0.4, s * (L - 0.2), 2.85, z, LAITON));
@@ -3502,6 +3776,11 @@ function construireBar(){
     const x = -3.15 + i * 0.9;
     poser({ tissu, laiton, bois }, geoTabouret('#6b1a2b', 0.74), x, -6.0, 0);
     colliders.push({ x0: x - 0.26, x1: x + 0.26, z0: -6.26, z1: -5.74 });
+    // On s'y assoit face au comptoir, les pieds sur le repose-pieds de laiton.
+    SIEGES.push({
+      id: 'bar' + i, genre: 'tabouret', x, z: -6.0, yaw: Math.PI, haut: 0.74,
+      pieds: { y: 0.31, z: 0.30, ecart: 0.11, ouverture: 0.10 }
+    });
   }
 
   // Quelques bouteilles et un seau à glace sur le comptoir.
@@ -3707,6 +3986,10 @@ function construireMobilier(){
       const wz = cz - lx * Math.sin(rot) + lz * Math.cos(rot);
       poser(liste, geoTabouret(VELOURS2, 0.68), wx, wz, 0);
       boiteCollision(wx - 0.26, wx + 0.26, wz - 0.26, wz + 0.26);
+      SIEGES.push({
+        id: 'bj' + i, genre: 'tabouret', x: wx, z: wz, yaw: Math.atan2(cx - wx, cz - wz), haut: 0.68,
+        pieds: { y: 0.085, z: 0.30, ecart: 0.12, ouverture: 0.14 }
+      });
     }
 
     boiteCollision(-SALLE.l, cx + 1.4, cz - 1.4, cz + 1.4);
@@ -3721,6 +4004,15 @@ function construireMobilier(){
   // ---- À droite : la banquette de velours et ses deux tables ----
   poser(liste, geoBanquette(4.4, VELOURS), 7.08, -2.5, -Math.PI / 2);
   boiteCollision(6.6, SALLE.l, -4.75, -0.25);
+
+  // Sur la banquette, face à la salle, assis au bord de l'assise, près de la
+  // table qui est devant.
+  [-3.6, -1.4].forEach((z, i) => {
+    SIEGES.push({
+      id: 'banq' + i, genre: 'banquette', x: 6.88, z, yaw: -Math.PI / 2, haut: 0.39,
+      pieds: { y: 0.085, z: 0.42, ecart: 0.12, ouverture: 0.16 }
+    });
+  });
 
   [-3.6, -1.4].forEach(z => {
     poser(liste, geoTableRonde(0.42, 0.68), 5.9, z, 0);
@@ -3754,6 +4046,10 @@ function construireMobilier(){
       const x = cx + Math.sin(a) * 1.85, z = cz + Math.cos(a) * 1.85;
       poser(liste, geoFauteuil(VELOURS2), x, z, a + Math.PI);
       boiteCollision(x - 0.36, x + 0.36, z - 0.36, z + 0.36);
+      SIEGES.push({
+        id: 'pok' + i, genre: 'fauteuil', x, z, yaw: a + Math.PI,
+        pieds: { y: 0.085, z: 0.40, ecart: 0.13, ouverture: 0.20 }
+      });
     }
 
     boiteCollision(cx - 1.3, cx + 1.3, cz - 1.3, cz + 1.3);
@@ -3781,11 +4077,11 @@ function construireMachine(){
 
   // Son ombre, posée sur l'estrade.
   const ombre = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.0, 2.6),
+    new THREE.PlaneGeometry(1.75, 1.5),
     new THREE.MeshBasicMaterial({ map: R.texture(creerOmbre()), transparent: true, depthWrite: false })
   );
   ombre.rotation.x = -Math.PI / 2;
-  ombre.position.set(0, 0.146, -0.05);
+  ombre.position.set(0, 0.146, -0.03);
   scene.add(ombre);
 }
 
@@ -3816,150 +4112,967 @@ function fabriquerBooster(l, h, e){
   return groupe;
 }
 
-// Le croupier : un personnage un peu stylisé, à la casino d'autrefois —
-// gilet, nœud papillon, visière verte, moustache. Il se compose de pièces
-// qui bougent (la tête, les bras) et d'un reste immobile. Il regarde la
-// personne qui s'approche, tend un booster quand on lui parle, et le
-// pousse d'un geste quand on achète.
-class Croupier {
+/* ----------------------------------------------------------------------
+   Les personnages
+   ----------------------------------------------------------------------
+   Un corps, c'est une dizaine de pièces articulées, toutes dessinées par le
+   code : un torse et une tête qui bougent, deux bras (épaule, coude) et
+   deux jambes (hanche, genou, cheville). Les bras et les jambes se placent
+   par cinématique inverse : on dit où doit arriver la main ou le pied, et
+   le reste suit. C'est ce qui permet d'asseoir quelqu'un sur un tabouret,
+   les pieds sur le repose-pieds et le coude sur le comptoir, sans dessiner
+   chaque pose à la main.
 
-  constructor(x, z, rotY){
+   Repère d'un personnage : l'origine est au sol, entre les pieds ; il
+   regarde vers +z, sa gauche est du côté de +x, sa tête à 1,75 m.
+   ---------------------------------------------------------------------- */
 
-    this.type = 'croupier';
-    this.def = { nom: 'LE CROUPIER', couleur: '#f2d9a8', sombre: '#2a190d' };
-    this.centre = { x, z };
-    this.rotY = rotY;
-    this.normale = { x: Math.sin(rotY), z: Math.cos(rotY) };
-    this.phase = hasard(0, TAU);
+const HUMAIN = {
+  cuisse: 0.43,
+  tibia: 0.40,
+  bras: 0.29,
+  avantBras: 0.26,
+  hanche: 0.093,        // écart de chaque hanche à l'axe
+  epaule: 0.205,        // idem, pour les épaules
+  pivot: 0.04,          // le pivot de la taille, au-dessus du centre du bassin
+  hEpaule: 0.47,        // les épaules, au-dessus du pivot
+  hCou: 0.54,           // la base du cou, au-dessus du pivot
+  hTete: 0.15,          // le centre de la tête, au-dessus de la base du cou
+  bassinDebout: 0.93    // le centre du bassin, debout
+};
 
-    this.accueil = 0;           // 0 au repos, 1 quand il tend un booster
-    this.accueilCible = 0;
-    this.remerciement = 0;      // une impulsion, après un achat
-    this.regard = 0;            // orientation de sa tête
+// Une surface de révolution elliptique : des anneaux superposés, du bas vers
+// le haut. Chaque anneau a sa hauteur y, ses demi-axes (rx, rz) et, s'il le
+// faut, un centre (cx, cz). `couleur` est une couleur ou une fonction
+// (angle, y, x, z) qui en rend une : l'angle vaut 0 devant (+z).
+function lofter(sections, couleur, segments){
 
-    const PEAU = '#d8a47f', CHEMISE = '#f2f0ea', GILET = '#15171d', PANTALON = '#101116';
-    const BORDEAUX = '#7a1526', CHEVEUX = '#20130c', VISIERE = '#2f7d5b';
+  const n = segments || 20;
+  const m = sections.length;
+  const pos = [], col = [], idx = [];
+  const c = new THREE.Color();
 
-    const g = new THREE.Group();
-    g.position.set(x, 0, z);
-    g.rotation.y = rotY;
-    this.groupe = g;
+  const teinte = (a, y, x, z) => typeof couleur === 'function' ? couleur(a, y, x, z) : couleur;
 
-    const piece = liste => new THREE.Mesh(fusionner(liste), R.matBois);
+  sections.forEach(s => {
+    for(let j = 0; j < n; j++){
+      const a = j / n * TAU;
+      const x = (s.cx || 0) + Math.sin(a) * s.rx;
+      const z = (s.cz || 0) + Math.cos(a) * s.rz;
+      pos.push(x, s.y, z);
+      c.set(teinte(a, s.y, x, z));
+      col.push(c.r, c.g, c.b);
+    }
+  });
 
-    // Jambes, chaussures, ceinture : immobiles.
-    g.add(piece([
-      cylindre(0.085, 0.072, 0.9, -0.11, 0.5, 0, PANTALON, 14),
-      cylindre(0.085, 0.072, 0.9, 0.11, 0.5, 0, PANTALON, 14),
-      boite(0.11, 0.07, 0.27, -0.11, 0.035, 0.05, '#050505'),
-      boite(0.11, 0.07, 0.27, 0.11, 0.035, 0.05, '#050505'),
-      boite(0.40, 0.14, 0.25, 0, 0.98, 0, PANTALON)
-    ]));
+  for(let i = 0; i < m - 1; i++){
+    for(let j = 0; j < n; j++){
+      const a = i * n + j, b = i * n + (j + 1) % n;
+      const e = (i + 1) * n + j, f = (i + 1) * n + (j + 1) % n;
+      idx.push(a, b, e, b, f, e);
+    }
+  }
 
-    // Le buste : chemise, gilet à liserés bleus, nœud papillon, badge.
-    const torse = new THREE.Group();
-    this.torse = torse;
-    torse.add(piece([
-      boite(0.40, 0.52, 0.23, 0, 1.25, 0, CHEMISE),
-      boite(0.41, 0.48, 0.03, 0, 1.26, -0.10, GILET),
-      boite(0.165, 0.46, 0.03, -0.115, 1.25, 0.115, GILET),
-      boite(0.165, 0.46, 0.03, 0.115, 1.25, 0.115, GILET),
-      boite(0.012, 0.44, 0.034, -0.032, 1.25, 0.118, '#2fb8ff'),
-      boite(0.012, 0.44, 0.034, 0.032, 1.25, 0.118, '#2fb8ff'),
-      sphere(0.078, -0.22, 1.47, 0, CHEMISE),
-      sphere(0.078, 0.22, 1.47, 0, CHEMISE),
-      cylindre(0.078, 0.09, 0.05, 0, 1.52, 0, CHEMISE, 14),
-      boite(0.028, 0.03, 0.025, 0, 1.50, 0.105, BORDEAUX),
-      boite(0.055, 0.05, 0.02, -0.042, 1.50, 0.105, BORDEAUX),
-      boite(0.055, 0.05, 0.02, 0.042, 1.50, 0.105, BORDEAUX),
-      boite(0.07, 0.03, 0.008, -0.12, 1.37, 0.135, LAITON)
-    ]));
-    g.add(torse);
+  // Les deux fonds : un point au centre de chaque extrémité.
+  [[0, false], [m - 1, true]].forEach(([i, haut]) => {
+    const s = sections[i];
+    const k = pos.length / 3;
+    pos.push(s.cx || 0, s.y, s.cz || 0);
+    c.set(teinte(0, s.y, s.cx || 0, s.cz || 0));
+    col.push(c.r, c.g, c.b);
+    for(let j = 0; j < n; j++){
+      const a = i * n + j, b = i * n + (j + 1) % n;
+      if(haut) idx.push(k, a, b); else idx.push(k, b, a);
+    }
+  });
 
-    // La tête, autour du cou.
-    const tete = new THREE.Group();
-    tete.position.set(0, 1.56, 0);
-    this.tete = tete;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
 
-    const oy = -1.56;
+  return g;
+}
 
-    const crane = new THREE.SphereGeometry(0.108, 22, 16);
-    crane.scale(1, 1.15, 1);
-    crane.translate(0, 1.68 + oy, 0);
-    colorer(crane, PEAU);
+// Un membre : de y = 0 (l'articulation) à y = -L, renflé au milieu, les deux
+// bouts arrondis. La couleur est donnée selon la hauteur (un manche qui
+// s'arrête, une peau qui commence).
+function membre(L, r0, r1, couleur, bombe){
 
-    // Les cheveux : une calotte qui s'arrête au front (au-dessus des yeux et
-    // des sourcils), et une seconde, derrière, qui descend jusqu'à la nuque.
-    const cheveux = new THREE.SphereGeometry(0.113, 22, 12, 0, TAU, 0, Math.PI * 0.36);
-    cheveux.scale(1, 1.15, 1.02);
-    cheveux.translate(0, 1.685 + oy, -0.005);
-    colorer(cheveux, CHEVEUX);
+  const b = bombe || 1.06;
+  const rond = (r, sens) => [90, 60, 30].map(deg => {
+    const p = deg * Math.PI / 180;
+    return { sin: Math.sin(p), cos: Math.max(0.0008, Math.cos(p)), r, sens };
+  });
 
-    const nuque = new THREE.SphereGeometry(0.113, 22, 12, Math.PI, Math.PI, 0, Math.PI * 0.62);
-    nuque.scale(1, 1.15, 1.02);
-    nuque.translate(0, 1.685 + oy, -0.005);
-    colorer(nuque, CHEVEUX);
+  const s = [];
 
-    // La visière : un bec court, relevé vers l'avant, posé sur le front.
-    const bec = new THREE.CylinderGeometry(0.118, 0.118, 0.006, 22, 1, false, -Math.PI / 2, Math.PI);
-    bec.rotateX(-0.5);
-    bec.translate(0, 1.768 + oy, 0.04);
-    colorer(bec, VISIERE);
+  rond(r1).forEach(k => s.push({ y: -L - r1 * k.sin, rx: r1 * k.cos, rz: r1 * k.cos }));
+  s.push({ y: -L, rx: r1, rz: r1 });
+  const rm = lerp(r1, r0, 0.55) * b;
+  s.push({ y: -L * 0.45, rx: rm, rz: rm });
+  s.push({ y: 0, rx: r0, rz: r0 });
+  rond(r0).reverse().forEach(k => s.push({ y: r0 * k.sin, rx: r0 * k.cos, rz: r0 * k.cos }));
 
-    tete.add(piece([
-      crane, cheveux, nuque, bec,
-      cylindre(0.112, 0.112, 0.03, 0, 1.755 + oy, 0, VISIERE, 22),
-      cylindre(0.048, 0.055, 0.09, 0, 1.585 + oy, 0, PEAU, 12),
-      sphere(0.02, 0, 1.66 + oy, 0.108, PEAU),
-      sphere(0.013, -0.037, 1.695 + oy, 0.098, '#1b1210'),
-      sphere(0.013, 0.037, 1.695 + oy, 0.098, '#1b1210'),
-      boite(0.05, 0.008, 0.01, -0.037, 1.72 + oy, 0.102, CHEVEUX),
-      boite(0.05, 0.008, 0.01, 0.037, 1.72 + oy, 0.102, CHEVEUX),
-      boite(0.075, 0.014, 0.014, 0, 1.635 + oy, 0.108, '#2a1a10'),
-      boite(0.034, 0.006, 0.008, 0, 1.612 + oy, 0.104, '#8a3a3a'),
-      sphere(0.022, -0.108, 1.68 + oy, 0, PEAU),
-      sphere(0.022, 0.108, 1.68 + oy, 0, PEAU)
-    ]));
-    torse.add(tete);
+  return lofter(s, (a, y) => typeof couleur === 'function' ? couleur(y) : couleur, 14);
+}
 
-    // Les bras : l'épaule, puis le coude. Au repos, les mains reposent sur
-    // la table ; l'un des deux tend le booster.
-    const bras = cote => {
-      const epaule = new THREE.Group();
-      epaule.position.set(cote * 0.235, 1.46, 0);
-      epaule.add(piece([
-        cylindre(0.052, 0.046, 0.28, 0, -0.14, 0, CHEMISE, 12),
-        cylindre(0.056, 0.056, 0.03, 0, -0.085, 0, BORDEAUX, 12)
-      ]));
-      const coude = new THREE.Group();
-      coude.position.set(0, -0.28, 0);
-      coude.add(piece([
-        cylindre(0.043, 0.036, 0.25, 0, -0.125, 0, CHEMISE, 12),
-        sphere(0.042, 0, -0.275, 0, PEAU)
-      ]));
-      epaule.add(coude);
-      torse.add(epaule);
-      return { epaule, coude };
+// Une ellipsoïde posée : de quoi faire une main, un nez, un chignon.
+function ellipsoide(rx, ry, rz, x, y, z, hex, seg){
+  const g = new THREE.SphereGeometry(1, seg || 12, Math.max(6, (seg || 12) - 4));
+  g.scale(rx, ry, rz);
+  g.translate(x, y, z);
+  return colorer(g, hex);
+}
+
+// La surface du visage : où se trouve le devant de la tête à la hauteur y,
+// à x du milieu. Sert à poser les yeux et le nez sur la peau, au lieu de
+// les faire flotter ou s'enfoncer.
+function surfaceVisage(x, y, menton){
+
+  const uy = y / 0.108;
+  const bas = Math.max(0, -uy);
+  const haut = Math.max(0, uy);
+  const sx = 0.078 * (1 - 0.30 * Math.pow(bas, 1.6) * (menton || 1));
+  const ux = x / sx;
+  const t = 1 - ux * ux - uy * uy;
+
+  if(t <= 0) return 0;
+
+  const sz = 0.092 * (1 - 0.10 * Math.pow(bas, 1.3)) * (1 - 0.05 * haut);
+  return Math.sqrt(t) * sz;
+}
+
+// Un point de la sphère unité, amené sur la forme de la tête : un menton
+// plus étroit, un front un peu plus plat. `marge` la gonfle (cheveux, barbe).
+function pointCrane(ux, uy, uz, marge, menton){
+
+  const bas = Math.max(0, -uy);
+  const haut = Math.max(0, uy);
+  const sx = (0.078 + marge) * (1 - 0.30 * Math.pow(bas, 1.6) * (menton || 1));
+  const sy = 0.108 + marge;
+  let sz = (0.092 + marge) * (1 - 0.10 * Math.pow(bas, 1.3));
+
+  if(uz > 0) sz *= 1 - 0.05 * haut;
+
+  return { x: ux * sx, y: uy * sy, z: uz * sz, sx, sy, sz };
+}
+
+// Une calotte de cheveux : une demi-sphère dont le bord suit la ligne des
+// cheveux — haut sur le front (`front`), à la hauteur des oreilles sur les
+// côtés (`cote`), descendant sur la nuque (`dos`). Les trois valeurs sont des
+// angles depuis le sommet, en demi-tours (0,5 = l'équateur).
+function calotte(rx, ry, rz, front, cote, dos, teinte, dy, dz){
+
+  const g = new THREE.SphereGeometry(1, 30, 20, 0, TAU, 0, Math.PI * 0.85);
+  const p = g.attributes.position, nr = g.attributes.normal;
+  const col = new Float32Array(p.count * 3);
+  const c = new THREE.Color();
+  const lisse = t => t * t * (3 - 2 * t);
+
+  for(let i = 0; i < p.count; i++){
+
+    const x0 = p.getX(i), y0 = p.getY(i), z0 = p.getZ(i);
+    const th = Math.acos(clamp(y0, -1, 1));
+    const ph = Math.atan2(x0, z0);
+    const cs = Math.cos(ph);
+
+    const lim = cs >= 0 ? lerp(cote, front, lisse(cs)) : lerp(cote, dos, lisse(-cs));
+    const t2 = Math.min(th, lim * Math.PI);
+    const s = Math.sin(t2);
+
+    const x = Math.sin(ph) * s, y = Math.cos(t2), z = Math.cos(ph) * s;
+
+    p.setXYZ(i, x * rx, y * ry + (dy || 0), z * rz + (dz || 0));
+
+    const nx = x / rx, ny = y / ry, nz = z / rz;
+    const l = Math.hypot(nx, ny, nz) || 1;
+    nr.setXYZ(i, nx / l, ny / l, nz / l);
+
+    c.set(teinte(y * ry + (dy || 0)));
+    col[i * 3] = c.r;
+    col[i * 3 + 1] = c.g;
+    col[i * 3 + 2] = c.b;
+  }
+
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+
+  return g;
+}
+
+// Les cheveux, la barbe et les accessoires de la tête, dans le repère du
+// centre de la tête.
+function geoCoiffure(d){
+
+  const liste = [];
+  const base = d.cheveux;
+  const sombre = melange(base, '#000000', 0.38);
+  const clair = melange(base, '#ffffff', 0.14);
+  const teinte = y => melange(sombre, clair, clamp((y + 0.03) / 0.16, 0, 1));
+
+  switch(d.coiffure){
+
+    case 'rejete': {
+      liste.push(calotte(0.086, 0.114, 0.100, 0.305, 0.50, 0.72, teinte, 0, -0.003));
+      const houppe = new THREE.SphereGeometry(1, 16, 10);
+      houppe.scale(0.070, 0.030, 0.088);
+      houppe.rotateX(-0.22);
+      houppe.translate(0, 0.104, 0.018);
+      liste.push(colorer(houppe, clair));
+      [-1, 1].forEach(s => liste.push(boite(0.010, 0.05, 0.034, s * 0.0815, 0.004, 0.012, sombre)));
+      break;
+    }
+
+    case 'court':
+      liste.push(calotte(0.085, 0.112, 0.098, 0.34, 0.52, 0.68, teinte, 0, -0.002));
+      [-1, 1].forEach(s => liste.push(boite(0.009, 0.04, 0.03, s * 0.0805, 0.002, 0.012, sombre)));
+      break;
+
+    case 'long': {
+      liste.push(calotte(0.087, 0.114, 0.100, 0.32, 0.52, 0.80, teinte, 0, -0.003));
+
+      // La nappe : ce qui retombe dans le dos, jusque sur les omoplates.
+      const nappe = lofter([
+        { y: -0.40, rx: 0.060, rz: 0.020, cz: -0.085 },
+        { y: -0.30, rx: 0.095, rz: 0.040, cz: -0.088 },
+        { y: -0.14, rx: 0.100, rz: 0.048, cz: -0.082 },
+        { y: 0.00, rx: 0.095, rz: 0.050, cz: -0.070 },
+        { y: 0.05, rx: 0.088, rz: 0.040, cz: -0.050 }
+      ], y => melange(sombre, clair, clamp((y + 0.4) / 0.6, 0, 1) * 0.6), 16);
+      liste.push(nappe);
+
+      // Deux mèches le long du visage.
+      [-1, 1].forEach(s => {
+        liste.push(lofter([
+          { y: -0.16, rx: 0.011, rz: 0.020, cx: s * 0.086, cz: -0.004 },
+          { y: -0.05, rx: 0.014, rz: 0.028, cx: s * 0.086, cz: 0.006 },
+          { y: 0.04, rx: 0.014, rz: 0.030, cx: s * 0.084, cz: 0.012 }
+        ], sombre, 10));
+      });
+      break;
+    }
+
+    case 'chignon': {
+      liste.push(calotte(0.087, 0.114, 0.100, 0.31, 0.52, 0.64, teinte, 0, -0.003));
+      liste.push(ellipsoide(0.040, 0.036, 0.040, 0, 0.098, -0.078, base, 14));
+      liste.push(ellipsoide(0.046, 0.007, 0.046, 0, 0.082, -0.078, sombre, 12));
+      break;
+    }
+
+    case 'casquette': {
+      liste.push(calotte(0.085, 0.112, 0.098, 0.40, 0.52, 0.70, teinte, 0, -0.002));
+      const cap = calotte(0.092, 0.118, 0.105, 0.365, 0.44, 0.47, y => melange(d.casquette, '#000000', 0.25 * clamp((0.06 - y) / 0.16, 0, 1)), 0.004, -0.002);
+      liste.push(cap);
+      const bec = new THREE.CylinderGeometry(0.098, 0.098, 0.005, 26, 1, false, -Math.PI / 2, Math.PI);
+      bec.scale(1, 1, 1.75);
+      bec.rotateX(0.14);
+      bec.translate(0, 0.036, 0.022);
+      liste.push(colorer(bec, melange(d.casquette, '#000000', 0.15)));
+      break;
+    }
+
+    default:
+      break;
+  }
+
+  // La barbe : une coque sur le bas du visage, de la pommette au menton.
+  // Elle ne fait pas le tour complet de la tête : aucune couture à cacher.
+  if(d.barbe === 2){
+    const g = new THREE.SphereGeometry(1, 26, 14, Math.PI / 2 - 1.7, 3.4, Math.PI * 0.57, Math.PI * 0.36);
+    const p = g.attributes.position;
+    for(let i = 0; i < p.count; i++){
+      const q = pointCrane(p.getX(i), p.getY(i), p.getZ(i), 0.005, d.menton);
+      p.setXYZ(i, q.x, q.y, q.z);
+    }
+    g.computeVertexNormals();
+    liste.push(colorer(g, d.barbeCouleur || base));
+  }
+
+  // Les lunettes.
+  if(d.lunettes){
+    [-1, 1].forEach(s => {
+      const z = surfaceVisage(s * 0.034, 0.014, d.menton) + 0.004;
+      const cercle = new THREE.TorusGeometry(0.0225, 0.0024, 6, 22);
+      cercle.translate(s * 0.034, 0.014, z);
+      liste.push(colorer(cercle, '#1a1a1c'));
+      // La branche, de la monture à l'oreille.
+      liste.push(boite(0.003, 0.003, 0.075, s * 0.0765, 0.018, 0.040, '#1a1a1c'));
+    });
+    liste.push(boite(0.022, 0.0028, 0.0028, 0, 0.018, surfaceVisage(0, 0.018, d.menton) + 0.004, '#1a1a1c'));
+  }
+
+  return liste;
+}
+
+// La tête : le crâne aux joues légèrement colorées, le nez, les yeux, les
+// sourcils, les lèvres, les oreilles, le cou, puis les cheveux. Tout dans une
+// seule forme, centrée sur la tête.
+function geoTete(d){
+
+  const g = new THREE.SphereGeometry(1, 32, 24);
+  const p = g.attributes.position, nr = g.attributes.normal;
+  const col = new Float32Array(p.count * 3);
+
+  const peau = new THREE.Color(d.peau);
+  const joue = new THREE.Color(melange(d.peau, d.femme ? '#e06a70' : '#d8604e', 0.30));
+  const barbe = new THREE.Color(melange(d.peau, d.cheveux, 0.30));
+  const tmp = new THREE.Color();
+
+  for(let i = 0; i < p.count; i++){
+
+    const ux = p.getX(i), uy = p.getY(i), uz = p.getZ(i);
+    const q = pointCrane(ux, uy, uz, 0, d.menton);
+
+    p.setXYZ(i, q.x, q.y, q.z);
+
+    const nx = ux / q.sx, ny = uy / q.sy, nz = uz / q.sz;
+    const l = Math.hypot(nx, ny, nz) || 1;
+    nr.setXYZ(i, nx / l, ny / l, nz / l);
+
+    tmp.copy(peau);
+    if(uz > 0.2 && Math.abs(ux) > 0.22 && uy > -0.5 && uy < 0.12) tmp.lerp(joue, 0.6);
+    if(d.barbe === 1 && uy < -0.15 && uz > -0.2) tmp.lerp(barbe, 0.85);
+
+    col[i * 3] = tmp.r;
+    col[i * 3 + 1] = tmp.g;
+    col[i * 3 + 2] = tmp.b;
+  }
+
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+
+  const liste = [g];
+  const ombrePeau = melange(d.peau, '#2a1a12', 0.42);
+  const sourcil = melange(d.cheveux, '#000000', 0.15);
+
+  [-1, 1].forEach(s => {
+
+    const x = s * 0.032;
+    const z = surfaceVisage(x, 0.014, d.menton);
+
+    liste.push(ellipsoide(0.0128, 0.0102, 0.0056, x, 0.014, z - 0.0005, '#f6f3ec', 12));
+    liste.push(ellipsoide(0.0072, 0.0072, 0.0036, x, 0.013, z + 0.0040, d.yeux, 12));
+    liste.push(ellipsoide(0.0036, 0.0036, 0.0024, x, 0.013, z + 0.0068, '#0b0908', 8));
+    liste.push(boite(0.030, 0.0040, 0.0045, x, 0.0280, z + 0.0012, ombrePeau));
+    liste.push(boite(0.026, 0.0030, 0.0040, x, 0.0002, z - 0.0005, melange(d.peau, '#2a1a12', 0.22)));
+
+    const zb = surfaceVisage(s * 0.034, 0.043, d.menton);
+    liste.push(boite(0.033, d.femme ? 0.0045 : 0.0068, 0.0075, s * 0.034, 0.043, zb + 0.0012, sourcil));
+
+    // L'oreille.
+    liste.push(ellipsoide(0.0115, 0.0205, 0.0145, s * 0.0795, -0.006, -0.004, d.peau, 10));
+  });
+
+  // Le nez : un arrondi au bout, une arête fine.
+  const zn = surfaceVisage(0, -0.016, d.menton);
+  liste.push(ellipsoide(0.0115, 0.0145, 0.0135, 0, -0.016, zn + 0.0035, melange(d.peau, '#e08070', 0.10), 12));
+  liste.push(boite(0.0115, 0.040, 0.0085, 0, 0.004, surfaceVisage(0, 0.004, d.menton) + 0.0008, d.peau));
+
+  // La bouche.
+  const couleurLevres = d.femme ? '#b23a4a' : melange(d.peau, '#8a3a36', 0.55);
+  const zl = surfaceVisage(0, -0.052, d.menton);
+  liste.push(boite(0.033, 0.0042, 0.0055, 0, -0.0515, zl + 0.0012, couleurLevres));
+  liste.push(boite(0.023, 0.0040, 0.0055, 0, -0.0575, surfaceVisage(0, -0.0575, d.menton) + 0.0012, melange(couleurLevres, '#ffffff', 0.12)));
+
+  // Le cou : il s'enfonce dans le col.
+  liste.push(membre(0.10, 0.048, 0.050, d.peau, 1).translate(0, -0.06, 0));
+
+  liste.push(...geoCoiffure(d));
+
+  const tete = fusionner(liste);
+
+  // Une tête un peu plus grande que le calcul brut : c'est ce qui rend
+  // les proportions naturelles, vues d'un mètre.
+  tete.scale(1.07, 1.07, 1.07);
+  tete.translate(0, HUMAIN.hTete, 0);
+
+  return tete;
+}
+
+// Une couleur en un point d'une liste d'anneaux.
+function interpAnneau(S, y, cle){
+  for(let i = 0; i < S.length - 1; i++){
+    if(y <= S[i + 1].y){
+      const t = clamp((y - S[i].y) / (S[i + 1].y - S[i].y), 0, 1);
+      return lerp(S[i][cle], S[i + 1][cle], t);
+    }
+  }
+  return S[S.length - 1][cle];
+}
+
+// Le torse, avec ce qui le recouvre : chemise, gilet, veste, robe ou sweat,
+// le col, le nœud papillon ou la cravate, les boutons. Dans le repère du
+// pivot de la taille.
+function geoTorse(d){
+
+  const f = !!d.femme;
+  const k = d.corps || 1;
+  const v = d.ventre || 1;
+  const ll = f ? 0.93 : 1;
+
+  // Quelques anneaux de contrôle, puis on les multiplie pour que les
+  // changements de couleur (un gilet ouvert en V) restent nets.
+  const C = [
+    { y: -0.13, rx: 0.150 * k, rz: 0.105 * k },
+    { y: -0.06, rx: (f ? 0.182 : 0.170) * k, rz: 0.115 * k },
+    { y: 0.08, rx: (f ? 0.135 : 0.152) * k, rz: 0.098 * k * v },
+    { y: 0.24, rx: (f ? 0.150 : 0.175) * k, rz: (f ? 0.108 : 0.112) * k * Math.sqrt(v) },
+    { y: 0.38, rx: f ? 0.162 : 0.192, rz: f ? 0.128 : 0.122 },
+    { y: 0.46, rx: 0.200 * ll, rz: 0.104 },
+    { y: 0.52, rx: 0.135 * ll, rz: 0.082 },
+    { y: 0.56, rx: 0.064, rz: 0.062 }
+  ];
+
+  const S = [];
+  for(let y = -0.13; y < 0.55; y += 0.017){
+    S.push({ y, rx: interpAnneau(C, y, 'rx'), rz: interpAnneau(C, y, 'rz') });
+  }
+  S.push(C[C.length - 1]);
+
+  const rzA = y => interpAnneau(C, y, 'rz');
+
+  let couleur;
+
+  if(d.tenue === 'gilet'){
+
+    // Chemise blanche, gilet noir ouvert en V très haut, échancré aux
+    // emmanchures : les épaules et les côtés restent en chemise.
+    couleur = (a, y, x, z) => {
+      if(y < -0.02) return d.pantalon;
+      if(y > 0.50) return d.chemise;
+      if(z >= 0){
+        const ouv = y > 0.30 ? 0.088 * Math.min(1, (y - 0.30) / 0.17) : 0;
+        const gilet = Math.abs(x) >= ouv && (y < 0.30 || Math.abs(x) < 0.150);
+        return gilet ? d.veste : d.chemise;
+      }
+      return (y < 0.44 || Math.abs(x) < 0.12) ? d.veste : d.chemise;
     };
 
-    this.brasMain = bras(-1);
-    this.brasRepos = bras(1);
+  } else if(d.tenue === 'veste'){
 
-    // Le booster qu'il tend : dans la main, à plat vers la personne.
-    this.paquet = fabriquerBooster(0.13, 0.195, 0.014);
-    this.paquet.rotation.x = Math.PI / 2;
-    this.paquet.position.set(0, -0.30, 0.06);
-    this.paquet.visible = false;
-    this.brasMain.coude.add(this.paquet);
+    // Veste ouverte sur la chemise, plus ou moins largement.
+    const haut = d.ouverture || 0.10;
+    const bas = d.fermeture || 0.14;
+    couleur = (a, y, x, z) => {
+      if(y < -0.02) return d.pantalon;
+      if(z >= 0 && y > bas){
+        const ouv = haut * Math.min(1, (y - bas) / (0.48 - bas));
+        if(Math.abs(x) < ouv) return d.chemise;
+      }
+      return d.veste;
+    };
 
-    // Son ombre au sol.
+  } else if(d.tenue === 'robe'){
+
+    // Une robe à bretelles : le décolleté et le dos sont en peau.
+    couleur = (a, y, x, z) => {
+      if(y < 0.42) return d.veste;
+      if(z > 0 && Math.abs(x) < 0.05 && y < 0.54) return d.veste;
+      if(z > 0 && y < 0.47 && Math.abs(x) < 0.10) return d.veste;
+      return d.peau;
+    };
+
+  } else {
+
+    couleur = (a, y) => y < -0.02 ? d.pantalon : d.veste;
+  }
+
+  const liste = [lofter(S, couleur, 48)];
+
+  // Le col de chemise.
+  if(d.tenue === 'gilet' || d.tenue === 'veste'){
+    liste.push(lofter([
+      { y: 0.505, rx: 0.074, rz: 0.070 },
+      { y: 0.545, rx: 0.068, rz: 0.064 },
+      { y: 0.580, rx: 0.062, rz: 0.058 }
+    ], d.chemise, 16));
+    [-1, 1].forEach(s => liste.push(boite(0.030, 0.026, 0.006, s * 0.028, 0.538, 0.070, d.chemise)));
+  }
+
+  // Le nœud papillon.
+  if(d.noeud){
+    const z = 0.078;
+    liste.push(
+      boite(0.028, 0.030, 0.026, 0, 0.515, z, d.noeud),
+      boite(0.052, 0.046, 0.016, -0.042, 0.515, z - 0.004, d.noeud),
+      boite(0.052, 0.046, 0.016, 0.042, 0.515, z - 0.004, d.noeud)
+    );
+  }
+
+  // La cravate.
+  if(d.cravate){
+    liste.push(
+      boite(0.030, 0.030, 0.014, 0, 0.495, rzA(0.495) + 0.006, d.cravate),
+      boite(0.030, 0.23, 0.010, 0, 0.365, rzA(0.365) + 0.004, d.cravate)
+    );
+  }
+
+  // Les boutons du gilet ou de la veste.
+  if(d.boutons){
+    const y0 = d.tenue === 'gilet' ? 0.05 : (d.fermeture || 0.14);
+    const n = d.tenue === 'gilet' ? 5 : 3;
+    for(let i = 0; i < n; i++){
+      const y = y0 + i * (d.tenue === 'gilet' ? 0.062 : 0.07);
+      liste.push(ellipsoide(0.0075, 0.0075, 0.0045, 0, y, rzA(y) + 0.0012, d.boutonsCouleur || '#2b2d33', 8));
+    }
+  }
+
+  // La poche du sweat, et sa capuche.
+  if(d.tenue === 'sweat'){
+    liste.push(boite(0.27, 0.10, 0.016, 0, 0.04, rzA(0.04) + 0.004, melange(d.veste, '#000000', 0.14)));
+    liste.push(lofter([
+      { y: 0.46, rx: 0.120, rz: 0.090, cz: -0.050 },
+      { y: 0.53, rx: 0.100, rz: 0.085, cz: -0.050 },
+      { y: 0.60, rx: 0.084, rz: 0.070, cz: -0.040 }
+    ], melange(d.veste, '#000000', 0.08), 16));
+  }
+
+  // Un collier.
+  if(d.collier){
+    const t = new THREE.TorusGeometry(0.058, 0.0028, 6, 22);
+    t.rotateX(Math.PI / 2 - 0.25);
+    t.translate(0, 0.5, 0.012);
+    liste.push(colorer(t, d.collier));
+  }
+
+  // Une ceinture, sous le gilet ou la veste.
+  if(d.tenue === 'gilet' || d.tenue === 'veste' || d.tenue === 'sweat'){
+    liste.push(lofter([
+      { y: -0.035, rx: 0.1545 * k, rz: 0.1035 * k * v },
+      { y: -0.012, rx: 0.1545 * k, rz: 0.1035 * k * v }
+    ].map(s => ({ y: s.y, rx: interpAnneau(C, s.y, 'rx') * 1.01, rz: interpAnneau(C, s.y, 'rz') * 1.01 })), '#0c0c0d', 24));
+  }
+
+  return fusionner(liste);
+}
+
+// Le haut du bras : l'épaule arrondie, la manche, et le brassard s'il y en a.
+function geoBrasHaut(d){
+
+  const L = HUMAIN.bras;
+  const c = d.manches || d.peau;
+  const liste = [membre(L, 0.048, 0.040, c, 1.05)];
+
+  if(d.brassard){
+    liste.push(lofter([
+      { y: -0.100, rx: 0.053, rz: 0.053 },
+      { y: -0.138, rx: 0.053, rz: 0.053 }
+    ], d.brassard, 16));
+  }
+
+  return fusionner(liste);
+}
+
+// L'avant-bras et la main. La manche s'arrête au poignet, ou a été retroussée
+// à mi-avant-bras.
+function geoAvantBras(d, cote){
+
+  const L = HUMAIN.avantBras;
+  const manche = d.manches || null;
+  const coupe = manche ? (d.rouleaux ? 0.42 : 1.0) : 0;
+
+  const liste = [membre(L, 0.038, 0.030, y => (manche && -y <= coupe * L + 0.0001) ? manche : d.peau, 1.05)];
+
+  if(manche && !d.rouleaux){
+    liste.push(lofter([
+      { y: -L + 0.032, rx: 0.038, rz: 0.038 },
+      { y: -L + 0.002, rx: 0.038, rz: 0.038 }
+    ], d.poignets || manche, 14));
+  }
+
+  if(manche && d.rouleaux){
+    liste.push(lofter([
+      { y: -coupe * L + 0.02, rx: 0.047, rz: 0.047 },
+      { y: -coupe * L - 0.01, rx: 0.047, rz: 0.047 }
+    ], melange(manche, '#000000', 0.06), 14));
+  }
+
+  // La main : une paume, des doigts, un pouce vers l'avant.
+  const dedans = -cote;
+
+  liste.push(
+    ellipsoide(0.019, 0.050, 0.040, 0, -L - 0.050, 0.003, d.peau, 10),
+    ellipsoide(0.016, 0.034, 0.037, 0, -L - 0.108, 0.007, d.peau, 10),
+    ellipsoide(0.012, 0.028, 0.013, dedans * 0.014, -L - 0.060, 0.034, d.peau, 8)
+  );
+
+  return fusionner(liste);
+}
+
+// Un pied chaussé : la forme, une semelle plus sombre.
+function geoPied(d, cote){
+  return fusionner([
+    ellipsoide(0.050, 0.040, 0.118, 0, -0.045, 0.040, d.chaussures, 12),
+    boite(0.090, 0.012, 0.225, 0, -0.078, 0.042, melange(d.chaussures, '#000000', 0.5))
+  ]);
+}
+
+// Les vecteurs de travail de la cinématique inverse, créés au premier usage :
+// Three.js n'est chargé qu'à l'entrée dans la salle.
+let OUTILS = null;
+
+function outils(){
+  if(!OUTILS){
+    OUTILS = {
+      point: new THREE.Vector3(),
+      axe: new THREE.Vector3(),
+      bas: new THREE.Vector3(0, -1, 0),
+      xw: new THREE.Vector3(),
+      qa: new THREE.Quaternion(),
+      qt: new THREE.Quaternion()
+    };
+  }
+  return OUTILS;
+}
+
+// Cinématique inverse à deux segments (un bras, une jambe). `haut` est
+// l'articulation de la racine (épaule, hanche), `milieu` celle du coude ou du
+// genou. S et T sont la racine du membre et la cible, dans le repère du
+// parent de `haut`. `pole` est la direction vers laquelle plie l'articulation
+// du milieu (le genou vers l'avant, le coude vers le bas). Si la cible est
+// trop loin, le membre se tend vers elle sans la quitter des yeux.
+function ik2(haut, milieu, S, T, L1, L2, pole, torsion){
+
+  const { axe: _axe, bas: _bas, xw: _xw, qa: _qa, qt: _qt, point: _point } = outils();
+
+  const u = new THREE.Vector3().subVectors(T, S);
+  let d = u.length();
+
+  d = clamp(d, Math.abs(L1 - L2) * 1.001 + 0.002, (L1 + L2) * 0.9995);
+  u.normalize();
+
+  const cosA = clamp((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1);
+  const A = Math.acos(cosA);
+
+  const n = pole.clone().addScaledVector(u, -pole.dot(u));
+  if(n.lengthSq() < 1e-6) n.set(1, 0, 0).addScaledVector(u, -u.x);
+  n.normalize();
+
+  // La direction du segment du haut, puis celle du segment du bas.
+  const a = u.clone().multiplyScalar(Math.cos(A)).addScaledVector(n, Math.sin(A));
+  const E = S.clone().addScaledVector(a, L1);
+  const W = S.clone().addScaledVector(u, d);
+  const f = W.sub(E).normalize();
+
+  _axe.crossVectors(a, f);
+  let theta = 0;
+
+  if(_axe.lengthSq() < 1e-9){
+    _axe.set(1, 0, 0).addScaledVector(a, -a.x).normalize();
+  } else {
+    theta = Math.acos(clamp(a.dot(f), -1, 1));
+    _axe.normalize();
+  }
+
+  // Le segment du haut se tourne vers `a`, puis pivote sur lui-même pour que
+  // la charnière du milieu (son axe x) plie dans le bon plan.
+  _qa.setFromUnitVectors(_bas, a);
+  _xw.set(1, 0, 0).applyQuaternion(_qa);
+
+  const phi = Math.atan2(a.dot(_point.crossVectors(_xw, _axe)), _xw.dot(_axe));
+  _qt.setFromAxisAngle(a, phi);
+
+  haut.quaternion.copy(_qt.multiply(_qa));
+  milieu.rotation.set(theta, torsion || 0, 0);
+}
+
+// Les tenues et les visages.
+const APPARENCES = {
+
+  croupier: {
+    peau: '#dba883', cheveux: '#4b3523', coiffure: 'rejete', yeux: '#4a3a2a', barbe: 1,
+    tenue: 'gilet', chemise: '#e8e5dd', veste: '#15171d', pantalon: '#101116', chaussures: '#060606',
+    noeud: '#0d0e12', manches: '#e8e5dd', poignets: '#e8e5dd', brassard: '#7a1526',
+    boutons: true, boutonsCouleur: '#2d3038'
+  },
+
+  // Au bar, de dos : un costume bleu nuit, la cravate dénouée.
+  costume: {
+    peau: '#c98f6b', cheveux: '#1d1410', coiffure: 'court', yeux: '#3a2a1c', barbe: 1,
+    tenue: 'veste', chemise: '#e9ecf1', veste: '#222e4d', pantalon: '#1b2139', chaussures: '#0b0a09',
+    manches: '#222e4d', poignets: '#e9ecf1', ouverture: 0.10, fermeture: 0.22
+  },
+
+  // Au bar, à côté : une robe rouge, les cheveux longs.
+  robe: {
+    femme: true, peau: '#e6b899', cheveux: '#17100d', coiffure: 'long', yeux: '#3c2a1a', menton: 1.15,
+    tenue: 'robe', veste: '#a3142b', pantalon: '#a3142b', chaussures: '#5a0f1c', jambes: 'nues',
+    manches: null, collier: '#d8b25a', corps: 0.97
+  },
+
+  // Au blackjack : un sweat gris, une casquette bleue.
+  sweat: {
+    peau: '#8c5a3c', cheveux: '#0f0b09', coiffure: 'casquette', casquette: '#2b5d8a', yeux: '#241710', barbe: 0,
+    tenue: 'sweat', veste: '#4d525b', pantalon: '#27354d', chaussures: '#e6e6e6', manches: '#4d525b', rouleaux: 0
+  },
+
+  // Au poker : un blazer vert, les cheveux relevés.
+  blazer: {
+    femme: true, peau: '#f0c7a8', cheveux: '#6d3b1f', coiffure: 'chignon', yeux: '#3a6a8a', menton: 1.15,
+    tenue: 'veste', chemise: '#f3efe6', veste: '#1f5a45', pantalon: '#1c1c22', chaussures: '#1b1513',
+    manches: '#1f5a45', poignets: '#f3efe6', ouverture: 0.12, fermeture: 0.18, collier: '#d8b25a', corps: 0.97
+  },
+
+  // Au salon : un gilet de laine brun, une barbe grise, des lunettes.
+  cardigan: {
+    peau: '#e2b48f', cheveux: '#b9b6b0', coiffure: 'court', yeux: '#4a5a6a', barbe: 2, barbeCouleur: '#c7c4be',
+    lunettes: true, tenue: 'veste', chemise: '#4d6b8c', veste: '#6b4a35', pantalon: '#3a3b3f', chaussures: '#2a1d14',
+    manches: '#6b4a35', poignets: '#6b4a35', ouverture: 0.09, fermeture: 0.10, boutons: true,
+    boutonsCouleur: '#2a1a10', corps: 1.10, ventre: 1.12
+  }
+};
+
+// Un personnage. On le crée, puis on l'installe (où, assis ou debout) ; il
+// s'occupe ensuite de respirer, de regarder et de faire ce qu'on lui a
+// dit de faire.
+class Humain {
+
+  constructor(d){
+
+    this.d = d;
+    this.phase = hasard(0, TAU);
+    this.penche = 0;
+    this.cou = { yaw: 0, pitch: 0 };
+    this.attention = 0;              // 1 quand il regarde la personne dans la salle
+    this.cible = [new THREE.Vector3(), new THREE.Vector3()];   // droite, gauche
+    this.pose = [false, false];
+    this.pronation = [0, 0];
+    this.pole = [new THREE.Vector3(-0.35, -0.5, -0.6), new THREE.Vector3(0.35, -0.5, -0.6)];
+
+    const mat = R.matHumain;
+    const mesh = g => new THREE.Mesh(g, mat);
+
+    const racine = this.groupe = new THREE.Group();
+    const bassin = this.bassin = new THREE.Group();
+    bassin.position.y = HUMAIN.bassinDebout;
+    racine.add(bassin);
+
+    const taille = this.taille = new THREE.Group();
+    taille.position.y = HUMAIN.pivot;
+    bassin.add(taille);
+
+    taille.add(mesh(geoTorse(d)));
+
+    const cou = this.tete = new THREE.Group();
+    cou.rotation.order = 'YXZ';
+    cou.position.y = HUMAIN.hCou;
+    cou.add(mesh(geoTete(d)));
+    taille.add(cou);
+
+    // Les bras : à droite du personnage (x < 0), puis à gauche.
+    this.bras = [-1, 1].map(s => {
+      const epaule = new THREE.Group();
+      epaule.position.set(s * HUMAIN.epaule, HUMAIN.hEpaule, 0);
+      epaule.add(mesh(geoBrasHaut(d)));
+      const coude = new THREE.Group();
+      coude.position.y = -HUMAIN.bras;
+      coude.add(mesh(geoAvantBras(d, s)));
+      epaule.add(coude);
+      taille.add(epaule);
+      return { epaule, coude, s };
+    });
+
+    // Une ombre au sol.
     const ombre = new THREE.Mesh(
       new THREE.PlaneGeometry(0.95, 0.95),
       new THREE.MeshBasicMaterial({ map: R.texture(creerOmbre()), transparent: true, depthWrite: false })
     );
     ombre.rotation.x = -Math.PI / 2;
     ombre.position.y = 0.012;
-    g.add(ombre);
+    racine.add(ombre);
+    this.ombre = ombre;
+  }
+
+  // Où il se trouve et comment. `p` : x, z, yaw, sol (hauteur du sol),
+  // hanche [y, z] (le centre du bassin, dans son repère), penche (radians,
+  // vers l'avant), pieds { y, z, ecart, ouverture } (où posent les
+  // chevilles).
+  installer(p){
+
+    const d = this.d;
+    const racine = this.groupe;
+
+    racine.position.set(p.x, p.sol || 0, p.z);
+    racine.rotation.y = p.yaw;
+    this.centre = { x: p.x, z: p.z };
+    this.rotY = p.yaw;
+    this.normale = { x: Math.sin(p.yaw), z: Math.cos(p.yaw) };
+
+    this.bassin.position.set(0, p.hanche[0], p.hanche[1]);
+    this.penche = p.penche || 0;
+    this.taille.rotation.x = this.penche;
+
+    // Les jambes : posées une fois pour toutes, puis collées en une seule
+    // forme (elles ne bougeront plus).
+    const cuisse = membre(HUMAIN.cuisse, 0.090, 0.064, d.jambes === 'nues' ? d.veste : d.pantalon, 1.04);
+    const tibia = membre(HUMAIN.tibia, 0.060, 0.042, d.jambes === 'nues' ? d.peau : d.pantalon, 1.05);
+
+    const morceaux = [];
+
+    [-1, 1].forEach(s => {
+
+      const hanche = new THREE.Group();
+      hanche.position.set(s * HUMAIN.hanche, -0.03, 0);
+      const genou = new THREE.Group();
+      genou.position.y = -HUMAIN.cuisse;
+      const cheville = new THREE.Group();
+      cheville.position.y = -HUMAIN.tibia;
+      hanche.add(genou);
+      genou.add(cheville);
+
+      const cible = new THREE.Vector3(
+        s * (p.pieds.ecart || 0.10), p.pieds.y, p.pieds.z
+      ).sub(this.bassin.position);
+
+      ik2(hanche, genou, hanche.position, cible, HUMAIN.cuisse, HUMAIN.tibia,
+        new THREE.Vector3(s * 0.12, 0, 1), 0);
+
+      // Le pied à plat, tourné un peu vers l'extérieur.
+      const total = hanche.quaternion.clone().multiply(genou.quaternion);
+      cheville.quaternion.copy(total).invert()
+        .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), s * (p.pieds.ouverture || 0.14)));
+
+      hanche.updateMatrixWorld(true);
+
+      const pose = (g, o) => { const c = g.clone(); c.applyMatrix4(o.matrixWorld); return c; };
+
+      morceaux.push(pose(cuisse, hanche), pose(tibia, genou), pose(geoPied(d, s), cheville));
+    });
+
+    this.bassin.add(new THREE.Mesh(fusionner(morceaux), R.matHumain));
+
+    this.majBras(true);
+  }
+
+  // Un bras vers une cible donnée dans le repère de la racine.
+  viserBras(i, cible, pronation){
+    this.cible[i].copy(cible);
+    this.pose[i] = true;
+    if(pronation !== undefined) this.pronation[i] = pronation;
+    this.sale = true;
+  }
+
+  // Le point de la bouche, dans le repère de la racine.
+  bouche(sortie){
+    this.bassin.updateMatrix();
+    this.taille.updateMatrix();
+    this.tete.updateMatrix();
+    return sortie.set(0, HUMAIN.hTete - 0.052, 0.094)
+      .applyMatrix4(this.tete.matrix)
+      .applyMatrix4(this.taille.matrix)
+      .applyMatrix4(this.bassin.matrix);
+  }
+
+  majBras(force){
+
+    if(!this.sale && !force) return;
+    this.sale = false;
+
+    this.bassin.updateMatrix();
+    this.taille.updateMatrix();
+
+    const m = new THREE.Matrix4().multiplyMatrices(this.bassin.matrix, this.taille.matrix).invert();
+
+    this.bras.forEach((b, i) => {
+
+      if(!this.pose[i]){
+        // Au repos : le bras pend, à peine écarté.
+        b.epaule.quaternion.setFromEuler(new THREE.Euler(-0.05, 0, -b.s * -0.10));
+        b.coude.rotation.set(-0.12, 0, 0);
+        return;
+      }
+
+      const T = this.cible[i].clone().applyMatrix4(m);
+      ik2(b.epaule, b.coude, b.epaule.position, T, HUMAIN.bras, HUMAIN.avantBras, this.pole[i], this.pronation[i]);
+    });
+  }
+
+  // La tête suit `cible` ({x, z} dans le monde) si elle est assez proche et
+  // assez devant, sinon elle reste où l'activité la met (`defaut`, en radians).
+  regarder(dt, t, reduit, cible, defaut, portee, secteur){
+
+    let yaw = defaut || 0;
+    let pitch = 0;
+    let suit = 0;
+
+    if(!reduit) yaw += Math.sin(t * 0.37 + this.phase) * 0.10;
+
+    if(cible){
+
+      const dx = cible.x - this.centre.x, dz = cible.z - this.centre.z;
+      const dist = Math.hypot(dx, dz);
+
+      if(dist < (portee || 7)){
+
+        const c = Math.cos(this.rotY), s = Math.sin(this.rotY);
+        const lx = dx * c - dz * s, lz = dx * s + dz * c;
+        const vers = Math.atan2(lx, lz);
+
+        if(Math.abs(vers) < (secteur || 1.25)){
+          suit = 1;
+          yaw = clamp(vers, -1.05, 1.05);
+          // Les yeux de la personne sont à 1,62 m ; les siens, à peu près à
+          // la hauteur de sa tête.
+          const tete = this.groupe.position.y + this.bassin.position.y + 0.70;
+          pitch = clamp(Math.atan2(tete - 1.62, Math.max(0.5, dist)), -0.3, 0.3);
+        }
+      }
+    }
+
+    const k = 1 - Math.exp(-dt * 4);
+    this.cou.yaw += (yaw - this.cou.yaw) * k;
+    this.cou.pitch += (pitch - this.cou.pitch) * k;
+    this.attention += (suit - this.attention) * k;
+  }
+
+  maj(dt, t, reduit, cible){
+
+    // Il respire, à peine.
+    this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
+
+    this.regarder(dt, t, reduit, cible);
+    this.tete.rotation.set(this.cou.pitch, this.cou.yaw, 0);
+
+    this.majBras();
+  }
+}
+
+
+/* ---- Le croupier ---- */
+
+// Le croupier : gilet noir, chemise blanche, nœud papillon, des brassards
+// bordeaux. Il regarde la personne qui s'approche, bat les cartes au repos,
+// tend un booster quand on lui parle, et le pousse d'un geste quand on
+// achète.
+class Croupier extends Humain {
+
+  constructor(x, z, rotY){
+
+    super(APPARENCES.croupier);
+
+    this.type = 'croupier';
+    this.def = { nom: 'LE CROUPIER', couleur: '#f2d9a8', sombre: '#2a190d' };
+
+    this.accueil = 0;           // 0 au repos, 1 quand il tend un booster
+    this.accueilCible = 0;
+    this.remerciement = 0;      // une impulsion, après un achat
+
+    this.installer({
+      x, z, yaw: rotY,
+      hanche: [HUMAIN.bassinDebout, 0],
+      penche: 0.05,
+      pieds: { y: 0.085, z: 0.03, ecart: 0.105, ouverture: 0.18 }
+    });
+
+    // Le booster qu'il tend : dans la main droite, à plat vers la personne.
+    this.paquet = fabriquerBooster(0.13, 0.195, 0.014);
+    this.paquet.position.set(0, -HUMAIN.avantBras - 0.075, 0.03);
+    this.paquet.rotation.set(Math.PI / 2, 0, 0);
+    this.paquet.visible = false;
+    this.bras[0].coude.add(this.paquet);
+
+    this.reposDroit = new THREE.Vector3();
+    this.offre = new THREE.Vector3(-0.13, 1.13, 0.70);
   }
 
   // Ce que voit la caméra quand on lui parle : lui, de face, à deux mètres et
@@ -3977,10 +5090,10 @@ class Croupier {
 
     return {
       x: this.centre.x + this.normale.x * d + droiteX * lateral,
-      y: 1.52,
+      y: 1.56,
       z: this.centre.z + this.normale.z * d + droiteZ * lateral,
       yaw: this.rotY,
-      pitch: -0.02,
+      pitch: -0.03,
       fov: 50
     };
   }
@@ -4000,42 +5113,367 @@ class Croupier {
     this.accueil += (this.accueilCible - this.accueil) * k;
     this.remerciement = Math.max(0, this.remerciement - dt * 1.4);
 
-    // Il respire, à peine.
-    this.torse.position.y = reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.004;
+    const r = this.accueil;
 
-    // La tête suit la personne quand elle est proche ; sinon, son regard
+    // Il se penche vers la personne quand il lui tend un booster.
+    this.penche = 0.05 + 0.20 * r + this.remerciement * 0.10;
+    this.taille.rotation.x = this.penche;
+    this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
+
+    // La tête suit la personne quand elle est proche ; sinon son regard
     // balaie lentement la salle.
-    let psi = 0;
+    let defaut = 0;
+    if(!reduit) defaut = Math.sin(t * 0.4 + this.phase) * 0.25;
 
-    if(!reduit){
-      psi = Math.sin(t * 0.4 + this.phase) * 0.25;
+    this.regarder(dt, t, reduit, cible, defaut, 9, 3.2);
 
-      if(cible){
-        const dx = cible.x - this.centre.x, dz = cible.z - this.centre.z;
-        if(Math.hypot(dx, dz) < 9){
-          const c = Math.cos(this.rotY), s = Math.sin(this.rotY);
-          const lx = dx * c - dz * s, lz = dx * s + dz * c;
-          psi = clamp(Math.atan2(lx, lz), -1.0, 1.0);
-        }
+    this.tete.rotation.set(
+      this.cou.pitch + (reduit ? 0 : Math.sin(t * 0.9 + this.phase) * 0.02) + this.remerciement * 0.22,
+      this.cou.yaw,
+      0
+    );
+
+    // Le bras libre reste posé sur le bord de la table ; l'autre bat les
+    // cartes au repos, puis tend le booster à l'accueil et le pousse à
+    // l'achat.
+    const frotte = reduit ? 0 : (1 - r);
+
+    this.reposDroit.set(
+      -0.17 + Math.sin(t * 3.4 + this.phase) * 0.030 * frotte,
+      0.985,
+      0.45 + Math.cos(t * 2.3 + this.phase) * 0.020 * frotte
+    );
+
+    const cibleDroite = this.reposDroit.clone().lerp(this.offre, r);
+    cibleDroite.z += this.remerciement * 0.06;
+
+    this.viserBras(0, cibleDroite, lerp(-1.25, -0.25, r));
+    this.viserBras(1, new THREE.Vector3(0.17, 0.985, 0.43), 1.25);
+
+    this.paquet.visible = r > 0.06;
+
+    this.majBras();
+  }
+}
+
+
+/* ---- Les habitués ---- */
+
+// Les sièges de la salle, remplis à mesure que le mobilier est posé : de
+// quoi y asseoir quelqu'un à la bonne hauteur, dans la bonne direction.
+// x et z sont l'endroit où se pose le bassin ; `pieds` dit où vont les
+// chevilles (y : hauteur, z : en avant du bassin).
+const SIEGES = [];
+
+const habitues = [];
+
+// Qui est où, et ce qu'il fait. Les mains sont données dans le repère du
+// siège (x : vers la gauche de la personne, y : hauteur au sol, z : en
+// avant), la pronation dit si la paume regarde le côté (0) ou le dessous (±1,3).
+const HABITUES = [
+
+  // Au bar, deux voisins qui bavardent, verre en main.
+  { look: 'costume', siege: 'bar4', activite: 'discute', verre: 'whisky', mainVerre: 0,
+    penche: 0.30, regard: -0.6,
+    mains: [[-0.17, 1.13, 0.56], [0.15, 1.12, 0.50]], pron: [0.9, -1.2] },
+
+  { look: 'robe', siege: 'bar5', activite: 'discute', verre: 'vin', mainVerre: 0,
+    penche: 0.25, regard: 0.6,
+    mains: [[-0.16, 1.13, 0.54], [0.18, 1.12, 0.50]], pron: [0.9, -1.2] },
+
+  // À la table de blackjack, face au croupier.
+  { look: 'sweat', siege: 'bj0', activite: 'cartes',
+    penche: 0.28, regard: 0, portee: 3.5,
+    mains: [[-0.16, 0.985, 0.56], [0.16, 0.985, 0.56]], pron: [-1.25, 1.25] },
+
+  // À la table de poker.
+  { look: 'blazer', siege: 'pok3', activite: 'cartes',
+    penche: 0.22, regard: 0, portee: 3.5,
+    mains: [[-0.13, 0.985, 0.52], [0.13, 0.985, 0.52]], pron: [-1.25, 1.25] },
+
+  // Sur la banquette de velours, devant un verre.
+  { look: 'cardigan', siege: 'banq1', activite: 'verre', verre: 'biere', mainVerre: 0,
+    penche: 0.12, regard: 0.15,
+    mains: [[-0.17, 0.75, 0.46], [0.20, 0.56, 0.28]], pron: [0.8, 0.2] }
+];
+
+// Un verre : un gobelet de verre à peine visible et ce qu'il contient.
+function creerVerre(type){
+
+  const g = new THREE.Group();
+
+  const verre = new THREE.MeshStandardMaterial({
+    color: 0xd6ebf5, transparent: true, opacity: 0.30, roughness: 0.08, metalness: 0, depthWrite: false
+  });
+
+  const couleurs = { whisky: 0xc4791f, vin: 0x6e1224, biere: 0xd9932b };
+  const liquide = new THREE.MeshStandardMaterial({ color: couleurs[type] || 0xc4791f, roughness: 0.25 });
+
+  const coque = [], contenu = [];
+
+  if(type === 'vin'){
+
+    const coupe = new THREE.CylinderGeometry(0.038, 0.012, 0.085, 18, 1, true);
+    coupe.translate(0, 0.045, 0);
+    coque.push(coupe);
+
+    const vin = new THREE.CylinderGeometry(0.030, 0.011, 0.042, 18);
+    vin.translate(0, 0.028, 0);
+    contenu.push(vin);
+
+    const pied = new THREE.CylinderGeometry(0.004, 0.004, 0.075, 8);
+    pied.translate(0, -0.02, 0);
+    coque.push(pied);
+
+    const base = new THREE.CylinderGeometry(0.030, 0.030, 0.004, 18);
+    base.translate(0, -0.058, 0);
+    coque.push(base);
+
+  } else if(type === 'biere'){
+
+    const pinte = new THREE.CylinderGeometry(0.037, 0.030, 0.150, 18, 1, true);
+    pinte.translate(0, 0.0, 0);
+    coque.push(pinte);
+
+    const biere = new THREE.CylinderGeometry(0.0355, 0.0295, 0.118, 18);
+    biere.translate(0, -0.013, 0);
+    contenu.push(biere);
+
+    const mousse = new THREE.CylinderGeometry(0.0365, 0.0355, 0.026, 18);
+    mousse.translate(0, 0.060, 0);
+    colorer(mousse, '#f3ecd8');
+    contenu.push(mousse);
+
+  } else {
+
+    const gobelet = new THREE.CylinderGeometry(0.034, 0.029, 0.090, 18, 1, true);
+    coque.push(gobelet);
+
+    const alcool = new THREE.CylinderGeometry(0.0315, 0.0275, 0.046, 18);
+    alcool.translate(0, -0.020, 0);
+    contenu.push(alcool);
+
+    // Deux glaçons.
+    [[-0.008, 0.012], [0.011, 0.006]].forEach(([x, z]) => {
+      const gl = new THREE.BoxGeometry(0.016, 0.016, 0.016);
+      gl.rotateY(0.6);
+      gl.translate(x, 0.008, z);
+      colorer(gl, '#dff2f8');
+      contenu.push(gl);
+    });
+  }
+
+  contenu.forEach(c => { if(!c.attributes.color) colorer(c, '#ffffff'); });
+  coque.forEach(c => { if(!c.attributes.color) colorer(c, '#ffffff'); });
+
+  const mLiquide = new THREE.Mesh(fusionner(contenu), new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.3, color: couleurs[type] || 0xc4791f
+  }));
+  const mVerre = new THREE.Mesh(fusionner(coque), verre);
+  mVerre.renderOrder = 2;
+
+  g.add(mLiquide, mVerre);
+
+  return g;
+}
+
+// Les habitués, installés sur leurs sièges.
+function construireHabitues(){
+
+  HABITUES.forEach(def => {
+
+    const siege = SIEGES.find(s => s.id === def.siege);
+    if(!siege) return;
+
+    const h = new Habitue(def, siege);
+
+    scene.add(h.groupe);
+    habitues.push(h);
+  });
+}
+
+class Habitue extends Humain {
+
+  constructor(def, siege){
+
+    super(APPARENCES[def.look]);
+
+    this.def = def;
+    this.siege = siege;
+    this.type = 'habitue';
+    this.pointBouche = new THREE.Vector3();
+    this.repos = def.mains.map(m => new THREE.Vector3(m[0], m[1], m[2]));
+    this.qTravail = new THREE.Quaternion();
+    this.bumpAvant = 0;
+
+    const fauteuil = siege.genre === 'fauteuil';
+
+    this.installer({
+      x: siege.x, z: siege.z, yaw: siege.yaw,
+      hanche: fauteuil ? [0.38 + 0.095, -0.09] : [siege.haut + 0.05 + 0.095, 0],
+      penche: def.penche || 0,
+      pieds: siege.pieds
+    });
+
+    this.viserBras(0, this.repos[0], def.pron[0]);
+    this.viserBras(1, this.repos[1], def.pron[1]);
+
+    // Le verre est dans la main ; il reste droit, quoi que fasse le bras.
+    if(def.verre){
+      this.verre = creerVerre(def.verre);
+      this.verre.position.set(0, -HUMAIN.avantBras - 0.045, 0.028);
+      this.bras[def.mainVerre || 0].coude.add(this.verre);
+    }
+
+    this.majBras(true);
+  }
+
+  maj(dt, t, reduit, cible){
+
+    const def = this.def;
+
+    this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.6 + this.phase) * 0.0035);
+
+    let defaut = def.regard || 0;
+    let baisse = 0;
+    let bump = 0;
+
+    if(def.activite === 'discute' && !reduit){
+      // Il regarde tantôt son voisin, tantôt devant lui.
+      defaut = def.regard * (0.45 + 0.55 * Math.sin(t * 0.55 + this.phase));
+    }
+
+    if(def.activite === 'cartes'){
+      // Les yeux sur ses cartes, avec un coup d'œil de temps en temps.
+      const cycle = (t * 0.11 + this.phase) % 1;
+      baisse = 0.32 * (cycle > 0.85 && !reduit ? 0.1 : 1);
+    }
+
+    this.regarder(dt, t, reduit, cible, defaut, def.portee || 5, 1.15);
+
+    // Une gorgée toutes les dix à quinze secondes.
+    if(this.verre && !reduit){
+      const periode = 10 + (this.phase % 5);
+      const u = ((t + this.phase * 2) % periode) / 3.6;
+      if(u < 1){
+        bump = Math.sin(u * Math.PI);
+        bump = bump * bump * (3 - 2 * bump);
       }
     }
 
-    this.regard += (psi - this.regard) * (1 - Math.exp(-dt * 4));
-    this.tete.rotation.y = this.regard;
-    this.tete.rotation.x = reduit ? 0 : Math.sin(t * 0.9 + this.phase) * 0.02 + this.remerciement * 0.22;
+    this.tete.rotation.set(
+      this.cou.pitch + (baisse - bump * 0.20) * (1 - this.attention),
+      this.cou.yaw,
+      0
+    );
 
-    // Le bras libre reste posé ; l'autre bat les cartes au repos, puis
-    // tend le booster à l'accueil et le pousse à l'achat.
-    const r = this.accueil;
-    const frottement = reduit ? 0 : Math.sin(t * 3.4 + this.phase) * 0.07 * (1 - r);
+    // Les mains : posées, sauf celle du verre qui monte à la bouche, et une
+    // qui pousse un jeton ou une carte de temps en temps.
+    if(bump > 0.001 || this.bumpAvant > 0.001){
 
-    this.brasRepos.epaule.rotation.x = -0.35;
-    this.brasRepos.coude.rotation.x = -0.7;
+      const i = def.mainVerre || 0;
+      this.bouche(this.pointBouche);
+      this.pointBouche.y -= 0.03;
+      this.pointBouche.z += 0.085;
+      this.pointBouche.x += (i === 0 ? -0.02 : 0.02);
 
-    this.brasMain.epaule.rotation.x = lerp(-0.35, -0.9, r) - this.remerciement * 0.28;
-    this.brasMain.coude.rotation.x = lerp(-0.7, -0.6, r) + frottement;
+      this.viserBras(i, this.repos[i].clone().lerp(this.pointBouche, bump), def.pron[i] * (1 - bump * 0.6));
+    }
 
-    this.paquet.visible = r > 0.06;
+    this.bumpAvant = bump;
+
+    if(def.activite === 'cartes' && !reduit){
+      const p = (t * 0.13 + this.phase) % 1;
+      if(p < 0.08){
+        const i = this.phase > 3 ? 0 : 1;
+        const s = Math.sin(p / 0.08 * Math.PI);
+        this.viserBras(i, this.repos[i].clone().add(new THREE.Vector3(0.05 * s * (i ? -1 : 1), 0.0, -0.06 * s)));
+      } else if(p < 0.1){
+        this.viserBras(0, this.repos[0]);
+        this.viserBras(1, this.repos[1]);
+      }
+    }
+
+    // Le verre reste droit, quelle que soit la position du bras.
+    if(this.verre){
+      const b = this.bras[this.def.mainVerre || 0];
+      const q = this.qTravail.copy(this.groupe.quaternion)
+        .multiply(this.bassin.quaternion).multiply(this.taille.quaternion)
+        .multiply(b.epaule.quaternion).multiply(b.coude.quaternion);
+      this.verre.quaternion.copy(q).invert();
+      this.verre.rotateX(-0.9 * bump);
+    }
+
+    this.majBras();
+  }
+}
+
+// Des jetons et des cartes sur les tables de jeu : une seule forme pour les
+// jetons, une pour les cartes.
+function construireJetons(){
+
+  const jetons = [], cartes = [];
+  const couleurs = ['#b3202f', '#1f4fa8', '#14161b', '#e7e1d2', '#1f8a52'];
+
+  const pile = (x, y, z, n, c) => {
+    for(let i = 0; i < n; i++){
+      jetons.push(cylindre(0.0195, 0.0195, 0.0036, x, y + 0.0018 + i * 0.0038, z, c, 14));
+      jetons.push(cylindre(0.0198, 0.0198, 0.0008, x, y + 0.0018 + i * 0.0038, z, melange(c, '#ffffff', 0.55), 14));
+    }
+  };
+
+  const carte = (x, y, z, rot, face) => {
+    const g = boite(0.058, 0.0012, 0.084, 0, 0, 0, face ? '#f3eee2' : '#1c3a6e');
+    g.rotateY(rot);
+    g.translate(x, y + 0.0007, z);
+    cartes.push(g);
+  };
+
+  // Blackjack : une pile et une paire de cartes devant chaque tabouret, le
+  // sabot du croupier.
+  {
+    const cx = -6.55, cz = 2.4, y = 0.956;
+
+    SIEGES.filter(s => /^bj/.test(s.id)).forEach((s, i) => {
+      const ux = (s.x - cx) / 1.85, uz = (s.z - cz) / 1.85;
+      const px = cx + ux * 1.02, pz = cz + uz * 1.02;
+      const rot = Math.atan2(ux, uz);
+      pile(px + uz * 0.12, y, pz - ux * 0.12, 3 + (i % 3), couleurs[i % 5]);
+      pile(px + uz * 0.17, y, pz - ux * 0.17, 2, couleurs[(i + 2) % 5]);
+      carte(px - uz * 0.05, y, pz + ux * 0.05, rot + 0.15, true);
+      carte(px - uz * 0.09, y + 0.0012, pz + ux * 0.09, rot - 0.12, i % 2 === 0);
+    });
+
+    jetons.push(boite(0.11, 0.05, 0.16, -6.36, y + 0.025, cz + 0.45, '#14161b'));
+    carte(-6.36, y + 0.05, cz + 0.45, 0.1, false);
+  }
+
+  // Poker : le pot au milieu, des cartes devant chaque joueur.
+  {
+    const cx = 5.6, cz = 4.6, y = 0.956;
+
+    pile(cx - 0.05, y, cz, 6, couleurs[0]);
+    pile(cx + 0.03, y, cz + 0.04, 4, couleurs[1]);
+    pile(cx + 0.02, y, cz - 0.05, 5, couleurs[4]);
+    pile(cx - 0.08, y, cz + 0.06, 3, couleurs[2]);
+
+    SIEGES.filter(s => /^pok/.test(s.id)).forEach((s, i) => {
+      const ux = (s.x - cx) / 1.85, uz = (s.z - cz) / 1.85;
+      const px = cx + ux * 0.98, pz = cz + uz * 0.98;
+      const rot = Math.atan2(ux, uz);
+      carte(px - uz * 0.04, y, pz + ux * 0.04, rot + 0.2, false);
+      carte(px + uz * 0.03, y + 0.0012, pz - ux * 0.03, rot - 0.15, false);
+      pile(px + uz * 0.16, y, pz - ux * 0.16, 2 + i % 4, couleurs[(i + 1) % 5]);
+    });
+  }
+
+  if(jetons.length){
+    const m = new THREE.Mesh(fusionner(jetons), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4 }));
+    scene.add(m);
+  }
+
+  if(cartes.length){
+    scene.add(new THREE.Mesh(fusionner(cartes), new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 })));
   }
 }
 
@@ -4110,7 +5548,9 @@ function construireLumieres(){
   // Le lustre en anneau, au-dessus de la machine : seize ampoules.
   const yAnneau = SALLE.h - 0.42;
 
-  const anneau = new THREE.TorusGeometry(2.4, 0.035, 8, 72);
+  const rAnneau = RAYON_PODIUM - 0.1;
+
+  const anneau = new THREE.TorusGeometry(rAnneau, 0.035, 8, 72);
   anneau.rotateX(Math.PI / 2);
   anneau.translate(0, yAnneau, 0);
   colorer(anneau, LAITON);
@@ -4118,12 +5558,12 @@ function construireLumieres(){
 
   for(let i = 0; i < 3; i++){
     const a = i * TAU / 3 + 0.5;
-    laiton.push(cylindre(0.008, 0.008, 0.42, Math.sin(a) * 2.4, yAnneau + 0.21, Math.cos(a) * 2.4, LAITON, 6));
+    laiton.push(cylindre(0.008, 0.008, 0.42, Math.sin(a) * rAnneau, yAnneau + 0.21, Math.cos(a) * rAnneau, LAITON, 6));
   }
 
   for(let i = 0; i < 16; i++){
     const a = i * TAU / 16;
-    const x = Math.sin(a) * 2.4, z = Math.cos(a) * 2.4;
+    const x = Math.sin(a) * rAnneau, z = Math.cos(a) * rAnneau;
     led.push(sphere(0.06, x, yAnneau - 0.07, z, '#fff1d6'));
     poserHalo(x, yAnneau - 0.13, z, '#ffd9a0');
   }
@@ -4135,11 +5575,8 @@ function construireLumieres(){
   const hCone = yAnneau - 0.1;
 
   const cone = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.4, 2.4, hCone, 40, 1, true),
-    new THREE.MeshBasicMaterial({
-      map: R.texture(creerFaisceau()), color: 0xffd9a8, transparent: true,
-      side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending, fog: false
-    })
+    new THREE.CylinderGeometry(0.3, rAnneau, hCone, 48, 1, true),
+    creerMateriauFaisceau()
   );
   cone.position.y = 0.1 + hCone / 2;
   cone.renderOrder = 2;
@@ -4175,7 +5612,7 @@ function construireAmbiance(){
   const grains = [];
 
   for(let i = 0; i < n; i++){
-    const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * 2.2;
+    const a = Math.random() * TAU, r = Math.sqrt(Math.random()) * (RAYON_PODIUM - 0.2);
     grains.push({ a, r, y: hasard(0.3, 4.4), v: hasard(0.02, 0.07), w: hasard(0.03, 0.1) });
     pos[i * 3] = Math.sin(a) * r;
     pos[i * 3 + 1] = grains[i].y;
@@ -4215,6 +5652,2368 @@ function construireAmbiance(){
   };
 }
 
+
+
+/* ----------------------------------------------------------------------
+   Le rendu : lumière, reflets, étalonnage
+   ----------------------------------------------------------------------
+   La salle n'est plus dessinée directement à l'écran. Elle l'est d'abord dans
+   une image intermédiaire, que quelques passes de shader transforment :
+     - un halo autour de ce qui brille (néons, lampes, foil des cartes) ;
+     - un étalonnage : une courbe douce, des ombres chaudes, un peu plus de
+       couleur ; une vignette sur les bords ; un grain très léger ;
+   et, dans la salle, le sol reflète ce qui se trouve au-dessus de lui : un
+   second rendu, pris par une caméra placée sous le sol, que le parquet et le
+   podium relisent.
+   Tout cela se coupe de lui-même si la machine peine, dans cet ordre : le
+   halo, les reflets, puis le tout.
+   ---------------------------------------------------------------------- */
+
+const POST = {
+  actif: false, bloom: true, rt: null, flouA: null, flouB: null,
+  cam: null, scene: null, quad: null, mat: {}, essais: 0
+};
+
+const REFLET = {
+  actif: false, plan: 0.142, rt: null, cam: null, matrice: null, surfaces: [], prets: false
+};
+
+const VS_ECRAN = `
+varying vec2 vUv;
+void main(){
+  vUv = uv;
+  gl_Position = vec4(position.xy, 0.0, 1.0);
+}`;
+
+// Ne garde de l'image que ce qui est clair : le reste devient noir.
+const FS_SEUIL = `
+uniform sampler2D tScene;
+uniform float uSeuil;
+varying vec2 vUv;
+void main(){
+  vec3 c = texture2D(tScene, vUv).rgb;
+  float l = max(c.r, max(c.g, c.b));
+  float k = smoothstep(uSeuil, uSeuil + 0.22, l);
+  gl_FragColor = vec4(c * k, 1.0);
+}`;
+
+// Un flou gaussien, dans une direction à la fois.
+const FS_FLOU = `
+uniform sampler2D tSource;
+uniform vec2 uDir;
+varying vec2 vUv;
+void main(){
+  vec3 s = texture2D(tSource, vUv).rgb * 0.2270270270;
+  s += texture2D(tSource, vUv + uDir * 1.3846153846).rgb * 0.3162162162;
+  s += texture2D(tSource, vUv - uDir * 1.3846153846).rgb * 0.3162162162;
+  s += texture2D(tSource, vUv + uDir * 3.2307692308).rgb * 0.0702702703;
+  s += texture2D(tSource, vUv - uDir * 3.2307692308).rgb * 0.0702702703;
+  gl_FragColor = vec4(s, 1.0);
+}`;
+
+// L'image finale : l'image, son halo, l'étalonnage, la vignette, le grain.
+const FS_FINAL = `
+uniform sampler2D tScene;
+uniform sampler2D tBloom;
+uniform float uBloom;
+uniform float uT;
+uniform vec2 uRes;
+uniform float uVignette;
+uniform float uGrain;
+varying vec2 vUv;
+
+vec3 etalonner(vec3 c){
+  // Une courbe douce : les hautes lumières s'écrasent un peu, les ombres
+  // remontent, et l'ensemble gagne en contraste.
+  c = c * 1.06;
+  c = c / (1.0 + 0.16 * c);
+  c = mix(c, c * c * (3.0 - 2.0 * c), 0.20);
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  c = mix(vec3(l), c, 1.05);
+  // Des ombres un peu chaudes, des lumières un peu plus neutres.
+  c *= mix(vec3(1.04, 1.0, 0.94), vec3(1.0, 1.0, 1.0), smoothstep(0.0, 0.6, l));
+  return c;
+}
+
+void main(){
+  vec2 d = vUv - 0.5;
+  float r2 = dot(d, d);
+
+  // Une très légère dispersion des couleurs vers les bords, comme une vraie
+  // optique.
+  vec2 off = d * r2 * 0.010;
+
+  vec3 col;
+  col.r = texture2D(tScene, vUv + off).r;
+  col.g = texture2D(tScene, vUv).g;
+  col.b = texture2D(tScene, vUv - off).b;
+
+  col += texture2D(tBloom, vUv).rgb * uBloom;
+
+  col = etalonner(col);
+
+  col *= 1.0 - uVignette * smoothstep(0.18, 0.62, r2);
+
+  float g = fract(sin(dot(vUv * uRes + fract(uT) * 91.7, vec2(12.9898, 78.233))) * 43758.5453);
+  col += (g - 0.5) * uGrain;
+
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+function creerPost(){
+
+  try{
+
+    const t = new THREE.Vector2();
+    renderer.getDrawingBufferSize(t);
+
+    const opt = {
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat, depthBuffer: true, stencilBuffer: false
+    };
+
+    POST.rt = new THREE.WebGLRenderTarget(Math.max(2, t.x), Math.max(2, t.y), opt);
+
+    // L'anticrénelage du rendu direct ne vaut pas pour une image
+    // intermédiaire : WebGL 2 sait la multi-échantillonner. Sur téléphone, le
+    // surcoût ne vaut pas le gain.
+    if(renderer.capabilities.isWebGL2 && !etat.tactile) POST.rt.samples = 4;
+
+    const petit = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, depthBuffer: false };
+    POST.flouA = new THREE.WebGLRenderTarget(2, 2, petit);
+    POST.flouB = new THREE.WebGLRenderTarget(2, 2, petit);
+
+    POST.cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    POST.scene = new THREE.Scene();
+
+    POST.quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), null);
+    POST.quad.frustumCulled = false;
+    POST.scene.add(POST.quad);
+
+    const mat = (vs, fs, uniforms) => new THREE.ShaderMaterial({
+      uniforms, vertexShader: vs, fragmentShader: fs, depthTest: false, depthWrite: false
+    });
+
+    POST.mat.seuil = mat(VS_ECRAN, FS_SEUIL, { tScene: { value: POST.rt.texture }, uSeuil: { value: 0.84 } });
+    POST.mat.flou = mat(VS_ECRAN, FS_FLOU, { tSource: { value: null }, uDir: { value: new THREE.Vector2() } });
+    POST.mat.final = mat(VS_ECRAN, FS_FINAL, {
+      tScene: { value: POST.rt.texture }, tBloom: { value: POST.flouA.texture },
+      uBloom: { value: 0.75 }, uT: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
+      uVignette: { value: 0.36 }, uGrain: { value: 0.02 }
+    });
+
+    POST.actif = true;
+    POST.bloom = true;
+
+    redimensionnerPost();
+
+  }catch(e){
+    POST.actif = false;
+  }
+}
+
+// Les images intermédiaires suivent la taille de l'écran ; le halo se calcule
+// en quart de résolution.
+function redimensionnerPost(){
+
+  if(!POST.actif && !REFLET.actif) return;
+
+  const t = new THREE.Vector2();
+  renderer.getDrawingBufferSize(t);
+
+  const l = Math.max(2, Math.floor(t.x)), h = Math.max(2, Math.floor(t.y));
+
+  if(POST.actif){
+    POST.rt.setSize(l, h);
+    const pl = Math.max(2, Math.floor(l / 4)), ph = Math.max(2, Math.floor(h / 4));
+    POST.flouA.setSize(pl, ph);
+    POST.flouB.setSize(pl, ph);
+    POST.mat.final.uniforms.uRes.value.set(l, h);
+  }
+
+  if(REFLET.actif){
+    REFLET.rt.setSize(Math.max(2, Math.floor(l / 2)), Math.max(2, Math.floor(h / 2)));
+  }
+}
+
+function passe(materiau, cible){
+  POST.quad.material = materiau;
+  renderer.setRenderTarget(cible);
+  renderer.render(POST.scene, POST.cam);
+}
+
+// Dessine `sc` vue par `cam`, avec ou sans les effets.
+function rendre(sc, cam){
+
+  if(!POST.actif){
+    renderer.setRenderTarget(null);
+    renderer.render(sc, cam);
+    return;
+  }
+
+  renderer.setRenderTarget(POST.rt);
+  renderer.render(sc, cam);
+
+  if(POST.bloom){
+
+    const pl = POST.flouA.width, ph = POST.flouA.height;
+
+    passe(POST.mat.seuil, POST.flouA);
+
+    // Deux allers-retours : un halo large, doux.
+    for(let i = 0; i < 2; i++){
+      POST.mat.flou.uniforms.tSource.value = POST.flouA.texture;
+      POST.mat.flou.uniforms.uDir.value.set(1 / pl, 0);
+      passe(POST.mat.flou, POST.flouB);
+
+      POST.mat.flou.uniforms.tSource.value = POST.flouB.texture;
+      POST.mat.flou.uniforms.uDir.value.set(0, 1 / ph);
+      passe(POST.mat.flou, POST.flouA);
+    }
+  }
+
+  POST.mat.final.uniforms.uBloom.value = POST.bloom ? 0.75 : 0;
+  POST.mat.final.uniforms.uT.value = temps;
+
+  passe(POST.mat.final, null);
+}
+
+// La salle, telle que la voit une caméra placée sous le sol : c'est ce que le
+// parquet et le podium reflètent. Même méthode que le miroir d'un jeu 3D :
+// on reflète la position de la caméra et sa cible par rapport au plan.
+function creerReflet(){
+
+  try{
+
+    REFLET.rt = new THREE.WebGLRenderTarget(2, 2, {
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat
+    });
+    REFLET.cam = new THREE.PerspectiveCamera();
+    REFLET.matrice = new THREE.Matrix4();
+    REFLET.actif = true;
+
+    redimensionnerPost();
+
+  }catch(e){
+    REFLET.actif = false;
+  }
+}
+
+function majReflet(sc, cam){
+
+  if(!REFLET.actif || !REFLET.surfaces.length) return;
+
+  // Une caméra sous le plan ne voit aucun reflet.
+  if(cam.position.y <= REFLET.plan + 0.02) return;
+
+  const c = REFLET.cam;
+  const y0 = REFLET.plan;
+
+  const dir = new THREE.Vector3();
+  cam.getWorldDirection(dir);
+
+  const pos = cam.position.clone();
+  const cible = pos.clone().add(dir);
+
+  c.position.set(pos.x, 2 * y0 - pos.y, pos.z);
+  cible.y = 2 * y0 - cible.y;
+
+  c.up.set(0, -1, 0);
+  c.lookAt(cible);
+  c.up.set(0, 1, 0);
+
+  c.fov = cam.fov;
+  c.aspect = cam.aspect;
+  c.near = cam.near;
+  c.far = cam.far;
+  c.updateProjectionMatrix();
+  c.updateMatrixWorld();
+
+  REFLET.matrice.set(
+    0.5, 0, 0, 0.5,
+    0, 0.5, 0, 0.5,
+    0, 0, 0.5, 0.5,
+    0, 0, 0, 1
+  );
+  REFLET.matrice.multiply(c.projectionMatrix);
+  REFLET.matrice.multiply(c.matrixWorldInverse);
+
+  REFLET.surfaces.forEach(s => { s.visible = false; });
+
+  const hl = R.faisceau ? R.faisceau.visible : false;
+
+  renderer.setRenderTarget(REFLET.rt);
+  renderer.render(sc, c);
+  renderer.setRenderTarget(null);
+
+  REFLET.surfaces.forEach(s => { s.visible = true; });
+  if(R.faisceau) R.faisceau.visible = hl;
+}
+
+// Un matériau Phong (ou Standard) qui relit le reflet du sol : à la couleur
+// de la surface s'ajoute ce que la caméra sous le sol a vu, d'autant plus
+// fort que l'on regarde la surface de biais (Fresnel), et d'autant plus flou
+// que la surface est rugueuse.
+function refleter(materiau, force, brillance, base){
+
+  // Sans reflets (téléphone, ou création impossible) : le matériau reste tel
+  // quel.
+  if(!REFLET.actif) return materiau;
+
+  materiau.onBeforeCompile = (shader) => {
+
+    shader.uniforms.tReflet = { value: REFLET.rt ? REFLET.rt.texture : null };
+    shader.uniforms.uMatReflet = { value: REFLET.matrice };
+    shader.uniforms.uForceReflet = { value: force };
+    shader.uniforms.uFlouReflet = { value: brillance === undefined ? 0.006 : brillance };
+    shader.uniforms.uBaseReflet = { value: base === undefined ? 0.12 : base };
+
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform mat4 uMatReflet;\nvarying vec4 vReflet;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvReflet = uMatReflet * modelMatrix * vec4(position, 1.0);');
+
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D tReflet;\nuniform float uForceReflet;\nuniform float uFlouReflet;\nuniform float uBaseReflet;\nvarying vec4 vReflet;')
+      .replace('#include <dithering_fragment>', `
+        {
+          vec2 ruv = vReflet.xy / max(vReflet.w, 0.0001);
+          float f = uFlouReflet;
+          vec3 rc = texture2D(tReflet, ruv).rgb * 0.4;
+          rc += texture2D(tReflet, ruv + vec2(f, 0.0)).rgb * 0.15;
+          rc += texture2D(tReflet, ruv - vec2(f, 0.0)).rgb * 0.15;
+          rc += texture2D(tReflet, ruv + vec2(0.0, f)).rgb * 0.15;
+          rc += texture2D(tReflet, ruv - vec2(0.0, f)).rgb * 0.15;
+          float fres = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 2.2);
+          gl_FragColor.rgb += rc * uForceReflet * (uBaseReflet + (1.0 - uBaseReflet) * fres);
+        }
+        #include <dithering_fragment>`);
+
+    materiau.userData.shader = shader;
+  };
+
+  materiau.needsUpdate = true;
+  return materiau;
+}
+
+
+/* ----------------------------------------------------------------------
+   Les cartes La Wave TCG
+   ----------------------------------------------------------------------
+   Une carte, c'est un nom, une illustration, une phrase. L'illustration est
+   un glyphe blanc sur un fond nuit, dans l'esprit du booster : presque rien,
+   et c'est ce qui la rend lisible de loin. Tout est dessiné ici, sur un
+   canvas 2D. Les cartes elles-mêmes (nom, rareté, dessin) viennent de la
+   base : ce fichier sait seulement les dessiner.
+   ---------------------------------------------------------------------- */
+
+const CARTE_L = 512, CARTE_H = 716;
+
+const RARETES = {
+  commune:    { nom: 'Commune',    couleur: '#8ea4ba', sombre: '#0f1e2e', pastilles: 1, foil: 0.0, rang: 0 },
+  rare:       { nom: 'Rare',       couleur: '#4FB4FF', sombre: '#0a2b4d', pastilles: 2, foil: 0.40, rang: 1 },
+  epique:     { nom: 'Épique',     couleur: '#b98aff', sombre: '#2a1250', pastilles: 3, foil: 0.80, rang: 2 },
+  legendaire: { nom: 'Légendaire', couleur: '#ffd36b', sombre: '#46300a', pastilles: 4, foil: 1.0, rang: 3 }
+};
+
+const rarete = id => RARETES[id] || RARETES.commune;
+
+function rectArrondi(g, x, y, l, h, r){
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + l, y, x + l, y + h, r);
+  g.arcTo(x + l, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + l, y, r);
+  g.closePath();
+}
+
+// Les outils des glyphes : on trace un chemin, puis on le remplit (blanc,
+// légèrement teinté vers le bas) ou on le creuse (trait de l'encre du fond).
+const ENCRE = '#0a1630';
+
+function remplir(g, c, evenodd){
+  const d = g.createLinearGradient(0, -100, 0, 100);
+  d.addColorStop(0, '#ffffff');
+  d.addColorStop(1, melange('#ffffff', c, 0.6));
+  g.fillStyle = d;
+  if(evenodd) g.fill('evenodd'); else g.fill();
+}
+
+function creux(g, l, col){
+  g.lineWidth = l || 5;
+  g.strokeStyle = col || ENCRE;
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.stroke();
+}
+
+function trait(g, x0, y0, x1, y1){
+  g.beginPath();
+  g.moveTo(x0, y0);
+  g.lineTo(x1, y1);
+}
+
+function rond(g, x, y, r){
+  g.beginPath();
+  g.arc(x, y, r, 0, TAU);
+}
+
+function ovale(g, x, y, rx, ry, rot){
+  g.beginPath();
+  g.ellipse(x, y, rx, ry, rot || 0, 0, TAU);
+}
+
+function poly(g, pts){
+  g.beginPath();
+  pts.forEach((p, i) => { if(i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); });
+  g.closePath();
+}
+
+const VOILE = 'rgba(10,22,48,.5)';
+
+// Les dessins : chacun se trace autour de (0, 0), dans ± 120 en x et ± 105 en
+// y, avec la couleur de rareté `c` pour les accents.
+const MOTIFS = {
+
+  guitare(g, c){
+    g.save();
+    g.rotate(-0.72);
+    ovale(g, 0, 58, 44, 38); remplir(g, c);
+    ovale(g, 0, 14, 31, 27); remplir(g, c);
+    rectArrondi(g, -8, -92, 16, 120, 4); remplir(g, c);
+    rectArrondi(g, -14, -118, 28, 32, 8); remplir(g, c);
+    rond(g, 0, 60, 11); creux(g, 5);
+    trait(g, -24, 34, 24, 34); creux(g, 6);
+    trait(g, -26, 48, 26, 48); creux(g, 6);
+    trait(g, -14, 84, 14, 84); creux(g, 7, c);
+    trait(g, -3, -96, -3, 82); creux(g, 1.6, VOILE);
+    trait(g, 3, -96, 3, 82); creux(g, 1.6, VOILE);
+    [-1, 1].forEach(s => { rond(g, s * 14, -106, 3.6); g.fillStyle = c; g.fill(); });
+    g.restore();
+  },
+
+  micro(g, c){
+    g.save();
+    rectArrondi(g, -30, -98, 60, 104, 30); remplir(g, c);
+    rectArrondi(g, -30, -98, 60, 104, 30); g.clip();
+    [-78, -62, -46, -30, -14].forEach(y => { trait(g, -32, y, 32, y); creux(g, 4, VOILE); });
+    [-16, 0, 16].forEach(x => { trait(g, x, -100, x, 6); creux(g, 3, VOILE); });
+    g.restore();
+    g.beginPath(); g.moveTo(-46, -34); g.quadraticCurveTo(-46, 34, 0, 34); g.quadraticCurveTo(46, 34, 46, -34);
+    creux(g, 9, '#ffffff');
+    rectArrondi(g, -6, 34, 12, 44, 3); remplir(g, c);
+    rectArrondi(g, -36, 76, 72, 13, 6); remplir(g, c);
+  },
+
+  batterie(g, c){
+    rectArrondi(g, -76, -8, 152, 70, 6); remplir(g, c);
+    ovale(g, 0, 62, 76, 24); remplir(g, c);
+    ovale(g, 0, -8, 76, 24); remplir(g, c);
+    ovale(g, 0, -8, 62, 17); creux(g, 4, VOILE);
+    [-54, -27, 0, 27, 54].forEach(x => { trait(g, x, 12, x, 62); creux(g, 5); });
+    trait(g, -78, -104, 6, -24); creux(g, 13, '#ffffff');
+    trait(g, 78, -104, -6, -24); creux(g, 13, '#ffffff');
+    [-78, 78].forEach(x => { rond(g, x, -104, 9); g.fillStyle = c; g.fill(); });
+  },
+
+  piano(g, c){
+    rectArrondi(g, -100, -92, 200, 34, 9); remplir(g, c);
+    rectArrondi(g, -100, -46, 200, 104, 9); remplir(g, '#ffffff');
+    for(let i = 1; i < 7; i++){ trait(g, -100 + i * 200 / 7, -46, -100 + i * 200 / 7, 58); creux(g, 3, VOILE); }
+    [1, 2, 4, 5, 6].forEach(i => {
+      rectArrondi(g, -100 + i * 200 / 7 - 10, -46, 20, 62, 4);
+      g.fillStyle = ENCRE; g.fill();
+    });
+    trait(g, -60, -75, 60, -75); creux(g, 4, ENCRE);
+  },
+
+  casque(g, c){
+    g.beginPath(); g.arc(0, 12, 74, Math.PI * 1.02, Math.PI * 1.98); creux(g, 14, '#ffffff');
+    rectArrondi(g, -96, 0, 36, 70, 15); remplir(g, c);
+    rectArrondi(g, 60, 0, 36, 70, 15); remplir(g, c);
+    rectArrondi(g, -90, 10, 14, 50, 7); g.fillStyle = 'rgba(10,22,48,.35)'; g.fill();
+    rectArrondi(g, 76, 10, 14, 50, 7); g.fillStyle = 'rgba(10,22,48,.35)'; g.fill();
+    rond(g, -78, 35, 6); g.fillStyle = c; g.fill();
+    rond(g, 78, 35, 6); g.fillStyle = c; g.fill();
+  },
+
+  enceinte(g, c){
+    rectArrondi(g, -60, -100, 120, 200, 16); remplir(g, c);
+    rond(g, 0, 40, 42); creux(g, 8);
+    rond(g, 0, 40, 27); g.fillStyle = 'rgba(10,22,48,.45)'; g.fill();
+    rond(g, 0, 40, 10); remplir(g, c);
+    rond(g, 0, -52, 17); creux(g, 6);
+    rond(g, 0, -52, 6); g.fillStyle = c; g.fill();
+    rond(g, 0, -86, 3.5); g.fillStyle = VOILE; g.fill();
+  },
+
+  cassette(g, c){
+    rectArrondi(g, -104, -66, 208, 132, 14); remplir(g, c);
+    rectArrondi(g, -84, -50, 168, 52, 8); g.fillStyle = 'rgba(10,22,48,.16)'; g.fill();
+    trait(g, -70, -34, 70, -34); creux(g, 3, VOILE);
+    trait(g, -70, -20, 40, -20); creux(g, 3, VOILE);
+    rond(g, -44, -14, 21); g.fillStyle = ENCRE; g.fill();
+    rond(g, 44, -14, 21); g.fillStyle = ENCRE; g.fill();
+    [-44, 44].forEach(x => { rond(g, x, -14, 10); g.fillStyle = '#ffffff'; g.fill(); });
+    poly(g, [[-58, 66], [-46, 26], [46, 26], [58, 66]]); g.fillStyle = 'rgba(10,22,48,.3)'; g.fill();
+    [[-92, -54], [92, -54], [-92, 54], [92, 54]].forEach(([x, y]) => { rond(g, x, y, 4); g.fillStyle = VOILE; g.fill(); });
+  },
+
+  note(g, c){
+    ovale(g, -46, 56, 25, 18, -0.4); remplir(g, c);
+    ovale(g, 44, 38, 25, 18, -0.4); remplir(g, c);
+    rectArrondi(g, -30, -72, 10, 126, 3); remplir(g, c);
+    rectArrondi(g, 60, -90, 10, 126, 3); remplir(g, c);
+    poly(g, [[-30, -74], [70, -96], [70, -62], [-30, -40]]); remplir(g, c);
+  },
+
+  vague(g, c){
+    for(let k = 0; k < 3; k++){
+      g.beginPath();
+      for(let i = 0; i <= 44; i++){
+        const t = i / 44;
+        const x = -96 + t * 192, y = -46 + k * 46 + Math.sin(t * TAU * 1.5 + k * 0.9) * 15;
+        if(i) g.lineTo(x, y); else g.moveTo(x, y);
+      }
+      creux(g, 15, k === 1 ? c : '#ffffff');
+    }
+    [[-62, -84, 5], [-6, -92, 4], [56, -82, 6], [34, -100, 3]].forEach(([x, y, r]) => { rond(g, x, y, r); g.fillStyle = '#ffffff'; g.fill(); });
+  },
+
+  coquillage(g, c){
+    g.save();
+    g.beginPath();
+    g.moveTo(0, 86);
+    for(let i = 0; i <= 7; i++){
+      const a = Math.PI * (1.13 + 0.74 * i / 7);
+      const a2 = Math.PI * (1.13 + 0.74 * (i + 0.5) / 7);
+      g.lineTo(Math.cos(a) * 104, 86 + Math.sin(a) * 160);
+      if(i < 7) g.quadraticCurveTo(Math.cos(a2) * 122, 86 + Math.sin(a2) * 186, Math.cos(Math.PI * (1.13 + 0.74 * (i + 1) / 7)) * 104, 86 + Math.sin(Math.PI * (1.13 + 0.74 * (i + 1) / 7)) * 160);
+    }
+    g.closePath();
+    remplir(g, c);
+    for(let i = 0; i <= 7; i++){
+      const a = Math.PI * (1.13 + 0.74 * i / 7);
+      trait(g, 0, 84, Math.cos(a) * 100, 86 + Math.sin(a) * 152); creux(g, 4, VOILE);
+    }
+    rectArrondi(g, -20, 80, 40, 14, 6); remplir(g, c);
+    g.restore();
+  },
+
+  poisson(g, c){
+    poly(g, [[-58, 0], [-104, -40], [-96, 0], [-104, 40]]); remplir(g, c);
+    g.beginPath(); g.moveTo(-14, -38); g.quadraticCurveTo(14, -80, 46, -34); g.closePath(); remplir(g, c);
+    g.beginPath(); g.moveTo(-6, 36); g.quadraticCurveTo(10, 62, 34, 34); g.closePath(); remplir(g, c);
+    ovale(g, -6, 0, 68, 40); remplir(g, c);
+    g.beginPath(); g.arc(34, 0, 26, Math.PI * 0.62, Math.PI * 1.38); creux(g, 4, VOILE);
+    [-28, -8, 12].forEach(x => { g.beginPath(); g.arc(x, 0, 16, -0.95, 0.95); creux(g, 3, VOILE); });
+    rond(g, 40, -9, 8); g.fillStyle = ENCRE; g.fill();
+    rond(g, 42, -11, 2.6); g.fillStyle = '#ffffff'; g.fill();
+  },
+
+  ancre(g, c){
+    rond(g, 0, -80, 15); creux(g, 10, '#ffffff');
+    rectArrondi(g, -6, -66, 12, 140, 4); remplir(g, c);
+    rectArrondi(g, -36, -50, 72, 12, 5); remplir(g, c);
+    g.beginPath(); g.moveTo(-72, 4); g.quadraticCurveTo(-66, 82, 0, 84); g.quadraticCurveTo(66, 82, 72, 4);
+    creux(g, 13, '#ffffff');
+    poly(g, [[-88, 16], [-56, 16], [-72, -10]]); remplir(g, c);
+    poly(g, [[88, 16], [56, 16], [72, -10]]); remplir(g, c);
+  },
+
+  bulle(g, c){
+    [[-28, 28, 54], [46, -34, 34], [54, 56, 22]].forEach(([x, y, r]) => {
+      rond(g, x, y, r); g.fillStyle = 'rgba(255,255,255,.12)'; g.fill(); creux(g, 8, '#ffffff');
+      g.beginPath(); g.arc(x, y, r * 0.66, Math.PI * 1.1, Math.PI * 1.55); creux(g, 6, c);
+    });
+  },
+
+  projecteur(g, c){
+    poly(g, [[-28, 30], [28, 30], [84, 106], [-84, 106]]); g.fillStyle = 'rgba(255,255,255,.22)'; g.fill();
+    rectArrondi(g, -36, -62, 72, 92, 14); remplir(g, c);
+    ovale(g, 0, 30, 36, 11); g.fillStyle = c; g.fill();
+    g.beginPath(); g.moveTo(-58, -6); g.lineTo(-58, 44); g.quadraticCurveTo(-58, 60, -40, 60);
+    creux(g, 7, '#ffffff');
+    g.beginPath(); g.moveTo(58, -6); g.lineTo(58, 44); g.quadraticCurveTo(58, 60, 40, 60);
+    creux(g, 7, '#ffffff');
+    trait(g, -36, -30, 36, -30); creux(g, 4, VOILE);
+    trait(g, -36, -14, 36, -14); creux(g, 4, VOILE);
+    trait(g, 0, -62, 0, -98); creux(g, 9, '#ffffff');
+  },
+
+  mouette(g, c){
+    [-1, 1].forEach(s => {
+      g.save();
+      g.scale(s, 1);
+      g.beginPath();
+      g.moveTo(0, 16);
+      g.bezierCurveTo(-18, -48, -66, -66, -108, -36);
+      g.bezierCurveTo(-72, -46, -38, -24, -6, 40);
+      g.closePath();
+      remplir(g, c);
+      g.restore();
+    });
+    ovale(g, 0, 26, 14, 22); remplir(g, c);
+    rond(g, 0, 2, 11); remplir(g, c);
+    poly(g, [[6, -2], [22, 3], [6, 8]]); g.fillStyle = c; g.fill();
+    rond(g, 2, 0, 2.6); g.fillStyle = ENCRE; g.fill();
+    for(let k = 0; k < 2; k++){
+      g.beginPath();
+      for(let i = 0; i <= 30; i++){ const t = i / 30; const x = -90 + t * 180, y = 82 + k * 20 + Math.sin(t * TAU * 1.5 + k) * 6; if(i) g.lineTo(x, y); else g.moveTo(x, y); }
+      creux(g, 7, k ? c : '#ffffff');
+    }
+  },
+
+  bouee(g, c){
+    g.save();
+    g.beginPath(); g.arc(0, 0, 90, 0, TAU); g.arc(0, 0, 42, 0, TAU, true); g.clip();
+    g.fillStyle = '#ffffff'; g.fillRect(-100, -100, 200, 200);
+    g.fillStyle = c;
+    for(let k = 0; k < 4; k++){
+      g.save(); g.rotate(k * Math.PI / 2 + 0.4);
+      g.fillRect(-100, -19, 200, 38);   // bandes opposées deux à deux
+      g.restore();
+    }
+    g.restore();
+    g.beginPath(); g.arc(0, 0, 90, 0, TAU); creux(g, 4, VOILE);
+    g.beginPath(); g.arc(0, 0, 42, 0, TAU); creux(g, 4, VOILE);
+    g.beginPath(); g.arc(0, 0, 66, Math.PI * 1.05, Math.PI * 1.35); creux(g, 3, 'rgba(255,255,255,.7)');
+  },
+
+  saxo(g, c){
+    g.beginPath();
+    g.moveTo(-78, -84); g.quadraticCurveTo(-36, -102, -24, -64); g.lineTo(-24, 40);
+    g.quadraticCurveTo(-24, 88, 26, 86); g.quadraticCurveTo(62, 84, 58, 34);
+    creux(g, 24, '#ffffff');
+    ovale(g, 62, 26, 24, 13, -0.55); remplir(g, c);
+    ovale(g, 62, 24, 15, 7, -0.55); g.fillStyle = ENCRE; g.fill();
+    [-44, -16, 12, 40].forEach((y, i) => { rond(g, -24, y, 7); g.fillStyle = i % 2 ? c : ENCRE; g.fill(); });
+    trait(g, -96, -80, -66, -92); creux(g, 10, '#ffffff');
+  },
+
+  violon(g, c){
+    ovale(g, 0, 40, 46, 38); remplir(g, c);
+    ovale(g, 0, -4, 33, 29); remplir(g, c);
+    rectArrondi(g, -6, -100, 12, 76, 3); remplir(g, c);
+    rond(g, 0, -108, 10); remplir(g, c);
+    [-1, 1].forEach(s => { g.beginPath(); g.moveTo(s * 14, 18); g.quadraticCurveTo(s * 20, 34, s * 13, 56); creux(g, 4.5, ENCRE); });
+    trait(g, -16, 46, 16, 46); creux(g, 5, ENCRE);
+    trait(g, -2, -88, -2, 70); creux(g, 1.4, VOILE);
+    trait(g, 2, -88, 2, 70); creux(g, 1.4, VOILE);
+    trait(g, -100, 84, 98, -24); creux(g, 7, '#ffffff');
+    trait(g, -100, 84, -86, 79); creux(g, 10, c);
+  },
+
+  platines(g, c){
+    rectArrondi(g, -104, -72, 208, 144, 14); remplir(g, c);
+    rond(g, -16, 0, 56); g.fillStyle = ENCRE; g.fill();
+    [46, 36, 26].forEach(r => { rond(g, -16, 0, r); creux(g, 2, 'rgba(255,255,255,.25)'); });
+    rond(g, -16, 0, 17); g.fillStyle = c; g.fill();
+    rond(g, -16, 0, 3.4); g.fillStyle = '#ffffff'; g.fill();
+    rond(g, 74, -48, 10); g.fillStyle = ENCRE; g.fill();
+    trait(g, 74, -48, 30, 16); creux(g, 7, ENCRE);
+    rectArrondi(g, 20, 10, 18, 12, 3); g.fillStyle = c; g.fill();
+    [[78, 26], [78, 44]].forEach(([x, y]) => { rond(g, x, y, 5); g.fillStyle = VOILE; g.fill(); });
+  },
+
+  synthe(g, c){
+    rectArrondi(g, -106, -56, 212, 112, 10); remplir(g, c);
+    rectArrondi(g, -96, -48, 192, 34, 5); g.fillStyle = 'rgba(10,22,48,.26)'; g.fill();
+    [-70, -42, -14, 14, 42, 70].forEach((x, i) => { rond(g, x, -31, 8); g.fillStyle = i % 2 ? c : ENCRE; g.fill(); });
+    for(let i = 0; i < 9; i++){ rectArrondi(g, -96 + i * 192 / 9, 0, 192 / 9 - 2, 48, 3); g.fillStyle = '#ffffff'; g.fill(); creux(g, 2, VOILE); }
+    [0, 1, 3, 4, 5, 7].forEach(i => { rectArrondi(g, -96 + (i + 1) * 192 / 9 - 7, 0, 14, 28, 3); g.fillStyle = ENCRE; g.fill(); });
+  },
+
+  trompette(g, c){
+    trait(g, -98, -8, 38, -8); creux(g, 14, '#ffffff');
+    poly(g, [[40, -22], [106, -56], [106, 36], [40, 8]]); remplir(g, c);
+    rectArrondi(g, -54, 0, 96, 54, 27); creux(g, 11, '#ffffff');
+    [-30, -8, 14].forEach(x => { trait(g, x, -32, x, -8); creux(g, 10, '#ffffff'); rond(g, x, -38, 7); g.fillStyle = c; g.fill(); });
+    rectArrondi(g, -106, -16, 14, 16, 4); remplir(g, c);
+  },
+
+  vinyle(g, c){
+    rond(g, 0, 0, 94); g.fillStyle = '#0b1222'; g.fill(); creux(g, 6, '#ffffff');
+    [78, 64, 50].forEach(r => { rond(g, 0, 0, r); creux(g, 2, 'rgba(255,255,255,.22)'); });
+    g.beginPath(); g.arc(0, 0, 84, Math.PI * 1.08, Math.PI * 1.4); creux(g, 8, 'rgba(255,255,255,.45)');
+    g.beginPath(); g.arc(0, 0, 84, Math.PI * 0.08, Math.PI * 0.4); creux(g, 8, 'rgba(255,255,255,.28)');
+    rond(g, 0, 0, 34); g.fillStyle = c; g.fill();
+    rond(g, 0, 0, 34); creux(g, 3, 'rgba(10,22,48,.35)');
+    rond(g, 0, 0, 5); g.fillStyle = '#0b1222'; g.fill();
+    trait(g, -18, -10, 18, -10); creux(g, 3, 'rgba(10,22,48,.45)');
+    trait(g, -14, 12, 14, 12); creux(g, 3, 'rgba(10,22,48,.45)');
+  },
+
+  phare(g, c){
+    poly(g, [[-16, -38], [-110, -62], [-110, -16]]); g.fillStyle = 'rgba(255,255,255,.22)'; g.fill();
+    poly(g, [[16, -38], [110, -62], [110, -16]]); g.fillStyle = 'rgba(255,255,255,.22)'; g.fill();
+    poly(g, [[-30, 88], [30, 88], [18, -32], [-18, -32]]); remplir(g, c);
+    g.save();
+    poly(g, [[-30, 88], [30, 88], [18, -32], [-18, -32]]); g.clip();
+    g.fillStyle = c;
+    g.fillRect(-40, 8, 80, 22); g.fillRect(-40, 52, 80, 22);
+    g.restore();
+    rectArrondi(g, -22, -58, 44, 26, 4); g.fillStyle = c; g.fill(); creux(g, 4, '#ffffff');
+    rond(g, 0, -45, 7); g.fillStyle = '#ffffff'; g.fill();
+    poly(g, [[-28, -58], [28, -58], [0, -88]]); remplir(g, c);
+    rectArrondi(g, -44, 86, 88, 12, 4); remplir(g, c);
+  },
+
+  voilier(g, c){
+    poly(g, [[-76, 50], [76, 50], [52, 82], [-52, 82]]); remplir(g, c);
+    rectArrondi(g, -3, -96, 6, 146, 3); remplir(g, c);
+    poly(g, [[9, -90], [9, 42], [76, 42]]); remplir(g, c);
+    poly(g, [[-9, -70], [-9, 42], [-64, 42]]); g.fillStyle = 'rgba(255,255,255,.72)'; g.fill();
+    for(let k = 0; k < 2; k++){
+      g.beginPath();
+      for(let i = 0; i <= 30; i++){ const t = i / 30; const x = -96 + t * 192, y = 96 + k * 16 + Math.sin(t * TAU * 1.5 + k) * 5; if(i) g.lineTo(x, y); else g.moveTo(x, y); }
+      creux(g, 7, k ? c : '#ffffff');
+    }
+  },
+
+  meduse(g, c){
+    g.beginPath(); g.arc(0, -8, 66, Math.PI, TAU);
+    g.quadraticCurveTo(44, 8, 22, 6); g.quadraticCurveTo(0, 14, -22, 6); g.quadraticCurveTo(-44, 8, -66, -8);
+    g.closePath(); remplir(g, c);
+    [[-26, -42, 7], [16, -50, 5], [34, -28, 6]].forEach(([x, y, r]) => { rond(g, x, y, r); g.fillStyle = 'rgba(10,22,48,.25)'; g.fill(); });
+    [-44, -22, 0, 22, 44].forEach((x, i) => {
+      g.beginPath();
+      for(let j = 0; j <= 20; j++){ const t = j / 20; const xx = x + Math.sin(t * TAU * 1.4 + i) * 9, yy = 10 + t * 84; if(j) g.lineTo(xx, yy); else g.moveTo(xx, yy); }
+      creux(g, 7, i % 2 ? c : '#ffffff');
+    });
+  },
+
+  scene(g, c){
+    poly(g, [[-100, 92], [100, 92], [80, 56], [-80, 56]]); remplir(g, c);
+    [[-70, -8], [0, -10], [70, -8]].forEach(([x, dx]) => {
+      poly(g, [[x - 8, -84], [x + 8, -84], [x * 0.35 + 34, 56], [x * 0.35 - 34, 56]]); g.fillStyle = 'rgba(255,255,255,.17)'; g.fill();
+      rectArrondi(g, x - 14, -100, 28, 20, 5); remplir(g, c);
+    });
+    trait(g, 0, 56, 0, -14); creux(g, 6, '#ffffff');
+    rectArrondi(g, -9, -42, 18, 30, 9); remplir(g, c);
+    trait(g, -24, 92, -24, 100); creux(g, 3, VOILE);
+  },
+
+  eclair(g, c){
+    poly(g, [[26, -104], [-50, 12], [-6, 12], [-28, 104], [54, -22], [8, -22]]); remplir(g, c);
+    poly(g, [[26, -104], [-50, 12], [-6, 12], [-28, 104], [54, -22], [8, -22]]); creux(g, 3, VOILE);
+  },
+
+  perle(g, c){
+    ovale(g, 0, 58, 98, 38); remplir(g, c);
+    g.beginPath(); g.ellipse(0, 52, 92, 22, 0, Math.PI, TAU); creux(g, 4, VOILE);
+    const rg = g.createRadialGradient(-18, -4, 4, 0, 10, 62);
+    rg.addColorStop(0, '#ffffff'); rg.addColorStop(0.55, '#e8efff'); rg.addColorStop(1, melange('#ffffff', c, 0.75));
+    rond(g, 0, 8, 58); g.fillStyle = rg; g.fill();
+    rond(g, 0, 8, 58); creux(g, 3, 'rgba(10,22,48,.25)');
+    ovale(g, -20, -16, 20, 11, -0.6); g.fillStyle = 'rgba(255,255,255,.9)'; g.fill();
+  },
+
+  hippocampe(g, c){
+    // Un corps en courbe : une chaîne de disques, de plus en plus petits.
+    const pts = [];
+    for(let i = 0; i <= 46; i++){
+      const t = i / 46;
+      pts.push([ -8 + 26 * Math.sin(t * 3.3 - 0.4) * (1 - 0.4 * t) , -62 + t * 120, 25 - 17 * Math.pow(t, 0.8) ]);
+    }
+    // La queue s'enroule.
+    for(let i = 1; i <= 16; i++){
+      const t = i / 16;
+      const a = Math.PI * 0.2 + t * Math.PI * 1.5;
+      pts.push([ -24 + Math.cos(a) * 30 * (1 - 0.45 * t), 62 + Math.sin(a) * 30 * (1 - 0.45 * t), 8 - 5 * t ]);
+    }
+    pts.forEach(([x, y, r]) => { rond(g, x, y, r); remplir(g, c); });
+    // La tête et le museau.
+    rond(g, -10, -68, 25); remplir(g, c);
+    ovale(g, -48, -62, 26, 8, 0.1); remplir(g, c);
+    g.beginPath(); g.moveTo(24, -24); g.quadraticCurveTo(64, -18, 50, 26); g.quadraticCurveTo(38, 4, 26, 12); g.closePath(); remplir(g, c);
+    [-40, -14, 12, 36].forEach((y, i) => { trait(g, -10 + 20 * Math.sin((y + 62) / 120 * 3.3 - 0.4), y, 18 + 20 * Math.sin((y + 62) / 120 * 3.3 - 0.4), y + 4); creux(g, 3, VOILE); });
+    rond(g, -4, -74, 5); g.fillStyle = ENCRE; g.fill();
+    // La couronne d'épines sur la tête.
+    [[-16, -90], [-4, -95], [8, -91]].forEach(([x, y]) => { poly(g, [[x - 5, y + 6], [x, y - 7], [x + 5, y + 6]]); g.fillStyle = c; g.fill(); });
+  },
+
+  baleine(g, c){
+    g.beginPath();
+    g.moveTo(-104, 12);
+    g.bezierCurveTo(-104, -40, -40, -52, 20, -30);
+    g.bezierCurveTo(54, -18, 72, -26, 84, -58);
+    g.bezierCurveTo(86, -72, 100, -76, 108, -68);
+    g.bezierCurveTo(112, -44, 98, -16, 76, 6);
+    g.bezierCurveTo(56, 26, 30, 50, -20, 54);
+    g.bezierCurveTo(-74, 56, -104, 40, -104, 12);
+    g.closePath(); remplir(g, c);
+    g.beginPath(); g.moveTo(-96, 24); g.bezierCurveTo(-60, 40, -20, 42, 30, 30); creux(g, 4, VOILE);
+    [-44, -28, -12, 4].forEach(x => { trait(g, x, 34, x + 4, 44); creux(g, 3, VOILE); });
+    rond(g, -72, 2, 6); g.fillStyle = ENCRE; g.fill();
+    [-1, 1].forEach(s => {
+      g.beginPath(); g.moveTo(-36, -48); g.quadraticCurveTo(-36 + s * 18, -68, -36 + s * 34, -62); creux(g, 7, '#ffffff');
+    });
+    trait(g, -36, -48, -36, -84); creux(g, 7, '#ffffff');
+  },
+
+  lune(g, c){
+    g.beginPath();
+    g.arc(0, 0, 80, -1.37, 0.50, true);
+    g.arc(30, -14, 66, 0.915, 4.49, false);
+    g.closePath(); remplir(g, c);
+    [[64, -58, 13], [84, 10, 8], [40, 66, 10]].forEach(([x, y, r]) => {
+      poly(g, [[x, y - r], [x + r * 0.26, y - r * 0.26], [x + r, y], [x + r * 0.26, y + r * 0.26], [x, y + r], [x - r * 0.26, y + r * 0.26], [x - r, y], [x - r * 0.26, y - r * 0.26]]);
+      g.fillStyle = '#ffffff'; g.fill();
+    });
+    g.beginPath();
+    for(let i = 0; i <= 30; i++){ const t = i / 30; const x = -96 + t * 192, y = 98 + Math.sin(t * TAU * 1.5) * 5; if(i) g.lineTo(x, y); else g.moveTo(x, y); }
+    creux(g, 6, c);
+  },
+
+  flamme(g, c){
+    g.beginPath();
+    g.moveTo(0, -106);
+    g.bezierCurveTo(32, -64, 74, -34, 66, 20);
+    g.bezierCurveTo(62, 62, 32, 96, 0, 98);
+    g.bezierCurveTo(-32, 96, -64, 64, -62, 26);
+    g.bezierCurveTo(-60, -4, -34, -18, -28, -52);
+    g.bezierCurveTo(-14, -38, -4, -62, 0, -106);
+    g.closePath(); remplir(g, c);
+    g.beginPath();
+    g.moveTo(2, -36); g.bezierCurveTo(22, -8, 44, 10, 38, 44); g.bezierCurveTo(34, 70, 14, 80, 0, 80);
+    g.bezierCurveTo(-18, 80, -36, 62, -34, 40); g.bezierCurveTo(-32, 20, -14, 12, -8, -8);
+    g.bezierCurveTo(-2, 4, 2, -16, 2, -36); g.closePath();
+    g.fillStyle = c; g.fill();
+    g.beginPath();
+    g.moveTo(0, 18); g.bezierCurveTo(14, 36, 20, 48, 14, 62); g.bezierCurveTo(10, 72, -10, 72, -14, 62);
+    g.bezierCurveTo(-18, 48, -8, 36, 0, 18); g.closePath();
+    g.fillStyle = '#ffffff'; g.fill();
+  },
+
+  soleil(g, c){
+    g.save();
+    g.beginPath(); g.rect(-130, -110, 260, 140); g.clip();
+    g.beginPath(); g.arc(0, 30, 54, Math.PI, TAU); remplir(g, c);
+    for(let i = 0; i < 9; i++){
+      const a = Math.PI * (1.08 + 0.84 * i / 8);
+      trait(g, Math.cos(a) * 70, 30 + Math.sin(a) * 70, Math.cos(a) * 100, 30 + Math.sin(a) * 100); creux(g, 9, i % 2 ? '#ffffff' : c);
+    }
+    g.restore();
+    trait(g, -110, 30, 110, 30); creux(g, 5, '#ffffff');
+    for(let k = 0; k < 3; k++){
+      g.beginPath();
+      for(let i = 0; i <= 30; i++){ const t = i / 30; const x = -90 + t * 180 + k * 10, y = 52 + k * 20 + Math.sin(t * TAU * 1.5 + k) * 5; if(i) g.lineTo(x, y); else g.moveTo(x, y); }
+      creux(g, 7, k === 1 ? c : '#ffffff');
+    }
+  },
+
+  couronne(g, c){
+    poly(g, [[-92, 62], [-92, -34], [-48, 10], [0, -66], [48, 10], [92, -34], [92, 62]]); remplir(g, c);
+    trait(g, -92, 36, 92, 36); creux(g, 5, VOILE);
+    [[-92, -46, 11], [0, -78, 13], [92, -46, 11]].forEach(([x, y, r]) => { rond(g, x, y, r); remplir(g, c); });
+    [-52, 0, 52].forEach((x, i) => { rond(g, x, 50, i === 1 ? 10 : 7); g.fillStyle = i === 1 ? c : ENCRE; g.fill(); });
+    poly(g, [[-20, 16], [0, -8], [20, 16], [0, 28]]); g.fillStyle = c; g.fill();
+  },
+
+  etoile(g, c){
+    const pts = [];
+    for(let i = 0; i < 10; i++){
+      const a = -Math.PI / 2 + i * Math.PI / 5;
+      const r = i % 2 ? 44 : 100;
+      pts.push([Math.cos(a) * r, Math.sin(a) * r + 4]);
+    }
+    poly(g, pts); remplir(g, c);
+  },
+
+  logo(g, c, logo){
+    if(!logo){ MOTIFS.etoile(g, c); return; }
+    const blanc = logoTeinte(logo, '#ffffff');
+    g.shadowColor = c;
+    g.shadowBlur = 24;
+    ajuster(g, blanc, 0, 0, 230, 130);
+    g.shadowBlur = 0;
+    ajuster(g, blanc, 0, 0, 230, 130);
+  }
+};
+
+// Le fond de l'illustration : quelques ondes qui partent du centre, comme sur
+// l'estrade de la machine, à peine visibles.
+function ondesDeFond(g, cx, cy, c, n){
+  g.save();
+  for(let i = 1; i <= n; i++){
+    g.beginPath();
+    g.arc(cx, cy, 34 + i * 34, 0, TAU);
+    g.lineWidth = 2;
+    g.strokeStyle = 'rgba(' + hexVersRgb(c).join(',') + ',' + (0.17 - i * 0.022) + ')';
+    g.stroke();
+  }
+  g.restore();
+}
+
+// Le texte sur plusieurs lignes, centré.
+function paragrapheCentre(g, texte, cx, y, largeur, interligne, maxLignes){
+
+  const mots = String(texte || '').split(/\s+/).filter(Boolean);
+  const lignes = [];
+  let cur = '';
+
+  mots.forEach(m => {
+    const essai = cur ? cur + ' ' + m : m;
+    if(g.measureText(essai).width > largeur && cur){
+      lignes.push(cur);
+      cur = m;
+    } else {
+      cur = essai;
+    }
+  });
+  if(cur) lignes.push(cur);
+
+  lignes.slice(0, maxLignes || 3).forEach((l, i) => g.fillText(l, cx, y + i * interligne));
+
+  return Math.min(lignes.length, maxLignes || 3);
+}
+
+// Le recto d'une carte. `echelle` réduit le dessin (l'album, en petit).
+function creerFaceCarte(carte, logo, echelle){
+
+  const k = echelle || 1;
+  const L = Math.round(CARTE_L * k), H = Math.round(CARTE_H * k);
+  const { c, x: g } = creerCanvas(L, H);
+
+  g.scale(k, k);
+
+  const R0 = rarete(carte.rarete);
+  const col = R0.couleur;
+
+  // Le fond : un dégradé nuit, teinté par la rareté au centre.
+  rectArrondi(g, 0, 0, CARTE_L, CARTE_H, 34);
+  g.save();
+  g.clip();
+
+  const fond = g.createLinearGradient(0, 0, 0, CARTE_H);
+  fond.addColorStop(0, '#0b1830');
+  fond.addColorStop(0.5, '#07111f');
+  fond.addColorStop(1, '#040a14');
+  g.fillStyle = fond;
+  g.fillRect(0, 0, CARTE_L, CARTE_H);
+
+  const lueur = g.createRadialGradient(256, 300, 10, 256, 300, 340);
+  lueur.addColorStop(0, 'rgba(' + hexVersRgb(col).join(',') + ',.30)');
+  lueur.addColorStop(1, 'rgba(' + hexVersRgb(col).join(',') + ',0)');
+  g.fillStyle = lueur;
+  g.fillRect(0, 0, CARTE_L, CARTE_H);
+
+  g.restore();
+
+  // Le cadre : un liseré de la couleur de la rareté, puis un filet.
+  rectArrondi(g, 7, 7, CARTE_L - 14, CARTE_H - 14, 28);
+  g.lineWidth = 4;
+  g.strokeStyle = col;
+  g.globalAlpha = 0.95;
+  g.stroke();
+  g.globalAlpha = 1;
+
+  rectArrondi(g, 18, 18, CARTE_L - 36, CARTE_H - 36, 20);
+  g.lineWidth = 1.5;
+  g.strokeStyle = 'rgba(255,255,255,.16)';
+  g.stroke();
+
+  // Le nom, réduit s'il est trop long.
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillStyle = '#ffffff';
+
+  let taille = 37;
+  g.font = '700 ' + taille + 'px ' + POLICE;
+  while(g.measureText(carte.nom).width > CARTE_L - 96 && taille > 22){
+    taille -= 1;
+    g.font = '700 ' + taille + 'px ' + POLICE;
+  }
+  g.fillText(carte.nom, 256, 62);
+
+  g.font = '600 17px ' + POLICE;
+  g.fillStyle = col;
+  texteEspace(g, String(carte.categorie || '').toUpperCase(), 256, 100, 5);
+
+  // La fenêtre de l'illustration.
+  const fx = 56, fy = 128, fl = 400, fh = 340;
+  rectArrondi(g, fx, fy, fl, fh, 22);
+  const fen = g.createLinearGradient(0, fy, 0, fy + fh);
+  fen.addColorStop(0, R0.sombre);
+  fen.addColorStop(1, '#050b16');
+  g.fillStyle = fen;
+  g.fill();
+
+  g.save();
+  rectArrondi(g, fx, fy, fl, fh, 22);
+  g.clip();
+  ondesDeFond(g, 256, 298, col, 6);
+
+  // Le dessin.
+  g.translate(256, 298);
+  g.scale(1.38, 1.38);
+  g.shadowColor = col;
+  g.shadowBlur = 20;
+  (MOTIFS[carte.motif] || MOTIFS.etoile)(g, col, logo);
+  g.restore();
+
+  rectArrondi(g, fx, fy, fl, fh, 22);
+  g.lineWidth = 2;
+  g.strokeStyle = 'rgba(' + hexVersRgb(col).join(',') + ',.6)';
+  g.stroke();
+
+  // La rareté : son nom, et autant de losanges que de crans.
+  g.textBaseline = 'middle';
+  g.font = '700 19px ' + POLICE;
+  g.fillStyle = col;
+  texteEspace(g, R0.nom.toUpperCase(), 256, 504, 6);
+
+  for(let i = 0; i < 4; i++){
+    const x = 256 + (i - 1.5) * 26, y = 536;
+    g.beginPath();
+    g.moveTo(x, y - 7); g.lineTo(x + 7, y); g.lineTo(x, y + 7); g.lineTo(x - 7, y);
+    g.closePath();
+    if(i < R0.pastilles){ g.fillStyle = col; g.fill(); }
+    else { g.lineWidth = 1.5; g.strokeStyle = 'rgba(255,255,255,.25)'; g.stroke(); }
+  }
+
+  // La phrase.
+  g.font = 'italic 500 23px ' + POLICE;
+  g.fillStyle = '#b4c6da';
+  g.textBaseline = 'alphabetic';
+  g.textAlign = 'center';
+  paragrapheCentre(g, '« ' + (carte.legende || '') + ' »', 256, 588, 388, 30, 3);
+
+  // Le pied : la série à gauche, le numéro à droite, un filet.
+  g.strokeStyle = 'rgba(255,255,255,.14)';
+  g.lineWidth = 1.5;
+  trait(g, 44, 664, CARTE_L - 44, 664);
+  g.stroke();
+
+  g.textBaseline = 'middle';
+  g.textAlign = 'left';
+  g.font = '700 14px ' + POLICE;
+  g.fillStyle = '#7fa3c4';
+  g.save();
+  g.translate(46, 686);
+  texteEspace(g, 'LA WAVE TCG', 50, 0, 4);
+  g.restore();
+
+  g.textAlign = 'right';
+  g.font = '700 15px ' + POLICE;
+  g.fillStyle = '#9fb8d0';
+  g.fillText(String(carte.id).padStart(2, '0') + ' / ' + (carte.total || 36), CARTE_L - 46, 686);
+
+  return c;
+}
+
+// Le masque du foil : là où le reflet arc-en-ciel a le droit de passer (le
+// dessin et le cadre, pas le texte).
+function creerMasqueCarte(carte){
+
+  const { c, x: g } = creerCanvas(CARTE_L, CARTE_H);
+
+  g.fillStyle = '#000000';
+  g.fillRect(0, 0, CARTE_L, CARTE_H);
+
+  g.fillStyle = '#ffffff';
+  rectArrondi(g, 56, 128, 400, 340, 22);
+  g.fill();
+
+  rectArrondi(g, 7, 7, CARTE_L - 14, CARTE_H - 14, 28);
+  g.lineWidth = 16;
+  g.strokeStyle = '#ffffff';
+  g.stroke();
+
+  // Les cartes épiques et légendaires brillent aussi sur leur titre.
+  if(rarete(carte.rarete).rang >= 2){
+    g.fillStyle = 'rgba(255,255,255,.55)';
+    g.fillRect(30, 36, CARTE_L - 60, 84);
+  }
+
+  return c;
+}
+
+// Le dos d'une carte : le même fond que le booster, le logo au milieu.
+function creerDosCarte(logo){
+
+  const { c, x: g } = creerCanvas(CARTE_L, CARTE_H);
+
+  rectArrondi(g, 0, 0, CARTE_L, CARTE_H, 34);
+  g.save();
+  g.clip();
+
+  const fond = g.createLinearGradient(0, 0, CARTE_L, CARTE_H);
+  fond.addColorStop(0, '#040a1a');
+  fond.addColorStop(0.5, '#0b2645');
+  fond.addColorStop(1, '#050c1d');
+  g.fillStyle = fond;
+  g.fillRect(0, 0, CARTE_L, CARTE_H);
+
+  for(let x = 0; x < CARTE_L; x += 32){
+    g.fillStyle = 'rgba(255,255,255,' + (0.016 + 0.018 * Math.sin(x * 0.11)) + ')';
+    g.fillRect(x, 0, 16, CARTE_H);
+  }
+
+  g.restore();
+
+  rectArrondi(g, 7, 7, CARTE_L - 14, CARTE_H - 14, 28);
+  g.lineWidth = 3;
+  g.strokeStyle = 'rgba(79,180,255,.75)';
+  g.stroke();
+
+  rectArrondi(g, 24, 24, CARTE_L - 48, CARTE_H - 48, 18);
+  g.lineWidth = 1.5;
+  g.strokeStyle = 'rgba(255,255,255,.16)';
+  g.stroke();
+
+  if(logo){
+    const blanc = logoTeinte(logo, '#ffffff');
+    g.shadowColor = '#4FB4FF';
+    g.shadowBlur = 18;
+    ajuster(g, blanc, CARTE_L / 2, 330, 300, 170);
+    g.shadowBlur = 0;
+    ajuster(g, blanc, CARTE_L / 2, 330, 300, 170);
+  }
+
+  g.textBaseline = 'middle';
+  g.fillStyle = '#ffffff';
+  g.font = '700 54px ' + POLICE;
+  g.shadowColor = 'rgba(79,180,255,.5)';
+  g.shadowBlur = 14;
+  texteEspace(g, 'TCG', CARTE_L / 2, 500, 16);
+  g.shadowBlur = 0;
+
+  g.strokeStyle = 'rgba(79,180,255,.35)';
+  g.lineWidth = 2;
+  g.beginPath();
+  for(let x = 90; x <= CARTE_L - 90; x += 4){
+    const y = 590 + Math.sin((x - 90) / (CARTE_L - 180) * TAU * 2) * 8;
+    if(x === 90) g.moveTo(x, y); else g.lineTo(x, y);
+  }
+  g.stroke();
+
+  return c;
+}
+
+
+
+/* ----------------------------------------------------------------------
+   L'ouverture d'un booster
+   ----------------------------------------------------------------------
+   Une seconde scène, vide et sombre, où le booster flotte au centre. On le
+   déchire d'un geste, les cinq cartes en sortent en pile, face cachée ; on
+   les retourne une à une, la dernière étant toujours une rare ou mieux. Les
+   cartes sont déjà tirées et enregistrées par la base quand l'animation
+   commence : ce qu'on voit est ce qu'on possède.
+   ---------------------------------------------------------------------- */
+
+const VS_CARTE = `
+varying vec2 vUv;
+void main(){
+  vUv = uv;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}`;
+
+// Le devant d'une carte : la texture, et par-dessus un reflet arc-en-ciel qui
+// glisse quand la carte s'incline, limité par un masque au dessin et au cadre.
+// Les épiques et les légendaires ont en plus des éclats, et les légendaires
+// tirent vers l'or.
+const FS_CARTE = `
+uniform sampler2D uFace;
+uniform sampler2D uMasque;
+uniform float uT;
+uniform float uFoil;
+uniform float uRang;
+uniform float uLueur;
+uniform vec2 uTilt;
+varying vec2 vUv;
+
+vec3 spectre(float x){
+  return 0.5 + 0.5 * cos(6.28318 * (x + vec3(0.0, 0.33, 0.67)));
+}
+
+float hasard(vec2 p){
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+void main(){
+  vec4 c = texture2D(uFace, vUv);
+  if(c.a < 0.5) discard;
+
+  float m = texture2D(uMasque, vUv).r;
+
+  float ang = vUv.x * 1.4 + vUv.y * 1.0 + uTilt.x * 1.6 - uTilt.y * 1.2 + uT * 0.05;
+  vec3 h = spectre(ang);
+  float bande = smoothstep(0.0, 0.2, 0.2 - abs(fract(ang * 0.75) - 0.5));
+
+  float etin = 0.0;
+  if(uRang > 1.5){
+    vec2 cell = floor(vUv * vec2(64.0, 90.0));
+    float r = hasard(cell + floor(uT * 5.0));
+    etin = step(0.988, r) * (0.55 + 0.45 * sin(uT * 10.0 + r * 40.0));
+  }
+
+  vec3 col = c.rgb;
+  col += m * uFoil * (h * 0.50 + bande * 0.30 + etin);
+  if(uRang > 2.5) col = mix(col, col * vec3(1.15, 1.04, 0.78), m * 0.45);
+  col *= 1.0 + uLueur * 0.3;
+
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+const CAM_OUV = { fov: 36, distance: 3.4 };
+const ECHELLE_PILE = 1.22, ECHELLE_GRANDE = 1.36;
+
+let ouv = null;           // l'ouverture en cours
+
+// Le fond : un halo bleu nuit, plus clair au centre.
+function creerFondOuverture(){
+  const { c, x: g } = creerCanvas(512, 512);
+  const rg = g.createRadialGradient(256, 256, 10, 256, 256, 380);
+  rg.addColorStop(0, '#10305a');
+  rg.addColorStop(0.45, '#071428');
+  rg.addColorStop(1, '#02050b');
+  g.fillStyle = rg;
+  g.fillRect(0, 0, 512, 512);
+  return c;
+}
+
+// Des rayons qui partent du centre, pour le moment où la carte apparaît.
+function creerRayons(){
+  const { c, x: g } = creerCanvas(512, 512);
+  g.translate(256, 256);
+  const n = 22;
+  for(let i = 0; i < n; i++){
+    g.save();
+    g.rotate(i / n * TAU + (i % 2) * 0.05);
+    const lg = g.createLinearGradient(0, 0, 250, 0);
+    lg.addColorStop(0, 'rgba(255,255,255,.9)');
+    lg.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = lg;
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(250, -6 - (i % 3) * 5);
+    g.lineTo(250, 6 + (i % 3) * 5);
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
+  const halo = g.createRadialGradient(0, 0, 0, 0, 0, 120);
+  halo.addColorStop(0, 'rgba(255,255,255,.8)');
+  halo.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = halo;
+  g.fillRect(-256, -256, 512, 512);
+  return c;
+}
+
+// La scène d'ouverture, construite au premier booster.
+function construireScenePaquet(){
+
+  if(R.paq) return R.paq;
+
+  const sc = new THREE.Scene();
+  sc.background = new THREE.Color(0x02050b);
+
+  const cam = new THREE.PerspectiveCamera(CAM_OUV.fov, 1, 0.1, 30);
+  cam.position.set(0, 0, CAM_OUV.distance);
+
+  const fond = new THREE.Mesh(
+    new THREE.PlaneGeometry(16, 10),
+    new THREE.MeshBasicMaterial({ map: R.texture(creerFondOuverture()), depthWrite: false })
+  );
+  fond.position.z = -2.4;
+  sc.add(fond);
+
+  const rayons = new THREE.Mesh(
+    new THREE.PlaneGeometry(8, 8),
+    new THREE.MeshBasicMaterial({
+      map: R.texture(creerRayons()), transparent: true, opacity: 0, depthWrite: false,
+      blending: THREE.AdditiveBlending, color: 0x6fb8ff
+    })
+  );
+  rayons.position.z = -1.1;
+  sc.add(rayons);
+
+  // De quoi éclairer le booster (les cartes, elles, se passent de lumière).
+  sc.add(new THREE.AmbientLight(0xffffff, 0.62));
+  const clef = new THREE.DirectionalLight(0xffffff, 0.55);
+  clef.position.set(1.5, 2, 3);
+  sc.add(clef);
+  const lueur = new THREE.PointLight(0x6fb8ff, 0.7, 9);
+  lueur.position.set(-1.6, 1.0, 2.2);
+  sc.add(lueur);
+
+  // Les étincelles.
+  const N = 260;
+  const pos = new Float32Array(N * 3).fill(-50);
+  const col = new Float32Array(N * 3);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+
+  const points = new THREE.Points(g, new THREE.PointsMaterial({
+    size: 0.09, map: R.halo, vertexColors: true, transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending, sizeAttenuation: true
+  }));
+  points.frustumCulled = false;
+  points.renderOrder = 10;
+  sc.add(points);
+
+  R.paq = {
+    scene: sc, cam, fond, rayons, lueur,
+    etincelles: { n: N, pos, col, vel: new Float32Array(N * 3), vie: new Float32Array(N), points, suite: 0 },
+    dos: R.texture(creerDosCarte(R.logo))
+  };
+
+  // Le dos de carte n'a pas besoin de mipmaps : il est grand et frontal.
+  R.paq.dos.minFilter = THREE.LinearFilter;
+  R.paq.dos.generateMipmaps = false;
+
+  return R.paq;
+}
+
+// Une gerbe d'étincelles de la couleur de la rareté.
+function etincelles(x, y, z, couleur, n, vitesse){
+
+  const E = R.paq.etincelles;
+  const c = new THREE.Color(couleur);
+
+  for(let k = 0; k < n; k++){
+    const i = E.suite;
+    E.suite = (E.suite + 1) % E.n;
+
+    const a = Math.random() * TAU;
+    const b = (Math.random() - 0.3) * Math.PI;
+    const v = (0.3 + Math.random() * 0.9) * vitesse;
+
+    E.pos[i * 3] = x; E.pos[i * 3 + 1] = y; E.pos[i * 3 + 2] = z;
+    E.vel[i * 3] = Math.cos(a) * Math.cos(b) * v;
+    E.vel[i * 3 + 1] = Math.sin(b) * v + 0.4;
+    E.vel[i * 3 + 2] = Math.sin(a) * Math.cos(b) * v * 0.5 + 0.3;
+    E.vie[i] = 0.7 + Math.random() * 0.9;
+
+    const t = Math.random();
+    E.col[i * 3] = lerp(c.r, 1, t * 0.5);
+    E.col[i * 3 + 1] = lerp(c.g, 1, t * 0.5);
+    E.col[i * 3 + 2] = lerp(c.b, 1, t * 0.5);
+  }
+}
+
+// Le booster en deux parties : le corps, et la bande du haut, qu'on arrache.
+// La déchirure est irrégulière.
+function geoBoosterDeux(l, h, e){
+
+  const g = geoBooster(l, h, e);
+  const pos = g.attributes.position;
+
+  const gx = 8, rangs = 4;
+
+  for(let ix = 0; ix <= gx; ix++){
+    const i = rangs * (gx + 1) + ix;
+    pos.setY(i, pos.getY(i) + (ix % 2 ? 0.012 : -0.010) * h / 0.72);
+  }
+
+  g.computeVertexNormals();
+
+  const idx = g.index.array;
+  const haut = [], bas = [];
+
+  for(let t = 0; t < idx.length / 3; t++){
+    const rang = Math.floor(Math.floor(t / 2) / gx);
+    (rang < rangs ? haut : bas).push(idx[t * 3], idx[t * 3 + 1], idx[t * 3 + 2]);
+  }
+
+  const mk = liste => { const c = g.clone(); c.setIndex(liste); return c; };
+
+  return { haut: mk(haut), bas: mk(bas) };
+}
+
+// Le booster de l'ouverture : quatre formes (devant et dos, haut et bas),
+// dont les matériaux peuvent s'effacer.
+function creerPaquetOuverture(){
+
+  const L = 0.50, H = 0.75;
+  const { haut, bas } = geoBoosterDeux(L, H, 0.05);
+
+  const groupe = new THREE.Group();
+
+  const faceMat = () => new THREE.MeshPhongMaterial({
+    map: R.matBoosterFace.map, specular: 0x4a6a8a, shininess: 70, transparent: true
+  });
+  const dosMat = () => new THREE.MeshPhongMaterial({
+    map: R.matBoosterDos.map, specular: 0x4a6a8a, shininess: 70, transparent: true
+  });
+
+  const partie = (geo) => {
+    const g = new THREE.Group();
+    const mF = faceMat(), mD = dosMat();
+    const dos = geo.clone();
+    dos.rotateY(Math.PI);
+    const f = new THREE.Mesh(geo, mF), d = new THREE.Mesh(dos, mD);
+    const mR = new THREE.MeshBasicMaterial({
+      map: R.reflet, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    const r = new THREE.Mesh(geo, mR);
+    r.position.z = 0.0008;
+    g.add(f, d, r);
+    return { groupe: g, mats: [mF, mD, mR], base: [1, 1, 0.22] };
+  };
+
+  const corps = partie(bas), bande = partie(haut);
+  groupe.add(corps.groupe, bande.groupe);
+
+  return { groupe, corps, bande, hauteur: H };
+}
+
+// Les règles d'une rareté dans l'ouverture : quelle gerbe, quelle secousse.
+function effetRarete(r){
+  return [
+    { etin: 0, vit: 0, flash: 0, secousse: 0 },
+    { etin: 26, vit: 1.4, flash: 0.25, secousse: 0 },
+    { etin: 70, vit: 2.0, flash: 0.5, secousse: 0.008 },
+    { etin: 150, vit: 2.8, flash: 0.9, secousse: 0.018 }
+  ][r];
+}
+
+// Une carte : son devant (shader holographique) et son dos.
+function creerCarte3D(carte){
+
+  const L = 0.63, H = 0.88;
+
+  const face = R.texture(creerFaceCarte(carte, R.logo, 1));
+  const masque = R.texture(creerMasqueCarte(carte));
+
+  [face, masque].forEach(t => { t.minFilter = THREE.LinearFilter; t.generateMipmaps = false; });
+
+  const cfg = rarete(carte.rarete);
+
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uFace: { value: face }, uMasque: { value: masque }, uT: { value: 0 },
+      uFoil: { value: cfg.foil }, uRang: { value: cfg.rang }, uLueur: { value: 0 },
+      uTilt: { value: new THREE.Vector2() }
+    },
+    vertexShader: VS_CARTE,
+    fragmentShader: FS_CARTE
+  });
+
+  const matDos = new THREE.MeshBasicMaterial({ map: R.paq.dos, alphaTest: 0.5 });
+
+  const groupe = new THREE.Group();
+
+  const devant = new THREE.Mesh(new THREE.PlaneGeometry(L, H), mat);
+  devant.position.z = 0.002;
+
+  const dos = new THREE.Mesh(new THREE.PlaneGeometry(L, H), matDos);
+  dos.rotation.y = Math.PI;
+  dos.position.z = -0.002;
+
+  groupe.add(devant, dos);
+
+  return {
+    carte, groupe, mat, matDos, textures: [face, masque],
+    etat: { x: 0, y: -0.25, z: -0.06, s: 0.9, rx: 0, ry: Math.PI, rz: 0 },
+    tw: null, revelee: false, phase: hasard(0, TAU), etiq: null, jalons: null, flotte: 0
+  };
+}
+
+function libererCarte3D(c){
+  c.groupe.traverse(o => { if(o.geometry) o.geometry.dispose(); });
+  c.textures.forEach(t => t.dispose());
+  c.mat.dispose();
+  c.matDos.dispose();
+  if(c.etiq) c.etiq.remove();
+}
+
+// Un mouvement de la carte vers un état, avec retard et, si on veut, une
+// élévation en cours de route.
+function deplacerCarte(c, vers, duree, delai, arc, fin){
+  c.tw = {
+    de: Object.assign({}, c.etat), vers: Object.assign({}, c.etat, vers),
+    t: -(delai || 0), duree, arc: arc || 0, fin: fin || null
+  };
+  c.jalons = null;
+}
+
+// La largeur et la hauteur que voit la caméra, à la profondeur des cartes.
+function champOuverture(){
+  const hv = 2 * (R.paq.distance || CAM_OUV.distance) * Math.tan(CAM_OUV.fov * Math.PI / 360);
+  return { h: hv, l: hv * R.paq.cam.aspect };
+}
+
+// La place dont disposent les cartes à l'écran : ce qui reste quand on ôte, en
+// pixels, le haut de l'écran (le titre, les boutons de la salle) et le bas (la
+// phrase, les boutons de l'ouverture). Rend la hauteur du centre de cette
+// zone, dans les unités de la scène, et la plus grande échelle de carte qui y
+// tient.
+function zoneCartes(haut, bas){
+
+  const { h } = champOuverture();
+  const hPx = Math.max(240, overlay.clientHeight);
+  const libre = Math.max(80, hPx - haut - bas);
+
+  return {
+    y: h * (bas - haut) / (2 * hPx),
+    hauteur: h * libre / hPx,
+    l: champOuverture().l
+  };
+}
+
+// La carte qu'on retourne, ou la pile : grandes, dans la zone libre.
+function cadreCarte(){
+
+  const z = zoneCartes(54, 138);
+
+  return {
+    y: z.y,
+    grand: Math.min(ECHELLE_GRANDE, z.hauteur / 0.88, z.l * 0.86 / 0.63),
+    pile: Math.min(ECHELLE_PILE, z.hauteur / 0.88 * 0.93, z.l * 0.8 / 0.63)
+  };
+}
+
+// Les places des cartes au bilan : une rangée sur un écran large, deux
+// rangées sur un écran en hauteur.
+function placesBilan(n){
+
+  const { l, h } = champOuverture();
+  const z = zoneCartes(132, 118);
+
+  const colonnes = l / h > 1.45 ? n : Math.ceil(n / 2);
+  const rangees = Math.ceil(n / colonnes);
+
+  // Entre deux rangées, de la place pour l'étiquette (« nouvelle », « déjà ×2 »).
+  const interligne = rangees > 1 ? 1.34 : 1.06;
+
+  const s = Math.min((l * 0.94 / colonnes) / 0.63 / 1.06, (z.hauteur / rangees) / 0.88 / interligne, 1.05);
+
+  const places = [];
+
+  for(let i = 0; i < n; i++){
+    const r = Math.floor(i / colonnes);
+    const dansRangee = Math.min(colonnes, n - r * colonnes);
+    const k = i - r * colonnes;
+    places.push({
+      x: (k - (dansRangee - 1) / 2) * 0.63 * s * 1.06,
+      y: ((rangees - 1) / 2 - r) * 0.88 * s * interligne + z.y,
+      s
+    });
+  }
+
+  return places;
+}
+
+// Les cartes déjà vues se rangent en attendant les autres : en colonne, sur le
+// côté gauche d'un écran large ; en rangée, en haut d'un écran en hauteur.
+function placeRangee(k, n){
+
+  const { l, h } = champOuverture();
+
+  if(l / h > 1.3){
+    const s = 0.34;
+    const pas = 0.88 * s * 1.12;
+    return { x: -l * 0.41, y: ((n - 1) / 2 - k) * pas, s };
+  }
+
+  const pas = Math.min(l * 0.19, 0.3);
+  const s = pas * 0.9 / 0.63;
+  return { x: (k - (n - 1) / 2) * pas, y: h * 0.355, s };
+}
+
+function placePile(j){
+
+  const c = cadreCarte();
+
+  return {
+    x: j * 0.012, y: c.y - j * 0.006, z: -j * 0.014, s: c.pile,
+    rx: 0, ry: Math.PI, rz: (j % 2 ? 1 : -1) * 0.018 * Math.min(j, 3)
+  };
+}
+
+function redimensionnerOuverture(){
+  if(!R.paq) return;
+
+  const l = overlay.clientWidth, h = overlay.clientHeight;
+  if(!l || !h) return;
+
+  const cam = R.paq.cam;
+  cam.aspect = l / h;
+
+  // Sur un écran en hauteur, on recule pour garder la carte entière et la
+  // largeur utile.
+  const hv = 2 * CAM_OUV.distance * Math.tan(CAM_OUV.fov * Math.PI / 360);
+  const minL = 1.25;
+  const d = cam.aspect < minL / hv ? minL / cam.aspect / (2 * Math.tan(CAM_OUV.fov * Math.PI / 360)) : CAM_OUV.distance;
+
+  cam.position.z = d;
+  R.paq.distance = d;
+  cam.updateProjectionMatrix();
+}
+
+// Le texte et les boutons de l'ouverture.
+function majInterfaceOuverture(){
+
+  if(!ouv || !H.ouv) return;
+
+  const n = ouv.cartes.length;
+  let indice = '', action = '', passer = false;
+
+  if(ouv.phase === 'attente'){
+    indice = etat.tactile ? 'Touche le booster pour l’ouvrir.' : 'Clique ou appuie sur Entrée pour ouvrir.';
+    action = 'Ouvrir le booster';
+  } else if(ouv.phase === 'pile'){
+    indice = 'Carte ' + (ouv.i + 1) + ' sur ' + n;
+    action = 'Retourner la carte';
+    passer = true;
+  } else if(ouv.phase === 'carte'){
+    // La carte dit tout : sa rareté, et l'étiquette « nouvelle » ou « déjà ×2 ».
+    action = ouv.i + 1 < n ? 'Carte suivante' : 'Voir le tirage';
+    passer = ouv.i + 1 < n;
+  }
+
+  H.ouvIndice.textContent = indice;
+  H.ouvAction.textContent = action;
+  H.ouvAction.hidden = !action;
+  H.ouvAction.disabled = ouv.phase === 'dechire' || ouv.phase === 'retourne';
+  H.ouvPasser.hidden = !passer;
+  H.ouvBilan.hidden = ouv.phase !== 'bilan';
+  H.ouvIndice.hidden = !indice;
+
+  if(ouv.phase === 'bilan'){
+    const nouvelles = ouv.cartes.filter(c => c.carte.nouvelle).length;
+    H.ouvTitre.textContent = 'Ton tirage';
+    H.ouvResume.textContent = nouvelles
+      ? nouvelles + ' nouvelle' + (nouvelles > 1 ? 's' : '') + ' · ' + (n - nouvelles) + ' déjà possédée' + (n - nouvelles > 1 ? 's' : '')
+      : 'Que des cartes déjà possédées : la prochaine sera la bonne.';
+    const restants = etat.bourse ? etat.bourse.boosters : 0;
+    H.ouvAutre.hidden = restants < 1;
+    H.ouvAutre.textContent = 'Ouvrir un autre booster (' + restants + ')';
+    H.ouvResume.hidden = false;
+  } else {
+    H.ouvTitre.textContent = '';
+    H.ouvResume.hidden = true;
+  }
+
+  // L'action principale porte le focus : Entrée ou Espace la déclenchent.
+  if(!H.ouvAction.hidden && !H.ouvAction.disabled && document.activeElement !== H.ouvAction){
+    H.ouvAction.focus({ preventScroll: true });
+  }
+}
+
+function flasher(couleur, force){
+  if(!H.ouvFlash) return;
+  H.ouvFlash.style.background = couleur;
+  H.ouvFlash.style.setProperty('--wv-force', String(force));
+  H.ouvFlash.classList.remove('on');
+  void H.ouvFlash.offsetWidth;
+  H.ouvFlash.classList.add('on');
+}
+
+// L'étiquette d'une carte (« nouvelle », « ×2 »), collée à la carte.
+function poserEtiquette(c){
+
+  if(c.etiq) return;
+
+  const q = Number(c.carte.quantite) || 1;
+  const el = document.createElement('span');
+  el.className = 'wv-ouv-etiq ' + (c.carte.nouvelle ? 'nouvelle' : 'doublon');
+  el.textContent = c.carte.nouvelle ? 'Nouvelle' : 'Déjà ×' + q;
+  H.ouvEtiq.appendChild(el);
+  c.etiq = el;
+}
+
+function placerEtiquettes(){
+
+  if(!ouv) return;
+
+  const cam = R.paq.cam;
+  const l = overlay.clientWidth, h = overlay.clientHeight;
+
+  ouv.cartes.forEach(c => {
+    if(!c.etiq) return;
+    const visible = c.revelee && c.etat.s > 0.45;
+    c.etiq.style.display = visible ? '' : 'none';
+    if(!visible) return;
+
+    const v = new THREE.Vector3(c.groupe.position.x, c.groupe.position.y - 0.44 * c.etat.s - 0.03, c.groupe.position.z + 0.02);
+    v.project(cam);
+    c.etiq.style.left = ((v.x + 1) / 2 * l) + 'px';
+    c.etiq.style.top = ((1 - v.y) / 2 * h) + 'px';
+  });
+}
+
+// On entre dans l'ouverture.
+function lancerOuverture(res){
+
+  // Une ouverture déjà en cours (deux réponses qui se croisent) est d'abord
+  // rangée.
+  if(ouv) fermerOuverture(false);
+
+  let P = null, paquet = null;
+  const cartes3D = [];
+
+  try{
+
+    P = construireScenePaquet();
+
+    const donnees = res.cartes.map(c => Object.assign({}, c, { total: res.cartes_total }));
+    const meilleur = donnees.reduce((m, c) => Math.max(m, rarete(c.rarete).rang), 0);
+
+    paquet = creerPaquetOuverture();
+    paquet.groupe.position.set(0, 0, 0);
+    paquet.groupe.scale.setScalar(1.55);
+    P.scene.add(paquet.groupe);
+
+    donnees.forEach(c => {
+      const c3 = creerCarte3D(c);
+      c3.groupe.visible = false;
+      P.scene.add(c3.groupe);
+      cartes3D.push(c3);
+    });
+
+    ouv = {
+      phase: 'attente', t: 0, i: 0, data: donnees, meilleur, res,
+      paquet, cartes: cartes3D, vite: false,
+      pointeur: { x: 0, y: 0 }, secousse: 0, peutSuivre: false, flags: {},
+      bande: { x: 0, y: 0, z: 0, rz: 0, vx: 0, vy: 0, vrz: 0 }
+    };
+
+    P.rayons.material.opacity = 0;
+    P.rayons.material.color.set(rarete(['commune', 'rare', 'epique', 'legendaire'][meilleur]).couleur);
+    P.lueur.intensity = 0.7;
+    P.cam.position.x = 0;
+    P.cam.position.y = 0;
+
+    redimensionnerOuverture();
+
+    H.ouvEtiq.innerHTML = '';
+    H.ouv.hidden = false;
+    overlay.classList.add('wv-en-ouverture');
+
+    montrerEcran('ouverture');
+    majInterfaceOuverture();
+    Son.clic();
+
+  }catch(e){
+
+    // Le booster est déjà ouvert côté base : les cartes sont dans la
+    // collection. Ce qui a échoué, c'est la mise en scène ; on range ce qui
+    // a été posé et on revient à la boutique, avec de quoi aller voir l'album.
+    if(P){
+      if(paquet) rangerPaquet(P, paquet);
+      cartes3D.forEach(c => { P.scene.remove(c.groupe); libererCarte3D(c); });
+    }
+
+    ouv = null;
+
+    if(H.ouv) H.ouv.hidden = true;
+    if(H.ouvEtiq) H.ouvEtiq.innerHTML = '';
+    overlay.classList.remove('wv-en-ouverture');
+
+    etat.alerte = 'Tes cartes sont dans ta collection, mais leur présentation a échoué : ouvre ton album pour les voir.';
+    Son.erreur();
+
+    montrerEcran('boutique');
+    majBoutique();
+  }
+}
+
+// Retire le booster de la scène et libère ce qu'il a coûté.
+function rangerPaquet(P, paquet){
+  P.scene.remove(paquet.groupe);
+  paquet.groupe.traverse(o => {
+    if(o.geometry) o.geometry.dispose();
+    if(o.material) o.material.dispose();
+  });
+}
+
+function dechirer(){
+
+  if(!ouv || ouv.phase !== 'attente') return;
+
+  ouv.phase = 'dechire';
+  ouv.t = 0;
+  majInterfaceOuverture();
+  Son.dechire();
+}
+
+function retourner(){
+
+  if(!ouv || ouv.phase !== 'pile') return;
+
+  const c = ouv.cartes[ouv.i];
+  ouv.phase = 'retourne';
+  ouv.peutSuivre = false;
+
+  const cadre = cadreCarte();
+
+  deplacerCarte(c, { x: 0, y: cadre.y, z: 0.5, s: cadre.grand, rx: 0, ry: 0, rz: 0 }, 0.95, 0, 0.3, () => {
+    revelerCarte(c);
+    ouv.phase = 'carte';
+    ouv.peutSuivre = true;
+    majInterfaceOuverture();
+    if(ouv.vite) toutRevelerOuverture();
+  });
+
+  // Le bruit du retournement : quand la carte passe de chant.
+  c.jalons = [{ u: 0.42, f: () => Son.flip() }];
+
+  majInterfaceOuverture();
+}
+
+// La carte est face visible : gerbe, éclair, étiquette, et le son de sa rareté.
+function revelerCarte(c, discret){
+
+  c.revelee = true;
+
+  const rang = rarete(c.carte.rarete).rang;
+  const fx = effetRarete(rang);
+  const couleur = rarete(c.carte.rarete).couleur;
+
+  poserEtiquette(c);
+
+  if(!discret){
+    if(fx.etin) etincelles(c.groupe.position.x, c.groupe.position.y, c.groupe.position.z + 0.1, couleur, fx.etin, fx.vit);
+    if(fx.flash) flasher(couleur, fx.flash);
+    ouv.secousse = Math.max(ouv.secousse, fx.secousse);
+    if(rang >= 1){
+      R.paq.rayons.material.color.set(couleur);
+      ouv.rayons = 1;
+    }
+    Son.carte(c.carte.rarete, c.carte.nouvelle);
+  }
+}
+
+function suivante(){
+
+  if(!ouv || ouv.phase !== 'carte' || !ouv.peutSuivre) return;
+
+  const n = ouv.cartes.length;
+  const c = ouv.cartes[ouv.i];
+
+  ouv.peutSuivre = false;
+
+  // La carte vue se range en bas ; la pile se resserre.
+  const fait = ouv.i;
+  ouv.i++;
+
+  if(ouv.i >= n){
+    versBilan(false);
+    return;
+  }
+
+  const p = placeRangee(fait, n);
+  deplacerCarte(c, { x: p.x, y: p.y, z: 0.05, s: p.s, rx: 0, ry: 0, rz: 0 }, 0.55, 0, 0.1);
+  Son.clic();
+
+  for(let k = ouv.i; k < n; k++){
+    deplacerCarte(ouv.cartes[k], placePile(k - ouv.i), 0.5, 0.05 * (k - ouv.i));
+  }
+
+  // Les cartes déjà rangées se décalent pour laisser la place à la suivante.
+  for(let k = 0; k < fait; k++){
+    const q = placeRangee(k, n);
+    deplacerCarte(ouv.cartes[k], { x: q.x, y: q.y, s: q.s }, 0.5, 0);
+  }
+
+  ouv.phase = 'pile';
+  majInterfaceOuverture();
+}
+
+// Toutes les cartes à leur place, face visible.
+function versBilan(tout){
+
+  const n = ouv.cartes.length;
+  const places = placesBilan(n);
+
+  ouv.phase = 'bilan';
+  ouv.peutSuivre = false;
+
+  ouv.cartes.forEach((c, k) => {
+    const p = places[k];
+    if(!c.revelee) revelerCarte(c, true);
+    deplacerCarte(c, { x: p.x, y: p.y, z: 0, s: p.s, rx: 0, ry: 0, rz: 0 }, 0.75, 0.07 * k, 0.25);
+  });
+
+  if(tout){
+    const rang = ouv.meilleur;
+    const fx = effetRarete(rang);
+    const couleur = rarete(['commune', 'rare', 'epique', 'legendaire'][rang]).couleur;
+    if(fx.etin) etincelles(0, 0, 0.3, couleur, fx.etin, fx.vit);
+    if(fx.flash) flasher(couleur, fx.flash);
+    Son.carte(['commune', 'rare', 'epique', 'legendaire'][rang], false);
+  }
+
+  majInterfaceOuverture();
+}
+
+function toutRevelerOuverture(){
+
+  if(!ouv) return;
+
+  // Pendant que le booster s'ouvre ou qu'une carte se retourne, on note le
+  // souhait : le tirage s'ouvre en grand dès que la scène est prête. Le
+  // booster est déjà consommé, personne ne doit rester coincé devant.
+  if(ouv.phase === 'attente'){
+    ouv.vite = true;
+    dechirer();
+    return;
+  }
+
+  if(ouv.phase === 'dechire' || ouv.phase === 'retourne'){
+    ouv.vite = true;
+    return;
+  }
+
+  if(ouv.phase !== 'pile' && ouv.phase !== 'carte') return;
+
+  ouv.vite = false;
+
+  // Une carte en train d'être retournée finit sa course, sans gerbe.
+  const c = ouv.cartes[ouv.i];
+  if(ouv.phase === 'carte'){
+    ouv.i++;
+  }
+
+  versBilan(true);
+}
+
+// Un geste de la personne : clic, touche, bouton.
+function avancerOuverture(){
+
+  if(!ouv) return;
+
+  if(ouv.phase === 'attente') dechirer();
+  else if(ouv.phase === 'pile') retourner();
+  else if(ouv.phase === 'carte') suivante();
+}
+
+function fermerOuverture(versBoutique){
+
+  if(!ouv) return;
+
+  const P = R.paq;
+
+  rangerPaquet(P, ouv.paquet);
+
+  ouv.cartes.forEach(c => { P.scene.remove(c.groupe); libererCarte3D(c); });
+
+  const E = P.etincelles;
+  E.pos.fill(-50);
+  E.vie.fill(0);
+  E.points.geometry.attributes.position.needsUpdate = true;
+
+  ouv = null;
+
+  H.ouv.hidden = true;
+  H.ouvEtiq.innerHTML = '';
+  overlay.classList.remove('wv-en-ouverture');
+
+  if(versBoutique){
+    etat.fermeeA = performance.now();
+    if(croupier) croupier.accueillir(true);
+    etat.remarque = choisir(PAROLES_CROUPIER);
+    montrerEcran('boutique');
+    majBoutique();
+  }
+}
+
+// Un autre booster, tout de suite.
+async function ouvrirUnAutre(){
+  fermerOuverture(true);
+  await ouvrirBooster();
+}
+
+// Le mouvement de la scène, à chaque image.
+function majOuverture(dt){
+
+  if(!ouv) return;
+
+  const P = R.paq;
+  const t = temps;
+
+  ouv.t += dt;
+
+  // Le fond respire ; les rayons tournent.
+  P.rayons.rotation.z += dt * (etat.reduit ? 0.02 : 0.12);
+
+  const cibleRayons = ouv.phase === 'attente' ? 0.06 : (ouv.rayons ? 0.8 : 0.16);
+  P.rayons.material.opacity += (cibleRayons - P.rayons.material.opacity) * Math.min(1, dt * 4);
+  if(ouv.rayons) ouv.rayons = Math.max(0, ouv.rayons - dt * 0.9);
+
+  // La secousse de la caméra, qui retombe.
+  ouv.secousse = Math.max(0, ouv.secousse - dt * 0.05);
+  const tremble = etat.reduit ? 0 : ouv.secousse;
+  P.cam.position.x = (Math.random() - 0.5) * tremble * 2;
+  P.cam.position.y = (Math.random() - 0.5) * tremble * 2;
+
+  const pa = ouv.paquet;
+
+  if(ouv.phase === 'attente'){
+
+    const b = etat.reduit ? 0 : Math.sin(t * 1.3) * 0.03;
+    pa.groupe.position.set(0, b, 0);
+    pa.groupe.rotation.set(etat.reduit ? 0 : Math.sin(t * 0.7) * 0.04, etat.reduit ? 0 : Math.sin(t * 0.9) * 0.3, 0);
+
+  } else if(ouv.phase === 'dechire'){
+
+    const u = ouv.t;
+
+    // 0 → 0,45 : le paquet tremble et s'illumine.
+    const t1 = clamp(u / 0.45, 0, 1);
+    pa.groupe.rotation.z = etat.reduit ? 0 : Math.sin(u * 70) * 0.05 * t1;
+    pa.groupe.rotation.y *= 0.92;
+    pa.groupe.position.x = etat.reduit ? 0 : Math.sin(u * 83) * 0.012 * t1;
+    P.lueur.intensity = 0.7 + 2.2 * t1;
+
+    // À 0,45 : la bande part, une gerbe d'étincelles, un éclair.
+    if(u >= 0.45 && !ouv.flags.dechire){
+      ouv.flags.dechire = true;
+      const couleur = rarete(['commune', 'rare', 'epique', 'legendaire'][ouv.meilleur]).couleur;
+      etincelles(0, pa.hauteur * 0.6, 0.2, '#9fd4ff', 70, 2.4);
+      flasher('#cfe8ff', 0.55);
+      ouv.secousse = 0.012;
+      ouv.rayons = 1;
+      P.rayons.material.color.set(couleur);
+
+      const b = ouv.bande;
+      b.vx = 1.5; b.vy = 1.7; b.vrz = -3.2;
+      Son.dechire(true);
+    }
+
+    if(ouv.flags.dechire){
+      const b = ouv.bande;
+      const dtb = dt;
+      b.vy -= 2.2 * dtb;
+      b.x += b.vx * dtb;
+      b.y += b.vy * dtb;
+      b.rz += b.vrz * dtb;
+      pa.bande.groupe.position.set(b.x, b.y, 0.25);
+      pa.bande.groupe.rotation.z = b.rz;
+      const a = clamp(1 - (u - 0.45) / 0.7, 0, 1);
+      pa.bande.mats.forEach((m, k) => { m.opacity = pa.bande.base[k] * a; });
+    }
+
+    // Les cartes montent, puis le corps du paquet descend en s'effaçant.
+    if(u >= 0.7 && !ouv.flags.cartes){
+      ouv.flags.cartes = true;
+      ouv.cartes.forEach((c, k) => {
+        c.groupe.visible = true;
+        deplacerCarte(c, placePile(k), 0.8, 0.07 * k, 0.12);
+      });
+    }
+
+    if(u >= 0.7){
+      const v = clamp((u - 0.7) / 0.7, 0, 1);
+      pa.corps.groupe.position.y = -v * 0.9;
+      pa.corps.mats.forEach((m, k) => { m.opacity = pa.corps.base[k] * (1 - v); });
+      P.lueur.intensity = lerp(2.9, 0.7, v);
+    }
+
+    if(u >= 1.7){
+      pa.groupe.visible = false;
+      ouv.phase = 'pile';
+      majInterfaceOuverture();
+      if(ouv.vite) toutRevelerOuverture();
+    }
+  }
+
+  // Les cartes : mouvements en cours, flottement, inclinaison vers la souris.
+  ouv.cartes.forEach((c, k) => {
+
+    if(c.tw){
+
+      const w = c.tw;
+      w.t += dt;
+
+      const u = clamp(w.t / w.duree, 0, 1);
+
+      if(w.t >= 0){
+        const e = entreeSortie(u);
+        ['x', 'y', 'z', 's', 'rx', 'ry', 'rz'].forEach(cle => {
+          c.etat[cle] = lerp(w.de[cle], w.vers[cle], e);
+        });
+        c.etat.z += Math.sin(u * Math.PI) * w.arc;
+
+        if(c.jalons){
+          c.jalons = c.jalons.filter(j => {
+            if(u >= j.u){ j.f(); return false; }
+            return true;
+          });
+        }
+
+        if(u >= 1){
+          const fin = w.fin;
+          c.tw = null;
+          if(fin) fin();
+        }
+      }
+    }
+
+    // La carte du dessus et les cartes du bilan flottent doucement.
+    const dessus = (ouv.phase === 'pile' && k === ouv.i) || (ouv.phase === 'carte' && k === ouv.i);
+    const enBilan = ouv.phase === 'bilan' && !c.tw;
+    const cible = (dessus || enBilan) && !etat.reduit ? 1 : 0;
+    c.flotte += (cible - c.flotte) * Math.min(1, dt * 3);
+
+    const ph = t * 0.9 + c.phase;
+    let incX = 0, incY = 0;
+
+    if(dessus && !c.tw){
+      incX = -ouv.pointeur.y * 0.35;
+      incY = ouv.pointeur.x * 0.45;
+    }
+
+    const e = c.etat;
+
+    c.groupe.position.set(e.x, e.y + Math.sin(ph) * 0.012 * c.flotte, e.z);
+    c.groupe.scale.setScalar(e.s);
+    c.groupe.rotation.set(
+      e.rx + incX + Math.sin(ph * 0.8) * 0.05 * c.flotte,
+      e.ry + incY + Math.cos(ph * 0.7) * 0.09 * c.flotte,
+      e.rz
+    );
+
+    const u = c.mat.uniforms;
+    u.uT.value = t;
+    u.uTilt.value.set(c.groupe.rotation.y - e.ry + Math.sin(t * 0.6 + c.phase) * 0.3, c.groupe.rotation.x);
+    u.uLueur.value = c.revelee && c.tw ? 0.6 : 0;
+  });
+
+  // Les étincelles.
+  const E = P.etincelles;
+  let vivant = false;
+
+  for(let i = 0; i < E.n; i++){
+    if(E.vie[i] <= 0) continue;
+    vivant = true;
+    E.vel[i * 3 + 1] -= 1.4 * dt;
+    E.pos[i * 3] += E.vel[i * 3] * dt;
+    E.pos[i * 3 + 1] += E.vel[i * 3 + 1] * dt;
+    E.pos[i * 3 + 2] += E.vel[i * 3 + 2] * dt;
+    E.vie[i] -= dt;
+    if(E.vie[i] <= 0){ E.pos[i * 3] = E.pos[i * 3 + 1] = E.pos[i * 3 + 2] = -50; }
+  }
+
+  if(vivant || E.dernier){
+    E.points.geometry.attributes.position.needsUpdate = true;
+    E.points.geometry.attributes.color.needsUpdate = true;
+  }
+  E.dernier = vivant;
+
+  placerEtiquettes();
+}
+
+
+/* ----------------------------------------------------------------------
+   L'album : la collection
+   ---------------------------------------------------------------------- */
+
+// Le catalogue et ce qu'on en possède, chargés à la demande.
+const album = { catalogue: null, collection: new Map(), miniatures: new Map(), filtre: 'toutes' };
+
+async function chargerAlbum(){
+
+  if(!options.cartes || !options.collection) throw new Error('L’album n’est pas disponible : recharge la page.');
+
+  const [catalogue, collection] = await Promise.all([options.cartes(), options.collection()]);
+
+  album.catalogue = catalogue;
+  album.collection = new Map(collection.map(l => [Number(l.carte_id), Number(l.quantite) || 1]));
+}
+
+// La vignette d'une carte possédée, dessinée une fois.
+function miniature(carte){
+
+  const cle = carte.id + ':' + carte.nom + ':' + carte.motif;
+
+  if(!album.miniatures.has(cle)){
+    const c = creerFaceCarte(Object.assign({}, carte, { total: album.catalogue.length }), R.logo, 0.5);
+    album.miniatures.set(cle, c);
+  }
+
+  const src = album.miniatures.get(cle);
+  const copie = creerCanvas(src.width, src.height);
+  copie.x.drawImage(src, 0, 0);
+
+  return copie.c;
+}
+
+function ouvrirCollection(){
+
+  if(etat.ecran !== 'boutique' || etat.achat || etat.ouverture) return;
+
+  montrerEcran('collection');
+}
+
+function fermerCollection(){
+
+  if(etat.ecran !== 'collection') return;
+
+  montrerEcran('boutique');
+  majBoutique();
+}
+
+function dessinerAlbum(){
+
+  const grille = H.ecran.querySelector('#wvCollGrille');
+  const compte = H.ecran.querySelector('#wvCollCompte');
+  if(!grille || !album.catalogue) return;
+
+  grille.innerHTML = '';
+  grille.dataset.filtre = album.filtre;
+
+  const total = album.catalogue.length;
+  const possedees = album.catalogue.filter(c => album.collection.has(c.id)).length;
+
+  compte.textContent = possedees + ' / ' + total;
+
+  album.catalogue.forEach(carte => {
+
+    const q = album.collection.get(carte.id) || 0;
+    const cfg = rarete(carte.rarete);
+
+    const el = document.createElement(q ? 'button' : 'div');
+    el.className = 'wv-tuile rar-' + carte.rarete + (q ? '' : ' vide');
+
+    if(q){
+
+      el.type = 'button';
+      el.dataset.id = carte.id;
+      el.setAttribute('aria-label', carte.nom + ', ' + cfg.nom.toLowerCase() + (q > 1 ? ', ' + q + ' exemplaires' : ''));
+
+      el.appendChild(miniature(carte));
+
+      if(q > 1){
+        const b = document.createElement('span');
+        b.className = 'wv-tuile-qte';
+        b.textContent = '×' + q;
+        el.appendChild(b);
+      }
+
+    } else {
+
+      el.setAttribute('aria-label', 'Carte ' + carte.id + ', pas encore trouvée');
+
+      const n = document.createElement('span');
+      n.className = 'wv-tuile-num';
+      n.textContent = String(carte.id).padStart(2, '0');
+
+      const pt = document.createElement('span');
+      pt.className = 'wv-tuile-pt';
+      pt.textContent = '?';
+
+      const fond = document.createElement('div');
+      fond.className = 'wv-tuile-fond';
+      fond.append(pt, n);
+      el.appendChild(fond);
+    }
+
+    grille.appendChild(el);
+  });
+}
+
+// Une carte en grand, avec un reflet qui suit le pointeur.
+function voirCarte(id){
+
+  const carte = album.catalogue && album.catalogue.find(c => c.id === id);
+  const zoom = H.ecran.querySelector('#wvZoom');
+  if(!carte || !zoom) return;
+
+  const cfg = rarete(carte.rarete);
+  const q = album.collection.get(id) || 1;
+
+  const toile = creerFaceCarte(Object.assign({}, carte, { total: album.catalogue.length }), R.logo, 1);
+  toile.className = 'wv-zoom-carte';
+
+  const scene = zoom.querySelector('.wv-zoom-scene');
+  scene.innerHTML = '';
+  scene.className = 'wv-zoom-scene rar-' + carte.rarete;
+  scene.appendChild(toile);
+
+  const reflet = document.createElement('i');
+  reflet.className = 'wv-zoom-reflet';
+  scene.appendChild(reflet);
+
+  zoom.querySelector('.wv-zoom-legende').textContent =
+    cfg.nom + ' · ' + carte.categorie + (q > 1 ? ' · ' + q + ' exemplaires' : '');
+
+  zoom.hidden = false;
+
+  const bouger = e => {
+    const r = scene.getBoundingClientRect();
+    const x = clamp((e.clientX - r.left) / r.width, 0, 1), y = clamp((e.clientY - r.top) / r.height, 0, 1);
+    scene.style.setProperty('--rx', ((0.5 - y) * 16).toFixed(1) + 'deg');
+    scene.style.setProperty('--ry', ((x - 0.5) * 22).toFixed(1) + 'deg');
+    scene.style.setProperty('--mx', (x * 100).toFixed(1) + '%');
+    scene.style.setProperty('--my', (y * 100).toFixed(1) + '%');
+  };
+
+  scene.onpointermove = bouger;
+  scene.onpointerleave = () => {
+    ['--rx', '--ry'].forEach(p => scene.style.setProperty(p, '0deg'));
+  };
+
+  zoom.querySelector('.wv-zoom-fermer').focus({ preventScroll: true });
+}
+
+function fermerZoom(){
+  const zoom = H.ecran.querySelector('#wvZoom');
+  if(!zoom || zoom.hidden) return false;
+  zoom.hidden = true;
+  const ouvert = H.ecran.querySelector('.wv-tuile:focus') || null;
+  const panneau = H.ecran.querySelector('.wv-collection');
+  if(panneau) panneau.focus({ preventScroll: true });
+  return true;
+}
+
+async function brancherCollection(){
+
+  const panneau = H.ecran.querySelector('.wv-collection');
+  if(!panneau) return;
+
+  const dans = sel => H.ecran.querySelector(sel);
+
+  dans('#wvCollRetour').addEventListener('click', fermerCollection);
+  dans('#wvZoomFermer').addEventListener('click', fermerZoom);
+
+  dans('#wvCollFiltres').addEventListener('click', e => {
+    const b = e.target.closest('button[data-f]');
+    if(!b) return;
+    album.filtre = b.dataset.f;
+    dans('#wvCollFiltres').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b ? 'true' : 'false'));
+    dans('#wvCollGrille').dataset.filtre = album.filtre;
+  });
+
+  dans('#wvCollGrille').addEventListener('click', e => {
+    const t = e.target.closest('.wv-tuile');
+    if(t && t.dataset.id) voirCarte(Number(t.dataset.id));
+  });
+
+  dans('#wvCollFiltres').querySelectorAll('button').forEach(x => {
+    x.setAttribute('aria-pressed', x.dataset.f === album.filtre ? 'true' : 'false');
+  });
+
+  panneau.focus({ preventScroll: true });
+
+  try{
+
+    await chargerAlbum();
+
+    // On a pu fermer l'album pendant le chargement.
+    if(etat.ecran !== 'collection') return;
+
+    dessinerAlbum();
+
+  }catch(e){
+
+    if(etat.ecran !== 'collection') return;
+
+    const grille = dans('#wvCollGrille');
+    grille.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'wv-alerte';
+    p.setAttribute('role', 'alert');
+    p.textContent = e && e.message ? e.message : 'L’album n’a pas pu se charger : réessaie.';
+    grille.appendChild(p);
+  }
+}
 
 /* ----------------------------------------------------------------------
    Déplacement et collisions
@@ -4600,7 +8399,10 @@ async function chargerEtat(){
       etat.bourse = e.pieces === undefined ? null : {
         pieces: e.pieces || 0,
         boosters: e.boosters || 0,
-        prix: e.prix_booster || null
+        prix: e.prix_booster || null,
+        // Absentes tant que le SQL des cartes n'est pas passé.
+        cartes: e.cartes_possedees || 0,
+        cartesTotal: e.cartes_total || 0
       };
     }
 
@@ -4885,10 +8687,14 @@ function montrerEcran(type, texte){
   // La boutique se range à droite sur un grand écran, pour laisser voir le
   // croupier ; les autres écrans restent centrés.
   H.ecran.classList.toggle('wv-ecran-boutique', type === 'boutique');
+  H.ecran.classList.toggle('wv-ecran-collection', type === 'collection');
 
-  if(!type){
+  // L'ouverture d'un booster a ses propres commandes (voir H.ouv) : aucun
+  // panneau, mais le jeu est tout de même « occupé ».
+  if(!type || type === 'ouverture'){
     H.ecran.hidden = true;
     H.ecran.innerHTML = '';
+    if(type && document.pointerLockElement) document.exitPointerLock();
     return;
   }
 
@@ -4969,7 +8775,11 @@ function montrerEcran(type, texte){
           '<button type="button" class="wv-cta" id="wvAcheter">Acheter</button>' +
           '<button type="button" class="wv-cta discret" id="wvFermer">Fermer</button>' +
         '</div>' +
-        '<p class="wv-note">Les pièces se gagnent à la machine, elles ne s’achètent pas. L’ouverture des boosters arrive avec les cartes.</p>';
+        '<div class="wv-cartes-actions">' +
+          '<button type="button" class="wv-cta discret" id="wvOuvrir">Ouvrir un booster</button>' +
+          '<button type="button" class="wv-cta discret" id="wvCollection">Ma collection</button>' +
+        '</div>' +
+        '<p class="wv-note">Un booster contient cinq cartes. Les pièces se gagnent à la machine : ni elles, ni les cartes ne s’achètent avec de l’argent, ni ne se revendent.</p>';
     }
 
     html = '<div class="wv-panneau wv-boutique" role="dialog" aria-label="Boutique du croupier" tabindex="-1">' +
@@ -4979,6 +8789,29 @@ function montrerEcran(type, texte){
         '<div class="wv-pack"><img alt="Un booster La Wave TCG" src="' + imageBooster() + '"></div>' +
         '<div>' + corps + '</div>' +
       '</div></div>';
+
+  } else if(type === 'collection'){
+
+    html = '<div class="wv-panneau wv-collection" role="dialog" aria-label="Ma collection de cartes" tabindex="-1">' +
+      '<div class="wv-coll-tete">' +
+        '<div><span class="wv-sur">La Wave TCG</span><h2>Ma collection</h2></div>' +
+        '<b class="wv-coll-compte" id="wvCollCompte" aria-label="Cartes possédées">— / —</b>' +
+      '</div>' +
+      '<div class="wv-coll-filtres" id="wvCollFiltres" role="group" aria-label="Filtrer par rareté">' +
+        '<button type="button" data-f="toutes">Toutes</button>' +
+        '<button type="button" data-f="commune">Communes</button>' +
+        '<button type="button" data-f="rare">Rares</button>' +
+        '<button type="button" data-f="epique">Épiques</button>' +
+        '<button type="button" data-f="legendaire">Légendaires</button>' +
+      '</div>' +
+      '<div class="wv-coll-grille" id="wvCollGrille" data-filtre="toutes"><p class="wv-coll-charge">Chargement de ton album…</p></div>' +
+      '<div class="wv-actions"><button type="button" class="wv-cta" id="wvCollRetour">Retour au croupier</button></div>' +
+      '<div class="wv-coll-zoom" id="wvZoom" hidden role="dialog" aria-label="Carte en grand">' +
+        '<div class="wv-zoom-scene"></div>' +
+        '<p class="wv-zoom-legende"></p>' +
+        '<button type="button" class="wv-cta discret wv-zoom-fermer" id="wvZoomFermer">Fermer</button>' +
+      '</div>' +
+      '</div>';
 
   } else if(type === 'erreur'){
 
@@ -4993,7 +8826,7 @@ function montrerEcran(type, texte){
 
   // Un pointeur verrouillé ne peut pas cliquer : les écrans à boutons le
   // libèrent.
-  if((type === 'erreur' || type === 'pause' || type === 'connexion' || type === 'boutique') && document.pointerLockElement){
+  if((type === 'erreur' || type === 'pause' || type === 'connexion' || type === 'boutique' || type === 'collection') && document.pointerLockElement){
     document.exitPointerLock();
   }
 
@@ -5013,6 +8846,7 @@ function montrerEcran(type, texte){
   if(entrer) entrer.focus({ preventScroll: true });
 
   if(type === 'boutique') brancherBoutique();
+  if(type === 'collection') brancherCollection();
 }
 
 
@@ -5067,7 +8901,7 @@ function ouvrirBoutique(){
 function fermerBoutique(){
 
   // On ne ferme pas pendant un achat : sa réponse ne se lirait nulle part.
-  if(etat.ecran !== 'boutique' || etat.achat) return;
+  if(etat.ecran !== 'boutique' || etat.achat || etat.ouverture) return;
 
   croupier.accueillir(false);
   montrerEcran(null);
@@ -5098,7 +8932,7 @@ function changerQuantite(delta){
 
 async function acheterBooster(){
 
-  if(etat.achat) return;
+  if(etat.achat || etat.ouverture) return;
 
   // Une version mêlée du site (index.html pas encore à jour) n'offre pas
   // l'achat : on le dit, plutôt que de ne rien faire.
@@ -5122,11 +8956,11 @@ async function acheterBooster(){
     // doivent pas repasser par-dessus ce solde.
     seqEtat++;
 
-    etat.bourse = {
+    etat.bourse = Object.assign({}, etat.bourse, {
       pieces: res.pieces_total,
       boosters: res.boosters_total,
       prix: res.prix_unitaire || (etat.bourse && etat.bourse.prix) || null
-    };
+    });
 
     etat.reussite = res.quantite > 1
       ? res.quantite + ' boosters ajoutés à ton stock.'
@@ -5154,6 +8988,106 @@ async function acheterBooster(){
   etat.achat = false;
 
   majBoutique();
+}
+
+// Ouvrir un booster du stock : la base retire le booster et tire les cartes ;
+// quand elle a répondu, la scène d'ouverture s'anime. Un refus (plus de
+// booster, cartes pas encore imprimées) revient à la boutique, avec son
+// message.
+async function ouvrirBooster(){
+
+  if(etat.ouverture || etat.achat || !actif) return;
+
+  const b = etat.bourse;
+
+  if(!options.ouvrir){
+    etat.alerte = 'L’ouverture n’est pas disponible : recharge la page.';
+    Son.erreur();
+    if(etat.ecran !== 'boutique') montrerEcran('boutique');
+    majBoutique();
+    return;
+  }
+
+  if(!b || b.boosters < 1){
+    etat.alerte = 'Tu n’as aucun booster à ouvrir : achète-en un au croupier.';
+    Son.erreur();
+    majBoutique();
+    return;
+  }
+
+  etat.ouverture = true;
+  etat.alerte = null;
+  etat.reussite = null;
+  majBoutique();
+
+  // Une visite de la salle, de l'entrée à la sortie : si l'on est sorti puis
+  // rentré pendant l'attente, cette réponse ne regarde plus la visite en cours.
+  const visite = sessionJeu;
+
+  let res;
+
+  try{
+
+    res = await options.ouvrir();
+
+    if(!res || !Array.isArray(res.cartes) || !res.cartes.length) throw new Error('Le booster est vide : réessaie.');
+
+  }catch(e){
+
+    // On a pu quitter la salle pendant l'attente.
+    if(visite !== sessionJeu) return;
+
+    etat.ouverture = false;
+    etat.alerte = e && e.message ? e.message : 'L’ouverture a échoué : réessaie.';
+    etat.remarque = 'Un contretemps, waveur. Réessaie dans un instant.';
+    Son.erreur();
+
+    if(etat.ecran !== 'boutique') montrerEcran('boutique');
+    await chargerEtat();
+    majBoutique();
+    return;
+  }
+
+  // Les cartes sont enregistrées par la base : même si l'on est parti, elles
+  // sont dans la collection. La scène, elle, n'a plus de raison de s'ouvrir.
+  if(visite !== sessionJeu){
+    album.catalogue = null;
+    return;
+  }
+
+  etat.ouverture = false;
+
+  // Ce que la base renvoie est ramené à des nombres avant de servir : un
+  // champ absent ne doit pas afficher « undefined » ni ouvrir une porte.
+  const nombre = (x, defaut) => Number.isFinite(Number(x)) && x !== null && x !== '' ? Number(x) : defaut;
+
+  res.cartes = res.cartes.map(c => Object.assign({}, c, { id: nombre(c.id, 0), quantite: nombre(c.quantite, 1) }));
+
+  const avant = etat.bourse || {};
+
+  // Le solde que la base vient de donner, sans relire : les réponses plus
+  // anciennes d'un chargerEtat en route ne doivent pas repasser par-dessus.
+  seqEtat++;
+
+  etat.bourse = Object.assign({}, avant, {
+    boosters: Math.max(0, nombre(res.boosters_total, Math.max(0, (Number(avant.boosters) || 0) - 1))),
+    cartes: nombre(res.cartes_possedees, avant.cartes || 0),
+    cartesTotal: nombre(res.cartes_total, avant.cartesTotal || 0)
+  });
+
+  res.boosters_total = etat.bourse.boosters;
+  res.cartes_total = etat.bourse.cartesTotal || res.cartes_total;
+
+  // L'album garde en mémoire ce qui vient d'y entrer.
+  res.cartes.forEach(c => { album.collection.set(c.id, c.quantite); });
+  album.miniatures.clear();
+  album.catalogue = null;
+
+  majHud();
+
+  if(!actif) return;
+
+  lancerOuverture(res);
 }
 
 // Ce que la boutique affiche du portefeuille et du prix. Le bouton d'achat
@@ -5242,11 +9176,25 @@ function majBoutique(){
   const acheter = H.ecran.querySelector('#wvAcheter');
   const fermer = H.ecran.querySelector('#wvFermer');
 
-  moins.disabled = etat.qte <= 1 || etat.achat;
-  plus.disabled = etat.qte >= 5 || etat.achat;
-  acheter.disabled = etat.achat || !v.disponible || !v.assez;
+  const occupe = etat.achat || etat.ouverture;
+
+  moins.disabled = etat.qte <= 1 || occupe;
+  plus.disabled = etat.qte >= 5 || occupe;
+  acheter.disabled = occupe || !v.disponible || !v.assez;
   acheter.textContent = v.libelle;
-  fermer.disabled = etat.achat;
+  fermer.disabled = occupe;
+
+  // Les cartes : les boosters en stock, et où en est la collection.
+  const ouvrir = H.ecran.querySelector('#wvOuvrir');
+  const boutonAlbum = H.ecran.querySelector('#wvCollection');
+
+  if(ouvrir && boutonAlbum){
+    const stock = v.b ? Number(v.b.boosters) || 0 : 0;
+    ouvrir.textContent = etat.ouverture ? 'Un instant…' : 'Ouvrir un booster' + (stock ? ' (' + stock + ')' : '');
+    ouvrir.disabled = occupe || stock < 1 || !options.ouvrir;
+    boutonAlbum.textContent = 'Ma collection' + (v.b && v.b.cartesTotal ? ' (' + v.b.cartes + '/' + v.b.cartesTotal + ')' : '');
+    boutonAlbum.disabled = occupe || !options.collection;
+  }
 
   // Un bouton qui vient d'être désactivé rend son focus : à la fenêtre, pas
   // à un autre bouton, dont une frappe aurait un effet.
@@ -5267,6 +9215,8 @@ function brancherBoutique(){
   par('wvPlusUn', () => changerQuantite(1));
   par('wvAcheter', acheterBooster);
   par('wvFermer', fermerBoutique);
+  par('wvOuvrir', ouvrirBooster);
+  par('wvCollection', ouvrirCollection);
 
   majBoutique();
 
@@ -5393,6 +9343,36 @@ function surToucheBas(e){
     return;
   }
 
+  // L'album : Échap ferme la carte en grand, puis l'album.
+  if(etat.ecran === 'collection'){
+    if(e.code === 'Escape'){
+      e.preventDefault();
+      if(!fermerZoom()) fermerCollection();
+    }
+    return;
+  }
+
+  // L'ouverture d'un booster : Entrée, Espace ou E font avancer, à moins
+  // qu'un bouton n'ait le focus (il s'active alors de lui-même). Échap
+  // révèle le reste, puis ferme.
+  if(etat.ecran === 'ouverture'){
+
+    if(e.code === 'Escape'){
+      e.preventDefault();
+      if(ouv && ouv.phase === 'bilan') fermerOuverture(true);
+      else toutRevelerOuverture();
+      return;
+    }
+
+    if((e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyE') && !e.repeat &&
+       !(e.target instanceof Element && e.target.closest('button'))){
+      e.preventDefault();
+      avancerOuverture();
+    }
+
+    return;
+  }
+
   // Un écran est affiché (pause, connexion...) : ses boutons doivent rester
   // activables au clavier, avec Entrée ou Espace. Le jeu se tait.
   if(etat.ecran) return;
@@ -5443,6 +9423,14 @@ function surToucheHaut(e){
 
 function surSouris(e){
 
+  // Pendant l'ouverture d'un booster, la carte du dessus s'incline vers la
+  // souris.
+  if(ouv && overlay){
+    ouv.pointeur.x = clamp(e.clientX / Math.max(1, overlay.clientWidth) * 2 - 1, -1, 1);
+    ouv.pointeur.y = clamp(e.clientY / Math.max(1, overlay.clientHeight) * 2 - 1, -1, 1);
+    return;
+  }
+
   if(!actif || etat.ecran || etat.intro || focus.cible === 1) return;
 
   if(document.pointerLockElement === H.canvas){
@@ -5458,7 +9446,16 @@ function surSouris(e){
 
 function surClic(e){
 
-  if(!actif || etat.ecran || e.button !== 0) return;
+  if(!actif || e.button !== 0) return;
+
+  // Un clic sur la scène d'ouverture fait avancer. Sur un écran tactile, c'est
+  // le doigt qui s'en charge (surDoigtBas) : le clic qui le suit est ignoré.
+  if(etat.ecran === 'ouverture'){
+    if(!etat.tactile) avancerOuverture();
+    return;
+  }
+
+  if(etat.ecran) return;
 
   // Si le navigateur a refusé la musique au démarrage, ce geste le lui fait
   // accepter.
@@ -5513,6 +9510,12 @@ function surRelacheSouris(e){
 function surDoigtBas(e){
 
   if(!actif || !etat.tactile || e.pointerType === 'mouse') return;
+
+  if(etat.ecran === 'ouverture'){
+    if(!e.target.closest('button')) avancerOuverture();
+    return;
+  }
+
   if(etat.ecran || e.target.closest('button')) return;
 
   Son.reprendre();
@@ -5646,20 +9649,45 @@ function redimensionner(){
   renderer.setSize(l, h, false);
   camera.aspect = l / h;
   camera.updateProjectionMatrix();
+
+  redimensionnerPost();
+  redimensionnerOuverture();
 }
 
 // Sur une machine modeste, la salle perd en finesse plutôt qu'en fluidité :
-// si les images tardent, la résolution baisse d'un cran.
+// si les images tardent, on renonce d'abord au halo, puis aux reflets du sol,
+// puis la résolution baisse d'un cran à la fois, et en dernier recours les
+// effets de rendu s'arrêtent.
 function surveillerPerformance(dt){
 
   if(dt > 1 / 28) lentes++; else lentes = Math.max(0, lentes - 1);
 
-  if(lentes > 70 && ratioActuel > 0.7){
+  if(lentes <= 70) return;
+
+  lentes = 0;
+
+  if(POST.actif && POST.bloom){
+    POST.bloom = false;
+  } else if(REFLET.actif){
+    REFLET.actif = false;
+    desactiverReflets();
+  } else if(ratioActuel > 0.7){
     ratioActuel = Math.max(0.7, ratioActuel * 0.85);
     renderer.setPixelRatio(ratioActuel);
     redimensionner();
-    lentes = 0;
+  } else if(POST.actif){
+    POST.actif = false;
+    renderer.setRenderTarget(null);
   }
+}
+
+// Les surfaces qui relisaient le reflet n'ont plus rien à lire : leur force
+// tombe à zéro.
+function desactiverReflets(){
+  REFLET.surfaces.forEach(s => {
+    const sh = s.material.userData.shader;
+    if(sh) sh.uniforms.uForceReflet.value = 0;
+  });
 }
 
 
@@ -5677,6 +9705,17 @@ function boucle(t){
   dernier = t;
   temps += dt;
 
+  // Pendant l'ouverture d'un booster, la salle est à l'arrêt : on ne montre
+  // que la scène des cartes.
+  if(ouv){
+
+    majOuverture(dt);
+    rendre(R.paq.scene, R.paq.cam);
+
+    surveillerPerformance(dt);
+    return;
+  }
+
   majJoueur(dt);
   majCamera(dt);
   majMonde(dt);
@@ -5690,7 +9729,8 @@ function boucle(t){
   etat.cible = (focus.cible === 0 && !etat.ecran && !etat.intro) ? viser() : null;
   majInvite();
 
-  renderer.render(scene, camera);
+  majReflet(scene, camera);
+  rendre(scene, camera);
 
   surveillerPerformance(dt);
 }
@@ -5909,8 +9949,10 @@ function majMonde(dt){
   machines.forEach(m => m.maj(dt, t, etat.reduit));
 
   if(R.faisceau){
-    R.faisceau.material.opacity = 1 - clamp(focus.t * 1.5, 0, 1);
-    R.faisceau.visible = R.faisceau.material.opacity > 0.01;
+    const op = 1 - clamp(focus.t * 1.5, 0, 1);
+    R.faisceau.material.uniforms.uOpacite.value = op;
+    R.faisceau.material.uniforms.uT.value = t;
+    R.faisceau.visible = op > 0.01;
   }
 
   // Le croupier suit du regard qui s'approche ; pas pendant le travelling.
@@ -5924,6 +9966,12 @@ function majMonde(dt){
       : { x: joueur.x, z: joueur.z };
 
     croupier.maj(dt, t, etat.reduit, etat.intro ? null : regard);
+  }
+
+  // Les habitués, eux, regardent l'œil de la caméra.
+  if(habitues.length){
+    const oeil = etat.intro ? null : { x: camera.position.x, z: camera.position.z };
+    habitues.forEach(h => h.maj(dt, t, etat.reduit, oeil));
   }
 
   // Le booster qui flotte : il tourne lentement et se balance. Le reflet du
@@ -5993,6 +10041,8 @@ function majMonde(dt){
 // à moitié affiché, le panneau des combinaisons.
 function reinitialiserSession(){
 
+  sessionJeu++;
+
   touches.clear();
 
   joy.id = null;
@@ -6005,6 +10055,12 @@ function reinitialiserSession(){
   etat.reussite = null;
 
   if(croupier) croupier.accueillir(false);
+
+  // Une ouverture de booster restée en plan : ses cartes sont déjà dans la
+  // collection, la base les a enregistrées.
+  if(ouv) fermerOuverture(false);
+
+  etat.ouverture = false;
 
   if(H.joy) H.joy.hidden = true;
   if(H.gains) H.gains.hidden = true;
@@ -6165,6 +10221,18 @@ window.Waveurs = {
     ouvrirBoutique,
     musique: () => Musique.etat(),
     majBoutique,
+    creerCarte: (c, echelle) => creerFaceCarte(c, R.logo, echelle || 1),
+    ouvrirBooster,
+    ouverture: () => ouv,
+    paquet: () => R.paq,
+    post: () => POST,
+    reflet: () => REFLET,
+    rendre: () => { majReflet(scene, camera); rendre(scene, camera); },
+    ouvrirCollection,
+    album: () => album,
+    avancerOuverture,
+    toutReveler: toutRevelerOuverture,
+    habitues: () => habitues,
     placer(x, z, yaw, pitch){
       joueur.x = x; joueur.z = z;
       joueur.yaw = yaw || 0;

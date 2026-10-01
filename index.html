@@ -2651,10 +2651,11 @@
             <span class="eyebrow">La salle de la communauté</span>
             <h2>L'espace des waveurs</h2>
             <p class="desc">
-              Une salle de casino aux couleurs de La Wave, avec sa grande
-              machine à sous à parcourir en vue subjective. Chaque jour, des
+              Une salle de casino aux couleurs de La Wave, avec sa machine
+              à sous, son bar et ses habitués, à parcourir en vue subjective. Chaque jour, des
               tours offerts : ils rapportent de l'XP et des pièces, à
-              dépenser chez le croupier en boosters de cartes La Wave TCG.
+              dépenser chez le croupier en boosters de cartes La Wave TCG,
+              à ouvrir pour compléter ta collection.
             </p>
           </div>
         </div>
@@ -2670,7 +2671,7 @@
             <div class="wv-affiche-centre">
               <img id="waveursLogo" alt="">
               <span class="wv-affiche-titre">L'ESPACE DES WAVEURS</span>
-              <span class="wv-affiche-sous">Une grande machine · 10 tours par jour · jamais d'argent</span>
+              <span class="wv-affiche-sous">Une machine, un croupier, des cartes · 10 tours par jour · jamais d'argent</span>
             </div>
           </div>
 
@@ -2689,7 +2690,7 @@
               <li><b>Des tours offerts chaque jour.</b> Ils se remettent à zéro à minuit, heure de Paris.</li>
               <li><b>De l'XP et des pièces à gagner, rien à payer.</b> Aucun tour ne s'achète, et l'argent n'intervient jamais : les pièces ne s'achètent pas et ne se convertissent pas.</li>
               <li><b>Trois logos La Wave alignés :</b> le jackpot.</li>
-              <li><b>Le croupier</b> vend des boosters de cartes La Wave TCG contre des pièces. Leur ouverture arrivera avec les cartes.</li>
+              <li><b>Le croupier</b> vend des boosters de cartes La Wave TCG contre des pièces. Chaque booster s'ouvre sur cinq cartes à collectionner : 36 à réunir, dont trois légendaires. Les cartes ne s'achètent pas avec de l'argent et ne se revendent pas.</li>
             </ul>
 
             <p class="wv-commandes">
@@ -4021,6 +4022,28 @@ const BD = {
   // de la base, jamais ceux du navigateur.
   waveursAcheter(quantite){
     return supabaseClient.rpc('waveurs_acheter_booster', { p_quantite: quantite });
+  },
+
+  // L'ouverture d'un booster : la base retire un booster du stock, tire les
+  // cartes et les ajoute à la collection. Le navigateur n'en choisit aucune.
+  waveursOuvrir(){
+    return supabaseClient.rpc('waveurs_ouvrir_booster');
+  },
+
+  // Le catalogue des cartes (public), et ce qu'on en possède (la policy ne
+  // renvoie à chacun que sa propre collection).
+  waveursCartes(){
+    return supabaseClient
+      .from('waveurs_cartes')
+      .select('id, nom, rarete, categorie, motif, legende')
+      .order('id', { ascending: true });
+  },
+
+  waveursCollection(){
+    return supabaseClient
+      .from('waveurs_collection')
+      .select('carte_id, quantite')
+      .eq('user_id', currentUser ? currentUser.id : '00000000-0000-0000-0000-000000000000');
   },
 
 
@@ -5871,7 +5894,7 @@ async function accredLivrer(evenement, id){
 // Le numéro qui suit l'adresse du fichier force le navigateur à en
 // prendre la dernière version quand on le change. À augmenter chaque fois
 // que waveurs.js est modifié.
-const WAVEURS_FICHIER = 'waveurs.js?v=5';
+const WAVEURS_FICHIER = 'waveurs.js?v=6';
 
 let waveursChargement = null;
 
@@ -5989,6 +6012,28 @@ function optionsWaveurs(){
       return data;
     },
 
+    // Ouvrir un booster : la base tire les cartes, le jeu les montre. Les
+    // refus (plus de booster, cartes pas encore imprimées) sont écrits en
+    // français côté SQL.
+    ouvrir: async () => {
+      const { data, error } = await BD.waveursOuvrir();
+      if(error) throw new Error(messageWaveurs(error));
+      return data;
+    },
+
+    // Le catalogue et la collection, pour l'album de cartes.
+    cartes: async () => {
+      const { data, error } = await BD.waveursCartes();
+      if(error) throw new Error(messageWaveurs(error));
+      return data || [];
+    },
+
+    collection: async () => {
+      const { data, error } = await BD.waveursCollection();
+      if(error) throw new Error(messageWaveurs(error));
+      return data || [];
+    },
+
     ouvrirConnexion: () => openAuthModal('login'),
 
     surQuitter: () => renderWaveurs()
@@ -6076,11 +6121,22 @@ async function renderWaveurs(){
   const pieces = Number(data.pieces) || 0;
   const boosters = Number(data.boosters) || 0;
 
+  // Les cartes : absentes de la réponse tant que le SQL des cartes n'est
+  // pas passé ; la ligne n'apparaît alors pas.
+  const cartesTotal = Number(data.cartes_total) || 0;
+  const cartesVues = Number(data.cartes_possedees) || 0;
+
+  const cartes = cartesTotal > 0
+    ? `<p class="wv-etat-valeur wv-bourse-accueil">
+         <b>${cartesVues}</b> carte${cartesVues > 1 ? 's' : ''} sur ${cartesTotal} dans ta collection
+       </p>`
+    : '';
+
   const bourse = `
     <p class="wv-etat-valeur wv-bourse-accueil">
       <b style="color:var(--gold-favori);">${pieces}</b> pièce${pieces > 1 ? 's' : ''}
       · <b>${boosters}</b> booster${boosters > 1 ? 's' : ''}
-    </p>`;
+    </p>${cartes}`;
 
   zone.innerHTML = `
     <div class="wv-etat-titre">Tes tours du jour</div>
