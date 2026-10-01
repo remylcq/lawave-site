@@ -3457,31 +3457,33 @@ function construireSalle(){
   });
 
   const disque = R.texture(creerDisqueOr(R.logo));
-  const petits = [];
+  const petits = [], cadres = [], flaques = [];
 
   [-1, 1].forEach(s => {
     [-6.4, -0.4, 5.6].forEach(z => {
 
-      const cadre = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.9, 0.9),
-        new THREE.MeshBasicMaterial({ map: disque, color: 0xd8d0c4 })
-      );
-      cadre.position.set(s * (L - 0.03), 2.25, z);
-      cadre.rotation.y = -s * Math.PI / 2;
-      scene.add(cadre);
+      // Les six cadres d'une part, les six flaques de l'autre : deux appels
+      // de dessin, au lieu de douze.
+      const cadre = new THREE.PlaneGeometry(0.9, 0.9);
+      cadre.rotateY(-s * Math.PI / 2);
+      cadre.translate(s * (L - 0.03), 2.25, z);
+      cadres.push(cadre);
 
       // La flaque de lumière de la lampe, sur le mur.
-      const flaque = new THREE.Mesh(new THREE.PlaneGeometry(2.1, 3.0), R.matLueurMur);
-      flaque.position.set(s * (L - 0.028), 1.75, z);
-      flaque.rotation.y = -s * Math.PI / 2;
-      flaque.renderOrder = 1;
-      scene.add(flaque);
+      const flaque = new THREE.PlaneGeometry(2.1, 3.0);
+      flaque.rotateY(-s * Math.PI / 2);
+      flaque.translate(s * (L - 0.028), 1.75, z);
+      flaques.push(flaque);
 
       // La lampe de tableau : un bras de laiton et un peu de lumière.
       petits.push(boite(0.05, 0.05, 0.4, s * (L - 0.2), 2.85, z, LAITON));
       poserHalo(s * (L - 0.36), 2.8, z, '#ffcf8a');
     });
   });
+
+  fusion(cadres, new THREE.MeshBasicMaterial({ map: disque, color: 0xd8d0c4 }));
+  const lueurs = fusion(flaques, R.matLueurMur);
+  if(lueurs) lueurs.renderOrder = 1;
 
   fusion(petits, R.matLaiton);
 
@@ -5631,18 +5633,39 @@ function construireBoutique(){
   // Trois boosters posés contre un rail de laiton, sur le feutre.
   const tx = -6.28, tz = CROUPIER.z;
 
+  // Ils ne bougent pas : leurs formes se posent dans le repère de la salle et se
+  // collent par matériau (le devant, le dos, le reflet du foil), trois appels de
+  // dessin pour les trois au lieu de neuf.
+  const devants = [], dos = [], reflets = [];
+
   [-0.24, 0, 0.24].forEach(dz => {
-    const socle = new THREE.Group();
+
+    const socle = new THREE.Object3D();
     socle.position.set(tx, 0.954, tz + dz);
     socle.rotation.y = Math.PI / 2;
 
-    const p = fabriquerBooster(0.13, 0.195, 0.014);
+    const p = new THREE.Object3D();
     p.position.set(0, 0.098, -0.012);
     p.rotation.x = -0.22;
 
     socle.add(p);
-    scene.add(socle);
+    socle.updateMatrixWorld(true);
+
+    const devant = geoBooster(0.13, 0.195, 0.014);
+    const derriere = devant.clone().rotateY(Math.PI);
+    const reflet = devant.clone().translate(0, 0, 0.0008);
+
+    [devant, derriere, reflet].forEach(g => g.applyMatrix4(p.matrixWorld));
+
+    devants.push(devant);
+    dos.push(derriere);
+    reflets.push(reflet);
   });
+
+  fusion(devants, R.matBoosterFace);
+  fusion(dos, R.matBoosterDos);
+  const foil = fusion(reflets, R.matFoil);
+  if(foil) foil.renderOrder = 3;
 
   const rail = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.035, 0.76), R.matLaitonUni);
   rail.position.set(tx + 0.07, 0.972, tz);
