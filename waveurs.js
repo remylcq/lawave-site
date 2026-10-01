@@ -3056,6 +3056,7 @@ let options = {};
 let overlay = null;
 let H = {};                       // éléments de l'interface
 
+let sessionJeu = 0;               // change à chaque entrée et sortie de la salle
 let renderer = null, scene = null, camera = null;
 let pret = false;                 // la salle est construite
 let actif = false;                // la salle est ouverte
@@ -3328,7 +3329,7 @@ async function construireMonde(){
   R.matHumain.onBeforeCompile = (shader) => {
     shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', `
       float lisere = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 2.6);
-      gl_FragColor.rgb += lisere * vec3(0.30, 0.22, 0.15) * 0.5;
+      gl_FragColor.rgb += lisere * vec3(0.30, 0.22, 0.15) * 0.36;
       #include <dithering_fragment>`);
   };
 
@@ -3391,7 +3392,7 @@ function construireSalle(){
   // (les habitués du bar, les tables de jeu, la banquette), plutôt que de
   // tout baigner d'une seule lumière. Le nombre est compté : chaque lampe se
   // paie à chaque image, sur chaque surface.
-  scene.add(new THREE.HemisphereLight(0xffe9d2, 0x3a2418, 1.05));
+  scene.add(new THREE.HemisphereLight(0xffe9d2, 0x5e3d2a, 1.05));
 
   [
     [0, 4.2, 0.6, 0xffe2bc, 1.35, 14],          // le lustre, sur la machine et le podium
@@ -4780,8 +4781,8 @@ const APPARENCES = {
 
   croupier: {
     peau: '#dba883', cheveux: '#4b3523', coiffure: 'rejete', yeux: '#4a3a2a', barbe: 1,
-    tenue: 'gilet', chemise: '#f5f3ee', veste: '#15171d', pantalon: '#101116', chaussures: '#060606',
-    noeud: '#0d0e12', manches: '#f5f3ee', poignets: '#f5f3ee', brassard: '#7a1526',
+    tenue: 'gilet', chemise: '#e8e5dd', veste: '#15171d', pantalon: '#101116', chaussures: '#060606',
+    noeud: '#0d0e12', manches: '#e8e5dd', poignets: '#e8e5dd', brassard: '#7a1526',
     boutons: true, boutonsCouleur: '#2d3038'
   },
 
@@ -5793,11 +5794,11 @@ function creerPost(){
       uniforms, vertexShader: vs, fragmentShader: fs, depthTest: false, depthWrite: false
     });
 
-    POST.mat.seuil = mat(VS_ECRAN, FS_SEUIL, { tScene: { value: POST.rt.texture }, uSeuil: { value: 0.74 } });
+    POST.mat.seuil = mat(VS_ECRAN, FS_SEUIL, { tScene: { value: POST.rt.texture }, uSeuil: { value: 0.84 } });
     POST.mat.flou = mat(VS_ECRAN, FS_FLOU, { tSource: { value: null }, uDir: { value: new THREE.Vector2() } });
     POST.mat.final = mat(VS_ECRAN, FS_FINAL, {
       tScene: { value: POST.rt.texture }, tBloom: { value: POST.flouA.texture },
-      uBloom: { value: 0.85 }, uT: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
+      uBloom: { value: 0.75 }, uT: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
       uVignette: { value: 0.36 }, uGrain: { value: 0.02 }
     });
 
@@ -5871,7 +5872,7 @@ function rendre(sc, cam){
     }
   }
 
-  POST.mat.final.uniforms.uBloom.value = POST.bloom ? 0.85 : 0;
+  POST.mat.final.uniforms.uBloom.value = POST.bloom ? 0.75 : 0;
   POST.mat.final.uniforms.uT.value = temps;
 
   passe(POST.mat.final, null);
@@ -7340,44 +7341,86 @@ function placerEtiquettes(){
 // On entre dans l'ouverture.
 function lancerOuverture(res){
 
-  const P = construireScenePaquet();
+  // Une ouverture déjà en cours (deux réponses qui se croisent) est d'abord
+  // rangée.
+  if(ouv) fermerOuverture(false);
 
-  const donnees = res.cartes.map(c => Object.assign({}, c, { total: res.cartes_total }));
-  const meilleur = donnees.reduce((m, c) => Math.max(m, rarete(c.rarete).rang), 0);
+  let P = null, paquet = null;
+  const cartes3D = [];
 
-  ouv = {
-    phase: 'attente', t: 0, i: 0, data: donnees, meilleur, res,
-    paquet: creerPaquetOuverture(), cartes: [],
-    pointeur: { x: 0, y: 0 }, secousse: 0, peutSuivre: false, flags: {},
-    bande: { x: 0, y: 0, z: 0, rz: 0, vx: 0, vy: 0, vrz: 0 }
-  };
+  try{
 
-  ouv.paquet.groupe.position.set(0, 0, 0);
-  ouv.paquet.groupe.scale.setScalar(1.55);
-  P.scene.add(ouv.paquet.groupe);
+    P = construireScenePaquet();
 
-  ouv.cartes = donnees.map(c => {
-    const c3 = creerCarte3D(c);
-    c3.groupe.visible = false;
-    P.scene.add(c3.groupe);
-    return c3;
+    const donnees = res.cartes.map(c => Object.assign({}, c, { total: res.cartes_total }));
+    const meilleur = donnees.reduce((m, c) => Math.max(m, rarete(c.rarete).rang), 0);
+
+    paquet = creerPaquetOuverture();
+    paquet.groupe.position.set(0, 0, 0);
+    paquet.groupe.scale.setScalar(1.55);
+    P.scene.add(paquet.groupe);
+
+    donnees.forEach(c => {
+      const c3 = creerCarte3D(c);
+      c3.groupe.visible = false;
+      P.scene.add(c3.groupe);
+      cartes3D.push(c3);
+    });
+
+    ouv = {
+      phase: 'attente', t: 0, i: 0, data: donnees, meilleur, res,
+      paquet, cartes: cartes3D, vite: false,
+      pointeur: { x: 0, y: 0 }, secousse: 0, peutSuivre: false, flags: {},
+      bande: { x: 0, y: 0, z: 0, rz: 0, vx: 0, vy: 0, vrz: 0 }
+    };
+
+    P.rayons.material.opacity = 0;
+    P.rayons.material.color.set(rarete(['commune', 'rare', 'epique', 'legendaire'][meilleur]).couleur);
+    P.lueur.intensity = 0.7;
+    P.cam.position.x = 0;
+    P.cam.position.y = 0;
+
+    redimensionnerOuverture();
+
+    H.ouvEtiq.innerHTML = '';
+    H.ouv.hidden = false;
+    overlay.classList.add('wv-en-ouverture');
+
+    montrerEcran('ouverture');
+    majInterfaceOuverture();
+    Son.clic();
+
+  }catch(e){
+
+    // Le booster est déjà ouvert côté base : les cartes sont dans la
+    // collection. Ce qui a échoué, c'est la mise en scène ; on range ce qui
+    // a été posé et on revient à la boutique, avec de quoi aller voir l'album.
+    if(P){
+      if(paquet) rangerPaquet(P, paquet);
+      cartes3D.forEach(c => { P.scene.remove(c.groupe); libererCarte3D(c); });
+    }
+
+    ouv = null;
+
+    if(H.ouv) H.ouv.hidden = true;
+    if(H.ouvEtiq) H.ouvEtiq.innerHTML = '';
+    overlay.classList.remove('wv-en-ouverture');
+
+    etat.alerte = 'Tes cartes sont dans ta collection, mais leur présentation a échoué : ouvre ton album pour les voir.';
+    Son.erreur();
+
+    montrerEcran('boutique');
+    majBoutique();
+  }
+}
+
+// Retire le booster de la scène et libère ce qu'il a coûté.
+function rangerPaquet(P, paquet){
+  P.scene.remove(paquet.groupe);
+  paquet.groupe.traverse(o => {
+    if(o.geometry) o.geometry.dispose();
+    if(o.material) o.material.dispose();
   });
-
-  P.rayons.material.opacity = 0;
-  P.rayons.material.color.set(rarete(['commune', 'rare', 'epique', 'legendaire'][meilleur]).couleur);
-  P.lueur.intensity = 0.7;
-  P.cam.position.x = 0;
-  P.cam.position.y = 0;
-
-  redimensionnerOuverture();
-
-  H.ouvEtiq.innerHTML = '';
-  H.ouv.hidden = false;
-  overlay.classList.add('wv-en-ouverture');
-
-  montrerEcran('ouverture');
-  majInterfaceOuverture();
-  Son.clic();
 }
 
 function dechirer(){
@@ -7405,6 +7448,7 @@ function retourner(){
     ouv.phase = 'carte';
     ouv.peutSuivre = true;
     majInterfaceOuverture();
+    if(ouv.vite) toutRevelerOuverture();
   });
 
   // Le bruit du retournement : quand la carte passe de chant.
@@ -7501,7 +7545,25 @@ function versBilan(tout){
 
 function toutRevelerOuverture(){
 
-  if(!ouv || (ouv.phase !== 'pile' && ouv.phase !== 'carte')) return;
+  if(!ouv) return;
+
+  // Pendant que le booster s'ouvre ou qu'une carte se retourne, on note le
+  // souhait : le tirage s'ouvre en grand dès que la scène est prête. Le
+  // booster est déjà consommé, personne ne doit rester coincé devant.
+  if(ouv.phase === 'attente'){
+    ouv.vite = true;
+    dechirer();
+    return;
+  }
+
+  if(ouv.phase === 'dechire' || ouv.phase === 'retourne'){
+    ouv.vite = true;
+    return;
+  }
+
+  if(ouv.phase !== 'pile' && ouv.phase !== 'carte') return;
+
+  ouv.vite = false;
 
   // Une carte en train d'être retournée finit sa course, sans gerbe.
   const c = ouv.cartes[ouv.i];
@@ -7528,8 +7590,7 @@ function fermerOuverture(versBoutique){
 
   const P = R.paq;
 
-  P.scene.remove(ouv.paquet.groupe);
-  ouv.paquet.groupe.traverse(o => { if(o.material) o.material.dispose(); });
+  rangerPaquet(P, ouv.paquet);
 
   ouv.cartes.forEach(c => { P.scene.remove(c.groupe); libererCarte3D(c); });
 
@@ -7649,6 +7710,7 @@ function majOuverture(dt){
       pa.groupe.visible = false;
       ouv.phase = 'pile';
       majInterfaceOuverture();
+      if(ouv.vite) toutRevelerOuverture();
     }
   }
 
@@ -8958,6 +9020,10 @@ async function ouvrirBooster(){
   etat.reussite = null;
   majBoutique();
 
+  // Une visite de la salle, de l'entrée à la sortie : si l'on est sorti puis
+  // rentré pendant l'attente, cette réponse ne regarde plus la visite en cours.
+  const visite = sessionJeu;
+
   let res;
 
   try{
@@ -8968,13 +9034,13 @@ async function ouvrirBooster(){
 
   }catch(e){
 
+    // On a pu quitter la salle pendant l'attente.
+    if(visite !== sessionJeu) return;
+
     etat.ouverture = false;
     etat.alerte = e && e.message ? e.message : 'L’ouverture a échoué : réessaie.';
     etat.remarque = 'Un contretemps, waveur. Réessaie dans un instant.';
     Son.erreur();
-
-    // On a pu quitter la salle pendant l'attente.
-    if(!actif) return;
 
     if(etat.ecran !== 'boutique') montrerEcran('boutique');
     await chargerEtat();
@@ -8982,17 +9048,35 @@ async function ouvrirBooster(){
     return;
   }
 
+  // Les cartes sont enregistrées par la base : même si l'on est parti, elles
+  // sont dans la collection. La scène, elle, n'a plus de raison de s'ouvrir.
+  if(visite !== sessionJeu){
+    album.catalogue = null;
+    return;
+  }
+
   etat.ouverture = false;
+
+  // Ce que la base renvoie est ramené à des nombres avant de servir : un
+  // champ absent ne doit pas afficher « undefined » ni ouvrir une porte.
+  const nombre = (x, defaut) => Number.isFinite(Number(x)) && x !== null && x !== '' ? Number(x) : defaut;
+
+  res.cartes = res.cartes.map(c => Object.assign({}, c, { id: nombre(c.id, 0), quantite: nombre(c.quantite, 1) }));
+
+  const avant = etat.bourse || {};
 
   // Le solde que la base vient de donner, sans relire : les réponses plus
   // anciennes d'un chargerEtat en route ne doivent pas repasser par-dessus.
   seqEtat++;
 
-  etat.bourse = Object.assign({}, etat.bourse, {
-    boosters: res.boosters_total,
-    cartes: res.cartes_possedees,
-    cartesTotal: res.cartes_total
+  etat.bourse = Object.assign({}, avant, {
+    boosters: Math.max(0, nombre(res.boosters_total, Math.max(0, (Number(avant.boosters) || 0) - 1))),
+    cartes: nombre(res.cartes_possedees, avant.cartes || 0),
+    cartesTotal: nombre(res.cartes_total, avant.cartesTotal || 0)
   });
+
+  res.boosters_total = etat.bourse.boosters;
+  res.cartes_total = etat.bourse.cartesTotal || res.cartes_total;
 
   // L'album garde en mémoire ce qui vient d'y entrer.
   res.cartes.forEach(c => { album.collection.set(c.id, c.quantite); });
@@ -9001,8 +9085,6 @@ async function ouvrirBooster(){
 
   majHud();
 
-  // On a pu quitter la salle pendant l'attente : les cartes sont enregistrées,
-  // la scène, elle, n'a plus de raison de s'ouvrir.
   if(!actif) return;
 
   lancerOuverture(res);
@@ -9958,6 +10040,8 @@ function majMonde(dt){
 // (le relâcher n'a jamais été vu, les écouteurs étaient retirés), un gain
 // à moitié affiché, le panneau des combinaisons.
 function reinitialiserSession(){
+
+  sessionJeu++;
 
   touches.clear();
 
