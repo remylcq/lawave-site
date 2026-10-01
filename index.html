@@ -448,6 +448,53 @@
   }
   .cat-tile:hover .cat-cover img{transform:scale(1.07);}
 
+  /* La page du catalogue n'a ni titre ni compteur : des pochettes, et
+     un trait pour chercher. Le champ n'a ni cadre ni fond — une ligne
+     fine sous la loupe, qui s'éclaircit quand on s'y trouve. */
+  .cat-page{padding-top:8px;}
+  .cat-recherche{
+    position:relative; max-width:340px; margin:0 auto 40px; color:var(--muted);
+  }
+  .cat-recherche svg{
+    position:absolute; left:2px; top:50%; width:16px; height:16px;
+    transform:translateY(-50%); pointer-events:none;
+    transition:color .25s var(--ease);
+  }
+  .cat-recherche input{
+    width:100%; padding:11px 4px 11px 30px;
+    background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0;
+    box-shadow:none; -webkit-appearance:none; appearance:none;
+    font:inherit; font-size:14px; color:var(--ink);
+    transition:border-color .25s var(--ease);
+  }
+  .cat-recherche input::placeholder{color:var(--muted);}
+  .cat-recherche input:hover{border-bottom-color:rgba(255,255,255,0.24);}
+  .cat-recherche input:focus{outline:none; border-bottom-color:var(--ink-soft);}
+  .cat-recherche:focus-within svg{color:var(--ink-soft);}
+  .cat-recherche input::-webkit-search-cancel-button,
+  .cat-recherche input::-webkit-search-decoration{-webkit-appearance:none;}
+
+  /* Le bouton qui charge des sorties plus anciennes : petit, sans
+     remplissage, pour rester derrière les pochettes. */
+  .cat-reste{margin-top:32px; text-align:center;}
+  .cat-plus{
+    padding:10px 22px; border-radius:999px; border:1px solid var(--line);
+    background:transparent; color:var(--ink-soft);
+    font-size:13px; font-weight:500; letter-spacing:.02em;
+    transition:border-color .25s var(--ease), color .25s var(--ease), background .25s var(--ease);
+  }
+  .cat-plus:hover{
+    border-color:rgba(255,255,255,0.28); color:var(--ink);
+    background:rgba(255,255,255,0.04);
+  }
+  .cat-plus:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
+
+  /* Un titre pour les lecteurs d'écran, sans rien changer à l'aspect. */
+  .sr-only{
+    position:absolute; width:1px; height:1px; margin:-1px; padding:0;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+
   .empty-state{
     padding:48px 24px; text-align:center; border:1px dashed var(--line); color:var(--muted);
     font-size:14px; grid-column:1/-1; background:var(--bg-alt); border-radius:var(--radius);
@@ -2182,24 +2229,23 @@
 
   <!-- ================= CATALOGUE ================= -->
   <section id="page-catalogue" class="page">
-    <section>
-      <div class="section-head">
-        <div>
-          <h2>Catalogue</h2>
-          <p class="desc">Toutes les sorties repérées par La Wave, de la plus récente à la plus ancienne.</p>
-        </div>
-        <span class="mono" id="catalogueCompte"
-              style="color:var(--muted); font-size:13px;"></span>
-      </div>
+    <section class="cat-page">
+      <h2 class="sr-only">Catalogue</h2>
 
-      <div class="field" style="margin-bottom:24px;">
-        <input type="text" id="rechercheCataloguePublic" autocomplete="off"
-               placeholder="Chercher un titre ou un artiste"
+      <div class="cat-recherche">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+        </svg>
+        <input type="search" id="rechercheCataloguePublic" autocomplete="off"
+               spellcheck="false" enterkeyhint="search"
+               placeholder="Rechercher"
+               aria-label="Rechercher un titre ou un artiste"
                oninput="onRechercheCatalogue()">
       </div>
 
       <div class="cat-grid" id="catalogueGrid"></div>
-      <div id="catalogueReste" style="margin-top:28px; text-align:center;"></div>
+      <div class="cat-reste" id="catalogueReste"></div>
     </section>
   </section>
 
@@ -9085,39 +9131,83 @@ let catalogueData = [];
 // Le catalogue s'affichait d'un bloc. À trente sorties c'était juste ;
 // avec un fonds importé il atteignait 350 000 pixels de haut et
 // demandait près de quatre mille images — une page qu'on ne peut ni
-// parcourir ni charger. Il s'ouvre donc sur une page, la recherche
-// donnant accès au reste.
+// parcourir ni charger. Il s'ouvre donc sur une page ; le bouton
+// « Afficher plus » ajoute les sorties plus anciennes, et la recherche
+// donne accès à tout le reste.
 const CATALOGUE_PAR_PAGE = 60;
 
 let catalogueTrie = [];
 let catalogueVisibles = CATALOGUE_PAR_PAGE;
 
 
+// Sans tenir compte des accents : « cherie » doit retrouver « Chérie »,
+// et l'import peut y verser des milliers de titres français.
 function catalogueFiltre(){
 
-  const requete = texteRecherche('rechercheCataloguePublic');
+  const requete = texteNu(texteRecherche('rechercheCataloguePublic'));
 
   if(!requete) return catalogueTrie;
 
   return catalogueTrie.filter(sortie =>
-    String(sortie.title || '').toLowerCase().includes(requete) ||
-    String(sortie.artist || '').toLowerCase().includes(requete) ||
+    texteNu(sortie.title).includes(requete) ||
+    texteNu(sortie.artist).includes(requete) ||
     (sortie.featuring || []).some(feat =>
-      String(feat.nom || '').toLowerCase().includes(requete))
+      texteNu(feat.nom).includes(requete))
   );
 }
 
 
+// Le bouton sous la grille : présent tant qu'il reste des sorties plus
+// anciennes que celles affichées.
+function renderSuiteCatalogue(total){
+
+  const reste = document.getElementById('catalogueReste');
+
+  if(!reste) return;
+
+  const encore = total > catalogueVisibles;
+  const present = !!reste.querySelector('.cat-plus');
+
+  // Le bouton n'est recréé que quand il apparaît : le remplacer à
+  // chaque clic ferait perdre le focus à qui l'actionne au clavier.
+  if(encore && !present){
+    reste.innerHTML = `<button type="button" class="cat-plus"
+               onclick="voirPlusCatalogue()">Afficher plus</button>`;
+  } else if(!encore && present){
+    reste.innerHTML = '';
+  }
+}
+
+
+// Seules les nouvelles pochettes s'ajoutent à la grille : la refaire
+// en entier rejouerait l'animation d'entrée des soixante premières.
 function voirPlusCatalogue(){
+
+  const grid = document.getElementById('catalogueGrid');
+
+  if(!grid || !grid.querySelector('.cat-tile')){
+    catalogueVisibles += CATALOGUE_PAR_PAGE;
+    renderCatalogueGrille();
+    return;
+  }
+
+  const trouvees = catalogueFiltre();
+  const deja = Math.min(catalogueVisibles, trouvees.length);
+
   catalogueVisibles += CATALOGUE_PAR_PAGE;
-  renderCatalogueGrille();
+
+  grid.insertAdjacentHTML(
+    'beforeend',
+    trouvees.slice(deja, catalogueVisibles).map(tileHtml).join('')
+  );
+
+  renderSuiteCatalogue(trouvees.length);
 }
 
 
 function renderCatalogueGrille(){
 
   const grid = document.getElementById('catalogueGrid');
-  const compteur = document.getElementById('catalogueCompte');
 
   if(!grid) return;
 
@@ -9127,40 +9217,24 @@ function renderCatalogueGrille(){
         Aucune sortie publiée pour l'instant.
         Les prochaines validations apparaîtront ici.
       </div>`;
-    if(compteur) compteur.textContent = '';
+    renderSuiteCatalogue(0);
     return;
   }
 
   const trouvees = catalogueFiltre();
-
-  if(compteur){
-    compteur.textContent = trouvees.length
-      ? trouvees.length + ' sortie' + (trouvees.length > 1 ? 's' : '')
-      : '';
-  }
 
   if(!trouvees.length){
     grid.innerHTML = `
       <div class="empty-state">
         Aucune sortie ne correspond à cette recherche.
       </div>`;
+    renderSuiteCatalogue(0);
     return;
   }
 
-  const visibles = trouvees.slice(0, catalogueVisibles);
+  grid.innerHTML = trouvees.slice(0, catalogueVisibles).map(tileHtml).join('');
 
-  grid.innerHTML = visibles.map(tileHtml).join('');
-
-  const reste = document.getElementById('catalogueReste');
-
-  if(reste){
-    reste.innerHTML = trouvees.length > visibles.length
-      ? `<button type="button" class="btn btn-ghost"
-                 onclick="voirPlusCatalogue()">
-           Voir plus — ${trouvees.length - visibles.length} restante${trouvees.length - visibles.length > 1 ? 's' : ''}
-         </button>`
-      : '';
-  }
+  renderSuiteCatalogue(trouvees.length);
 }
 
 
