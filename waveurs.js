@@ -125,15 +125,20 @@ const NOMS_SYMBOLES = {
 };
 
 // Un rouleau porte sept tuiles : le logo, une seule fois (c'est le symbole
-// rare), les trois autres deux fois, dans un ordre propre à chaque rouleau et
-// sans que deux tuiles identiques se touchent : trois rouleaux identiques
-// donneraient l'air d'un seul, copié.
+// rare), les trois autres deux fois, dans un ordre propre à chaque rouleau.
+// Les deux exemplaires d'un symbole sont toujours à trois tuiles l'un de
+// l'autre, de sorte que trois tuiles de suite (celle de la ligne de gain et ses
+// deux voisines, les seules qu'on voit à la fois) sont toujours trois symboles
+// différents : un symbole en double, de part et d'autre de la ligne, se lirait
+// comme un tirage presque gagnant qui n'en est pas un. Trois rouleaux
+// identiques donneraient l'air d'un seul, copié : le troisième tourne dans
+// l'autre sens de la ronde des symboles.
 const N_TUILES = 7;
 
 const BANDES = [
   ['logo', 'waveur', 'capybara', 'main', 'waveur', 'capybara', 'main'],
   ['capybara', 'main', 'waveur', 'logo', 'capybara', 'main', 'waveur'],
-  ['main', 'waveur', 'capybara', 'waveur', 'logo', 'main', 'capybara']
+  ['main', 'capybara', 'waveur', 'logo', 'main', 'capybara', 'waveur']
 ];
 
 // La machine, seule au milieu de la salle. Son identifiant est celui que la
@@ -2731,6 +2736,11 @@ const CSS = `
 .wv-action{right:calc(24px + env(safe-area-inset-right,0px));bottom:calc(30px + env(safe-area-inset-bottom,0px));width:96px;height:96px;border-radius:50%;background:rgba(20,137,222,.85);box-shadow:0 8px 30px rgba(0,0,0,.45)}
 .wv-reculer{right:calc(134px + env(safe-area-inset-right,0px));bottom:calc(46px + env(safe-area-inset-bottom,0px));height:52px;padding:0 18px;border-radius:999px;background:rgba(6,14,26,.75);font-size:13px;font-weight:600}
 .wv-action[hidden],.wv-reculer[hidden]{display:none}
+/* Les invitations du site qui attendent une décision (la bienvenue d'un
+   visiteur) restent en coulisses pendant la visite : sur un téléphone, elles
+   couvraient la machine et le message d'aide. Elles reparaissent à la sortie.
+   Les annonces passagères (un niveau gagné) s'affichent, elles. */
+body.wv-en-jeu .notif.persistante{display:none}
 @media (max-width:760px){
   .wv-gains{display:none}
   .wv-carte{padding:9px 12px}
@@ -2823,12 +2833,16 @@ const CSS = `
 @media (max-width:760px){
   .wv-panneau.wv-collection{padding:16px 14px 14px}
   .wv-coll-grille{grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:9px}
-  .wv-ouv-haut{padding-top:54px}
+  .wv-ouv-haut{padding-top:54px;max-width:100%}
+  .wv-ouv-haut p{font-size:13px;margin-top:4px}
+  .wv-zoom-scene{height:auto;width:min(84vw,calc(min(62vh,560px) * .715))}
+  /* Une pastille « nouvelle » sous une carte de la taille d'un pouce : plus petite. */
+  .wv-ouv-etiq{font-size:10px;letter-spacing:.06em;padding:2px 7px}
 }
 @media (max-height:520px){
   .wv-panneau.wv-collection{padding:12px 14px}
   .wv-coll-tete h2{font-size:18px}
-  .wv-zoom-scene{height:min(70vh,560px)}
+  .wv-zoom-scene{height:auto;width:min(84vw,calc(min(70vh,560px) * .715))}
   .wv-ouv-bas{gap:8px}
 }
 @media (prefers-reduced-motion:reduce){
@@ -3115,9 +3129,28 @@ async function construireMonde(){
   creerPost();
   if(!etat.tactile) creerReflet();
 
+  // Le navigateur reprend parfois la carte graphique (une autre application,
+  // un onglet trop gourmand). Three.js recrée seul ses ressources quand elle
+  // revient : en attendant, un écran dit ce qui se passe, et la salle se remet
+  // en route par la pause, sans demander à la personne de tout recommencer.
   H.canvas.addEventListener('webglcontextlost', e => {
     e.preventDefault();
-    montrerEcran('erreur', "Le rendu 3D a été interrompu par ton navigateur. Quitte la salle et rentre à nouveau.");
+    if(etat.ecran !== 'perdu') etat.ecranAvantPerte = etat.ecran;
+    etat.contextePerdu = true;
+    montrerEcran('perdu');
+  });
+
+  H.canvas.addEventListener('webglcontextrestored', () => {
+    if(!etat.contextePerdu) return;
+    etat.contextePerdu = false;
+    // La personne ne se retrouve pas lâchée dans la salle sans prévenir : la
+    // pause lui rend la main. Un écran qui l'occupait (boutique, album,
+    // ouverture d'un booster) est remis tel quel.
+    const avant = etat.ecranAvantPerte;
+    etat.ecranAvantPerte = null;
+    if(actif && etat.ecran === 'perdu'){
+      montrerEcran(avant && avant !== 'chargement' && avant !== 'erreur' ? avant : 'pause');
+    }
   });
 
   scene = new THREE.Scene();
@@ -4367,6 +4400,48 @@ function interpAnneau(S, y, cle){
   return S[S.length - 1][cle];
 }
 
+// Le triangle de chemise qu'un gilet ou une veste ouverte laisse voir sur le
+// devant du torse : ouvert à partir de `bas`, de plus en plus large jusqu'à la
+// demi-largeur `largeur`, atteinte à `yLarge`, et prolongé jusqu'à `haut`. C'est
+// une forme à part, posée sur la peau du torse : peint sur les sommets du
+// torse, un bord oblique suit les mailles et se dentelle ; ici, il est droit.
+function plastronChemise(C, couleur, bas, haut, largeur, yLarge){
+
+  const rangs = 8, cols = 6;
+  const pos = [], col = [], idx = [];
+  const c = new THREE.Color(couleur);
+
+  for(let j = 0; j <= rangs; j++){
+
+    const y = lerp(bas, haut, j / rangs);
+    const w = largeur * clamp((y - bas) / (yLarge - bas), 0, 1);
+    const rx = interpAnneau(C, y, 'rx'), rz = interpAnneau(C, y, 'rz');
+
+    for(let i = 0; i <= cols; i++){
+      const x = lerp(-w, w, i / cols);
+      // Le point de l'ellipse du torse à cette hauteur, 2,5 mm au-dessus.
+      const z = rz * Math.sqrt(Math.max(0, 1 - (x / rx) * (x / rx))) + 0.0025;
+      pos.push(x, y, z);
+      col.push(c.r, c.g, c.b);
+    }
+  }
+
+  for(let j = 0; j < rangs; j++){
+    for(let i = 0; i < cols; i++){
+      const a = j * (cols + 1) + i, b = a + 1, e = a + cols + 1, f = e + 1;
+      idx.push(a, b, e, b, f, e);
+    }
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+
+  return g;
+}
+
 // Le torse, avec ce qui le recouvre : chemise, gilet, veste, robe ou sweat,
 // le col, le nœud papillon ou la cravate, les boutons. Dans le repère du
 // pivot de la taille.
@@ -4402,32 +4477,21 @@ function geoTorse(d){
 
   if(d.tenue === 'gilet'){
 
-    // Chemise blanche, gilet noir ouvert en V très haut, échancré aux
-    // emmanchures : les épaules et les côtés restent en chemise.
+    // Chemise blanche, gilet noir ouvert en V très haut (le triangle de chemise
+    // est une forme à part : voir plastronChemise), échancré aux emmanchures :
+    // les épaules et les côtés restent en chemise.
     couleur = (a, y, x, z) => {
       if(y < -0.02) return d.pantalon;
       if(y > 0.50) return d.chemise;
-      if(z >= 0){
-        const ouv = y > 0.30 ? 0.088 * Math.min(1, (y - 0.30) / 0.17) : 0;
-        const gilet = Math.abs(x) >= ouv && (y < 0.30 || Math.abs(x) < 0.150);
-        return gilet ? d.veste : d.chemise;
-      }
+      if(z >= 0) return (y < 0.30 || Math.abs(x) < 0.150) ? d.veste : d.chemise;
       return (y < 0.44 || Math.abs(x) < 0.12) ? d.veste : d.chemise;
     };
 
   } else if(d.tenue === 'veste'){
 
-    // Veste ouverte sur la chemise, plus ou moins largement.
-    const haut = d.ouverture || 0.10;
-    const bas = d.fermeture || 0.14;
-    couleur = (a, y, x, z) => {
-      if(y < -0.02) return d.pantalon;
-      if(z >= 0 && y > bas){
-        const ouv = haut * Math.min(1, (y - bas) / (0.48 - bas));
-        if(Math.abs(x) < ouv) return d.chemise;
-      }
-      return d.veste;
-    };
+    // Veste ouverte sur la chemise, plus ou moins largement (le triangle de
+    // chemise est une forme à part).
+    couleur = (a, y) => y < -0.02 ? d.pantalon : d.veste;
 
   } else if(d.tenue === 'robe'){
 
@@ -4445,6 +4509,13 @@ function geoTorse(d){
   }
 
   const liste = [lofter(S, couleur, 48)];
+
+  // Le triangle de chemise sous le gilet ou la veste ouverte.
+  if(d.tenue === 'gilet'){
+    liste.push(plastronChemise(C, d.chemise, 0.30, 0.505, 0.088, 0.47));
+  } else if(d.tenue === 'veste'){
+    liste.push(plastronChemise(C, d.chemise, d.fermeture || 0.14, 0.505, d.ouverture || 0.10, 0.48));
+  }
 
   // Le col de chemise.
   if(d.tenue === 'gilet' || d.tenue === 'veste'){
@@ -4530,9 +4601,57 @@ function geoBrasHaut(d){
   return fusionner(liste);
 }
 
+// Un doigt : de sa base (y = 0) à son bout (y = -L), un peu plus gros aux
+// phalanges, le bout arrondi, courbé vers le creux de la main (`sens` : +1 ou
+// -1 en x, `courbe` : de combien le bout s'en écarte).
+function doigt(L, r, couleur, sens, courbe){
+
+  const dx = t => sens * courbe * t * t;
+
+  return lofter([
+    { y: 0.003, rx: r * 0.85, rz: r * 0.85, cx: dx(0) },
+    { y: -L * 0.32, rx: r, rz: r * 1.05, cx: dx(0.32) },
+    { y: -L * 0.62, rx: r * 0.93, rz: r * 0.98, cx: dx(0.62) },
+    { y: -L * 0.92, rx: r * 0.78, rz: r * 0.82, cx: dx(0.92) },
+    { y: -L, rx: r * 0.40, rz: r * 0.42, cx: dx(1) }
+  ], couleur, 8);
+}
+
+// Une main : la paume, quatre doigts un peu écartés et le pouce, posés au
+// poignet (l'origine) et dirigés vers -y. Le creux de la main est du côté du
+// corps (`dedans`), le pouce sur l'avant (+z). Les doigts se replient à peine :
+// une main qui se repose.
+function geoMain(d, cote){
+
+  const dedans = -cote;
+  const peau = d.peau;
+
+  const liste = [ellipsoide(0.0185, 0.050, 0.039, 0, -0.050, 0.002, peau, 12)];
+
+  // Chacun : sa place en z à la base, sa longueur, son écart (radians, vers le
+  // pouce en positif).
+  [[0.027, 0.066, 0.10], [0.009, 0.074, 0.02], [-0.009, 0.068, -0.05], [-0.026, 0.054, -0.13]]
+    .forEach(([z, longueur, ecart]) => {
+      const f = doigt(longueur, 0.0085, peau, dedans, 0.010);
+      f.rotateX(-ecart);
+      f.translate(0, -0.092, z);
+      liste.push(f);
+    });
+
+  // Le pouce, un peu à l'écart de l'index.
+  const pouce = doigt(0.054, 0.0095, peau, dedans, 0.006);
+  pouce.rotateX(-0.72);
+  pouce.translate(dedans * 0.006, -0.040, 0.030);
+  liste.push(pouce);
+
+  return fusionner(liste);
+}
+
 // L'avant-bras et la main. La manche s'arrête au poignet, ou a été retroussée
-// à mi-avant-bras.
-function geoAvantBras(d, cote){
+// à mi-avant-bras. `flexion` : une rotation du poignet (la main posée à plat) ;
+// null : sans main (elle est alors posée à part, au bout d'un poignet qui
+// bouge à chaque image).
+function geoAvantBras(d, cote, flexion){
 
   const L = HUMAIN.avantBras;
   const manche = d.manches || null;
@@ -4554,14 +4673,12 @@ function geoAvantBras(d, cote){
     ], melange(manche, '#000000', 0.06), 14));
   }
 
-  // La main : une paume, des doigts, un pouce vers l'avant.
-  const dedans = -cote;
-
-  liste.push(
-    ellipsoide(0.019, 0.050, 0.040, 0, -L - 0.050, 0.003, d.peau, 10),
-    ellipsoide(0.016, 0.034, 0.037, 0, -L - 0.108, 0.007, d.peau, 10),
-    ellipsoide(0.012, 0.028, 0.013, dedans * 0.014, -L - 0.060, 0.034, d.peau, 8)
-  );
+  if(flexion !== null){
+    const main = geoMain(d, cote);
+    if(flexion) main.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(flexion));
+    main.translate(0, -L, 0);
+    liste.push(main);
+  }
 
   return fusionner(liste);
 }
@@ -4733,17 +4850,19 @@ class Humain {
       epaule.add(mesh(geoBrasHaut(d)));
       const coude = new THREE.Group();
       coude.position.y = -HUMAIN.bras;
-      coude.add(mesh(geoAvantBras(d, s)));
+      const avantBras = mesh(geoAvantBras(d, s));
+      coude.add(avantBras);
       epaule.add(coude);
       taille.add(epaule);
-      return { epaule, coude, s };
+      return { epaule, coude, s, avantBras, poignet: null };
     });
 
-    // Une ombre au sol.
-    const ombre = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.95, 0.95),
-      new THREE.MeshBasicMaterial({ map: R.texture(creerOmbre()), transparent: true, depthWrite: false })
-    );
+    // Une ombre au sol : le même matériau pour tous.
+    if(!R.matOmbreHumain){
+      R.matOmbreHumain = new THREE.MeshBasicMaterial({ map: R.texture(creerOmbre()), transparent: true, depthWrite: false });
+    }
+
+    const ombre = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.95), R.matOmbreHumain);
     ombre.rotation.x = -Math.PI / 2;
     ombre.position.y = 0.012;
     racine.add(ombre);
@@ -4817,6 +4936,61 @@ class Humain {
     this.pose[i] = true;
     if(pronation !== undefined) this.pronation[i] = pronation;
     this.sale = true;
+  }
+
+  // La rotation du poignet qui met la main à plat (la paume vers le bas, les
+  // doigts vers l'avant), dans le repère de l'avant-bras, pour la pose actuelle
+  // du bras. `force` : 0 (la main prolonge l'avant-bras) à 1 (tout à fait à
+  // plat). Le poignet ne plie pas au-delà de 70° environ. Écrite dans `sortie`
+  // (un Quaternion) si on en donne un.
+  flexionPoignet(i, force, sortie){
+
+    const T = this.tmp || (this.tmp = {
+      m: new THREE.Matrix4(), x: new THREE.Vector3(), y: new THREE.Vector3(0, 0, -1), z: new THREE.Vector3(),
+      voulue: new THREE.Quaternion(), avantBras: new THREE.Quaternion(), neutre: new THREE.Quaternion()
+    });
+
+    const b = this.bras[i];
+
+    // Les axes de la main à plat, dans le repère du personnage : ses doigts
+    // (-y de la main) vers +z, le creux de la main vers le bas, le pouce vers
+    // le milieu du corps.
+    if(b.s < 0){ T.x.set(0, -1, 0); T.z.set(1, 0, 0); } else { T.x.set(0, 1, 0); T.z.set(-1, 0, 0); }
+
+    T.m.makeBasis(T.x, T.y, T.z);
+    T.voulue.setFromRotationMatrix(T.m);
+
+    T.avantBras.copy(this.bassin.quaternion).multiply(this.taille.quaternion)
+      .multiply(b.epaule.quaternion).multiply(b.coude.quaternion);
+
+    const q = sortie || new THREE.Quaternion();
+    q.copy(T.avantBras).invert().multiply(T.voulue);
+
+    if(q.w < 0){ q.x = -q.x; q.y = -q.y; q.z = -q.z; q.w = -q.w; }
+
+    const angle = 2 * Math.acos(clamp(q.w, -1, 1));
+    const t = clamp(force * Math.min(1, 1.2 / Math.max(angle, 1e-4)), 0, 1);
+
+    return q.copy(T.neutre.identity().slerp(q, t));
+  }
+
+  // Les mains posées à plat (sur le feutre, le comptoir, un genou) : le poignet
+  // plie pour que la main reste horizontale. Les avant-bras se placent par
+  // cinématique inverse et la main prolongeait leur axe : posée sur une table,
+  // ses doigts s'enfonçaient dans le feutre. La flexion se calcule une fois, à
+  // la pose du personnage, et se cuit dans la forme de l'avant-bras : une main
+  // qui bouge de quelques centimètres garde sa posture, à quelques degrés près.
+  // `plats` : pour chaque bras, de 0 (rien) à 1 (à plat).
+  cuireMains(plats){
+
+    this.groupe.updateMatrixWorld(true);
+
+    this.bras.forEach((b, i) => {
+      const f = plats[i] || 0;
+      if(f <= 0) return;
+      b.avantBras.geometry.dispose();
+      b.avantBras.geometry = geoAvantBras(this.d, b.s, this.flexionPoignet(i, f));
+    });
   }
 
   // Le point de la bouche, dans le repère de la racine.
@@ -4931,15 +5105,29 @@ class Croupier extends Humain {
       pieds: { y: 0.085, z: 0.03, ecart: 0.105, ouverture: 0.18 }
     });
 
-    // Le booster qu'il tend : dans la main droite, à plat vers la personne.
+    // Ses deux mains sont à part, au bout d'un poignet qui plie à chaque image :
+    // il se penche, bat les cartes, tend un booster, et la main doit rester à
+    // plat sur le feutre dans tous ces gestes (voir flexionPoignet).
+    this.bras.forEach(b => {
+      b.avantBras.geometry.dispose();
+      b.avantBras.geometry = geoAvantBras(APPARENCES.croupier, b.s, null);
+      b.poignet = new THREE.Group();
+      b.poignet.position.y = -HUMAIN.avantBras;
+      b.poignet.add(new THREE.Mesh(geoMain(APPARENCES.croupier, b.s), R.matHumain));
+      b.coude.add(b.poignet);
+    });
+
+    // Le booster qu'il tend, dans la main droite. Sa place et son inclinaison
+    // sont données dans le repère du personnage (voir majPaquet) : il reste
+    // droit, face à la personne, quelle que soit la pose du bras. Fixé à
+    // l'avant-bras, il se tenait la tête en bas.
     this.paquet = fabriquerBooster(0.13, 0.195, 0.014);
-    this.paquet.position.set(0, -HUMAIN.avantBras - 0.075, 0.03);
-    this.paquet.rotation.set(Math.PI / 2, 0, 0);
     this.paquet.visible = false;
-    this.bras[0].coude.add(this.paquet);
+    this.bras[0].poignet.add(this.paquet);
 
     this.reposDroit = new THREE.Vector3();
     this.offre = new THREE.Vector3(-0.13, 1.13, 0.70);
+    this.reposGauche = new THREE.Vector3(0.17, 0.975, 0.43);
   }
 
   // Ce que voit la caméra quand on lui parle : lui, de face, à deux mètres et
@@ -5005,9 +5193,10 @@ class Croupier extends Humain {
     // l'achat.
     const frotte = reduit ? 0 : (1 - r);
 
+    // Le poignet est à 2 cm au-dessus du feutre (0,954 m) : l'épaisseur de la paume.
     this.reposDroit.set(
       -0.17 + Math.sin(t * 3.4 + this.phase) * 0.030 * frotte,
-      0.985,
+      0.975,
       0.45 + Math.cos(t * 2.3 + this.phase) * 0.020 * frotte
     );
 
@@ -5015,11 +5204,46 @@ class Croupier extends Humain {
     cibleDroite.z += this.remerciement * 0.06;
 
     this.viserBras(0, cibleDroite, lerp(-1.25, -0.25, r));
-    this.viserBras(1, new THREE.Vector3(0.17, 0.985, 0.43), 1.25);
+    this.viserBras(1, this.reposGauche, 1.25);
 
     this.paquet.visible = r > 0.06;
 
     this.majBras();
+
+    // Les mains : à plat sur le feutre ; celle qui tend le booster prolonge
+    // peu à peu son avant-bras, pour le tenir.
+    this.flexionPoignet(0, clamp(1 - r * 1.25, 0, 1), this.bras[0].poignet.quaternion);
+    this.flexionPoignet(1, 1, this.bras[1].poignet.quaternion);
+
+    if(this.paquet.visible) this.majPaquet();
+  }
+
+  // Le booster tenu : droit, la face vers la personne (un peu relevée, comme
+  // une carte qu'on présente), tenu par le bas, au bout de la main.
+  majPaquet(){
+
+    const b = this.bras[0];
+
+    const Q = this.reperePaquet || (this.reperePaquet = {
+      poignet: new THREE.Quaternion(), avantBras: new THREE.Quaternion(),
+      voulu: new THREE.Quaternion().setFromEuler(new THREE.Euler(-0.40, 0, 0)),
+      dir: new THREE.Vector3(), pos: new THREE.Vector3(), bas: new THREE.Vector3(0, -1, 0)
+    });
+
+    Q.avantBras.copy(this.bassin.quaternion).multiply(this.taille.quaternion)
+      .multiply(b.epaule.quaternion).multiply(b.coude.quaternion);
+    Q.poignet.copy(Q.avantBras).multiply(b.poignet.quaternion).invert();
+
+    // Du poignet vers le bout de la main, dans le repère du personnage, puis un
+    // peu au-dessus et devant la paume.
+    Q.dir.copy(Q.bas).applyQuaternion(Q.avantBras);
+    Q.pos.copy(Q.dir).multiplyScalar(0.07);
+    Q.pos.y += 0.055;
+    Q.pos.z += 0.03;
+
+    // La place et l'inclinaison, ramenées du repère du personnage à celui du poignet.
+    this.paquet.position.copy(Q.pos).applyQuaternion(Q.poignet);
+    this.paquet.quaternion.copy(Q.poignet).multiply(Q.voulu);
   }
 }
 
@@ -5039,29 +5263,34 @@ const habitues = [];
 // avant), la pronation dit si la paume regarde le côté (0) ou le dessous (±1,3).
 const HABITUES = [
 
-  // Au bar, deux voisins qui bavardent, verre en main.
+  // `plat` : de 0 à 1, à quel point la main se pose à plat (voir cuireMains).
+  // Le poignet d'une main posée sur le feutre (0,954 m) est à 2 cm au-dessus :
+  // l'épaisseur de la paume.
+
+  // Au bar, deux voisins qui bavardent, verre en main : l'autre main sur le
+  // marbre du comptoir (1,081 m).
   { look: 'costume', siege: 'bar4', activite: 'discute', verre: 'whisky', mainVerre: 0,
     penche: 0.30, regard: -0.6,
-    mains: [[-0.17, 1.13, 0.56], [0.15, 1.12, 0.50]], pron: [0.9, -1.2] },
+    mains: [[-0.17, 1.13, 0.56], [0.15, 1.103, 0.50]], pron: [0.9, -1.2], plat: [0, 1] },
 
   { look: 'robe', siege: 'bar5', activite: 'discute', verre: 'vin', mainVerre: 0,
     penche: 0.25, regard: 0.6,
-    mains: [[-0.16, 1.13, 0.54], [0.18, 1.12, 0.50]], pron: [0.9, -1.2] },
+    mains: [[-0.16, 1.13, 0.54], [0.18, 1.103, 0.50]], pron: [0.9, -1.2], plat: [0, 1] },
 
   // À la table de blackjack, face au croupier.
   { look: 'sweat', siege: 'bj0', activite: 'cartes',
     penche: 0.28, regard: 0, portee: 3.5,
-    mains: [[-0.16, 0.985, 0.56], [0.16, 0.985, 0.56]], pron: [-1.25, 1.25] },
+    mains: [[-0.16, 0.975, 0.56], [0.16, 0.975, 0.56]], pron: [-1.25, 1.25], plat: [1, 1] },
 
   // À la table de poker.
   { look: 'blazer', siege: 'pok3', activite: 'cartes',
     penche: 0.22, regard: 0, portee: 3.5,
-    mains: [[-0.13, 0.985, 0.52], [0.13, 0.985, 0.52]], pron: [-1.25, 1.25] },
+    mains: [[-0.13, 0.975, 0.52], [0.13, 0.975, 0.52]], pron: [-1.25, 1.25], plat: [1, 1] },
 
   // Sur la banquette de velours, devant un verre.
   { look: 'cardigan', siege: 'banq1', activite: 'verre', verre: 'biere', mainVerre: 0,
     penche: 0.12, regard: 0.15,
-    mains: [[-0.17, 0.75, 0.46], [0.20, 0.56, 0.28]], pron: [0.8, 0.2] }
+    mains: [[-0.17, 0.75, 0.46], [0.20, 0.56, 0.28]], pron: [0.8, 0.2], plat: [0, 0.8] }
 ];
 
 // Un verre : un gobelet de verre à peine visible et ce qu'il contient.
@@ -5193,6 +5422,9 @@ class Habitue extends Humain {
     }
 
     this.majBras(true);
+
+    // Les mains à plat prennent leur forme définitive, une fois les bras placés.
+    this.cuireMains(def.plat || [0, 0]);
   }
 
   maj(dt, t, reduit, cible){
@@ -5653,6 +5885,13 @@ function creerPost(){
 
     POST.rt = new THREE.WebGLRenderTarget(Math.max(2, t.x), Math.max(2, t.y), opt);
 
+    // Le tampon de profondeur d'une image intermédiaire n'a que 16 bits par
+    // défaut, contre 24 pour l'écran : trop peu pour une salle de vingt mètres
+    // où des surfaces se posent à quelques millimètres l'une de l'autre (un
+    // décor collé au mur, un feutre sur sa table). Une texture de profondeur le
+    // porte à 24 bits.
+    POST.rt.depthTexture = new THREE.DepthTexture(2, 2, THREE.UnsignedIntType);
+
     // L'anticrénelage du rendu direct ne vaut pas pour une image
     // intermédiaire : WebGL 2 sait la multi-échantillonner. Sur téléphone, le
     // surcoût ne vaut pas le gain.
@@ -5776,6 +6015,8 @@ function creerReflet(){
     REFLET.rt = new THREE.WebGLRenderTarget(2, 2, {
       minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat
     });
+    // 24 bits de profondeur, comme l'image principale (voir creerPost).
+    REFLET.rt.depthTexture = new THREE.DepthTexture(2, 2, THREE.UnsignedIntType);
     REFLET.cam = new THREE.PerspectiveCamera();
     REFLET.matrice = new THREE.Matrix4();
     REFLET.actif = true;
@@ -5785,6 +6026,40 @@ function creerReflet(){
   }catch(e){
     REFLET.actif = false;
   }
+}
+
+// Remplace le plan proche d'une caméra par le plan horizontal d'altitude y0
+// (cadrage oblique, la méthode des miroirs des moteurs de jeu) : tout ce qui
+// est sous ce plan, du côté de la caméra, disparaît de l'image. Seule la
+// troisième ligne de la matrice de projection change ; le plan du reflet relu
+// par les surfaces (x, y, w) reste le même.
+function obliquer(cam, y0){
+
+  const O = REFLET.oblique || (REFLET.oblique = {
+    plan: new THREE.Plane(), p: new THREE.Vector4(), q: new THREE.Vector4(),
+    normale: new THREE.Vector3(0, 1, 0), point: new THREE.Vector3()
+  });
+
+  O.plan.setFromNormalAndCoplanarPoint(O.normale, O.point.set(0, y0, 0));
+  O.plan.applyMatrix4(cam.matrixWorldInverse);
+  O.p.set(O.plan.normal.x, O.plan.normal.y, O.plan.normal.z, O.plan.constant);
+
+  const m = cam.projectionMatrix.elements;
+
+  // Le coin du volume de vue le plus éloigné du plan, dans l'espace de la caméra.
+  O.q.set(
+    (Math.sign(O.p.x) + m[8]) / m[0],
+    (Math.sign(O.p.y) + m[9]) / m[5],
+    -1,
+    (1 + m[10]) / m[14]
+  );
+
+  O.p.multiplyScalar(2 / O.p.dot(O.q));
+
+  m[2] = O.p.x;
+  m[6] = O.p.y;
+  m[10] = O.p.z + 1;
+  m[14] = O.p.w;
 }
 
 function majReflet(sc, cam){
@@ -5816,6 +6091,13 @@ function majReflet(sc, cam){
   c.far = cam.far;
   c.updateProjectionMatrix();
   c.updateMatrixWorld();
+
+  // Ce qui est sous le plan du miroir (le dessous du podium, la base des
+  // tabourets, les semelles) ne doit pas se dessiner dans le reflet. Vu d'en
+  // dessous, le podium formait un grand disque noir qui cachait la machine
+  // et trouait le reflet tout autour : le plan proche de la caméra du reflet
+  // devient le plan du sol.
+  obliquer(c, y0);
 
   REFLET.matrice.set(
     0.5, 0, 0, 0.5,
@@ -7056,20 +7338,47 @@ function cadreCarte(){
   };
 }
 
+// Ce que le titre et les boutons du bilan prennent de l'écran, mesuré : sur un
+// téléphone, le résumé passe sur deux lignes et les boutons sur deux rangées.
+function reservesBilan(){
+
+  const o = overlay.getBoundingClientRect();
+  const haut = H.ouv.querySelector('.wv-ouv-haut').getBoundingClientRect();
+  const bas = H.ouv.querySelector('.wv-ouv-bas').getBoundingClientRect();
+
+  // Pas encore affichés : les réserves d'un grand écran.
+  if(!o.height || !haut.height || !bas.height) return { haut: 132, bas: 118 };
+
+  return {
+    haut: Math.max(54, haut.bottom - o.top + 8),
+    bas: Math.max(60, o.bottom - bas.top + 8)
+  };
+}
+
 // Les places des cartes au bilan : une rangée sur un écran large, deux
 // rangées sur un écran en hauteur.
 function placesBilan(n){
 
   const { l, h } = champOuverture();
-  const z = zoneCartes(132, 118);
+  const reserves = reservesBilan();
+  const z = zoneCartes(reserves.haut, reserves.bas);
 
   const colonnes = l / h > 1.45 ? n : Math.ceil(n / 2);
   const rangees = Math.ceil(n / colonnes);
 
-  // Entre deux rangées, de la place pour l'étiquette (« nouvelle », « déjà ×2 »).
-  const interligne = rangees > 1 ? 1.34 : 1.06;
+  // Sous chaque carte, de la place pour son étiquette (« nouvelle », « déjà
+  // ×2 ») : une trentaine de pixels, quelle que soit la taille de l'écran. Un
+  // pourcentage de la carte ne suffisait pas sur un téléphone en travers, où
+  // les étiquettes recouvraient les boutons.
+  const ecart = 30 * h / Math.max(240, overlay.clientHeight);
 
-  const s = Math.min((l * 0.94 / colonnes) / 0.63 / 1.06, (z.hauteur / rangees) / 0.88 / interligne, 1.05);
+  const s = Math.max(0.25, Math.min(
+    (l * 0.94 / colonnes) / 0.63 / 1.06,
+    (z.hauteur / rangees - ecart) / 0.88,
+    1.05
+  ));
+
+  const pas = 0.88 * s + ecart;
 
   const places = [];
 
@@ -7079,7 +7388,8 @@ function placesBilan(n){
     const k = i - r * colonnes;
     places.push({
       x: (k - (dansRangee - 1) / 2) * 0.63 * s * 1.06,
-      y: ((rangees - 1) / 2 - r) * 0.88 * s * interligne + z.y,
+      // Le bloc des cartes et de leurs étiquettes est centré dans la zone.
+      y: ((rangees - 1) / 2 - r) * pas + z.y + ecart / 2,
       s
     });
   }
@@ -7132,6 +7442,66 @@ function redimensionnerOuverture(){
   cam.position.z = d;
   R.paq.distance = d;
   cam.updateProjectionMatrix();
+
+  // Un téléphone qu'on tourne en pleine ouverture : tout ce qui est posé à
+  // l'écran reprend sa place pour la nouvelle forme.
+  replacerOuverture();
+}
+
+// Le booster tient dans la zone libre, au-dessus de la phrase et des
+// boutons : sur un téléphone en travers, il recouvrait l'un et l'autre.
+function echellePaquet(){
+  const z = zoneCartes(54, 138);
+  return Math.min(1.55, z.hauteur / 0.75 * 0.9, z.l * 0.8 / 0.5);
+}
+
+// Une carte vers une nouvelle place. Un mouvement déjà en cours garde sa
+// course (et ce qu'il doit faire en arrivant) : seule sa destination change.
+function reciblerCarte(c, vers){
+  if(c.tw) Object.assign(c.tw.vers, vers);
+  else deplacerCarte(c, vers, 0.3, 0);
+}
+
+// Chaque chose à sa place dans la phase en cours, calculée pour la forme
+// actuelle de l'écran.
+function replacerOuverture(){
+
+  if(!ouv || !R.paq) return;
+
+  const n = ouv.cartes.length;
+  const z = zoneCartes(54, 138);
+
+  ouv.yPaquet = z.y;
+  ouv.paquet.groupe.scale.setScalar(echellePaquet());
+
+  if(ouv.phase === 'bilan'){
+
+    const places = placesBilan(n);
+    ouv.cartes.forEach((c, k) => reciblerCarte(c, { x: places[k].x, y: places[k].y, s: places[k].s }));
+
+  } else if(ouv.phase === 'pile' || ouv.phase === 'retourne' || ouv.phase === 'carte'){
+
+    const cadre = cadreCarte();
+
+    ouv.cartes.forEach((c, k) => {
+      if(k < ouv.i){
+        const p = placeRangee(k, n);
+        reciblerCarte(c, { x: p.x, y: p.y, s: p.s });
+      } else if(k === ouv.i && ouv.phase !== 'pile'){
+        reciblerCarte(c, { y: cadre.y, s: cadre.grand });
+      } else {
+        const p = placePile(k - ouv.i);
+        reciblerCarte(c, { x: p.x, y: p.y, s: p.s });
+      }
+    });
+
+  } else if(ouv.phase === 'dechire' && ouv.flags.cartes){
+
+    ouv.cartes.forEach((c, k) => {
+      const p = placePile(k);
+      reciblerCarte(c, { x: p.x, y: p.y, s: p.s });
+    });
+  }
 }
 
 // Le texte et les boutons de l'ouverture.
@@ -7182,6 +7552,21 @@ function majInterfaceOuverture(){
   if(!H.ouvAction.hidden && !H.ouvAction.disabled && document.activeElement !== H.ouvAction){
     H.ouvAction.focus({ preventScroll: true });
   }
+
+  // Au bilan, c'est un des boutons du bilan qui le prend, pour qu'Entrée ne
+  // reste pas sans effet : « Ouvrir un autre booster » s'il en reste, sinon
+  // « Terminer ». Pas tout de suite : qui enchaîne les cartes à coups d'Entrée
+  // ne doit pas ouvrir un autre booster d'un coup de trop, les cartes mettent
+  // trois quarts de seconde à se ranger.
+  if(ouv.phase === 'bilan'){
+    const restants = etat.bourse ? etat.bourse.boosters : 0;
+    const visee = ouv;
+    setTimeout(() => {
+      if(ouv !== visee || ouv.phase !== 'bilan') return;
+      const bouton = restants >= 1 ? H.ouvAutre : H.ouvFin;
+      if(document.activeElement !== bouton) bouton.focus({ preventScroll: true });
+    }, 900);
+  }
 }
 
 function flasher(couleur, force){
@@ -7212,6 +7597,7 @@ function placerEtiquettes(){
 
   const cam = R.paq.cam;
   const l = overlay.clientWidth, h = overlay.clientHeight;
+  const pixelsParUnite = h / champOuverture().h;
 
   ouv.cartes.forEach(c => {
     if(!c.etiq) return;
@@ -7223,6 +7609,15 @@ function placerEtiquettes(){
     v.project(cam);
     c.etiq.style.left = ((v.x + 1) / 2 * l) + 'px';
     c.etiq.style.top = ((1 - v.y) / 2 * h) + 'px';
+
+    // L'étiquette suit la largeur de sa carte : sous cinq cartes serrées, elle
+    // ne déborde pas sur sa voisine.
+    const taille = Math.round(clamp(0.63 * c.etat.s * pixelsParUnite * 0.085, 8, 11));
+    if(c.etiq.dataset.t !== String(taille)){
+      c.etiq.dataset.t = String(taille);
+      c.etiq.style.fontSize = taille + 'px';
+      c.etiq.style.padding = taille < 10 ? '2px 6px' : '';
+    }
   });
 }
 
@@ -7245,7 +7640,7 @@ function lancerOuverture(res){
 
     paquet = creerPaquetOuverture();
     paquet.groupe.position.set(0, 0, 0);
-    paquet.groupe.scale.setScalar(1.55);
+    paquet.groupe.scale.setScalar(echellePaquet());
     P.scene.add(paquet.groupe);
 
     donnees.forEach(c => {
@@ -7271,6 +7666,7 @@ function lancerOuverture(res){
     redimensionnerOuverture();
 
     H.ouvEtiq.innerHTML = '';
+    H.ouvFlash.classList.remove('on');
     H.ouv.hidden = false;
     overlay.classList.add('wv-en-ouverture');
 
@@ -7292,6 +7688,7 @@ function lancerOuverture(res){
 
     if(H.ouv) H.ouv.hidden = true;
     if(H.ouvEtiq) H.ouvEtiq.innerHTML = '';
+    if(H.ouvFlash) H.ouvFlash.classList.remove('on');
     overlay.classList.remove('wv-en-ouverture');
 
     etat.alerte = 'Tes cartes sont dans ta collection, mais leur présentation a échoué : ouvre ton album pour les voir.';
@@ -7408,10 +7805,15 @@ function suivante(){
 function versBilan(tout){
 
   const n = ouv.cartes.length;
-  const places = placesBilan(n);
 
   ouv.phase = 'bilan';
   ouv.peutSuivre = false;
+
+  // Le titre et les boutons d'abord : les places des cartes se mesurent sur ce
+  // qui reste d'écran.
+  majInterfaceOuverture();
+
+  const places = placesBilan(n);
 
   ouv.cartes.forEach((c, k) => {
     const p = places[k];
@@ -7427,8 +7829,6 @@ function versBilan(tout){
     if(fx.flash) flasher(couleur, fx.flash);
     Son.carte(['commune', 'rare', 'epique', 'legendaire'][rang], false);
   }
-
-  majInterfaceOuverture();
 }
 
 function toutRevelerOuverture(){
@@ -7493,6 +7893,10 @@ function fermerOuverture(versBoutique){
   H.ouvEtiq.innerHTML = '';
   overlay.classList.remove('wv-en-ouverture');
 
+  // L'éclair de la dernière carte rare ne doit pas rejouer à l'ouverture
+  // suivante : une animation CSS repart dès que son élément réapparaît.
+  H.ouvFlash.classList.remove('on');
+
   if(versBoutique){
     etat.fermeeA = performance.now();
     if(croupier) croupier.accueillir(true);
@@ -7536,7 +7940,7 @@ function majOuverture(dt){
   if(ouv.phase === 'attente'){
 
     const b = etat.reduit ? 0 : Math.sin(t * 1.3) * 0.03;
-    pa.groupe.position.set(0, b, 0);
+    pa.groupe.position.set(0, b + (ouv.yPaquet || 0), 0);
     pa.groupe.rotation.set(etat.reduit ? 0 : Math.sin(t * 0.7) * 0.04, etat.reduit ? 0 : Math.sin(t * 0.9) * 0.3, 0);
 
   } else if(ouv.phase === 'dechire'){
@@ -8076,19 +8480,38 @@ async function tirer(machine){
 
   const debut = performance.now();
 
+  // La visite en cours : quitter la salle puis y rentrer pendant le tirage
+  // fait de lui celui d'une visite finie, qui ne touche plus à l'état de la
+  // nouvelle.
+  const visite = sessionJeu;
+
+  // Un tirage qui échoue : les rouleaux s'arrêtent où ils peuvent, aucun gain
+  // n'est annoncé, et le compteur est relu pour dire ce qu'il en est.
+  const echouer = async message => {
+    machine.abandonner();
+    await attendre(1100);
+    if(visite === sessionJeu) etat.enTirage = false;
+    Son.erreur();
+    machine.ecrire('OUPS', 'réessaie', '#ff8a8a');
+    afficherMessage(message, 3600);
+    await chargerEtat();
+  };
+
   let res;
 
   try{
     res = await options.tourner(machine.def.id);
   }catch(e){
     // La base a refusé ou n'a pas répondu : aucun tour n'a été compté.
-    machine.abandonner();
-    await attendre(1100);
-    etat.enTirage = false;
-    Son.erreur();
-    machine.ecrire('OUPS', 'réessaie', '#ff8a8a');
-    afficherMessage(e && e.message ? e.message : 'Le tirage a échoué.', 3600);
-    await chargerEtat();
+    await echouer(e && e.message ? e.message : 'Le tirage a échoué.');
+    return;
+  }
+
+  // Une réponse sans trois symboles (un site pas à jour, une base qui répond de
+  // travers) n'a rien à illustrer : sans cette garde, les rouleaux tourneraient
+  // à jamais et la machine resterait bloquée.
+  if(!res || !Array.isArray(res.symboles) || res.symboles.length < 3){
+    await echouer('Le tirage a répondu de travers : réessaie dans un instant.');
     return;
   }
 
@@ -8096,10 +8519,10 @@ async function tirer(machine){
   // instantané gâcherait le suspense.
   await attendre(Math.max(0, 1500 - (performance.now() - debut)));
 
-  if(!actif){
+  if(!actif || visite !== sessionJeu){
     // La salle a été quittée pendant le tirage : le gain est déjà en base.
     if(options.apresTirage) options.apresTirage(res);
-    etat.enTirage = false;
+    if(visite === sessionJeu) etat.enTirage = false;
     poserMachine(machine, res);
     return;
   }
@@ -8113,25 +8536,36 @@ async function tirer(machine){
   }
 
   // Attendre que le dernier soit immobile.
-  while(machine.rouleaux.some(r => r.etat !== 'repos') && actif){
+  while(machine.rouleaux.some(r => r.etat !== 'repos') && actif && visite === sessionJeu){
     await attendre(60);
   }
 
   // Quitter la salle pendant l'arrêt : arreter() a déjà transmis le résultat
   // (voir etat.attente), le redonner ferait fêter deux fois le même niveau.
-  if(!actif){
-    etat.enTirage = false;
+  if(!actif || visite !== sessionJeu){
+    if(visite === sessionJeu) etat.enTirage = false;
     poserMachine(machine, res);
     return;
   }
 
   await attendre(260);
 
+  if(!actif || visite !== sessionJeu){
+    if(visite === sessionJeu) etat.enTirage = false;
+    poserMachine(machine, res);
+    return;
+  }
+
   annoncerResultat(machine, res);
 
-  etat.tours = {
-    restants: res.tours_restants,
-    parJour: res.tours_par_jour,
+  // Les nombres viennent de la base : un champ absent ne doit pas afficher
+  // « NaN » dans l'interface.
+  const nb = x => Number.isFinite(Number(x)) && x !== null && x !== '' ? Number(x) : null;
+  const restants = nb(res.tours_restants);
+
+  etat.tours = restants === null && !etat.tours ? null : {
+    restants: restants !== null ? restants : Math.max(0, etat.tours.restants - 1),
+    parJour: nb(res.tours_par_jour) || (etat.tours && etat.tours.parJour) || 10,
     gagne: ((etat.tours && etat.tours.gagne) || 0) + (res.gain || 0),
     pieces: ((etat.tours && etat.tours.pieces) || 0) + (res.pieces || 0)
   };
@@ -8707,6 +9141,14 @@ function montrerEcran(type, texte){
       '<h2>La salle n’a pas pu s’ouvrir</h2>' +
       '<p id="wvErreurTexte"></p>' +
       '<div class="wv-actions"><button type="button" class="wv-cta" id="wvSortir">Retour au site</button></div></div>';
+
+  } else if(type === 'perdu'){
+
+    html = '<div class="wv-panneau" role="alertdialog" aria-label="Rendu 3D interrompu">' + enTete +
+      '<h2>Le rendu 3D s’est interrompu</h2>' +
+      '<p>Ton navigateur a repris la carte graphique, le temps de la prêter à autre chose. ' +
+      'La salle reprend d’elle-même dès qu’il la rend ; sinon, quitte-la et reviens-y dans un instant.</p>' +
+      '<div class="wv-actions"><button type="button" class="wv-cta discret" id="wvSortir">Quitter la salle</button></div></div>';
   }
 
   H.ecran.innerHTML = html;
@@ -8714,7 +9156,7 @@ function montrerEcran(type, texte){
 
   // Un pointeur verrouillé ne peut pas cliquer : les écrans à boutons le
   // libèrent.
-  if((type === 'erreur' || type === 'pause' || type === 'connexion' || type === 'boutique' || type === 'collection') && document.pointerLockElement){
+  if((type === 'erreur' || type === 'perdu' || type === 'pause' || type === 'connexion' || type === 'boutique' || type === 'collection') && document.pointerLockElement){
     document.exitPointerLock();
   }
 
@@ -9274,11 +9716,25 @@ function surToucheBas(e){
   // focalisé après le clic, relançait la salle au point de départ).
   if((code === 'Enter' || code === 'Space') && e.target instanceof Element && overlay && overlay.contains(e.target) && e.target.closest('button')) return;
 
-  // Pendant le travelling, une touche du jeu le passe.
+  // Pendant le travelling, une touche du jeu le passe, Échap aussi.
   if(etat.intro){
-    if(TOUCHES_JEU.has(code)){
+    if(TOUCHES_JEU.has(code) || code === 'Escape'){
       e.preventDefault();
       passerIntro();
+    }
+    return;
+  }
+
+  // Échap, quand le navigateur ne l'a pas déjà prise pour libérer le pointeur
+  // (verrou refusé, ou pas encore accordé) : assis à la machine, on se lève ;
+  // sinon la salle se met en pause, comme elle le fait quand le verrou saute.
+  if(code === 'Escape'){
+    e.preventDefault();
+    if(focus.cible === 1){
+      if(!etat.enTirage) sortirFocus();
+    } else {
+      touches.clear();
+      montrerEcran('pause');
     }
     return;
   }
@@ -9321,14 +9777,19 @@ function surSouris(e){
 
   if(!actif || etat.ecran || etat.intro || focus.cible === 1) return;
 
+  // Un navigateur qui renvoie, de temps à autre, un déplacement démesuré (le
+  // retour d'un autre onglet, un pilote de souris) ferait pivoter la vue d'un
+  // coup : un mouvement d'une seule image est plafonné.
+  const mx = clamp(e.movementX || 0, -150, 150), my = clamp(e.movementY || 0, -150, 150);
+
   if(document.pointerLockElement === H.canvas){
-    regarder(-e.movementX * JOUEUR.souris, -e.movementY * JOUEUR.souris);
+    regarder(-mx * JOUEUR.souris, -my * JOUEUR.souris);
     return;
   }
 
   // Sans verrou : on regarde en faisant glisser.
   if(etat.glisse && e.buttons & 1){
-    regarder(-e.movementX * JOUEUR.souris * 1.3, -e.movementY * JOUEUR.souris * 1.3);
+    regarder(-mx * JOUEUR.souris * 1.3, -my * JOUEUR.souris * 1.3);
   }
 }
 
@@ -9487,6 +9948,9 @@ function brancherEvenements(){
   ecouter(window, 'keyup', surToucheHaut);
   ecouter(window, 'blur', () => touches.clear());
   ecouter(window, 'resize', redimensionner);
+  // Un téléphone qu'on tourne : sur certains navigateurs, « resize » arrive
+  // avant que la page ait pris sa nouvelle taille. On relit un instant après.
+  ecouter(window, 'orientationchange', () => setTimeout(redimensionner, 300));
   ecouter(document, 'mousemove', surSouris);
   ecouter(document, 'mouseup', surRelacheSouris);
   ecouter(document, 'pointerlockchange', surChangementVerrou);
@@ -9990,6 +10454,8 @@ async function demarrer(opts){
   // redemandera.
   etat.sansVerrou = false;
   etat.echecsVerrou = 0;
+  etat.contextePerdu = false;
+  etat.ecranAvantPerte = null;
 
   Son.init();
   Son.reprendre();
@@ -10046,6 +10512,13 @@ async function demarrer(opts){
   if(!raf) raf = requestAnimationFrame(boucle);
 
   chargerEtat();
+
+  // Un contexte perdu pendant une visite précédente, et pas encore rendu : la
+  // salle n'afficherait rien.
+  if(renderer.getContext().isContextLost()){
+    etat.contextePerdu = true;
+    montrerEcran('perdu');
+  }
 }
 
 function quitter(){
