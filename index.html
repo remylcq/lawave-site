@@ -858,54 +858,412 @@
   }
   .modal-close:hover{background:var(--blue);}
 
-  /* ---------- CONTENT CARDS ---------- */
-  .content-grid{
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
-    gap:10px;
+  /* ---------- PAGE CONTENU ----------
+     Une vidéo à la fois, en grand, avec sa miniature ; les autres
+     défilent dessous. La lueur derrière l'écran est la miniature elle-
+     même, floutée : la page prend les couleurs de la vidéo qu'on regarde.
+     Plus bas, trois publications Instagram : la photo choisie par
+     l'équipe, en entier, et un clic renvoie au post. */
+  .contenu-entete{
+    display:flex; align-items:baseline; justify-content:space-between;
+    gap:16px; margin-bottom:16px;
   }
-  /* Intégrations officielles Instagram : hauteur fixe, car un iframe
-     d'une autre origine ne peut pas dicter sa propre taille. */
-  .insta-grid{
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
-    gap:16px;
+  .contenu-entete .eyebrow{margin-bottom:0;}
+  .contenu-lien{
+    font-size:13px; color:var(--blue); white-space:nowrap;
+    transition:color .25s var(--ease);
   }
-  /* L'intégration officielle d'Instagram rend une carte blanche :
-     en-tête au pseudo, photo, puis barre d'actions et légende. Seule
-     la photo nous intéresse, et rien dans l'URL ne permet de demander
-     les autres parties séparément.
+  .contenu-lien:hover{color:var(--blue-bright);}
 
-     On découpe donc la carte : le cadre est carré, l'iframe est
-     remontée de la hauteur de l'en-tête, et tout ce qui suit la photo
-     déborde hors du cadre. Elle est aussi élargie de deux pixels de
-     chaque côté pour masquer la bordure claire de la carte.
-
-     Ce calage dépend de la mise en page d'Instagram : si elle change,
-     c'est --insta-entete qu'il faudra reprendre. */
-  .insta-cadre{
-    --insta-entete: 54px;
-    position:relative; width:100%; aspect-ratio:1/1;
-    overflow:hidden; border-radius:var(--radius);
-    background:#000;
+  /* L'écran prend toute la largeur de la page, comme tout ce qui
+     l'entoure : c'est ce qui le fait grand. Sur une fenêtre basse, son
+     bas passe sous le bord ; le titre, lui, est en haut. */
+  .scene-colonne{width:100%;}
+  .scene{position:relative;}
+  /* Le plateau réunit l'écran, sa lueur et la légende : il entre en scène
+     d'un bloc. C'est lui, immobile, qui reçoit le survol ; l'écran et sa
+     légende se soulèvent à l'intérieur (un élément qui se soulève sous
+     le curseur le quitte, retombe, le retrouve… et tremble au bord). */
+  .scene-plateau{
+    position:relative;
+    animation:sceneEntre .9s var(--ease) backwards;
   }
-  .insta-cadre iframe{
-    position:absolute;
-    top:calc(var(--insta-entete) * -1);
-    left:-2px; width:calc(100% + 4px);
-    height:calc(100% + var(--insta-entete) + 220px);
-    border:0; display:block;
+  .scene-ecran, .scene-legende{transition:transform .7s var(--ease);}
+  .scene-plateau:hover .scene-ecran, .scene-plateau:hover .scene-legende{
+    transform:translateY(-4px);
   }
-  .content-thumb{
-    aspect-ratio:16/9; overflow:hidden; position:relative; background:rgba(255,255,255,0.06); display:block;
-    border:1px solid var(--line); border-radius:var(--radius);
+  .scene-plateau.lecture .scene-ecran{transform:none;}
+  /* La lueur : la miniature, floutée, qui déborde de l'écran et s'estompe
+     sur ses bords (le masque). Elle est dessinée petite puis agrandie :
+     un flou sur une petite image coûte seize fois moins cher. Elle ne
+     dépasse jamais de plus de 24 px, la marge de la page, pour ne jamais
+     faire défiler la page de côté. */
+  .scene-ambiance{
+    position:absolute; z-index:0; pointer-events:none; overflow:hidden;
+    top:-22%; bottom:-22%; left:-24px; right:-24px;
+    -webkit-mask-image:radial-gradient(ellipse closest-side, #000 52%, transparent 100%);
+    mask-image:radial-gradient(ellipse closest-side, #000 52%, transparent 100%);
   }
-  .content-thumb img{width:100%; height:100%; object-fit:cover; transition:transform .35s ease;}
-  .content-thumb:hover img{transform:scale(1.08);}
-  .content-thumb .play{
-    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    color:#fff; font-size:28px; background:rgba(16,19,21,0); transition:background .2s;
+  .scene-ambiance img{
+    position:absolute; left:0; top:0; width:25%; height:25%; max-width:none;
+    object-fit:cover; transform-origin:0 0; transform:scale(4);
+    filter:blur(14px) saturate(1.7); opacity:.6;
+    animation:ambianceEntre 1.2s var(--ease) backwards;
+  }
+  @keyframes ambianceEntre{from{opacity:0;}}
+  .scene-ecran{
+    position:relative; z-index:1; width:100%; aspect-ratio:16/9;
+    border-radius:var(--radius-lg); overflow:hidden; isolation:isolate;
+    background:#06090d; border:1px solid rgba(255,255,255,0.12);
+    box-shadow:var(--ombre-3), var(--reflet-int);
+    cursor:pointer; touch-action:pan-y;
+  }
+  .scene-ecran.lecture{cursor:default;}
+  @keyframes sceneEntre{
+    from{opacity:0; transform:translateY(22px) scale(.975);}
+    to{opacity:1; transform:none;}
+  }
+  .scene-image{
+    position:absolute; inset:0; width:100%; height:100%; max-width:none;
+    object-fit:cover; display:block;
+    animation:sceneImage 1s var(--ease);
+  }
+  .scene-ecran:hover .scene-image{transform:scale(1.025);}
+  .scene-image{transition:transform 1.2s var(--ease);}
+  @keyframes sceneImage{
+    from{opacity:0; transform:scale(1.07);}
+    to{opacity:1; transform:scale(1);}
+  }
+  /* Le fondu du haut, là où se lit le titre (comme sur le lecteur
+     YouTube : il reste visible même quand le bas de l'écran passe sous
+     le bord de la fenêtre) ; un voile léger en bas referme le cadre. */
+  .scene-voile{
+    position:absolute; inset:0; pointer-events:none;
+    background:
+      linear-gradient(to bottom, rgba(4,6,9,0.88) 0%, rgba(4,6,9,0.5) 30%, rgba(4,6,9,0) 58%),
+      linear-gradient(to top, rgba(4,6,9,0.4), rgba(4,6,9,0) 22%);
+  }
+  .scene-lecture{
+    position:absolute; top:50%; left:50%; z-index:2;
+    width:92px; height:92px; margin:-46px 0 0 -46px; padding:0;
+    border-radius:50%; border:1px solid rgba(255,255,255,0.38);
+    background:rgba(255,255,255,0.14); color:#fff;
+    backdrop-filter:blur(14px) saturate(160%);
+    -webkit-backdrop-filter:blur(14px) saturate(160%);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 10px 40px rgba(0,0,0,0.4), var(--reflet-int);
+    transition:transform .5s var(--ease), background .3s var(--ease), border-color .3s var(--ease);
+  }
+  .scene-lecture svg{width:34px; height:34px; margin-left:5px; fill:currentColor;}
+  /* Une onde part du bouton, sans cesse : on sait où cliquer. */
+  .scene-lecture::before{
+    content:''; position:absolute; inset:-1px; border-radius:50%;
+    border:1px solid rgba(255,255,255,0.55);
+    animation:sceneOnde 2.6s ease-out infinite;
+  }
+  @keyframes sceneOnde{
+    from{transform:scale(1); opacity:.8;}
+    to{transform:scale(1.7); opacity:0;}
+  }
+  .scene-ecran:hover .scene-lecture, .scene-lecture:focus-visible{
+    transform:scale(1.1); background:var(--blue); border-color:transparent;
+  }
+  .scene-lecture:focus-visible{outline:2px solid var(--blue-bright); outline-offset:4px;}
+  .scene-legende{
+    position:absolute; left:0; top:0; z-index:2; max-width:78%;
+    display:flex; flex-direction:column; align-items:flex-start; gap:9px;
+    padding:clamp(18px, 2.6vw, 30px) clamp(18px, 3vw, 34px) 0;
     pointer-events:none;
   }
-  .content-thumb:hover .play{background:rgba(16,19,21,0.15);}
+  .scene-legende.change > *{animation:legendeEntre .7s var(--ease) backwards;}
+  .scene-legende.change > :nth-child(2){animation-delay:.07s;}
+  .scene-legende.change > :nth-child(3){animation-delay:.14s;}
+  @keyframes legendeEntre{
+    from{opacity:0; transform:translateY(14px);}
+    to{opacity:1; transform:none;}
+  }
+  .scene-tag{
+    font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+    padding:5px 12px; border-radius:var(--radius-pill);
+    background:var(--blue); color:#fff;
+    box-shadow:0 4px 16px rgba(20,137,222,0.45);
+  }
+  .scene-tag[hidden]{display:none;}
+  .scene-titre{
+    margin:0; font-size:clamp(18px, 2.7vw, 30px); line-height:1.2; font-weight:700;
+    text-shadow:0 2px 18px rgba(0,0,0,0.55);
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .scene-meta{font-size:13px; color:rgba(255,255,255,0.78);}
+  /* « 3 / 10 » : on sait qu'il y en a d'autres sans avoir à descendre. */
+  .scene-compteur{
+    position:absolute; top:16px; right:16px; z-index:3;
+    padding:6px 13px; border-radius:var(--radius-pill);
+    background:rgba(8,10,14,0.55); border:1px solid rgba(255,255,255,0.18);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    font-size:12px; font-weight:600; letter-spacing:.08em; color:#fff;
+    font-variant-numeric:tabular-nums; pointer-events:none;
+  }
+  .scene-fleche{
+    position:absolute; top:50%; z-index:3; width:48px; height:48px; margin-top:-24px;
+    padding:0; border-radius:50%; border:1px solid rgba(255,255,255,0.22);
+    background:rgba(8,10,14,0.5); color:#fff; font-size:20px; line-height:1;
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    display:flex; align-items:center; justify-content:center;
+    opacity:0; transition:opacity .35s var(--ease), background .25s var(--ease), transform .35s var(--ease);
+  }
+  .scene-fleche.prec{left:16px;}
+  .scene-fleche.suiv{right:16px;}
+  .scene-ecran:hover .scene-fleche, .scene-fleche:focus-visible{opacity:1;}
+  @media (hover:none){
+    .scene-fleche{opacity:.9;}
+  }
+  .scene-fleche:hover{background:var(--blue); transform:scale(1.08);}
+  .scene-fleche:focus-visible{outline:2px solid var(--blue-bright); outline-offset:3px;}
+  .scene-ecran.lecture .scene-fleche, .scene-ecran.lecture .scene-lecture,
+  .scene-ecran.lecture .scene-voile, .scene-ecran.lecture .scene-compteur,
+  .scene-plateau.lecture .scene-legende{display:none;}
+  .scene-lecteur{position:absolute; inset:0; z-index:4; background:#000;}
+  .scene-lecteur iframe{width:100%; height:100%; border:0; display:block;}
+  .scene-fermer{
+    position:absolute; top:12px; right:12px; z-index:5;
+    width:38px; height:38px; padding:0; border-radius:50%;
+    border:1px solid rgba(255,255,255,0.25); background:rgba(8,10,14,0.65);
+    color:#fff; font-size:15px; line-height:1;
+    transition:background .25s var(--ease);
+  }
+  .scene-fermer:hover{background:var(--blue);}
+
+  /* Les autres vidéos : une bande qui défile, la vidéo en cours allumée. */
+  .scene-bande-zone{position:relative; z-index:1; margin-top:18px;}
+  .scene-bande{
+    position:relative; display:flex; gap:12px; padding:10px 4px 16px;
+    overflow-x:auto; scroll-snap-type:x proximity; scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+    -webkit-mask-image:linear-gradient(to right, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%);
+    mask-image:linear-gradient(to right, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%);
+  }
+  .scene-bande::-webkit-scrollbar{display:none;}
+  .scene-vignette{
+    position:relative; flex:none; width:clamp(160px, 19vw, 212px); aspect-ratio:16/9;
+    padding:0; overflow:hidden; scroll-snap-align:center; color:#fff; text-align:left;
+    border-radius:var(--radius); border:1px solid rgba(255,255,255,0.1);
+    background:#0a0d12; cursor:pointer;
+    opacity:.6; transform:scale(.96);
+    transition:opacity .4s var(--ease), transform .5s var(--ease), border-color .3s var(--ease), box-shadow .4s var(--ease);
+    animation:vignetteEntre .7s var(--ease) backwards;
+    animation-delay:calc(var(--i, 0) * 60ms + .2s);
+  }
+  /* Sans « to » : l'animation s'arrête sur l'état propre de la vignette,
+     allumée ou non. */
+  @keyframes vignetteEntre{
+    from{opacity:0; transform:translateY(18px) scale(.94);}
+  }
+  .scene-vignette img{
+    width:100%; height:100%; max-width:none; object-fit:cover; display:block;
+    transition:transform .7s var(--ease);
+  }
+  .scene-vignette::after{
+    content:''; position:absolute; inset:0; pointer-events:none;
+    background:linear-gradient(to top, rgba(4,6,9,0.85) 0%, rgba(4,6,9,0) 62%);
+  }
+  .scene-vignette-titre{
+    position:absolute; left:10px; right:10px; bottom:8px; z-index:1;
+    font-size:12px; font-weight:600; line-height:1.3;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
+  .scene-vignette:hover{opacity:1; transform:scale(1);}
+  .scene-vignette:hover img{transform:scale(1.07);}
+  .scene-vignette:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+  .scene-vignette.actif{
+    opacity:1; transform:scale(1); border-color:var(--blue);
+    box-shadow:0 0 0 2px var(--blue), 0 12px 34px rgba(20,137,222,0.4);
+  }
+  .scene-bande-fleche{
+    position:absolute; top:50%; z-index:2; width:40px; height:40px; margin-top:-26px;
+    padding:0; border-radius:50%; border:1px solid rgba(255,255,255,0.2);
+    background:rgba(8,10,14,0.72); color:#fff; font-size:17px; line-height:1;
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    display:flex; align-items:center; justify-content:center;
+    transition:background .25s var(--ease), opacity .3s var(--ease);
+  }
+  .scene-bande-fleche.prec{left:-14px;}
+  .scene-bande-fleche.suiv{right:-14px;}
+  .scene-bande-fleche:hover{background:var(--blue);}
+  .scene-bande-fleche[hidden]{display:none;}
+  .scene-ouvrir{
+    display:inline-flex; align-items:center; gap:6px; margin-top:4px;
+    font-size:13px; color:var(--blue); transition:color .25s var(--ease);
+  }
+  .scene-ouvrir:hover{color:var(--blue-bright);}
+  /* En attendant les vidéos : une scène vide de la même taille, pour que
+     la page ne saute pas quand elles arrivent. */
+  .scene-squelette{
+    aspect-ratio:16/9; border-radius:var(--radius-lg);
+    border:1px solid var(--line);
+    background:
+      linear-gradient(100deg, rgba(255,255,255,0.03) 30%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.03) 70%) 0 0/220% 100%,
+      rgba(255,255,255,0.03);
+    animation:reflet 1.6s linear infinite;
+  }
+  @media (max-width:700px){
+    .scene-ecran{border-radius:var(--radius);}
+    .scene-lecture{width:68px; height:68px; margin:-34px 0 0 -34px;}
+    .scene-lecture svg{width:26px; height:26px; margin-left:4px;}
+    /* Sur un petit écran la légende passe sous l'image : elle y est plus
+       lisible, et l'image reste entière. */
+    .scene-legende{position:static; max-width:none; padding:14px 2px 0;}
+    .scene-titre{font-size:17px; text-shadow:none;}
+    .scene-voile{
+      background:linear-gradient(to top, rgba(4,6,9,0.4), rgba(4,6,9,0) 30%);
+    }
+    .scene-compteur{top:12px; right:12px;}
+    .scene-fleche{width:38px; height:38px; margin-top:-19px; opacity:.9;}
+    .scene-fleche.prec{left:10px;}
+    .scene-fleche.suiv{right:10px;}
+    .scene-bande-fleche{display:none;}
+    .scene-vignette{width:150px;}
+  }
+
+  /* Les trois publications. La photo est montrée en entier (sans
+     recadrage) dans un cadre 4:5 ; ce qui reste de place est rempli par
+     la même photo, floutée — pas de bandes noires. */
+  .insta-grille{
+    display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:20px;
+  }
+  /* La cellule ne bouge pas : c'est elle qui reçoit le survol, et la
+     carte se soulève à l'intérieur. Une carte qui se soulève sous le
+     curseur le quitte, retombe, le retrouve… et tremble au bord. */
+  .insta-cellule{display:block; aspect-ratio:4/5;}
+  .insta-cellule.large{aspect-ratio:auto;}
+  /* Rien de réglé : la grande carte occupe toute la rangée, sur grand
+     écran comme sur téléphone. */
+  .insta-grille.seule{
+    display:block; overflow:visible; margin:0; padding:0; scroll-snap-type:none;
+  }
+  .insta-carte{
+    position:relative; display:block; width:100%; height:100%; overflow:hidden; isolation:isolate;
+    border-radius:var(--radius); border:1px solid rgba(255,255,255,0.12);
+    background:#06090d; box-shadow:var(--ombre-2), var(--reflet-int);
+    transition:transform .6s var(--ease), box-shadow .6s var(--ease), border-color .3s var(--ease);
+  }
+  .insta-cellule:hover .insta-carte, .insta-carte:focus-visible{
+    transform:translateY(-8px); border-color:rgba(255,255,255,0.3);
+    box-shadow:var(--ombre-3), var(--reflet-int), 0 24px 70px rgba(20,137,222,0.2);
+  }
+  .insta-carte:focus-visible{outline:2px solid var(--blue-bright); outline-offset:3px;}
+  .insta-fond{
+    position:absolute; top:-12%; left:-12%; width:124%; height:124%; max-width:none;
+    object-fit:cover; filter:blur(30px) saturate(1.4) brightness(.78); z-index:0;
+  }
+  .insta-photo{
+    position:absolute; inset:0; width:100%; height:100%; max-width:none;
+    object-fit:contain; z-index:1; transition:transform .9s var(--ease);
+  }
+  .insta-cellule:hover .insta-photo{transform:scale(1.04);}
+  .insta-badge{
+    position:absolute; top:12px; right:12px; z-index:3; width:40px; height:40px;
+    border-radius:50%; color:#fff;
+    background:rgba(8,10,14,0.55); border:1px solid rgba(255,255,255,0.22);
+    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    display:flex; align-items:center; justify-content:center;
+    transition:background .3s var(--ease), transform .5s var(--ease);
+  }
+  .insta-badge svg{width:20px; height:20px;}
+  .insta-cellule:hover .insta-badge{background:linear-gradient(45deg, #f9a03f, #e1306c 55%, #833ab4); transform:rotate(-8deg) scale(1.08);}
+  .insta-voir{
+    position:absolute; left:0; right:0; bottom:0; z-index:3;
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:46px 18px 16px; font-size:13px; font-weight:600; color:#fff;
+    background:linear-gradient(to top, rgba(4,6,9,0.85), rgba(4,6,9,0));
+    opacity:0; transform:translateY(14px);
+    transition:opacity .4s var(--ease), transform .5s var(--ease);
+  }
+  .insta-cellule:hover .insta-voir, .insta-carte:focus-visible .insta-voir{opacity:1; transform:none;}
+  @media (hover:none){
+    .insta-voir{opacity:1; transform:none;}
+  }
+  /* Sans photo : un cadre aux couleurs d'Instagram, qui renvoie quand
+     même au post. */
+  .insta-carte.vide{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    background:linear-gradient(155deg, #3b1d5e 0%, #8a2a6b 48%, #d9663a 100%);
+    color:#fff; font-weight:600; font-size:14px;
+  }
+  .insta-carte.vide svg{width:54px; height:54px; opacity:.92;}
+  .insta-carte.vide .insta-voir{opacity:1; transform:none; background:none; justify-content:center; padding:0; position:static;}
+  /* Aucune publication réglée : une seule grande carte qui invite à suivre
+     le compte. */
+  .insta-suivre{
+    display:flex; align-items:center; gap:22px; padding:28px 32px;
+    border-radius:var(--radius-lg); color:#fff;
+    background:linear-gradient(120deg, rgba(131,58,180,0.55), rgba(225,48,108,0.5) 55%, rgba(249,160,63,0.5));
+    border:1px solid rgba(255,255,255,0.16); box-shadow:var(--ombre-2), var(--reflet-int);
+    transition:transform .5s var(--ease), box-shadow .5s var(--ease);
+  }
+  .insta-cellule:hover .insta-suivre{transform:translateY(-4px); box-shadow:var(--ombre-3), var(--reflet-int);}
+  .insta-suivre svg{width:46px; height:46px; flex:none;}
+  .insta-suivre strong{display:block; font-size:18px; margin-bottom:2px;}
+  .insta-suivre span{font-size:14px; color:rgba(255,255,255,0.82);}
+  @media (max-width:700px){
+    .insta-grille{
+      grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:74%;
+      overflow-x:auto; scroll-snap-type:x mandatory; scrollbar-width:none;
+      margin:0 -24px; padding:6px 24px 18px;
+    }
+    .insta-grille::-webkit-scrollbar{display:none;}
+    .insta-cellule{scroll-snap-align:center;}
+    .insta-suivre{padding:22px;}
+  }
+
+  /* Apparition au défilement : l'élément attend d'être vu (classe « vu »
+     posée par observerApparitions). */
+  .revele:not(.vu){opacity:0;}
+  .revele.vu{
+    animation:reveleEntre .9s var(--ease) backwards;
+    animation-delay:calc(var(--i, 0) * 120ms);
+  }
+  @keyframes reveleEntre{
+    from{opacity:0; transform:translateY(30px) scale(.97);}
+    to{opacity:1; transform:none;}
+  }
+
+  /* Espace équipe : les trois emplacements Instagram. */
+  .insta-admin{display:grid; gap:14px; margin-bottom:22px; max-width:760px;}
+  .insta-slot{
+    display:grid; grid-template-columns:132px minmax(0, 1fr); gap:18px; align-items:start;
+    padding:16px; border-radius:var(--radius);
+    background:var(--glass); border:1px solid var(--line);
+    box-shadow:var(--reflet-int);
+  }
+  .insta-slot-photo{
+    position:relative; width:132px; aspect-ratio:4/5; overflow:hidden; isolation:isolate;
+    border-radius:var(--radius-sm); border:1px dashed var(--line-strong);
+    background:rgba(0,0,0,0.26); color:var(--muted); font-size:12px;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    cursor:pointer; padding:0;
+    transition:border-color .25s var(--ease), color .25s var(--ease);
+  }
+  .insta-slot-photo:hover, .insta-slot-photo.survol, .insta-slot-photo:focus-visible{
+    border-color:var(--blue); color:var(--ink); outline:none;
+  }
+  .insta-slot-photo.rempli{border-style:solid;}
+  .insta-slot-photo img{position:absolute; max-width:none;}
+  .insta-slot-photo .fond{
+    top:-12%; left:-12%; width:124%; height:124%;
+    object-fit:cover; filter:blur(14px) brightness(.8);
+  }
+  .insta-slot-photo .photo{inset:0; width:100%; height:100%; object-fit:contain;}
+  .insta-slot-photo > span{position:relative; z-index:1; padding:0 10px; line-height:1.45;}
+  .insta-slot-champs .field{margin-bottom:12px;}
+  .insta-slot-actions{display:flex; gap:8px; flex-wrap:wrap;}
+  .insta-slot-actions .btn{padding:8px 14px; font-size:13px;}
+  .insta-slot-etat{font-size:12px; color:var(--muted); margin:10px 0 0;}
+  .insta-slot-etat.nouvelle{color:var(--blue-bright);}
+  @media (max-width:560px){
+    .insta-slot{grid-template-columns:96px minmax(0, 1fr); gap:12px; padding:12px;}
+    .insta-slot-photo{width:96px;}
+  }
 
   /* ---------- FORM ---------- */
   .form-wrap{max-width:640px;}
@@ -2200,11 +2558,11 @@
      reçoivent que l'arête — un voile clair par-dessus délaverait
      l'artwork, ce que faisait l'ancienne version. */
   .modal-box, .admin-row, .forum-post, .xp-card, .challenge-dropdown,
-  .cat-tile, .news-cover, .content-thumb, .member-card, .empty-state, .notif{
+  .cat-tile, .news-cover, .member-card, .empty-state, .notif{
     position:relative;
   }
   .modal-box, .admin-row, .forum-post, .xp-card, .challenge-dropdown,
-  .cat-tile, .news-cover, .content-thumb, .member-card{
+  .cat-tile, .news-cover, .member-card{
     overflow:hidden;
     box-shadow:var(--ombre-2), var(--reflet-int);
     /* L'arête en dégradé remplace le trait uni : les garder tous les
@@ -2219,7 +2577,7 @@
      surface comme du verre plutôt que comme un rectangle cerné. */
   .modal-box::after, .admin-row::after, .forum-post::after, .xp-card::after,
   .challenge-dropdown::after, .account-dropdown::after, .cat-tile::after,
-  .member-card::after, .news-cover::after, .content-thumb::after{
+  .member-card::after, .news-cover::after{
     content:''; position:absolute; inset:0; border-radius:inherit;
     padding:1px; pointer-events:none; z-index:2;
     background:var(--bord-verre);
@@ -3203,26 +3561,29 @@
         </div>
       </div>
 
-      <span class="eyebrow mono">YouTube</span>
-      <h3 style="font-size:18px; margin:6px 0 18px;">
-        Dernières vidéos
-      </h3>
-      <div class="content-grid" id="contentGrid"></div>
+      <div class="scene-colonne" role="region" aria-label="Dernières vidéos">
+        <div class="contenu-entete">
+          <span class="eyebrow mono">YouTube</span>
+          <a class="contenu-lien" href="https://www.youtube.com/@LaWavefr"
+             target="_blank" rel="noopener noreferrer">Toute la chaîne ↗</a>
+        </div>
+        <!-- Rempli par renderContentVideos : la vidéo à la une, en grand,
+             et la bande des autres. -->
+        <div class="scene" id="contentScene"></div>
+      </div>
 
-      <div class="hairline" style="margin-top:48px;"></div>
+      <div class="hairline" style="margin-top:56px;"></div>
 
-      <span class="eyebrow mono" style="display:block; margin-top:32px;">Instagram</span>
-      <h3 style="font-size:18px; margin:6px 0 18px;">
-        Derniers posts
-      </h3>
-      <div class="insta-grid" id="instagramGrid"></div>
-
-      <p style="font-size:13px; color:var(--ink-soft); margin-top:20px;">
-        <a href="https://www.instagram.com/lawavefr/" target="_blank"
-           rel="noopener noreferrer" style="color:var(--blue);">
-          Voir tout le compte Instagram →
-        </a>
-      </p>
+      <div role="region" aria-label="Derniers posts Instagram" style="margin-top:36px;">
+        <div class="contenu-entete">
+          <span class="eyebrow mono">Instagram</span>
+          <a class="contenu-lien" href="https://www.instagram.com/lawavefr/"
+             target="_blank" rel="noopener noreferrer">@lawavefr ↗</a>
+        </div>
+        <!-- Trois publications au plus : la photo et le lien se règlent
+             dans l'espace équipe, onglet Contenu. -->
+        <div class="insta-grille" id="instagramGrid"></div>
+      </div>
     </section>
   </section>
 
@@ -3924,7 +4285,9 @@
         <p class="desc">
           Ce qui apparaît sur la page « Contenu » du site. Les vidéos
           sont récupérées automatiquement depuis la chaîne YouTube :
-          décoche celles que tu ne veux pas montrer.
+          décoche celles que tu ne veux pas montrer. La page en défile
+          dix au plus, les plus récentes parmi celles qui restent
+          cochées.
         </p>
       </div>
       <button type="button" class="btn btn-ghost"
@@ -3937,26 +4300,20 @@
 
     <div id="youtubePickList" class="admin-list"></div>
 
-    <h4 style="margin:32px 0 12px; font-size:15px;">Instagram</h4>
+    <h4 style="margin:32px 0 6px; font-size:15px;">
+      Instagram — trois publications
+    </h4>
 
-    <p class="desc" style="margin-bottom:14px;">
-      Une adresse de publication par ligne. L'API Instagram exige un
-      compte professionnel et un jeton secret, impossible à mettre dans
-      une page publique : on passe donc par l'intégration officielle,
-      qui ne demande que l'URL.
+    <p class="desc" style="margin-bottom:16px;">
+      Pour chacune : la photo complète (elle s'affiche en entier, sans
+      recadrage) et le lien du post, vers lequel un clic renvoie les
+      visiteurs. Sans photo, la carte prend les couleurs d'Instagram.
     </p>
 
-    <div class="form-wrap">
-      <div class="field">
-        <label for="instaPostsInput">Publications</label>
-        <textarea
-          id="instaPostsInput"
-          rows="5"
-          placeholder="https://www.instagram.com/p/CODE/"></textarea>
-      </div>
-    </div>
+    <!-- Rempli par renderInstaSlots. -->
+    <div class="insta-admin" id="instaSlots"></div>
 
-    <button type="button" class="btn btn-primary"
+    <button type="button" class="btn btn-primary" id="contentPickBtn"
             onclick="saveContentPicks()">
       Enregistrer l'affichage
     </button>
@@ -5101,7 +5458,9 @@ const BD = {
   if(pageId === 'catalogue' || pageId === 'home') renderCatalogue();
   if(pageId === 'admin'){ autoOpenAdminIfAllowed(); renderForumModeration(); }
   if(pageId === 'about') renderAboutStats();
-  if(pageId === 'content') renderContentVideos();
+  // Une vidéo lue sur place se tairait avec la page : sans cela, son
+  // iframe, simplement masquée, continuerait de jouer en fond.
+  if(pageId === 'content') renderContentVideos(); else sceneFermerLecteur();
   // La carte tourne en boucle d'animation : on la coupe dès qu'on
   // quitte la page, sinon elle consomme du processeur en arrière-plan.
   if(pageId === 'carte') renderCarte(); else arreterCarte();
@@ -5241,16 +5600,43 @@ const contentVideos = [
 ];
 
 // INSTAGRAM — l'API Meta exige un compte Business et un token secret,
-// impossible à mettre dans une page publique. On utilise donc les
-// intégrations officielles : colle ici l'URL des posts à afficher.
+// impossible à mettre dans une page publique. Le site montre donc, pour
+// chaque publication, une photo choisie par l'équipe et le lien du post :
+// un clic sur la photo renvoie à Instagram. Tout se règle dans l'espace
+// équipe, onglet Contenu.
+//
+// Repli, tant que l'équipe n'a rien réglé : des adresses de posts, que
+// la page montre sans photo.
 const INSTAGRAM_POSTS = [
   // 'https://www.instagram.com/p/CODE_DU_POST/',
 ];
+const INSTAGRAM_NB_POSTS = 3;
+const INSTAGRAM_COMPTE = 'https://www.instagram.com/lawavefr/';
 
 // Les vidéos sont mises en cache quelques heures pour économiser le
-// quota de l'API (10 000 unités/jour, 2 par chargement sans cache).
-const YOUTUBE_CACHE_KEY = 'lawave:youtube';
+// quota de l'API (10 000 unités/jour, 2 par chargement sans cache). Le
+// suffixe de la clé change quand la forme des données change.
+const YOUTUBE_CACHE_KEY = 'lawave:youtube:v2';
 const YOUTUBE_CACHE_MS = 6 * 60 * 60 * 1000;
+
+// Combien de vidéos lire sur la chaîne, et combien en faire défiler au
+// plus : on lit plus large que ce qu'on montre, car les vidéos masquées
+// par l'équipe ne comptent pas dans les dix.
+const YOUTUBE_NB_LUES = 15;
+const SCENE_NB_VIDEOS = 10;
+
+const ICONE_LECTURE =
+  '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+  '<path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/>' +
+  '</svg>';
+
+const ICONE_INSTAGRAM =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/>' +
+  '<circle cx="12" cy="12" r="4"/>' +
+  '<circle cx="17.2" cy="6.8" r=".9" fill="currentColor" stroke="none"/>' +
+  '</svg>';
 
 
 async function fetchLatestYouTubeVideos(){
@@ -5290,8 +5676,8 @@ async function fetchLatestYouTubeVideos(){
 
   // 2. Les dernières vidéos de cette playlist (1 unité).
   const repVideos = await fetch(
-    api + 'playlistItems?part=snippet&maxResults=8&playlistId=' +
-    uploads + '&key=' + YOUTUBE_API_KEY
+    api + 'playlistItems?part=snippet&maxResults=' + YOUTUBE_NB_LUES +
+    '&playlistId=' + uploads + '&key=' + YOUTUBE_API_KEY
   );
 
   const donnees = await repVideos.json();
@@ -5300,10 +5686,30 @@ async function fetchLatestYouTubeVideos(){
     throw new Error(donnees.error.message);
   }
 
-  const videos = (donnees.items || []).map(item => ({
-    id: item.snippet.resourceId.videoId,
-    titre: item.snippet.title
-  }));
+  // Une vidéo supprimée ou privée reste dans la playlist, sans image :
+  // on l'écarte. La miniature est la plus grande que YouTube ait — toutes
+  // n'ont pas la haute définition.
+  const videos = (donnees.items || [])
+    .filter(item =>
+      item.snippet &&
+      item.snippet.resourceId &&
+      item.snippet.resourceId.videoId &&
+      item.snippet.title !== 'Private video' &&
+      item.snippet.title !== 'Deleted video'
+    )
+    .map(item => {
+      const vignettes = item.snippet.thumbnails || {};
+      const meilleure =
+        vignettes.maxres || vignettes.standard || vignettes.high ||
+        vignettes.medium || vignettes.default || {};
+
+      return {
+        id: item.snippet.resourceId.videoId,
+        titre: item.snippet.title,
+        date: item.snippet.publishedAt || '',
+        miniature: meilleure.url || ''
+      };
+    });
 
   storageWrite(YOUTUBE_CACHE_KEY, { at: Date.now(), videos });
 
@@ -5311,68 +5717,522 @@ async function fetchLatestYouTubeVideos(){
 }
 
 
-function youtubeThumbsHtml(videos){
-  return videos.map(v => `
-    <a class="content-thumb"
-       href="https://www.youtube.com/watch?v=${escapeAttribute(v.id)}"
-       target="_blank" rel="noopener noreferrer"
-       title="${escapeAttribute(v.titre || 'Vidéo La Wave')}">
-      <img src="https://img.youtube.com/vi/${escapeAttribute(v.id)}/hqdefault.jpg"
-           alt="${escapeAttribute(v.titre || 'Vidéo La Wave')}" loading="lazy">
-      <span class="play">▶</span>
-    </a>
-  `).join('');
+// ---------------- PAGE CONTENU : LA VIDÉO À LA UNE ----------------
+//
+// Une seule vidéo occupe l'écran, avec sa miniature en grand ; les autres
+// défilent dessous, la vidéo en cours allumée. Un clic sur l'image la
+// lit sur place (le lecteur n'est posé qu'à ce moment : une intégration
+// YouTube pèse lourd). Flèches, bande, clavier et glissé du doigt
+// changent de vidéo.
+
+let sceneVideos = [];     // les vidéos montrées, de la plus récente à la plus ancienne
+let sceneIndex = 0;       // celle qui est à l'écran
+let sceneJeton = 0;       // écarte une image arrivée en retard
+let sceneGlisse = false;  // un glissé vient d'avoir lieu : le clic qui suit n'en est pas un
+
+
+function lienYouTube(id){
+  return 'https://www.youtube.com/watch?v=' + encodeURIComponent(id);
+}
+
+function miniatureVideo(video){
+  return video.miniature ||
+    'https://i.ytimg.com/vi/' + encodeURIComponent(video.id) + '/hqdefault.jpg';
+}
+
+// 320 × 180, toujours présente : pour la bande et la lueur.
+function miniaturePetite(video){
+  return 'https://i.ytimg.com/vi/' + encodeURIComponent(video.id) + '/mqdefault.jpg';
+}
+
+// Les titres de la chaîne finissent souvent par une rafale de hashtags,
+// utiles sur YouTube, bruyants ici.
+function titreVideoPropre(titre){
+  const brut = String(titre || '').trim();
+  const sans = brut.replace(/(?:\s*#[\p{L}\p{N}_]+)+\s*$/u, '').trim();
+  return sans || brut || 'Vidéo La Wave';
+}
+
+function dateVideoTexte(iso){
+
+  const t = Date.parse(iso || '');
+  if(!t) return '';
+
+  const jours = Math.floor((Date.now() - t) / 86400000);
+
+  if(jours < 0) return '';
+  if(jours === 0) return "Aujourd'hui";
+  if(jours === 1) return 'Hier';
+  if(jours < 7) return 'Il y a ' + jours + ' jours';
+
+  if(jours < 30){
+    const semaines = Math.floor(jours / 7);
+    return 'Il y a ' + semaines + ' semaine' + (semaines > 1 ? 's' : '');
+  }
+
+  return new Date(t).toLocaleDateString(
+    'fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }
+  );
 }
 
 
-// Code court d'un post à partir de son URL (.../p/CODE/ ou /reel/CODE/).
-function instagramPostCode(url){
-  const m = String(url || '').match(/instagram\.com\/(?:p|reel|tv)\/([\w-]+)/i);
-  return m ? m[1] : null;
+function sceneHtml(videos){
+
+  const plusieurs = videos.length > 1;
+
+  const fleches = plusieurs
+    ? `<button type="button" class="scene-fleche prec" data-sens="-1"
+               aria-label="Vidéo précédente">‹</button>
+       <button type="button" class="scene-fleche suiv" data-sens="1"
+               aria-label="Vidéo suivante">›</button>`
+    : '';
+
+  const bande = plusieurs
+    ? `<div class="scene-bande-zone">
+         <button type="button" class="scene-bande-fleche prec" data-bande="-1"
+                 aria-label="Faire défiler vers la gauche" hidden>‹</button>
+         <div class="scene-bande" id="sceneBande">
+           ${videos.map((video, i) => `
+             <button type="button" class="scene-vignette" data-i="${i}"
+                     style="--i:${i}" aria-current="false"
+                     aria-label="${escapeAttribute(titreVideoPropre(video.titre))}">
+               <img src="${escapeAttribute(miniaturePetite(video))}" alt=""
+                    loading="lazy" decoding="async">
+               <span class="scene-vignette-titre">${escapeHtml(titreVideoPropre(video.titre))}</span>
+             </button>`).join('')}
+         </div>
+         <button type="button" class="scene-bande-fleche suiv" data-bande="1"
+                 aria-label="Faire défiler vers la droite" hidden>›</button>
+       </div>`
+    : '';
+
+  return `
+    <div class="scene-plateau">
+      <div class="scene-ambiance" aria-hidden="true"></div>
+      <div class="scene-ecran">
+        <div class="scene-voile"></div>
+        <button type="button" class="scene-lecture" aria-label="Lire la vidéo">${ICONE_LECTURE}</button>
+        ${plusieurs ? '<span class="scene-compteur" aria-hidden="true"></span>' : ''}
+        ${fleches}
+      </div>
+      <!-- Posée sur l'image sur un grand écran, sous l'image sur un
+           téléphone : d'où sa place hors de l'écran. -->
+      <div class="scene-legende">
+        <span class="scene-tag" hidden>Dernière vidéo</span>
+        <h4 class="scene-titre"></h4>
+        <span class="scene-meta"></span>
+      </div>
+    </div>
+    ${bande}
+    <a class="scene-ouvrir" id="sceneOuvrir" href="${escapeAttribute(lienYouTube(videos[0].id))}"
+       target="_blank" rel="noopener noreferrer">Ouvrir sur YouTube ↗</a>`;
+}
+
+
+function sceneAfficher(videos){
+
+  const zone = document.getElementById('contentScene');
+  if(!zone) return;
+
+  sceneVideos = videos;
+  sceneIndex = 0;
+
+  if(!videos.length){
+    zone.innerHTML = `
+      <div class="empty-state">
+        Aucune vidéo pour l'instant.
+        <a href="https://www.youtube.com/@${escapeAttribute(YOUTUBE_HANDLE)}"
+           target="_blank" rel="noopener noreferrer"
+           style="color:var(--blue);">Voir la chaîne →</a>
+      </div>`;
+    return;
+  }
+
+  zone.innerHTML = sceneHtml(videos);
+
+  sceneBrancher(zone);
+  sceneMontrer(0, true);
+  sceneMajFlechesBande();
+}
+
+
+// Une image arrive par-dessus l'ancienne, qui s'efface ensuite : le
+// changement de vidéo est un fondu, jamais un trou.
+function sceneCalque(parent, classe, url, idVideo, avant){
+
+  const jeton = sceneJeton;
+  const img = new Image();
+  let secours = false;
+
+  img.className = classe;
+  img.alt = '';
+  img.decoding = 'async';
+
+  const poser = () => {
+    if(jeton !== sceneJeton) return;
+
+    const anciens = [...parent.querySelectorAll('img.' + classe)];
+    parent.insertBefore(img, avant || null);
+    setTimeout(() => anciens.forEach(a => a.remove()), 1100);
+  };
+
+  img.onload = poser;
+
+  // Toutes les vidéos n'ont pas de haute définition : on retombe sur la
+  // miniature qui existe toujours.
+  img.onerror = () => {
+    if(secours){ poser(); return; }
+    secours = true;
+    img.src = 'https://i.ytimg.com/vi/' + encodeURIComponent(idVideo) + '/hqdefault.jpg';
+  };
+
+  img.src = url;
+}
+
+
+function sceneMontrer(index, instantane){
+
+  const n = sceneVideos.length;
+  if(!n) return;
+
+  const zone = document.getElementById('contentScene');
+  const ecran = zone && zone.querySelector('.scene-ecran');
+  if(!ecran) return;
+
+  index = ((index % n) + n) % n;
+  sceneIndex = index;
+  sceneJeton++;
+
+  const video = sceneVideos[index];
+  const titre = titreVideoPropre(video.titre);
+
+  sceneFermerLecteur();
+
+  // L'image en grand et la lueur qui en reprend les couleurs.
+  sceneCalque(ecran, 'scene-image', miniatureVideo(video), video.id,
+              ecran.querySelector('.scene-voile'));
+  sceneCalque(zone.querySelector('.scene-ambiance'), 'scene-ambiance-image',
+              miniaturePetite(video), video.id, null);
+
+  // La légende.
+  const legende = zone.querySelector('.scene-legende');
+  const date = dateVideoTexte(video.date);
+  const meta = legende.querySelector('.scene-meta');
+
+  legende.querySelector('.scene-tag').hidden = index !== 0;
+  legende.querySelector('.scene-titre').textContent = titre;
+  meta.textContent = date;
+  meta.hidden = !date;
+
+  const compteur = ecran.querySelector('.scene-compteur');
+  if(compteur) compteur.textContent = (index + 1) + ' / ' + n;
+
+  if(!instantane){
+    legende.classList.remove('change');
+    void legende.offsetWidth;
+    legende.classList.add('change');
+  }
+
+  ecran.querySelector('.scene-lecture').setAttribute('aria-label', 'Lire la vidéo : ' + titre);
+
+  const ouvrir = zone.querySelector('#sceneOuvrir');
+  if(ouvrir) ouvrir.href = lienYouTube(video.id);
+
+  // La bande : la vidéo en cours s'allume et vient au centre.
+  zone.querySelectorAll('.scene-vignette').forEach((vignette, i) => {
+    vignette.classList.toggle('actif', i === index);
+    vignette.setAttribute('aria-current', i === index ? 'true' : 'false');
+  });
+
+  const bande = zone.querySelector('#sceneBande');
+  const actuelle = bande && bande.children[index];
+
+  if(actuelle){
+    bande.scrollTo({
+      left: actuelle.offsetLeft - (bande.clientWidth - actuelle.offsetWidth) / 2,
+      behavior: instantane ? 'auto' : 'smooth'
+    });
+  }
+
+  // La suivante se charge déjà : le prochain changement est immédiat.
+  const suivante = sceneVideos[(index + 1) % n];
+  if(suivante) new Image().src = miniatureVideo(suivante);
+}
+
+
+function sceneLire(){
+
+  const zone = document.getElementById('contentScene');
+  const ecran = zone && zone.querySelector('.scene-ecran');
+  const video = sceneVideos[sceneIndex];
+
+  if(!ecran || !video || ecran.querySelector('.scene-lecteur')) return;
+
+  const cadre = document.createElement('div');
+  cadre.className = 'scene-lecteur';
+
+  cadre.innerHTML = `
+    <iframe
+      src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(video.id)}?autoplay=1&rel=0&playsinline=1"
+      title="${escapeAttribute(titreVideoPropre(video.titre))}"
+      allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
+      allowfullscreen></iframe>
+    <button type="button" class="scene-fermer" aria-label="Fermer le lecteur">✕</button>`;
+
+  ecran.appendChild(cadre);
+  ecran.classList.add('lecture');
+  ecran.parentElement.classList.add('lecture');
+}
+
+
+function sceneFermerLecteur(){
+
+  const ecran = document.querySelector('#contentScene .scene-ecran');
+  if(!ecran) return;
+
+  const cadre = ecran.querySelector('.scene-lecteur');
+  if(cadre) cadre.remove();
+
+  ecran.classList.remove('lecture');
+  ecran.parentElement.classList.remove('lecture');
+}
+
+
+// Les flèches de la bande n'apparaissent que s'il reste quelque chose à
+// voir de ce côté.
+function sceneMajFlechesBande(){
+
+  const bande = document.getElementById('sceneBande');
+  if(!bande) return;
+
+  const zone = bande.parentElement;
+  const prec = zone.querySelector('.scene-bande-fleche.prec');
+  const suiv = zone.querySelector('.scene-bande-fleche.suiv');
+
+  prec.hidden = bande.scrollLeft < 8;
+  suiv.hidden = bande.scrollLeft + bande.clientWidth > bande.scrollWidth - 8;
+}
+
+
+function sceneBrancher(zone){
+
+  // La zone survit aux rendus (seul son contenu change) : on ne branche
+  // les écouteurs qu'une fois.
+  if(zone.dataset.branche) return;
+  zone.dataset.branche = '1';
+
+  zone.addEventListener('click', (e) => {
+
+    const cible = e.target;
+    const vignette = cible.closest('.scene-vignette');
+    const fleche = cible.closest('.scene-fleche');
+    const flecheBande = cible.closest('.scene-bande-fleche');
+
+    if(vignette){
+      sceneMontrer(+vignette.dataset.i);
+      return;
+    }
+
+    if(fleche){
+      sceneMontrer(sceneIndex + +fleche.dataset.sens);
+      return;
+    }
+
+    if(flecheBande){
+      const bande = document.getElementById('sceneBande');
+      if(bande) bande.scrollBy({ left: +flecheBande.dataset.bande * bande.clientWidth * 0.8, behavior: 'smooth' });
+      return;
+    }
+
+    if(cible.closest('.scene-fermer')){
+      sceneFermerLecteur();
+      return;
+    }
+
+    if(cible.closest('.scene-lecteur')) return;
+
+    if(cible.closest('.scene-ecran') && !sceneGlisse){
+      sceneLire();
+    }
+  });
+
+  // Gauche et droite changent de vidéo, de l'écran comme de la bande.
+  zone.addEventListener('keydown', (e) => {
+
+    if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if(e.target.closest && e.target.closest('iframe')) return;
+
+    e.preventDefault();
+    sceneMontrer(sceneIndex + (e.key === 'ArrowRight' ? 1 : -1));
+  });
+
+  // Au doigt : un glissé horizontal sur l'écran passe à la vidéo voisine.
+  let debut = null;
+
+  zone.addEventListener('pointerdown', (e) => {
+    const surEcran = e.target.closest('.scene-ecran') &&
+                     !e.target.closest('.scene-lecteur') &&
+                     !e.target.closest('button');
+    debut = surEcran ? { x: e.clientX, y: e.clientY } : null;
+  });
+
+  zone.addEventListener('pointerup', (e) => {
+
+    if(!debut) return;
+
+    const dx = e.clientX - debut.x;
+    const dy = e.clientY - debut.y;
+    debut = null;
+
+    if(Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.5){
+      sceneGlisse = true;
+      setTimeout(() => { sceneGlisse = false; }, 350);
+      sceneMontrer(sceneIndex + (dx < 0 ? 1 : -1));
+    }
+  });
+
+  zone.addEventListener('pointercancel', () => { debut = null; });
+
+  // La bande défile : les flèches suivent.
+  zone.addEventListener('scroll', (e) => {
+    if(e.target.id === 'sceneBande') sceneMajFlechesBande();
+  }, true);
+
+  window.addEventListener('resize', sceneMajFlechesBande);
+}
+
+
+// Un élément marqué « revele » attend d'être vu pour apparaître (classe
+// « vu »). Sans observateur, il apparaît tout de suite.
+function observerApparitions(racine){
+
+  const elements = [...racine.querySelectorAll('.revele')];
+  if(!elements.length) return;
+
+  if(!('IntersectionObserver' in window)){
+    elements.forEach(el => el.classList.add('vu'));
+    return;
+  }
+
+  const observateur = new IntersectionObserver((entrees) => {
+    entrees.forEach(entree => {
+      if(!entree.isIntersecting) return;
+      entree.target.classList.add('vu');
+      observateur.unobserve(entree.target);
+    });
+  }, { threshold: 0.15, rootMargin: '0px 0px -6% 0px' });
+
+  elements.forEach(el => observateur.observe(el));
+}
+
+
+// Une adresse web sûre : http ou https, rien d'autre (jamais de
+// « javascript: » dans un lien venu de la base). Une adresse Instagram
+// collée sans le début est complétée.
+function lienHttp(valeur){
+
+  let v = String(valeur || '').trim();
+  if(!v) return '';
+
+  if(!/^[a-z][a-z0-9+.-]*:/i.test(v) && /^(www\.)?instagram\.com\//i.test(v)){
+    v = 'https://' + v;
+  }
+
+  try{
+    const u = new URL(v);
+    return (u.protocol === 'https:' || u.protocol === 'http:') ? u.href : '';
+  }catch(e){
+    return '';
+  }
+}
+
+function imageHttps(valeur){
+  const lien = lienHttp(valeur);
+  return lien.startsWith('https://') ? lien : '';
+}
+
+
+function carteInstagramHtml(post, i){
+
+  const cible =
+    'href="' + escapeAttribute(post.lien || INSTAGRAM_COMPTE) + '" ' +
+    'target="_blank" rel="noopener noreferrer" ' +
+    'aria-label="Voir la publication sur Instagram"';
+
+  // Sans photo : un cadre aux couleurs d'Instagram, qui renvoie quand même
+  // au post.
+  if(!post.image){
+    return `
+      <div class="insta-cellule revele" style="--i:${i}">
+        <a class="insta-carte vide" ${cible}>
+          ${ICONE_INSTAGRAM}
+          <span class="insta-voir">Voir la publication ↗</span>
+        </a>
+      </div>`;
+  }
+
+  return `
+    <div class="insta-cellule revele" style="--i:${i}">
+      <a class="insta-carte" ${cible}>
+        <img class="insta-fond" src="${escapeAttribute(post.image)}" alt=""
+             aria-hidden="true" loading="lazy" decoding="async">
+        <img class="insta-photo" src="${escapeAttribute(post.image)}"
+             alt="Publication Instagram de La Wave" loading="lazy" decoding="async">
+        <span class="insta-badge">${ICONE_INSTAGRAM}</span>
+        <span class="insta-voir"><span>Voir le post</span><span aria-hidden="true">↗</span></span>
+      </a>
+    </div>`;
 }
 
 
 function renderInstagramPosts(){
 
-  const grid = document.getElementById('instagramGrid');
-  if(!grid) return;
+  const grille = document.getElementById('instagramGrid');
+  if(!grille) return;
 
-  // Les publications choisies dans l'espace équipe priment ; la liste
+  // Les publications réglées dans l'espace équipe priment ; la liste
   // écrite dans le code ne sert plus que de repli.
-  const source =
-    contentPicks.posts.length ? contentPicks.posts : INSTAGRAM_POSTS;
+  const source = contentPicks.posts.length
+    ? contentPicks.posts
+    : publicationsDepuisJson(INSTAGRAM_POSTS);
 
-  const codes = source
-    .map(instagramPostCode)
-    .filter(Boolean);
+  const posts = source.slice(0, INSTAGRAM_NB_POSTS);
 
-  if(!codes.length){
-    grid.innerHTML = `
-      <div class="empty-state">
-        Aucune publication pour l'instant.
+  grille.classList.toggle('seule', !posts.length);
+
+  // Rien de réglé : une grande carte qui invite à suivre le compte, plutôt
+  // qu'un « aucune publication » qui sonne le vide.
+  if(!posts.length){
+    grille.innerHTML = `
+      <div class="insta-cellule large revele">
+        <a class="insta-suivre"
+           href="${escapeAttribute(INSTAGRAM_COMPTE)}"
+           target="_blank" rel="noopener noreferrer">
+          ${ICONE_INSTAGRAM}
+          <div>
+            <strong>Suis La Wave sur Instagram</strong>
+            <span>@lawavefr — les sons et les artistes à suivre, au jour le jour.</span>
+          </div>
+        </a>
       </div>`;
-    return;
+  } else {
+    grille.innerHTML = posts.map(carteInstagramHtml).join('');
   }
 
-  grid.innerHTML = codes.map(code => `
-    <div class="insta-cadre">
-      <iframe
-        src="https://www.instagram.com/p/${escapeAttribute(code)}/embed"
-        loading="lazy"
-        scrolling="no"
-        allowtransparency="true"
-        title="Publication Instagram La Wave"
-      ></iframe>
-    </div>
-  `).join('');
+  observerApparitions(grille);
 }
 
 
 async function renderContentVideos(){
-  const grid = document.getElementById('contentGrid');
-  if(!grid) return;
 
-  grid.innerHTML = `<div class="empty-state">Chargement des vidéos...</div>`;
+  const zone = document.getElementById('contentScene');
+  if(!zone) return;
+
+  // Une scène vide de la même taille tient la place le temps du
+  // chargement : la page ne saute pas quand les vidéos arrivent.
+  if(!zone.firstElementChild){
+    zone.innerHTML = '<div class="scene-squelette" aria-hidden="true"></div>';
+  }
 
   // Le choix de l'équipe est lu avant tout affichage : sinon une vidéo
   // masquée apparaîtrait le temps du chargement.
@@ -5380,21 +6240,13 @@ async function renderContentVideos(){
 
   renderInstagramPosts();
 
+  let videos = [];
+
   try{
     const auto = await fetchLatestYouTubeVideos();
 
-    const visibles = (auto || [])
+    videos = (auto || [])
       .filter(video => !contentPicks.masquees.includes(video.id));
-
-    if(visibles.length){
-      grid.innerHTML = youtubeThumbsHtml(visibles);
-      return;
-    }
-
-    if(auto && auto.length === 0){
-      grid.innerHTML = `<div class="empty-state">Aucune vidéo sur la chaîne pour l'instant.</div>`;
-      return;
-    }
 
   }catch(err){
     // Quota dépassé, clé invalide, réseau : on bascule sur la liste
@@ -5402,20 +6254,17 @@ async function renderContentVideos(){
     console.warn('⚠️ YouTube indisponible :', err.message);
   }
 
-  if(!contentVideos.length){
-    grid.innerHTML = `<div class="empty-state">Aucune vidéo pour l'instant.</div>`;
-    return;
+  if(!videos.length && contentVideos.length){
+    videos = contentVideos.map(v => ({ id: v.id, titre: '' }));
   }
 
-  grid.innerHTML = youtubeThumbsHtml(
-    contentVideos.map(v => ({ id: v.id, titre: '' }))
-  );
+  sceneAfficher(videos.slice(0, SCENE_NB_VIDEOS));
 }
 
 
 // ---------------- SÉLECTION DU CONTENU AFFICHÉ ----------------
 //
-// Les vidéos arrivent de YouTube, les publications sont saisies à la
+// Les vidéos arrivent de YouTube, les publications sont réglées à la
 // main. Le choix de ce qui s'affiche vit dans site_stats : une ligne
 // unique, lecture publique, écriture réservée à l'équipe — exactement
 // les droits dont on a besoin, déjà en place pour les chiffres
@@ -5424,6 +6273,10 @@ async function renderContentVideos(){
 // On enregistre les vidéos *masquées* plutôt que les affichées : une
 // nouvelle vidéo publiée sur la chaîne apparaît ainsi d'elle-même,
 // sans avoir à repasser par ce panneau.
+//
+// Les publications Instagram sont une liste de { lien, image } (la
+// colonne est du jsonb). Les anciennes entrées, de simples adresses,
+// restent lisibles : elles deviennent des publications sans photo.
 
 let contentPicks = { masquees: [], posts: [] };
 let contentPicksCharges = false;
@@ -5448,6 +6301,28 @@ function listeDepuisJson(valeur){
 }
 
 
+function publicationsDepuisJson(valeur){
+
+  return listeDepuisJson(valeur)
+    .map(element => {
+
+      if(typeof element === 'string'){
+        return { lien: lienHttp(element), image: '' };
+      }
+
+      if(element && typeof element === 'object'){
+        return {
+          lien: lienHttp(element.lien || element.url),
+          image: imageHttps(element.image)
+        };
+      }
+
+      return null;
+    })
+    .filter(post => post && (post.lien || post.image));
+}
+
+
 async function loadContentPicks(force){
 
   if(contentPicksCharges && !force) return contentPicks;
@@ -5458,7 +6333,7 @@ async function loadContentPicks(force){
   // publique continue alors d'afficher tout, sans erreur.
   contentPicks = {
     masquees: listeDepuisJson(stats && stats.youtube_masquees),
-    posts: listeDepuisJson(stats && stats.instagram_posts)
+    posts: publicationsDepuisJson(stats && stats.instagram_posts)
   };
 
   contentPicksCharges = true;
@@ -5467,10 +6342,259 @@ async function loadContentPicks(force){
 }
 
 
+// ---------------- ESPACE ÉQUIPE : LES TROIS PUBLICATIONS ----------------
+//
+// Trois emplacements, chacun une photo (en entier : elle n'est pas
+// recadrée, seulement réduite à 1350 px pour rester légère) et un lien.
+// Une photo choisie reste en mémoire jusqu'à « Enregistrer » : c'est
+// alors qu'elle part dans le stockage, puis que la liste s'écrit.
+//
+//   lien      adresse du post (texte du champ, lu à l'enregistrement)
+//   image     adresse de la photo déjà enregistrée
+//   nouvelle  photo choisie, pas encore envoyée (data URL)
+//   retiree   la photo enregistrée doit disparaître
+
+let instaSlots = [];
+
+function instaSlotsDepuis(posts){
+
+  const slots = [];
+
+  for(let i = 0; i < INSTAGRAM_NB_POSTS; i++){
+    const post = posts[i] || {};
+    slots.push({
+      lien: post.lien || '',
+      image: post.image || '',
+      nouvelle: '',
+      retiree: false
+    });
+  }
+
+  return slots;
+}
+
+
+function instaSlotHtml(i){
+  return `
+    <div class="insta-slot" data-i="${i}">
+      <div class="insta-slot-photo" id="insta-photo-${i}"
+           role="button" tabindex="0"
+           aria-label="Choisir la photo du post ${i + 1}"></div>
+      <div class="insta-slot-champs">
+        <div class="field">
+          <label for="insta-lien-${i}">Post ${i + 1} — lien</label>
+          <input type="url" id="insta-lien-${i}" autocomplete="off"
+                 inputmode="url" placeholder="https://www.instagram.com/p/…">
+        </div>
+        <div class="insta-slot-actions">
+          <button type="button" class="btn btn-ghost" data-act="choisir"></button>
+          <button type="button" class="btn btn-ghost" data-act="retirer">Retirer la photo</button>
+        </div>
+        <p class="insta-slot-etat" id="insta-etat-${i}"></p>
+        <input type="file" id="insta-fichier-${i}" hidden
+               accept="image/png,image/jpeg,image/webp">
+      </div>
+    </div>`;
+}
+
+
+// Redessine la photo d'un emplacement et ce qui en dépend, sans toucher
+// au champ du lien (ce qu'on y tape ne doit pas se perdre).
+function instaMajSlot(i){
+
+  const slot = instaSlots[i];
+  const zone = document.getElementById('insta-photo-' + i);
+  const etat = document.getElementById('insta-etat-' + i);
+  if(!slot || !zone || !etat) return;
+
+  const source = slot.retiree ? '' : (slot.nouvelle || slot.image);
+  const carte = zone.closest('.insta-slot');
+
+  zone.classList.toggle('rempli', !!source);
+
+  zone.innerHTML = source
+    ? `<img class="fond" src="${escapeAttribute(source)}" alt="">
+       <img class="photo" src="${escapeAttribute(source)}"
+            alt="Aperçu de la photo du post ${i + 1}">`
+    : '<span>+ Ajouter la photo</span>';
+
+  carte.querySelector('[data-act="choisir"]').textContent =
+    source ? 'Changer la photo' : 'Choisir une photo';
+  carte.querySelector('[data-act="retirer"]').hidden = !source;
+
+  etat.classList.toggle('nouvelle', !!slot.nouvelle);
+  etat.textContent =
+    slot.nouvelle
+      ? 'Nouvelle photo — pas encore enregistrée.'
+      : source
+        ? 'Photo enregistrée.'
+        : "Pas de photo : la carte prendra les couleurs d'Instagram.";
+}
+
+
+function renderInstaSlots(){
+
+  const zone = document.getElementById('instaSlots');
+  if(!zone) return;
+
+  zone.innerHTML = instaSlots.map((_, i) => instaSlotHtml(i)).join('');
+
+  instaSlots.forEach((slot, i) => {
+    document.getElementById('insta-lien-' + i).value = slot.lien;
+    instaMajSlot(i);
+  });
+
+  instaBrancher(zone);
+}
+
+
+function instaBrancher(zone){
+
+  if(zone.dataset.branche) return;
+  zone.dataset.branche = '1';
+
+  const indexDe = (element) => {
+    const carte = element.closest('.insta-slot');
+    return carte ? +carte.dataset.i : -1;
+  };
+
+  zone.addEventListener('click', (e) => {
+
+    const i = indexDe(e.target);
+    if(i < 0) return;
+
+    if(e.target.closest('[data-act="retirer"]')){
+      instaSlots[i].nouvelle = '';
+      instaSlots[i].retiree = true;
+      instaMajSlot(i);
+      return;
+    }
+
+    if(e.target.closest('[data-act="choisir"]') ||
+       e.target.closest('.insta-slot-photo')){
+      document.getElementById('insta-fichier-' + i).click();
+    }
+  });
+
+  zone.addEventListener('keydown', (e) => {
+    if((e.key === 'Enter' || e.key === ' ') &&
+       e.target.classList.contains('insta-slot-photo')){
+      e.preventDefault();
+      e.target.click();
+    }
+  });
+
+  zone.addEventListener('change', async (e) => {
+
+    if(!e.target.matches('input[type=file]')) return;
+
+    const i = indexDe(e.target);
+    const fichier = e.target.files && e.target.files[0];
+    e.target.value = '';
+
+    if(i >= 0 && fichier) await instaChoisirFichier(i, fichier);
+  });
+
+  // Glisser-déposer une photo sur l'emplacement.
+  zone.addEventListener('dragover', (e) => {
+    const photo = e.target.closest('.insta-slot-photo');
+    if(!photo) return;
+    e.preventDefault();
+    photo.classList.add('survol');
+  });
+
+  zone.addEventListener('dragleave', (e) => {
+    const photo = e.target.closest('.insta-slot-photo');
+    if(photo) photo.classList.remove('survol');
+  });
+
+  zone.addEventListener('drop', async (e) => {
+
+    const photo = e.target.closest('.insta-slot-photo');
+    if(!photo) return;
+
+    e.preventDefault();
+    photo.classList.remove('survol');
+
+    const fichier = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(fichier) await instaChoisirFichier(indexDe(photo), fichier);
+  });
+}
+
+
+// Réduit la photo à 1350 px au plus (le grand côté) et la renvoie en
+// JPEG. Aucun recadrage : c'est la photo complète. Un PNG transparent
+// passe sur fond blanc.
+function instaPhotoDepuisFichier(fichier){
+
+  return new Promise((resolve, reject) => {
+
+    if(!fichier || !/^image\//.test(fichier.type)){
+      reject(new Error("ce fichier n'est pas une image."));
+      return;
+    }
+
+    if(fichier.size > 20 * 1024 * 1024){
+      reject(new Error('image trop lourde (20 Mo au plus).'));
+      return;
+    }
+
+    const adresse = URL.createObjectURL(fichier);
+    const img = new Image();
+
+    img.onload = () => {
+      URL.revokeObjectURL(adresse);
+
+      const echelle = Math.min(1, 1350 / Math.max(img.naturalWidth, img.naturalHeight));
+      const largeur = Math.max(1, Math.round(img.naturalWidth * echelle));
+      const hauteur = Math.max(1, Math.round(img.naturalHeight * echelle));
+
+      const toile = document.createElement('canvas');
+      toile.width = largeur;
+      toile.height = hauteur;
+
+      const c = toile.getContext('2d');
+      c.fillStyle = '#fff';
+      c.fillRect(0, 0, largeur, hauteur);
+      c.drawImage(img, 0, 0, largeur, hauteur);
+
+      resolve(toile.toDataURL('image/jpeg', 0.9));
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(adresse);
+      reject(new Error('image illisible.'));
+    };
+
+    img.src = adresse;
+  });
+}
+
+
+async function instaChoisirFichier(i, fichier){
+
+  const msg = document.getElementById('contentPickMsg');
+
+  try{
+    const photo = await instaPhotoDepuisFichier(fichier);
+
+    instaSlots[i].nouvelle = photo;
+    instaSlots[i].retiree = false;
+    instaMajSlot(i);
+
+    msg.textContent = '';
+    msg.className = 'form-msg';
+
+  }catch(error){
+    msg.textContent = 'Photo du post ' + (i + 1) + ' : ' + error.message;
+    msg.className = 'form-msg err';
+  }
+}
+
+
 async function loadContentPicker(){
 
   const liste = document.getElementById('youtubePickList');
-  const champPosts = document.getElementById('instaPostsInput');
 
   if(!liste) return;
 
@@ -5478,9 +6602,8 @@ async function loadContentPicker(){
 
   await loadContentPicks(true);
 
-  if(champPosts){
-    champPosts.value = contentPicks.posts.join('\n');
-  }
+  instaSlots = instaSlotsDepuis(contentPicks.posts);
+  renderInstaSlots();
 
   let videos = [];
 
@@ -5505,6 +6628,7 @@ async function loadContentPicker(){
   liste.innerHTML = videos.map(video => {
 
     const masquee = contentPicks.masquees.includes(video.id);
+    const date = dateVideoTexte(video.date);
 
     return `
       <div class="admin-row">
@@ -5513,8 +6637,8 @@ async function loadContentPicker(){
           alt=""
           style="width:112px; height:63px; object-fit:cover;">
         <div class="meta">
-          <h4>${escapeHtml(video.titre || video.id)}</h4>
-          <span>${masquee ? 'Masquée' : 'Affichée sur le site'}</span>
+          <h4>${escapeHtml(titreVideoPropre(video.titre) || video.id)}</h4>
+          <span>${masquee ? 'Masquée' : 'Affichée sur le site'}${date ? ' · ' + escapeHtml(date) : ''}</span>
         </div>
         <div class="admin-actions">
           <label class="pick-bascule">
@@ -5532,47 +6656,115 @@ async function loadContentPicker(){
 async function saveContentPicks(){
 
   const msg = document.getElementById('contentPickMsg');
+  const bouton = document.getElementById('contentPickBtn');
+
+  const erreur = (texte) => {
+    msg.textContent = texte;
+    msg.className = 'form-msg err';
+  };
 
   const masquees = [...document.querySelectorAll('.youtube-pick')]
     .filter(case_ => !case_.checked)
     .map(case_ => case_.value);
 
-  const posts =
-    String(document.getElementById('instaPostsInput').value || '')
-      .split('\n')
-      .map(ligne => ligne.trim())
-      .filter(Boolean);
+  // Les liens d'abord : une adresse mal collée se corrige avant d'envoyer
+  // la moindre photo.
+  const liens = [];
+
+  for(let i = 0; i < INSTAGRAM_NB_POSTS; i++){
+
+    const brut = document.getElementById('insta-lien-' + i).value.trim();
+    const lien = lienHttp(brut);
+
+    if(brut && !lien){
+      erreur(
+        'Le lien du post ' + (i + 1) + " n'est pas une adresse valide : " +
+        "colle l'adresse complète, qui commence par https://."
+      );
+      return;
+    }
+
+    liens.push(lien);
+  }
+
+  if(bouton) bouton.disabled = true;
+
+  msg.className = 'form-msg ok';
+  msg.textContent = 'Enregistrement...';
+
+  const envoyees = [];      // photos parties dans le stockage pendant cet appel
+  const remplacees = [];    // anciennes photos, à effacer une fois la liste écrite
+  const posts = [];
+
+  try{
+
+    for(let i = 0; i < INSTAGRAM_NB_POSTS; i++){
+
+      const slot = instaSlots[i];
+      let image = slot.retiree ? '' : slot.image;
+
+      if(slot.nouvelle){
+        msg.textContent = 'Envoi de la photo ' + (i + 1) + '...';
+
+        image = await Fichiers.envoyer(
+          dataUrlToBlob(slot.nouvelle),
+          Fichiers.nommer('instagram', 'post-' + (i + 1))
+        );
+
+        envoyees.push(image);
+      }
+
+      if((slot.nouvelle || slot.retiree) && slot.image){
+        remplacees.push(slot.image);
+      }
+
+      if(liens[i] || image){
+        posts.push({ lien: liens[i], image });
+      }
+    }
+
+  }catch(error){
+    await Fichiers.supprimerParUrl(...envoyees);
+    erreur(error.message || String(error));
+    if(bouton) bouton.disabled = false;
+    return;
+  }
 
   msg.textContent = 'Enregistrement...';
-  msg.className = 'form-msg ok';
 
   const { data, error } = await BD.majChiffresReseaux({
     youtube_masquees: masquees,
     instagram_posts: posts
   });
 
+  if(bouton) bouton.disabled = false;
+
   if(error){
+
+    await Fichiers.supprimerParUrl(...envoyees);
 
     const detail = String(error.message || '').toLowerCase();
 
-    msg.textContent =
+    erreur(
       detail.includes('column') || detail.includes('schema cache')
         ? "La table site_stats n'a pas encore les colonnes de contenu — " +
           'lance le SQL fourni dans Supabase, puis réessaie.'
-        : 'Échec : ' + error.message;
-
-    msg.className = 'form-msg err';
+        : 'Échec : ' + error.message
+    );
     return;
   }
 
   // Écriture réservée à l'équipe : sans droits, Supabase renvoie zéro
   // ligne modifiée et aucune erreur.
   if(!data || data.length === 0){
-    msg.textContent =
-      "Modification refusée : connecte-toi avec un compte marqué administrateur.";
-    msg.className = 'form-msg err';
+    await Fichiers.supprimerParUrl(...envoyees);
+    erreur("Modification refusée : connecte-toi avec un compte marqué administrateur.");
     return;
   }
+
+  // La liste est écrite : les photos remplacées ou retirées ne servent
+  // plus à personne.
+  if(remplacees.length) await Fichiers.supprimerParUrl(...remplacees);
 
   contentPicks = { masquees, posts };
 
@@ -5585,8 +6777,11 @@ async function saveContentPicks(){
 
   msg.className = 'form-msg ok';
 
+  // Relit la base : les emplacements et la liste des vidéos reprennent ce
+  // qui est réellement enregistré.
   loadContentPicker();
 }
+
 
 // ---------------- RÔLES DES MEMBRES ----------------
 //
