@@ -859,14 +859,14 @@
   .modal-close:hover{background:var(--blue);}
 
   /* ---------- PAGE CONTENU ----------
-     Une vidéo à la fois, en grand, avec sa miniature ; les autres
-     défilent dessous. La lueur derrière l'écran est la miniature elle-
-     même, floutée : la page prend les couleurs de la vidéo qu'on regarde.
-     Plus bas, trois publications Instagram : la photo choisie par
-     l'équipe, en entier, et un clic renvoie au post. */
+     Une vidéo à la fois : sa miniature, seule, sans rien posé dessus ; les
+     autres défilent dessous, d'elles-mêmes. La lueur derrière l'écran est
+     la miniature elle-même, floutée. Plus bas, trois publications
+     Instagram : la photo choisie par l'équipe, en entier, et un clic
+     renvoie au post. */
   .contenu-entete{
     display:flex; align-items:baseline; justify-content:space-between;
-    gap:16px; margin-bottom:16px;
+    gap:16px; margin-bottom:14px;
   }
   .contenu-entete .eyebrow{margin-bottom:0;}
   .contenu-lien{
@@ -874,30 +874,33 @@
     transition:color .25s var(--ease);
   }
   .contenu-lien:hover{color:var(--blue-bright);}
+  .contenu-lien[hidden]{display:none;}
+  .contenu-liens{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px 20px;}
 
-  /* L'écran prend toute la largeur de la page, comme tout ce qui
-     l'entoure : c'est ce qui le fait grand. Sur une fenêtre basse, son
-     bas passe sous le bord ; le titre, lui, est en haut. */
   .scene-colonne{width:100%;}
-  .scene{position:relative;}
-  /* Le plateau réunit l'écran, sa lueur et la légende : il entre en scène
-     d'un bloc. C'est lui, immobile, qui reçoit le survol ; l'écran et sa
-     légende se soulèvent à l'intérieur (un élément qui se soulève sous
-     le curseur le quitte, retombe, le retrouve… et tremble au bord). */
-  .scene-plateau{
+  /* Hauteur de l'écran : ce que la fenêtre laisse une fois comptés
+     l'en-tête de la page, la bande des vidéos et les liens, pour que le
+     début des posts Instagram reste visible dessous. Jamais moins de
+     250 px ni plus de 520 px ; sur un téléphone c'est la largeur qui
+     commande. */
+  .scene{
+    --scene-h:clamp(250px, calc(100vh - 570px), 520px);
     position:relative;
+  }
+  .scene-plateau{
+    position:relative; margin:0 auto;
+    width:min(100%, calc(var(--scene-h) * 16 / 9));
     animation:sceneEntre .9s var(--ease) backwards;
   }
-  .scene-ecran, .scene-legende{transition:transform .7s var(--ease);}
-  .scene-plateau:hover .scene-ecran, .scene-plateau:hover .scene-legende{
-    transform:translateY(-4px);
+  @keyframes sceneEntre{
+    from{opacity:0; transform:translateY(22px) scale(.975);}
+    to{opacity:1; transform:none;}
   }
-  .scene-plateau.lecture .scene-ecran{transform:none;}
   /* La lueur : la miniature, floutée, qui déborde de l'écran et s'estompe
      sur ses bords (le masque). Elle est dessinée petite puis agrandie :
      un flou sur une petite image coûte seize fois moins cher. Elle ne
-     dépasse jamais de plus de 24 px, la marge de la page, pour ne jamais
-     faire défiler la page de côté. */
+     dépasse jamais de plus de 24 px sur les côtés, la marge de la page,
+     pour ne jamais faire défiler la page de côté. */
   .scene-ambiance{
     position:absolute; z-index:0; pointer-events:none; overflow:hidden;
     top:-22%; bottom:-22%; left:-24px; right:-24px;
@@ -919,110 +922,19 @@
     cursor:pointer; touch-action:pan-y;
   }
   .scene-ecran.lecture{cursor:default;}
-  @keyframes sceneEntre{
-    from{opacity:0; transform:translateY(22px) scale(.975);}
-    to{opacity:1; transform:none;}
-  }
+  .scene-ecran:focus-visible{outline:2px solid var(--blue-bright); outline-offset:4px;}
   .scene-image{
     position:absolute; inset:0; width:100%; height:100%; max-width:none;
     object-fit:cover; display:block;
+    transition:transform 1.2s var(--ease);
     animation:sceneImage 1s var(--ease);
   }
   .scene-ecran:hover .scene-image{transform:scale(1.025);}
-  .scene-image{transition:transform 1.2s var(--ease);}
   @keyframes sceneImage{
     from{opacity:0; transform:scale(1.07);}
     to{opacity:1; transform:scale(1);}
   }
-  /* Le fondu du haut, là où se lit le titre (comme sur le lecteur
-     YouTube : il reste visible même quand le bas de l'écran passe sous
-     le bord de la fenêtre) ; un voile léger en bas referme le cadre. */
-  .scene-voile{
-    position:absolute; inset:0; pointer-events:none;
-    background:
-      linear-gradient(to bottom, rgba(4,6,9,0.88) 0%, rgba(4,6,9,0.5) 30%, rgba(4,6,9,0) 58%),
-      linear-gradient(to top, rgba(4,6,9,0.4), rgba(4,6,9,0) 22%);
-  }
-  .scene-lecture{
-    position:absolute; top:50%; left:50%; z-index:2;
-    width:92px; height:92px; margin:-46px 0 0 -46px; padding:0;
-    border-radius:50%; border:1px solid rgba(255,255,255,0.38);
-    background:rgba(255,255,255,0.14); color:#fff;
-    backdrop-filter:blur(14px) saturate(160%);
-    -webkit-backdrop-filter:blur(14px) saturate(160%);
-    display:flex; align-items:center; justify-content:center;
-    box-shadow:0 10px 40px rgba(0,0,0,0.4), var(--reflet-int);
-    transition:transform .5s var(--ease), background .3s var(--ease), border-color .3s var(--ease);
-  }
-  .scene-lecture svg{width:34px; height:34px; margin-left:5px; fill:currentColor;}
-  /* Une onde part du bouton, sans cesse : on sait où cliquer. */
-  .scene-lecture::before{
-    content:''; position:absolute; inset:-1px; border-radius:50%;
-    border:1px solid rgba(255,255,255,0.55);
-    animation:sceneOnde 2.6s ease-out infinite;
-  }
-  @keyframes sceneOnde{
-    from{transform:scale(1); opacity:.8;}
-    to{transform:scale(1.7); opacity:0;}
-  }
-  .scene-ecran:hover .scene-lecture, .scene-lecture:focus-visible{
-    transform:scale(1.1); background:var(--blue); border-color:transparent;
-  }
-  .scene-lecture:focus-visible{outline:2px solid var(--blue-bright); outline-offset:4px;}
-  .scene-legende{
-    position:absolute; left:0; top:0; z-index:2; max-width:78%;
-    display:flex; flex-direction:column; align-items:flex-start; gap:9px;
-    padding:clamp(18px, 2.6vw, 30px) clamp(18px, 3vw, 34px) 0;
-    pointer-events:none;
-  }
-  .scene-legende.change > *{animation:legendeEntre .7s var(--ease) backwards;}
-  .scene-legende.change > :nth-child(2){animation-delay:.07s;}
-  .scene-legende.change > :nth-child(3){animation-delay:.14s;}
-  @keyframes legendeEntre{
-    from{opacity:0; transform:translateY(14px);}
-    to{opacity:1; transform:none;}
-  }
-  .scene-tag{
-    font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
-    padding:5px 12px; border-radius:var(--radius-pill);
-    background:var(--blue); color:#fff;
-    box-shadow:0 4px 16px rgba(20,137,222,0.45);
-  }
-  .scene-tag[hidden]{display:none;}
-  .scene-titre{
-    margin:0; font-size:clamp(18px, 2.7vw, 30px); line-height:1.2; font-weight:700;
-    text-shadow:0 2px 18px rgba(0,0,0,0.55);
-    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-  }
-  .scene-meta{font-size:13px; color:rgba(255,255,255,0.78);}
-  /* « 3 / 10 » : on sait qu'il y en a d'autres sans avoir à descendre. */
-  .scene-compteur{
-    position:absolute; top:16px; right:16px; z-index:3;
-    padding:6px 13px; border-radius:var(--radius-pill);
-    background:rgba(8,10,14,0.55); border:1px solid rgba(255,255,255,0.18);
-    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-    font-size:12px; font-weight:600; letter-spacing:.08em; color:#fff;
-    font-variant-numeric:tabular-nums; pointer-events:none;
-  }
-  .scene-fleche{
-    position:absolute; top:50%; z-index:3; width:48px; height:48px; margin-top:-24px;
-    padding:0; border-radius:50%; border:1px solid rgba(255,255,255,0.22);
-    background:rgba(8,10,14,0.5); color:#fff; font-size:20px; line-height:1;
-    backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
-    display:flex; align-items:center; justify-content:center;
-    opacity:0; transition:opacity .35s var(--ease), background .25s var(--ease), transform .35s var(--ease);
-  }
-  .scene-fleche.prec{left:16px;}
-  .scene-fleche.suiv{right:16px;}
-  .scene-ecran:hover .scene-fleche, .scene-fleche:focus-visible{opacity:1;}
-  @media (hover:none){
-    .scene-fleche{opacity:.9;}
-  }
-  .scene-fleche:hover{background:var(--blue); transform:scale(1.08);}
-  .scene-fleche:focus-visible{outline:2px solid var(--blue-bright); outline-offset:3px;}
-  .scene-ecran.lecture .scene-fleche, .scene-ecran.lecture .scene-lecture,
-  .scene-ecran.lecture .scene-voile, .scene-ecran.lecture .scene-compteur,
-  .scene-plateau.lecture .scene-legende{display:none;}
+  /* Le lecteur n'existe que le temps d'une lecture. */
   .scene-lecteur{position:absolute; inset:0; z-index:4; background:#000;}
   .scene-lecteur iframe{width:100%; height:100%; border:0; display:block;}
   .scene-fermer{
@@ -1034,10 +946,11 @@
   }
   .scene-fermer:hover{background:var(--blue);}
 
-  /* Les autres vidéos : une bande qui défile, la vidéo en cours allumée. */
-  .scene-bande-zone{position:relative; z-index:1; margin-top:18px;}
+  /* Les autres vidéos : une bande qui défile d'elle-même, la vidéo en cours
+     allumée et ramenée au centre. */
+  .scene-bande-zone{position:relative; z-index:1; margin-top:8px;}
   .scene-bande{
-    position:relative; display:flex; gap:12px; padding:10px 4px 16px;
+    position:relative; display:flex; gap:10px; padding:6px 4px 8px;
     overflow-x:auto; scroll-snap-type:x proximity; scrollbar-width:none;
     -webkit-overflow-scrolling:touch;
     -webkit-mask-image:linear-gradient(to right, transparent 0, #000 26px, #000 calc(100% - 26px), transparent 100%);
@@ -1045,11 +958,11 @@
   }
   .scene-bande::-webkit-scrollbar{display:none;}
   .scene-vignette{
-    position:relative; flex:none; width:clamp(160px, 19vw, 212px); aspect-ratio:16/9;
-    padding:0; overflow:hidden; scroll-snap-align:center; color:#fff; text-align:left;
-    border-radius:var(--radius); border:1px solid rgba(255,255,255,0.1);
+    position:relative; flex:none; width:clamp(124px, 13vw, 150px); aspect-ratio:16/9;
+    padding:0; overflow:hidden; scroll-snap-align:center;
+    border-radius:var(--radius-sm); border:1px solid rgba(255,255,255,0.1);
     background:#0a0d12; cursor:pointer;
-    opacity:.6; transform:scale(.96);
+    opacity:.55; transform:scale(.95);
     transition:opacity .4s var(--ease), transform .5s var(--ease), border-color .3s var(--ease), box-shadow .4s var(--ease);
     animation:vignetteEntre .7s var(--ease) backwards;
     animation-delay:calc(var(--i, 0) * 60ms + .2s);
@@ -1063,43 +976,30 @@
     width:100%; height:100%; max-width:none; object-fit:cover; display:block;
     transition:transform .7s var(--ease);
   }
-  .scene-vignette::after{
-    content:''; position:absolute; inset:0; pointer-events:none;
-    background:linear-gradient(to top, rgba(4,6,9,0.85) 0%, rgba(4,6,9,0) 62%);
-  }
-  .scene-vignette-titre{
-    position:absolute; left:10px; right:10px; bottom:8px; z-index:1;
-    font-size:12px; font-weight:600; line-height:1.3;
-    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
-  }
   .scene-vignette:hover{opacity:1; transform:scale(1);}
   .scene-vignette:hover img{transform:scale(1.07);}
   .scene-vignette:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
   .scene-vignette.actif{
     opacity:1; transform:scale(1); border-color:var(--blue);
-    box-shadow:0 0 0 2px var(--blue), 0 12px 34px rgba(20,137,222,0.4);
+    box-shadow:0 0 0 2px var(--blue), 0 10px 28px rgba(20,137,222,0.4);
   }
   .scene-bande-fleche{
-    position:absolute; top:50%; z-index:2; width:40px; height:40px; margin-top:-26px;
+    position:absolute; top:50%; z-index:2; width:36px; height:36px; margin-top:-24px;
     padding:0; border-radius:50%; border:1px solid rgba(255,255,255,0.2);
-    background:rgba(8,10,14,0.72); color:#fff; font-size:17px; line-height:1;
+    background:rgba(8,10,14,0.72); color:#fff; font-size:16px; line-height:1;
     backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
     display:flex; align-items:center; justify-content:center;
     transition:background .25s var(--ease), opacity .3s var(--ease);
   }
-  .scene-bande-fleche.prec{left:-14px;}
-  .scene-bande-fleche.suiv{right:-14px;}
+  .scene-bande-fleche.prec{left:-10px;}
+  .scene-bande-fleche.suiv{right:-10px;}
   .scene-bande-fleche:hover{background:var(--blue);}
   .scene-bande-fleche[hidden]{display:none;}
-  .scene-ouvrir{
-    display:inline-flex; align-items:center; gap:6px; margin-top:4px;
-    font-size:13px; color:var(--blue); transition:color .25s var(--ease);
-  }
-  .scene-ouvrir:hover{color:var(--blue-bright);}
   /* En attendant les vidéos : une scène vide de la même taille, pour que
      la page ne saute pas quand elles arrivent. */
   .scene-squelette{
-    aspect-ratio:16/9; border-radius:var(--radius-lg);
+    aspect-ratio:16/9; border-radius:var(--radius-lg); margin:0 auto;
+    width:min(100%, calc(var(--scene-h) * 16 / 9));
     border:1px solid var(--line);
     background:
       linear-gradient(100deg, rgba(255,255,255,0.03) 30%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.03) 70%) 0 0/220% 100%,
@@ -1108,21 +1008,8 @@
   }
   @media (max-width:700px){
     .scene-ecran{border-radius:var(--radius);}
-    .scene-lecture{width:68px; height:68px; margin:-34px 0 0 -34px;}
-    .scene-lecture svg{width:26px; height:26px; margin-left:4px;}
-    /* Sur un petit écran la légende passe sous l'image : elle y est plus
-       lisible, et l'image reste entière. */
-    .scene-legende{position:static; max-width:none; padding:14px 2px 0;}
-    .scene-titre{font-size:17px; text-shadow:none;}
-    .scene-voile{
-      background:linear-gradient(to top, rgba(4,6,9,0.4), rgba(4,6,9,0) 30%);
-    }
-    .scene-compteur{top:12px; right:12px;}
-    .scene-fleche{width:38px; height:38px; margin-top:-19px; opacity:.9;}
-    .scene-fleche.prec{left:10px;}
-    .scene-fleche.suiv{right:10px;}
     .scene-bande-fleche{display:none;}
-    .scene-vignette{width:150px;}
+    .scene-vignette{width:112px;}
   }
 
   /* Les trois publications. La photo est montrée en entier (sans
@@ -3564,17 +3451,22 @@
       <div class="scene-colonne" role="region" aria-label="Dernières vidéos">
         <div class="contenu-entete">
           <span class="eyebrow mono">YouTube</span>
-          <a class="contenu-lien" href="https://www.youtube.com/@LaWavefr"
-             target="_blank" rel="noopener noreferrer">Toute la chaîne ↗</a>
+          <span class="contenu-liens">
+            <!-- Adresse de la vidéo à l'écran, tenue à jour par sceneMontrer. -->
+            <a class="contenu-lien" id="sceneOuvrir" href="#" hidden
+               target="_blank" rel="noopener noreferrer">Ouvrir cette vidéo ↗</a>
+            <a class="contenu-lien" href="https://www.youtube.com/@LaWavefr"
+               target="_blank" rel="noopener noreferrer">Toute la chaîne ↗</a>
+          </span>
         </div>
-        <!-- Rempli par renderContentVideos : la vidéo à la une, en grand,
-             et la bande des autres. -->
+        <!-- Rempli par renderContentVideos : la vidéo à la une et la bande
+             des autres, qui défilent d'elles-mêmes. -->
         <div class="scene" id="contentScene"></div>
       </div>
 
-      <div class="hairline" style="margin-top:56px;"></div>
+      <div class="hairline" style="margin-top:22px;"></div>
 
-      <div role="region" aria-label="Derniers posts Instagram" style="margin-top:36px;">
+      <div role="region" aria-label="Derniers posts Instagram" style="margin-top:14px;">
         <div class="contenu-entete">
           <span class="eyebrow mono">Instagram</span>
           <a class="contenu-lien" href="https://www.instagram.com/lawavefr/"
@@ -5459,8 +5351,9 @@ const BD = {
   if(pageId === 'admin'){ autoOpenAdminIfAllowed(); renderForumModeration(); }
   if(pageId === 'about') renderAboutStats();
   // Une vidéo lue sur place se tairait avec la page : sans cela, son
-  // iframe, simplement masquée, continuerait de jouer en fond.
-  if(pageId === 'content') renderContentVideos(); else sceneFermerLecteur();
+  // iframe, simplement masquée, continuerait de jouer en fond. Le
+  // défilement automatique des vidéos s'arrête de même.
+  if(pageId === 'content') renderContentVideos(); else { sceneFermerLecteur(); sceneAutoArreter(); }
   // La carte tourne en boucle d'animation : on la coupe dès qu'on
   // quitte la page, sinon elle consomme du processeur en arrière-plan.
   if(pageId === 'carte') renderCarte(); else arreterCarte();
@@ -5719,16 +5612,22 @@ async function fetchLatestYouTubeVideos(){
 
 // ---------------- PAGE CONTENU : LA VIDÉO À LA UNE ----------------
 //
-// Une seule vidéo occupe l'écran, avec sa miniature en grand ; les autres
-// défilent dessous, la vidéo en cours allumée. Un clic sur l'image la
-// lit sur place (le lecteur n'est posé qu'à ce moment : une intégration
-// YouTube pèse lourd). Flèches, bande, clavier et glissé du doigt
-// changent de vidéo.
+// Une seule vidéo occupe l'écran, avec sa miniature — rien posé dessus ;
+// les autres défilent dessous, la vidéo en cours allumée. L'ensemble avance
+// de lui-même toutes les six secondes (voir plus bas ce qui le suspend).
+// Un clic sur l'image la lit sur place (le lecteur n'est posé qu'à ce
+// moment : une intégration YouTube pèse lourd). Bande, clavier et glissé du
+// doigt changent de vidéo à la main.
 
 let sceneVideos = [];     // les vidéos montrées, de la plus récente à la plus ancienne
 let sceneIndex = 0;       // celle qui est à l'écran
 let sceneJeton = 0;       // écarte une image arrivée en retard
 let sceneGlisse = false;  // un glissé vient d'avoir lieu : le clic qui suit n'en est pas un
+let sceneAuto = null;     // minuteur du défilement automatique
+let sceneSurvol = false;  // la souris est sur l'écran ou la bande
+let sceneClavier = false; // le clavier y est
+
+const SCENE_AUTO_MS = 6000;
 
 
 function lienYouTube(id){
@@ -5778,16 +5677,9 @@ function dateVideoTexte(iso){
 
 function sceneHtml(videos){
 
-  const plusieurs = videos.length > 1;
-
-  const fleches = plusieurs
-    ? `<button type="button" class="scene-fleche prec" data-sens="-1"
-               aria-label="Vidéo précédente">‹</button>
-       <button type="button" class="scene-fleche suiv" data-sens="1"
-               aria-label="Vidéo suivante">›</button>`
-    : '';
-
-  const bande = plusieurs
+  // Les titres ne s'affichent pas sur les miniatures : ils restent dans
+  // l'info-bulle et pour les lecteurs d'écran.
+  const bande = videos.length > 1
     ? `<div class="scene-bande-zone">
          <button type="button" class="scene-bande-fleche prec" data-bande="-1"
                  aria-label="Faire défiler vers la gauche" hidden>‹</button>
@@ -5795,10 +5687,10 @@ function sceneHtml(videos){
            ${videos.map((video, i) => `
              <button type="button" class="scene-vignette" data-i="${i}"
                      style="--i:${i}" aria-current="false"
+                     title="${escapeAttribute(titreVideoPropre(video.titre))}"
                      aria-label="${escapeAttribute(titreVideoPropre(video.titre))}">
                <img src="${escapeAttribute(miniaturePetite(video))}" alt=""
                     loading="lazy" decoding="async">
-               <span class="scene-vignette-titre">${escapeHtml(titreVideoPropre(video.titre))}</span>
              </button>`).join('')}
          </div>
          <button type="button" class="scene-bande-fleche suiv" data-bande="1"
@@ -5809,23 +5701,10 @@ function sceneHtml(videos){
   return `
     <div class="scene-plateau">
       <div class="scene-ambiance" aria-hidden="true"></div>
-      <div class="scene-ecran">
-        <div class="scene-voile"></div>
-        <button type="button" class="scene-lecture" aria-label="Lire la vidéo">${ICONE_LECTURE}</button>
-        ${plusieurs ? '<span class="scene-compteur" aria-hidden="true"></span>' : ''}
-        ${fleches}
-      </div>
-      <!-- Posée sur l'image sur un grand écran, sous l'image sur un
-           téléphone : d'où sa place hors de l'écran. -->
-      <div class="scene-legende">
-        <span class="scene-tag" hidden>Dernière vidéo</span>
-        <h4 class="scene-titre"></h4>
-        <span class="scene-meta"></span>
-      </div>
+      <div class="scene-ecran" role="button" tabindex="0"
+           aria-label="Lire la vidéo"></div>
     </div>
-    ${bande}
-    <a class="scene-ouvrir" id="sceneOuvrir" href="${escapeAttribute(lienYouTube(videos[0].id))}"
-       target="_blank" rel="noopener noreferrer">Ouvrir sur YouTube ↗</a>`;
+    ${bande}`;
 }
 
 
@@ -5838,6 +5717,11 @@ function sceneAfficher(videos){
   sceneIndex = 0;
 
   if(!videos.length){
+    sceneAutoArreter();
+
+    const ouvrir = document.getElementById('sceneOuvrir');
+    if(ouvrir) ouvrir.hidden = true;
+
     zone.innerHTML = `
       <div class="empty-state">
         Aucune vidéo pour l'instant.
@@ -5858,7 +5742,7 @@ function sceneAfficher(videos){
 
 // Une image arrive par-dessus l'ancienne, qui s'efface ensuite : le
 // changement de vidéo est un fondu, jamais un trou.
-function sceneCalque(parent, classe, url, idVideo, avant){
+function sceneCalque(parent, classe, url, idVideo){
 
   const jeton = sceneJeton;
   const img = new Image();
@@ -5872,7 +5756,7 @@ function sceneCalque(parent, classe, url, idVideo, avant){
     if(jeton !== sceneJeton) return;
 
     const anciens = [...parent.querySelectorAll('img.' + classe)];
-    parent.insertBefore(img, avant || null);
+    parent.appendChild(img);
     setTimeout(() => anciens.forEach(a => a.remove()), 1100);
   };
 
@@ -5904,39 +5788,22 @@ function sceneMontrer(index, instantane){
   sceneJeton++;
 
   const video = sceneVideos[index];
-  const titre = titreVideoPropre(video.titre);
 
   sceneFermerLecteur();
 
   // L'image en grand et la lueur qui en reprend les couleurs.
-  sceneCalque(ecran, 'scene-image', miniatureVideo(video), video.id,
-              ecran.querySelector('.scene-voile'));
+  sceneCalque(ecran, 'scene-image', miniatureVideo(video), video.id);
   sceneCalque(zone.querySelector('.scene-ambiance'), 'scene-ambiance-image',
-              miniaturePetite(video), video.id, null);
+              miniaturePetite(video), video.id);
 
-  // La légende.
-  const legende = zone.querySelector('.scene-legende');
-  const date = dateVideoTexte(video.date);
-  const meta = legende.querySelector('.scene-meta');
+  ecran.setAttribute('aria-label', 'Lire la vidéo : ' + titreVideoPropre(video.titre));
 
-  legende.querySelector('.scene-tag').hidden = index !== 0;
-  legende.querySelector('.scene-titre').textContent = titre;
-  meta.textContent = date;
-  meta.hidden = !date;
+  const ouvrir = document.getElementById('sceneOuvrir');
 
-  const compteur = ecran.querySelector('.scene-compteur');
-  if(compteur) compteur.textContent = (index + 1) + ' / ' + n;
-
-  if(!instantane){
-    legende.classList.remove('change');
-    void legende.offsetWidth;
-    legende.classList.add('change');
+  if(ouvrir){
+    ouvrir.href = lienYouTube(video.id);
+    ouvrir.hidden = false;
   }
-
-  ecran.querySelector('.scene-lecture').setAttribute('aria-label', 'Lire la vidéo : ' + titre);
-
-  const ouvrir = zone.querySelector('#sceneOuvrir');
-  if(ouvrir) ouvrir.href = lienYouTube(video.id);
 
   // La bande : la vidéo en cours s'allume et vient au centre.
   zone.querySelectorAll('.scene-vignette').forEach((vignette, i) => {
@@ -5957,6 +5824,9 @@ function sceneMontrer(index, instantane){
   // La suivante se charge déjà : le prochain changement est immédiat.
   const suivante = sceneVideos[(index + 1) % n];
   if(suivante) new Image().src = miniatureVideo(suivante);
+
+  // Un changement, de lui-même ou à la main, repart pour six secondes.
+  sceneAutoRelancer();
 }
 
 
@@ -5981,7 +5851,9 @@ function sceneLire(){
 
   ecran.appendChild(cadre);
   ecran.classList.add('lecture');
-  ecran.parentElement.classList.add('lecture');
+
+  // Pendant qu'on regarde, rien ne défile.
+  sceneAutoArreter();
 }
 
 
@@ -5994,7 +5866,54 @@ function sceneFermerLecteur(){
   if(cadre) cadre.remove();
 
   ecran.classList.remove('lecture');
-  ecran.parentElement.classList.remove('lecture');
+}
+
+
+// ---- Le défilement automatique ----
+//
+// Toutes les six secondes la vidéo suivante vient à l'écran, et la bande
+// la suit. Il s'arrête tant qu'il gênerait :
+//   - une vidéo est en lecture ;
+//   - la souris est sur l'écran ou la bande, ou le clavier y est ;
+//   - l'onglet est caché, la page n'est plus la page Contenu, ou
+//     l'ensemble est hors de l'écran ;
+//   - le visiteur a demandé moins d'animations.
+function sceneAutoArreter(){
+  if(sceneAuto){
+    clearInterval(sceneAuto);
+    sceneAuto = null;
+  }
+}
+
+
+function sceneAutoRelancer(){
+
+  sceneAutoArreter();
+
+  if(sceneVideos.length < 2) return;
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  sceneAuto = setInterval(sceneAutoPas, SCENE_AUTO_MS);
+}
+
+
+function sceneAutoPas(){
+
+  const zone = document.getElementById('contentScene');
+  const page = document.getElementById('page-content');
+
+  if(!zone || !page || !page.classList.contains('active')){
+    sceneAutoArreter();
+    return;
+  }
+
+  if(document.hidden || sceneSurvol || sceneClavier) return;
+  if(zone.querySelector('.scene-lecteur')) return;
+
+  const boite = zone.getBoundingClientRect();
+  if(boite.bottom < 80 || boite.top > window.innerHeight - 80) return;
+
+  sceneMontrer(sceneIndex + 1);
 }
 
 
@@ -6025,16 +5944,10 @@ function sceneBrancher(zone){
 
     const cible = e.target;
     const vignette = cible.closest('.scene-vignette');
-    const fleche = cible.closest('.scene-fleche');
     const flecheBande = cible.closest('.scene-bande-fleche');
 
     if(vignette){
       sceneMontrer(+vignette.dataset.i);
-      return;
-    }
-
-    if(fleche){
-      sceneMontrer(sceneIndex + +fleche.dataset.sens);
       return;
     }
 
@@ -6046,6 +5959,7 @@ function sceneBrancher(zone){
 
     if(cible.closest('.scene-fermer')){
       sceneFermerLecteur();
+      sceneAutoRelancer();
       return;
     }
 
@@ -6056,14 +5970,31 @@ function sceneBrancher(zone){
     }
   });
 
-  // Gauche et droite changent de vidéo, de l'écran comme de la bande.
+  // Au clavier : gauche et droite changent de vidéo, Entrée ou Espace sur
+  // l'image la lit, Échap ferme le lecteur.
   zone.addEventListener('keydown', (e) => {
 
-    if(e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     if(e.target.closest && e.target.closest('iframe')) return;
 
-    e.preventDefault();
-    sceneMontrer(sceneIndex + (e.key === 'ArrowRight' ? 1 : -1));
+    if(e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+      e.preventDefault();
+      sceneMontrer(sceneIndex + (e.key === 'ArrowRight' ? 1 : -1));
+      return;
+    }
+
+    if((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('scene-ecran')){
+      e.preventDefault();
+      sceneLire();
+      return;
+    }
+
+    if(e.key === 'Escape' && zone.querySelector('.scene-lecteur')){
+      e.preventDefault();
+      sceneFermerLecteur();
+      sceneAutoRelancer();
+      const ecran = zone.querySelector('.scene-ecran');
+      if(ecran) ecran.focus({ preventScroll: true });
+    }
   });
 
   // Au doigt : un glissé horizontal sur l'écran passe à la vidéo voisine.
@@ -6071,8 +6002,7 @@ function sceneBrancher(zone){
 
   zone.addEventListener('pointerdown', (e) => {
     const surEcran = e.target.closest('.scene-ecran') &&
-                     !e.target.closest('.scene-lecteur') &&
-                     !e.target.closest('button');
+                     !e.target.closest('.scene-lecteur');
     debut = surEcran ? { x: e.clientX, y: e.clientY } : null;
   });
 
@@ -6092,6 +6022,29 @@ function sceneBrancher(zone){
   });
 
   zone.addEventListener('pointercancel', () => { debut = null; });
+
+  // Le défilement automatique laisse la place à qui regarde : souris
+  // dessus, ou clavier dedans. À la sortie, il repart pour six secondes.
+  zone.addEventListener('pointerenter', (e) => {
+    if(e.pointerType === 'mouse') sceneSurvol = true;
+  });
+
+  zone.addEventListener('pointerleave', (e) => {
+    if(e.pointerType !== 'mouse') return;
+    sceneSurvol = false;
+    sceneAutoRelancer();
+  });
+
+  // Seul le focus « au clavier » compte : un clic sur une vignette donne
+  // aussi le focus, et ne doit pas figer le défilement pour de bon.
+  zone.addEventListener('focusin', (e) => {
+    sceneClavier = !!(e.target.matches && e.target.matches(':focus-visible'));
+  });
+
+  zone.addEventListener('focusout', () => {
+    sceneClavier = false;
+    sceneAutoRelancer();
+  });
 
   // La bande défile : les flèches suivent.
   zone.addEventListener('scroll', (e) => {
