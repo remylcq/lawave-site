@@ -4,9 +4,9 @@
 
 # ---------- Forcer HTTPS ----------
 #
-# Netlify redirigeait de lui-même ; Apache ne le fait pas. Sans cette
-# règle, un visiteur qui tape "lawave.fr" sans préciser le protocole
-# reste en clair sur le port 80.
+# Apache ne redirige pas vers HTTPS de lui-même. Sans cette règle, un
+# visiteur qui tape "lawave.fr" sans préciser le protocole reste en
+# clair sur le port 80.
 #
 # Deux conditions plutôt qu'une : sur un hébergement mutualisé, la
 # requête arrive souvent à Apache déjà déchiffrée par un frontal, et
