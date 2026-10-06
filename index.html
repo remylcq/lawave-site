@@ -875,17 +875,24 @@
   }
   .contenu-lien:hover{color:var(--blue-bright);}
 
-  /* L'écran prend toute la largeur de la page, mais jamais plus que ce
-     que la fenêtre peut montrer d'un coup : 310 px sont déjà pris par
-     l'en-tête et le titre de la page. Sur une fenêtre basse il se
-     resserre (jamais sous 560 px) plutôt que de passer sous le bord,
-     avec son titre. */
-  .scene-colonne{
-    width:min(100%, max(560px, calc((100vh - 310px) * 16 / 9)));
-    margin:0 auto;
-  }
+  /* L'écran prend toute la largeur de la page, comme tout ce qui
+     l'entoure : c'est ce qui le fait grand. Sur une fenêtre basse, son
+     bas passe sous le bord ; le titre, lui, est en haut. */
+  .scene-colonne{width:100%;}
   .scene{position:relative;}
-  .scene-plateau{position:relative;}
+  /* Le plateau réunit l'écran, sa lueur et la légende : il entre en scène
+     d'un bloc. C'est lui, immobile, qui reçoit le survol ; l'écran et sa
+     légende se soulèvent à l'intérieur (un élément qui se soulève sous
+     le curseur le quitte, retombe, le retrouve… et tremble au bord). */
+  .scene-plateau{
+    position:relative;
+    animation:sceneEntre .9s var(--ease) backwards;
+  }
+  .scene-ecran, .scene-legende{transition:transform .7s var(--ease);}
+  .scene-plateau:hover .scene-ecran, .scene-plateau:hover .scene-legende{
+    transform:translateY(-4px);
+  }
+  .scene-plateau.lecture .scene-ecran{transform:none;}
   /* La lueur : la miniature, floutée, qui déborde de l'écran et s'estompe
      sur ses bords (le masque). Elle est dessinée petite puis agrandie :
      un flou sur une petite image coûte seize fois moins cher. Elle ne
@@ -910,11 +917,8 @@
     background:#06090d; border:1px solid rgba(255,255,255,0.12);
     box-shadow:var(--ombre-3), var(--reflet-int);
     cursor:pointer; touch-action:pan-y;
-    transition:transform .7s var(--ease), box-shadow .7s var(--ease);
-    animation:sceneEntre .9s var(--ease) backwards;
   }
-  .scene-ecran:hover{transform:translateY(-4px);}
-  .scene-ecran.lecture{cursor:default; transform:none;}
+  .scene-ecran.lecture{cursor:default;}
   @keyframes sceneEntre{
     from{opacity:0; transform:translateY(22px) scale(.975);}
     to{opacity:1; transform:none;}
@@ -930,12 +934,14 @@
     from{opacity:0; transform:scale(1.07);}
     to{opacity:1; transform:scale(1);}
   }
-  /* Le fondu du bas : le titre se lit sur n'importe quelle image. */
+  /* Le fondu du haut, là où se lit le titre (comme sur le lecteur
+     YouTube : il reste visible même quand le bas de l'écran passe sous
+     le bord de la fenêtre) ; un voile léger en bas referme le cadre. */
   .scene-voile{
     position:absolute; inset:0; pointer-events:none;
     background:
-      linear-gradient(to top, rgba(4,6,9,0.9) 0%, rgba(4,6,9,0.55) 28%, rgba(4,6,9,0) 60%),
-      linear-gradient(to bottom, rgba(4,6,9,0.32), rgba(4,6,9,0) 26%);
+      linear-gradient(to bottom, rgba(4,6,9,0.88) 0%, rgba(4,6,9,0.5) 30%, rgba(4,6,9,0) 58%),
+      linear-gradient(to top, rgba(4,6,9,0.4), rgba(4,6,9,0) 22%);
   }
   .scene-lecture{
     position:absolute; top:50%; left:50%; z-index:2;
@@ -964,9 +970,9 @@
   }
   .scene-lecture:focus-visible{outline:2px solid var(--blue-bright); outline-offset:4px;}
   .scene-legende{
-    position:absolute; left:0; bottom:0; z-index:2; max-width:78%;
+    position:absolute; left:0; top:0; z-index:2; max-width:78%;
     display:flex; flex-direction:column; align-items:flex-start; gap:9px;
-    padding:0 clamp(18px, 3vw, 34px) clamp(18px, 2.6vw, 30px);
+    padding:clamp(18px, 2.6vw, 30px) clamp(18px, 3vw, 34px) 0;
     pointer-events:none;
   }
   .scene-legende.change > *{animation:legendeEntre .7s var(--ease) backwards;}
@@ -1015,8 +1021,8 @@
   .scene-fleche:hover{background:var(--blue); transform:scale(1.08);}
   .scene-fleche:focus-visible{outline:2px solid var(--blue-bright); outline-offset:3px;}
   .scene-ecran.lecture .scene-fleche, .scene-ecran.lecture .scene-lecture,
-  .scene-ecran.lecture .scene-legende, .scene-ecran.lecture .scene-voile,
-  .scene-ecran.lecture .scene-compteur{display:none;}
+  .scene-ecran.lecture .scene-voile, .scene-ecran.lecture .scene-compteur,
+  .scene-plateau.lecture .scene-legende{display:none;}
   .scene-lecteur{position:absolute; inset:0; z-index:4; background:#000;}
   .scene-lecteur iframe{width:100%; height:100%; border:0; display:block;}
   .scene-fermer{
@@ -1104,7 +1110,14 @@
     .scene-ecran{border-radius:var(--radius);}
     .scene-lecture{width:68px; height:68px; margin:-34px 0 0 -34px;}
     .scene-lecture svg{width:26px; height:26px; margin-left:4px;}
-    .scene-legende{max-width:100%;}
+    /* Sur un petit écran la légende passe sous l'image : elle y est plus
+       lisible, et l'image reste entière. */
+    .scene-legende{position:static; max-width:none; padding:14px 2px 0;}
+    .scene-titre{font-size:17px; text-shadow:none;}
+    .scene-voile{
+      background:linear-gradient(to top, rgba(4,6,9,0.4), rgba(4,6,9,0) 30%);
+    }
+    .scene-compteur{top:12px; right:12px;}
     .scene-fleche{width:38px; height:38px; margin-top:-19px; opacity:.9;}
     .scene-fleche.prec{left:10px;}
     .scene-fleche.suiv{right:10px;}
@@ -1118,13 +1131,23 @@
   .insta-grille{
     display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:20px;
   }
+  /* La cellule ne bouge pas : c'est elle qui reçoit le survol, et la
+     carte se soulève à l'intérieur. Une carte qui se soulève sous le
+     curseur le quitte, retombe, le retrouve… et tremble au bord. */
+  .insta-cellule{display:block; aspect-ratio:4/5;}
+  .insta-cellule.large{aspect-ratio:auto;}
+  /* Rien de réglé : la grande carte occupe toute la rangée, sur grand
+     écran comme sur téléphone. */
+  .insta-grille.seule{
+    display:block; overflow:visible; margin:0; padding:0; scroll-snap-type:none;
+  }
   .insta-carte{
-    position:relative; display:block; aspect-ratio:4/5; overflow:hidden; isolation:isolate;
+    position:relative; display:block; width:100%; height:100%; overflow:hidden; isolation:isolate;
     border-radius:var(--radius); border:1px solid rgba(255,255,255,0.12);
     background:#06090d; box-shadow:var(--ombre-2), var(--reflet-int);
     transition:transform .6s var(--ease), box-shadow .6s var(--ease), border-color .3s var(--ease);
   }
-  .insta-carte:hover, .insta-carte:focus-visible{
+  .insta-cellule:hover .insta-carte, .insta-carte:focus-visible{
     transform:translateY(-8px); border-color:rgba(255,255,255,0.3);
     box-shadow:var(--ombre-3), var(--reflet-int), 0 24px 70px rgba(20,137,222,0.2);
   }
@@ -1137,7 +1160,7 @@
     position:absolute; inset:0; width:100%; height:100%; max-width:none;
     object-fit:contain; z-index:1; transition:transform .9s var(--ease);
   }
-  .insta-carte:hover .insta-photo{transform:scale(1.04);}
+  .insta-cellule:hover .insta-photo{transform:scale(1.04);}
   .insta-badge{
     position:absolute; top:12px; right:12px; z-index:3; width:40px; height:40px;
     border-radius:50%; color:#fff;
@@ -1147,7 +1170,7 @@
     transition:background .3s var(--ease), transform .5s var(--ease);
   }
   .insta-badge svg{width:20px; height:20px;}
-  .insta-carte:hover .insta-badge{background:linear-gradient(45deg, #f9a03f, #e1306c 55%, #833ab4); transform:rotate(-8deg) scale(1.08);}
+  .insta-cellule:hover .insta-badge{background:linear-gradient(45deg, #f9a03f, #e1306c 55%, #833ab4); transform:rotate(-8deg) scale(1.08);}
   .insta-voir{
     position:absolute; left:0; right:0; bottom:0; z-index:3;
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -1156,7 +1179,7 @@
     opacity:0; transform:translateY(14px);
     transition:opacity .4s var(--ease), transform .5s var(--ease);
   }
-  .insta-carte:hover .insta-voir, .insta-carte:focus-visible .insta-voir{opacity:1; transform:none;}
+  .insta-cellule:hover .insta-voir, .insta-carte:focus-visible .insta-voir{opacity:1; transform:none;}
   @media (hover:none){
     .insta-voir{opacity:1; transform:none;}
   }
@@ -1178,7 +1201,7 @@
     border:1px solid rgba(255,255,255,0.16); box-shadow:var(--ombre-2), var(--reflet-int);
     transition:transform .5s var(--ease), box-shadow .5s var(--ease);
   }
-  .insta-suivre:hover{transform:translateY(-4px); box-shadow:var(--ombre-3), var(--reflet-int);}
+  .insta-cellule:hover .insta-suivre{transform:translateY(-4px); box-shadow:var(--ombre-3), var(--reflet-int);}
   .insta-suivre svg{width:46px; height:46px; flex:none;}
   .insta-suivre strong{display:block; font-size:18px; margin-bottom:2px;}
   .insta-suivre span{font-size:14px; color:rgba(255,255,255,0.82);}
@@ -1189,7 +1212,7 @@
       margin:0 -24px; padding:6px 24px 18px;
     }
     .insta-grille::-webkit-scrollbar{display:none;}
-    .insta-carte{scroll-snap-align:center;}
+    .insta-cellule{scroll-snap-align:center;}
     .insta-suivre{padding:22px;}
   }
 
@@ -5435,7 +5458,9 @@ const BD = {
   if(pageId === 'catalogue' || pageId === 'home') renderCatalogue();
   if(pageId === 'admin'){ autoOpenAdminIfAllowed(); renderForumModeration(); }
   if(pageId === 'about') renderAboutStats();
-  if(pageId === 'content') renderContentVideos();
+  // Une vidéo lue sur place se tairait avec la page : sans cela, son
+  // iframe, simplement masquée, continuerait de jouer en fond.
+  if(pageId === 'content') renderContentVideos(); else sceneFermerLecteur();
   // La carte tourne en boucle d'animation : on la coupe dès qu'on
   // quitte la page, sinon elle consomme du processeur en arrière-plan.
   if(pageId === 'carte') renderCarte(); else arreterCarte();
@@ -5787,13 +5812,15 @@ function sceneHtml(videos){
       <div class="scene-ecran">
         <div class="scene-voile"></div>
         <button type="button" class="scene-lecture" aria-label="Lire la vidéo">${ICONE_LECTURE}</button>
-        <div class="scene-legende">
-          <span class="scene-tag" hidden>Dernière vidéo</span>
-          <h4 class="scene-titre"></h4>
-          <span class="scene-meta"></span>
-        </div>
         ${plusieurs ? '<span class="scene-compteur" aria-hidden="true"></span>' : ''}
         ${fleches}
+      </div>
+      <!-- Posée sur l'image sur un grand écran, sous l'image sur un
+           téléphone : d'où sa place hors de l'écran. -->
+      <div class="scene-legende">
+        <span class="scene-tag" hidden>Dernière vidéo</span>
+        <h4 class="scene-titre"></h4>
+        <span class="scene-meta"></span>
       </div>
     </div>
     ${bande}
@@ -5888,7 +5915,7 @@ function sceneMontrer(index, instantane){
               miniaturePetite(video), video.id, null);
 
   // La légende.
-  const legende = ecran.querySelector('.scene-legende');
+  const legende = zone.querySelector('.scene-legende');
   const date = dateVideoTexte(video.date);
   const meta = legende.querySelector('.scene-meta');
 
@@ -5954,6 +5981,7 @@ function sceneLire(){
 
   ecran.appendChild(cadre);
   ecran.classList.add('lecture');
+  ecran.parentElement.classList.add('lecture');
 }
 
 
@@ -5966,6 +5994,7 @@ function sceneFermerLecteur(){
   if(cadre) cadre.remove();
 
   ecran.classList.remove('lecture');
+  ecran.parentElement.classList.remove('lecture');
 }
 
 
@@ -6128,27 +6157,31 @@ function carteInstagramHtml(post, i){
   const cible =
     'href="' + escapeAttribute(post.lien || INSTAGRAM_COMPTE) + '" ' +
     'target="_blank" rel="noopener noreferrer" ' +
-    'aria-label="Voir la publication sur Instagram" style="--i:' + i + '"';
+    'aria-label="Voir la publication sur Instagram"';
 
   // Sans photo : un cadre aux couleurs d'Instagram, qui renvoie quand même
   // au post.
   if(!post.image){
     return `
-      <a class="insta-carte vide revele" ${cible}>
-        ${ICONE_INSTAGRAM}
-        <span class="insta-voir">Voir la publication ↗</span>
-      </a>`;
+      <div class="insta-cellule revele" style="--i:${i}">
+        <a class="insta-carte vide" ${cible}>
+          ${ICONE_INSTAGRAM}
+          <span class="insta-voir">Voir la publication ↗</span>
+        </a>
+      </div>`;
   }
 
   return `
-    <a class="insta-carte revele" ${cible}>
-      <img class="insta-fond" src="${escapeAttribute(post.image)}" alt=""
-           aria-hidden="true" loading="lazy" decoding="async">
-      <img class="insta-photo" src="${escapeAttribute(post.image)}"
-           alt="Publication Instagram de La Wave" loading="lazy" decoding="async">
-      <span class="insta-badge">${ICONE_INSTAGRAM}</span>
-      <span class="insta-voir"><span>Voir le post</span><span aria-hidden="true">↗</span></span>
-    </a>`;
+    <div class="insta-cellule revele" style="--i:${i}">
+      <a class="insta-carte" ${cible}>
+        <img class="insta-fond" src="${escapeAttribute(post.image)}" alt=""
+             aria-hidden="true" loading="lazy" decoding="async">
+        <img class="insta-photo" src="${escapeAttribute(post.image)}"
+             alt="Publication Instagram de La Wave" loading="lazy" decoding="async">
+        <span class="insta-badge">${ICONE_INSTAGRAM}</span>
+        <span class="insta-voir"><span>Voir le post</span><span aria-hidden="true">↗</span></span>
+      </a>
+    </div>`;
 }
 
 
@@ -6171,15 +6204,17 @@ function renderInstagramPosts(){
   // qu'un « aucune publication » qui sonne le vide.
   if(!posts.length){
     grille.innerHTML = `
-      <a class="insta-suivre revele"
-         href="${escapeAttribute(INSTAGRAM_COMPTE)}"
-         target="_blank" rel="noopener noreferrer">
-        ${ICONE_INSTAGRAM}
-        <div>
-          <strong>Suis La Wave sur Instagram</strong>
-          <span>@lawavefr — les sons et les artistes à suivre, au jour le jour.</span>
-        </div>
-      </a>`;
+      <div class="insta-cellule large revele">
+        <a class="insta-suivre"
+           href="${escapeAttribute(INSTAGRAM_COMPTE)}"
+           target="_blank" rel="noopener noreferrer">
+          ${ICONE_INSTAGRAM}
+          <div>
+            <strong>Suis La Wave sur Instagram</strong>
+            <span>@lawavefr — les sons et les artistes à suivre, au jour le jour.</span>
+          </div>
+        </a>
+      </div>`;
   } else {
     grille.innerHTML = posts.map(carteInstagramHtml).join('');
   }
