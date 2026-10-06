@@ -947,9 +947,12 @@
   }
   .field input::placeholder, .field textarea::placeholder,
   .encadre-nouvel-artiste input::placeholder{color:var(--muted);}
+  /* Un halo doux plutôt qu'un trait bleu brut — partout, dans tous les
+     formulaires du site. */
   .field input:focus, .field select:focus, .field textarea:focus,
   .encadre-nouvel-artiste input:focus{
-    outline:2px solid var(--blue); outline-offset:1px; border-color:var(--blue);
+    outline:none; border-color:var(--blue);
+    box-shadow:inset 0 1px 3px rgba(0,0,0,0.34), 0 0 0 4px rgba(20,137,222,0.16);
   }
   .field textarea{resize:vertical; min-height:90px;}
   .cover-drop{
@@ -962,13 +965,20 @@
   .form-msg.ok{display:block; background:rgba(46,160,90,0.14); color:#8fe3ab; border:1px solid rgba(46,160,90,0.35);}
   .form-msg.err{display:block; background:rgba(229,105,92,0.14); color:var(--danger); border:1px solid rgba(229,105,92,0.35);}
 
-  /* ---------- SOUMETTRE UNE SORTIE ----------
+  /* ---------- FORMULAIRES ----------
      Remplir un formulaire doit se sentir : les champs entrent un à un,
-     celui où l'on se trouve prend la lumière, une coche s'allume quand
-     il est juste, et le bouton d'envoi se remplit à mesure que le
-     reste avance. Aucun mouvement ne retarde la saisie — ils durent
-     une demi-seconde et ne bloquent rien. « Réduire les animations »
-     les coupe tous (voir plus haut). */
+     celui où l'on se trouve prend la lumière (le halo est dans les
+     règles de base de .field), une coche s'allume quand il est juste, et
+     le bouton d'envoi se remplit à mesure que le reste avance. Aucun
+     mouvement ne retarde la saisie — ils durent une demi-seconde et ne
+     bloquent rien. « Réduire les animations » les coupe tous (voir plus
+     haut).
+
+     Tout passe par la classe .form-anim, posée sur le formulaire (ou le
+     bloc qui en tient lieu), et par Formulaire.activer, qui suit les
+     champs obligatoires. Page « Soumettre une sortie », inscription aux
+     accréditations, proposition de concert, signalement d'un bug,
+     connexion : même vocabulaire partout. */
   @keyframes champEntre{
     from{opacity:0; transform:translateY(14px);}
     to{opacity:1; transform:translateY(0);}
@@ -981,6 +991,7 @@
     60%{transform:translateX(-3px);}
     80%{transform:translateX(2px);}
   }
+  @keyframes cochePop{from{transform:scale(0);} to{transform:scale(1);}}
 
   /* « backwards » : invisible avant le départ, ordinaire à l'arrivée —
      aucune transformation ne reste sur le champ, qui deviendrait sinon
@@ -989,94 +1000,107 @@
      message — rejoue la même entrée, sans retard. Le bouton d'envoi
      a ses propres mouvements, plus bas. */
   #page-submit .section-head,
-  #submitForm > :not(button){animation:champEntre .6s var(--ease) backwards;}
-  /* À l'ouverture de la page seulement (goTo pose « entree ») : chacun
-     son tour. */
-  #submitForm.entree > :nth-child(1){animation-delay:.06s;}
-  #submitForm.entree > :nth-child(2){animation-delay:.11s;}
-  #submitForm.entree > :nth-child(3){animation-delay:.16s;}
-  #submitForm.entree > :nth-child(4){animation-delay:.21s;}
-  #submitForm.entree > :nth-child(5){animation-delay:.26s;}
-  #submitForm.entree > :nth-child(6){animation-delay:.31s;}
-  #submitForm.entree > :nth-child(7){animation-delay:.36s;}
-  #submitForm.entree > :nth-child(8){animation-delay:.41s;}
-  #submitForm.entree > :nth-child(9){animation-delay:.46s;}
-  #submitForm.entree > :nth-child(10){animation-delay:.51s;}
-  #submitForm.entree > :nth-child(11){animation-delay:.56s;}
-  #submitForm.entree > :nth-child(n+12){animation-delay:.61s;}
+  .form-anim > :not(button){animation:champEntre .6s var(--ease) backwards;}
+  /* À l'ouverture seulement (Formulaire.activer pose « entree » un
+     instant) : chacun son tour. */
+  .form-anim.entree > :nth-child(1){animation-delay:.06s;}
+  .form-anim.entree > :nth-child(2){animation-delay:.11s;}
+  .form-anim.entree > :nth-child(3){animation-delay:.16s;}
+  .form-anim.entree > :nth-child(4){animation-delay:.21s;}
+  .form-anim.entree > :nth-child(5){animation-delay:.26s;}
+  .form-anim.entree > :nth-child(6){animation-delay:.31s;}
+  .form-anim.entree > :nth-child(7){animation-delay:.36s;}
+  .form-anim.entree > :nth-child(8){animation-delay:.41s;}
+  .form-anim.entree > :nth-child(9){animation-delay:.46s;}
+  .form-anim.entree > :nth-child(10){animation-delay:.51s;}
+  .form-anim.entree > :nth-child(11){animation-delay:.56s;}
+  .form-anim.entree > :nth-child(n+12){animation-delay:.61s;}
   /* Réduire les animations raccourcit celles-ci à presque rien, mais
      pas leurs retards : les champs resteraient invisibles le temps de
      l'escalier. */
   @media (prefers-reduced-motion: reduce){
-    #submitForm.entree > *{animation-delay:0s !important;}
+    .form-anim.entree > *{animation-delay:0s !important;}
   }
 
-  /* Le champ où l'on se trouve : son libellé s'éclaircit, un halo doux
-     remplace le trait bleu brut. */
-  #submitForm .field > label{transition:color .3s var(--ease);}
-  #submitForm .field:focus-within > label{color:var(--ink);}
-  #submitForm .field input:focus,
-  #submitForm .encadre-nouvel-artiste input:focus{
-    outline:none; border-color:var(--blue);
-    box-shadow:inset 0 1px 3px rgba(0,0,0,0.34), 0 0 0 4px rgba(20,137,222,0.16);
-  }
+  /* Le champ où l'on se trouve : son libellé s'éclaircit. */
+  .form-anim .field > label{transition:color .3s var(--ease);}
+  .form-anim .field:focus-within > label{color:var(--ink);}
 
   /* La coche d'un champ obligatoire rempli (« fait », posé par
-     updateSubmitButtonState). Elle rebondit un peu en arrivant. */
-  #submitForm .field[data-etape] > label{display:flex; align-items:center; gap:8px;}
-  #submitForm .field[data-etape] > label::after{
+     Formulaire.actualiser). Elle rebondit un peu en arrivant. */
+  .form-anim .field[data-etape] > label{display:flex; align-items:center; gap:8px;}
+  .form-anim .field[data-etape] > label::after{
     content:''; flex:none; width:15px; height:15px; border-radius:50%;
     background:var(--blue) url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.8 6.3l2.2 2.2 4.2-4.6'/%3E%3C/svg%3E") center/9px no-repeat;
     opacity:0; transform:scale(.3);
     transition:opacity .25s var(--ease), transform .55s cubic-bezier(.34,1.56,.64,1);
   }
-  #submitForm .field[data-etape].fait > label::after{opacity:1; transform:scale(1);}
+  .form-anim .field[data-etape].fait > label::after{opacity:1; transform:scale(1);}
+
+  /* Une aide qui ne se déplie que sur le champ où l'on se trouve : le
+     formulaire reste court, et l'explication arrive quand on en a
+     besoin. Sans survol sur un écran tactile, c'est le focus qui compte. */
+  .field .aide-champ{
+    margin:0; max-height:0; opacity:0; overflow:hidden;
+    font-size:12px; line-height:1.5; color:var(--muted);
+    transition:max-height .45s var(--ease), opacity .35s var(--ease), margin .35s var(--ease);
+  }
+  .field:focus-within .aide-champ{max-height:64px; opacity:1; margin:7px 2px 0;}
+
+  /* Deux colonnes quand la place y est : les champs courts (ville,
+     date…) vont de pair, le formulaire tient dans une fenêtre. */
+  .form-grille{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); column-gap:14px;}
+  .form-grille > .pleine{grid-column:1 / -1;}
+  @media (max-width:520px){
+    .form-grille{grid-template-columns:minmax(0, 1fr);}
+  }
 
   /* Les résultats de la recherche d'artiste se refont à chaque frappe :
      un fondu bref, sans déplacement, pour ne pas faire sautiller la
      liste. */
   #page-submit .recherche-resultat{animation:fondu .18s var(--ease) backwards;}
 
-  /* Une erreur secoue le message ; un succès y allume une coche. */
-  #submitForm > .form-msg.err{animation:secousse .5s var(--ease);}
-  #formMsg.ok{display:flex; align-items:center; gap:12px;}
-  #formMsg.ok::before{
+  /* Une erreur secoue le message ; un succès (classe « succes ») y
+     allume une coche. */
+  .form-msg.err{animation:secousse .5s var(--ease);}
+  .form-msg.ok.succes{display:flex; align-items:center; gap:12px;}
+  .form-msg.ok.succes::before{
     content:''; flex:none; width:22px; height:22px; border-radius:50%;
     background:#2ea05a url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.8 6.3l2.2 2.2 4.2-4.6'/%3E%3C/svg%3E") center/12px no-repeat;
     animation:cochePop .6s cubic-bezier(.34,1.56,.64,1) .1s backwards;
   }
-  @keyframes cochePop{from{transform:scale(0);} to{transform:scale(1);}}
 
-  /* Le bouton d'envoi : une vitre qui se remplit de bleu à mesure que
-     les champs obligatoires se remplissent (--avance-n, de 0 à 1,
-     posé par updateSubmitButtonState). Au dernier, il est tout bleu,
-     s'allume d'un halo, et devient cliquable. */
-  #submitForm button[type=submit]{
+  /* Le bouton d'envoi (classe « avance ») : une vitre qui se remplit de
+     bleu à mesure que les champs obligatoires se remplissent
+     (--avance-n, de 0 à 1, posé par Formulaire.actualiser). Au dernier,
+     il est tout bleu, s'allume d'un halo, et devient cliquable. */
+  .form-anim .avance{
     --avance-n:0;
     position:relative; overflow:hidden; isolation:isolate;
   }
-  #submitForm button[type=submit]::before{
+  .form-anim .avance::before{
     content:''; position:absolute; inset:0; z-index:-1;
     background:var(--blue); transform-origin:left center;
     transform:scaleX(var(--avance-n)); transition:transform .8s var(--ease);
   }
-  #submitForm button[type=submit]:disabled{
+  .form-anim .avance:disabled{
     background:var(--glass); color:var(--ink-soft);
     border-color:var(--line-strong); box-shadow:none; cursor:not-allowed;
   }
-  #submitForm button[type=submit]:not(:disabled){animation:pretEnvoyer 1s var(--ease);}
-  #submitForm button[type=submit]:not(:disabled):hover::before{background:var(--blue-deep);}
+  .form-anim .avance:not(:disabled){animation:pretEnvoyer 1s var(--ease);}
+  .form-anim .avance:not(:disabled):hover::before{background:var(--blue-deep);}
+  @keyframes pretEnvoyer{
+    0%{box-shadow:0 0 0 0 rgba(20,137,222,0.6), var(--ombre-1), var(--reflet-int);}
+    100%{box-shadow:0 0 0 16px rgba(20,137,222,0), var(--ombre-1), var(--reflet-int);}
+  }
   /* Pendant l'envoi : un reflet traverse le bouton. */
-  #submitForm button[type=submit].envoi::after{
+  .form-anim .btn.envoi{position:relative; overflow:hidden; isolation:isolate;}
+  .form-anim .btn.envoi::after{
     content:''; position:absolute; inset:0; z-index:-1;
     background:linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.28) 50%, transparent 70%) 0 0/220% 100%;
     animation:reflet 1.3s linear infinite;
   }
   @keyframes reflet{from{background-position:120% 0;} to{background-position:-120% 0;}}
-  @keyframes pretEnvoyer{
-    0%{box-shadow:0 0 0 0 rgba(20,137,222,0.6), var(--ombre-1), var(--reflet-int);}
-    100%{box-shadow:0 0 0 16px rgba(20,137,222,0), var(--ombre-1), var(--reflet-int);}
-  }
 
   /* Cover : un carré, comme elle le sera dans le catalogue. Un plus
      quand il est vide, la pochette quand il est plein — qui se
@@ -1179,6 +1203,17 @@
     top:auto; bottom:calc(100% + 10px); transform-origin:bottom left;
     animation-name:calendrierEntreHaut;
   }
+  /* Posé sur le voile d'une fenêtre : position fixe, coordonnées données
+     par le script (top et left en ligne). */
+  .calendrier.flottant, .calendrier.flottant.au-dessus{
+    position:fixed; bottom:auto; z-index:5;
+    width:min(332px, calc(100vw - 24px)); padding:12px 12px 8px;
+  }
+  /* Plus bas qu'à l'accoutumée : sur un écran de 800 px, l'agenda doit
+     tenir au-dessus ou au-dessous du champ sans le recouvrir. */
+  .calendrier.flottant .cal-corps{min-height:250px;}
+  .calendrier.flottant .cal-jour, .calendrier.flottant .cal-vide{aspect-ratio:auto; height:35px;}
+  .calendrier.flottant .cal-cellule{padding:12px 0;}
   @keyframes calendrierEntre{
     from{opacity:0; transform:translateY(-8px) scale(.97);}
     to{opacity:1; transform:none;}
@@ -1246,6 +1281,10 @@
     animation:jourChoisi .5s cubic-bezier(.34,1.56,.64,1);
   }
   @keyframes jourChoisi{from{transform:scale(.6);} to{transform:scale(1);}}
+  /* Hors des bornes du champ (attributs min et max) : visible, pas
+     choisissable. */
+  .cal-jour:disabled, .cal-cellule:disabled{opacity:.25; cursor:not-allowed; pointer-events:none;}
+  .cal-nav:disabled, .cal-aujourdhui:disabled{opacity:.3; cursor:not-allowed; pointer-events:none;}
 
   .cal-grille{display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; padding-top:4px;}
   .cal-cellule{
@@ -2340,24 +2379,41 @@
      doivent pas repousser le suivi personnel en bas de page. */
   .accred-barre{
     display:flex; align-items:center; justify-content:space-between;
-    gap:16px; flex-wrap:wrap; margin-bottom:14px;
+    gap:16px; margin-bottom:14px; min-height:42px;
   }
-  .accred-filtre{display:flex; align-items:center; gap:10px;}
-  .accred-filtre span{
-    font-size:11px; font-weight:500; letter-spacing:.18em;
-    text-transform:uppercase; color:var(--muted);
+  /* Les villes en pastilles : un seul geste, au lieu d'un menu à ouvrir.
+     Un curseur bleu glisse de l'une à l'autre (--x et --w, posés par
+     accredMajVilles) ; sur un écran étroit, la rangée défile. */
+  .accred-villes{
+    --x:0px; --w:0px;
+    position:relative; display:flex; gap:2px; padding:4px; max-width:100%;
+    border-radius:var(--radius-pill);
+    background:rgba(0,0,0,0.26); border:1px solid rgba(255,255,255,0.09);
+    box-shadow:inset 0 1px 3px rgba(0,0,0,0.34);
+    overflow-x:auto; scrollbar-width:none;
   }
-  .accred-filtre select{
-    padding:9px 14px; border-radius:var(--radius-pill);
-    border:1px solid var(--line-strong); background:rgba(0,0,0,0.26);
-    color:var(--ink); font-family:inherit; font-size:13px; cursor:pointer;
+  .accred-villes::-webkit-scrollbar{display:none;}
+  .accred-villes::before{
+    content:''; position:absolute; top:4px; bottom:4px; left:0;
+    width:var(--w); transform:translateX(var(--x));
+    border-radius:var(--radius-pill); background:var(--blue);
+    box-shadow:0 2px 12px rgba(20,137,222,0.45), var(--reflet-int);
+    transition:transform .5s var(--ease), width .5s var(--ease);
   }
-  /* La liste déroulante est dessinée par le système : sans couleurs
-     explicites, le texte clair du site tombe sur le fond blanc natif,
-     donc illisible. Même règle que les menus des formulaires. */
-  .accred-filtre select option{
-    background-color:#14181b; color:var(--ink);
+  .accred-ville{
+    position:relative; z-index:1; flex:none;
+    display:inline-flex; align-items:center; gap:8px;
+    padding:8px 15px; border:0; border-radius:var(--radius-pill);
+    background:transparent; color:var(--muted);
+    font:inherit; font-size:13px; font-weight:600; cursor:pointer;
+    transition:color .3s var(--ease);
   }
+  .accred-ville span{
+    font-size:11px; font-weight:600; opacity:.65; font-variant-numeric:tabular-nums;
+  }
+  .accred-ville:hover{color:var(--ink-soft);}
+  .accred-ville.actif{color:#fff;}
+  .accred-ville:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
   .accred-fleches{display:flex; gap:6px;}
   .accred-fleches button{
     width:34px; height:34px; border-radius:50%;
@@ -2485,6 +2541,156 @@
     color:var(--blue); font-family:inherit; font-size:12px; text-align:left;
     border-bottom:1px dotted currentColor;
   }
+
+  /* Les fiches entrent l'une après l'autre (--i, posé par la fiche),
+     se soulèvent au survol, et l'affiche respire. Un changement de ville
+     les redessine : elles entrent de nouveau. La piste garde de la place
+     en haut, sans quoi la fiche soulevée serait rognée par son
+     défilement. */
+  .accred-piste{padding-top:8px; margin-top:-8px;}
+  .accred-carte{
+    animation:carteEntre .65s var(--ease) backwards;
+    animation-delay:calc(var(--i, 0) * 70ms);
+    transition:transform .45s var(--ease), border-color .3s var(--ease), box-shadow .45s var(--ease);
+  }
+  .accred-carte.sans-entree{animation:none;}
+  .accred-carte:hover{
+    transform:translateY(-5px); border-color:var(--line-strong);
+    box-shadow:var(--ombre-2), var(--reflet-int);
+  }
+  @keyframes carteEntre{
+    from{opacity:0; transform:translateY(22px) scale(.97);}
+    to{opacity:1; transform:none;}
+  }
+  .accred-image{overflow:hidden;}
+  .accred-image img{transition:transform .9s var(--ease);}
+  .accred-carte:hover .accred-image img{transform:scale(1.06);}
+
+  /* Les lignes du suivi et des propositions entrent aussi, en cascade. */
+  .accred-suivi-ligne{animation:champEntre .55s var(--ease) backwards;}
+  .accred-suivi-ligne:nth-child(2){animation-delay:.07s;}
+  .accred-suivi-ligne:nth-child(3){animation-delay:.14s;}
+  .accred-suivi-ligne:nth-child(4){animation-delay:.21s;}
+  .accred-suivi-ligne:nth-child(n+5){animation-delay:.28s;}
+  .accred-etat{animation:cochePop .6s cubic-bezier(.34,1.56,.64,1) backwards;}
+
+  /* Le compte à rebours : ce qu'il reste pour s'inscrire. Bleu au
+     départ, ambre sous les 24 h, rouge qui respire sous l'heure. */
+  .accred-compte{
+    --teinte:var(--blue-bright);
+    display:flex; flex-direction:column; gap:8px;
+    padding:12px 14px; border-radius:var(--radius-sm);
+    background:rgba(0,0,0,0.26); border:1px solid rgba(255,255,255,0.08);
+    transition:border-color .5s var(--ease), background .5s var(--ease);
+  }
+  .accred-compte.bientot{--teinte:var(--gold-favori); border-color:rgba(233,196,106,0.35);}
+  .accred-compte.urgent{
+    --teinte:var(--danger); border-color:rgba(229,105,92,0.45);
+    background:rgba(229,105,92,0.07);
+    animation:respiration 2.2s ease-in-out infinite;
+  }
+  @keyframes respiration{
+    0%,100%{box-shadow:0 0 0 0 rgba(229,105,92,0);}
+    50%{box-shadow:0 0 0 4px rgba(229,105,92,0.14);}
+  }
+  .accred-compte-tete{
+    display:flex; justify-content:space-between; align-items:baseline;
+    gap:4px 12px; flex-wrap:wrap;
+  }
+  .accred-compte-titre{
+    font-size:11px; font-weight:500; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .accred-compte-date{font-size:11px; color:var(--muted);}
+  .accred-compte-valeur{display:flex; align-items:baseline; gap:14px;}
+  .accred-bloc{display:inline-flex; align-items:baseline; gap:4px;}
+  .accred-bloc.vide{display:none;}
+  .accred-bloc b{
+    display:inline-block; min-width:1.15ch; text-align:right;
+    font-size:24px; font-weight:700; letter-spacing:-.01em;
+    font-variant-numeric:tabular-nums; color:var(--ink);
+  }
+  .accred-bloc i{
+    font-style:normal; font-size:11px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.08em; color:var(--teinte);
+    transition:color .5s var(--ease);
+  }
+  .accred-compte.urgent .accred-bloc[data-u="s"] b{color:var(--danger);}
+  .accred-bloc b.tic{animation:ticChiffre .35s var(--ease);}
+  @keyframes ticChiffre{
+    from{opacity:.25; transform:translateY(-7px);}
+    to{opacity:1; transform:none;}
+  }
+  .accred-compte-barre{
+    height:3px; border-radius:3px; overflow:hidden; background:rgba(255,255,255,0.08);
+  }
+  .accred-compte-barre span{
+    display:block; height:100%; border-radius:3px; background:var(--teinte);
+    transform-origin:left center; transform:scaleX(1);
+    transition:transform 1s linear, background .5s var(--ease);
+  }
+
+  /* Dans la fenêtre d'inscription : le même compte à rebours, en plus
+     discret, et la mention du pré-remplissage. */
+  #accredModalCorps .accred-compte{margin-bottom:12px; padding:9px 12px;}
+  #accredModalCorps .accred-bloc b{font-size:20px;}
+  /* Les fenêtres tiennent sur un écran de 800 px de haut : ici, les champs
+     se serrent un peu plus que sur la page « Soumettre une sortie ». */
+  #accredModalCorps{padding:22px 24px 18px;}
+  #accredModalCorps .form-grille > .field{margin-bottom:14px;}
+  #accredModalCorps .field textarea{min-height:62px;}
+  @media (max-width:520px){
+    #accredModal{padding:12px;}
+    #accredModalCorps{padding:20px 18px 16px;}
+    #accredModalCorps .form-grille > .field{margin-bottom:12px;}
+    #accredModalCorps .field textarea{min-height:54px;}
+  }
+  .accred-prerempli{
+    margin:0 0 12px; padding:6px 12px; border-radius:var(--radius-sm);
+    font-size:12px; line-height:1.5; color:var(--ink-soft);
+    background:rgba(20,137,222,0.10); border:1px solid rgba(20,137,222,0.25);
+    animation:champEntre .6s var(--ease) .1s backwards;
+  }
+  .pre-rempli{
+    display:inline-block; margin-left:8px; padding:2px 8px;
+    border-radius:var(--radius-pill); font-size:10px; font-weight:600;
+    letter-spacing:.02em; text-transform:none; color:var(--blue-bright);
+    background:rgba(20,137,222,0.14); border:1px solid rgba(20,137,222,0.3);
+    transition:opacity .35s var(--ease), transform .35s var(--ease);
+  }
+  .pre-rempli.efface{opacity:0; transform:scale(.8); pointer-events:none;}
+  .accred-garder{
+    display:flex; align-items:center; gap:10px; margin:0 0 14px;
+    font-size:13px; color:var(--ink-soft); cursor:pointer;
+    animation:champEntre .45s var(--ease) backwards;
+  }
+  .accred-garder[hidden]{display:none;}
+  .accred-garder input{accent-color:var(--blue); width:16px; height:16px; margin:0;}
+
+  /* La confirmation, à la place du formulaire : le cercle puis la coche
+     se tracent, le titre et la phrase suivent. */
+  .accred-succes{
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:26px 10px 14px;
+  }
+  .accred-succes h3{margin:12px 0 0; font-size:20px; animation:champEntre .6s var(--ease) .35s backwards;}
+  .accred-succes p{
+    margin:6px 0 0; max-width:34ch; font-size:14px; color:var(--ink-soft);
+    animation:champEntre .6s var(--ease) .5s backwards;
+  }
+  .accred-succes-coche{
+    width:84px; height:84px; stroke:#2ea05a; stroke-width:3;
+    stroke-linecap:round; stroke-linejoin:round;
+  }
+  .accred-succes-coche circle{
+    stroke-dasharray:145; stroke-dashoffset:145;
+    animation:traceTrait .7s var(--ease) forwards;
+  }
+  .accred-succes-coche path{
+    stroke-dasharray:44; stroke-dashoffset:44;
+    animation:traceTrait .45s var(--ease) .55s forwards;
+  }
+  @keyframes traceTrait{to{stroke-dashoffset:0;}}
 
   /* ---------- L'ESPACE DES WAVEURS (porte d'entrée) ---------- */
   .wv-accueil{
@@ -2747,7 +2953,7 @@
       </div>
 
       <div class="form-wrap">
-        <form id="submitForm" novalidate>
+        <form id="submitForm" class="form-anim" novalidate>
           <!-- data-etape : les six champs obligatoires. updateSubmitButtonState
                y pose « fait » quand ils sont remplis, ce qui allume la
                coche de leur libellé et fait avancer le bouton d'envoi. -->
@@ -2892,7 +3098,7 @@
           <p style="font-size:12px; color:var(--muted); margin:-4px 0 16px;">
             En cliquant sur "Envoyer", ta sortie et sa cover sont transmises directement à l'équipe La Wave. Si elle est validée, elle apparaîtra dans le catalogue à la date de sortie indiquée.
           </p>
-          <button class="btn btn-primary" type="submit">Envoyer à La Wave</button>
+          <button class="btn btn-primary avance" type="submit">Envoyer à La Wave</button>
           <div class="form-msg" id="formMsg"></div>
         </form>
       </div>
@@ -2917,17 +3123,6 @@
            style="font-size:14px; color:var(--ink-soft); margin:0 0 22px;"></p>
         <div class="inline-actions" id="submitGateActions"></div>
       </div>
-    </div>
-  </div>
-
-  <!-- Formulaire d'inscription à un tirage. Rempli par
-       accredOuvrirFormulaire : les fiches défilent côte à côte, le
-       formulaire y serait à l'étroit. -->
-  <div class="modal-overlay" id="accredModal">
-    <div class="modal-box" style="max-width:480px;">
-      <button class="modal-close" onclick="accredFermerModale()"
-              aria-label="Fermer">✕</button>
-      <div class="modal-body" id="accredModalCorps" style="padding:26px 24px 22px;"></div>
     </div>
   </div>
 
@@ -2958,12 +3153,11 @@
     <section>
       <div class="section-head">
         <div>
-          <span class="eyebrow">Accès terrain</span>
+          <span class="eyebrow">Accès photographe</span>
           <h2>Accréditations</h2>
           <p class="desc">
-            Les places photo que La Wave obtient pour des concerts et des
-            festivals. Inscris-toi au tirage au sort ; si tu es tiré, on
-            te contacte avec les démarches.
+            Inscris-toi au tirage au sort, si tu es tiré, on te contacte
+            avec les démarches.
           </p>
         </div>
       </div>
@@ -3262,7 +3456,7 @@
             <span>Modifier mon profil</span>
             <span class="chevron">⌄</span>
           </summary>
-          <div class="profile-form" id="profileFormWrap">
+          <div class="profile-form form-anim" id="profileFormWrap">
         <div class="field">
           <label>Photo de profil</label>
           <div class="cover-drop" id="profilePhotoDrop">
@@ -3286,6 +3480,18 @@
           <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
             Ton rôle s'affiche à côté de ton pseudo partout sur le site,
             et permet aux autres membres de te repérer dans l'annuaire.
+          </p>
+        </div>
+        <!-- Pour les photographes : le lien vers leur travail. Il se
+             retrouve dans leur profil public et pré-remplit leurs
+             inscriptions aux accréditations. Le champ n'apparaît que
+             pour ce rôle (majChampPortfolio). -->
+        <div class="field" id="champPortfolio" hidden>
+          <label for="socialPortfolio">Portfolio</label>
+          <input type="text" id="socialPortfolio" placeholder="Site, Instagram, Behance…">
+          <p class="aide-champ">
+            Il apparaît sur ton profil, et se remplit tout seul quand tu
+            t'inscris à un tirage.
           </p>
         </div>
         <div class="field">
@@ -3331,7 +3537,7 @@
         </div>
       </div>
       <div class="form-wrap">
-        <form id="bugReportForm" novalidate>
+        <form id="bugReportForm" class="form-anim" novalidate>
           <div class="field">
             <label for="bug-page">Sur quelle page ?</label>
             <select id="bug-page">
@@ -3345,7 +3551,7 @@
               <option>Autre / je ne sais pas</option>
             </select>
           </div>
-          <div class="field">
+          <div class="field" data-etape="la description">
             <label for="bug-description">Décris le problème</label>
             <textarea id="bug-description" rows="5" placeholder="Ce que tu as essayé de faire, ce qui s'est passé..."></textarea>
           </div>
@@ -3363,7 +3569,7 @@
             <label for="bug-email">Ton email (facultatif, si on doit te recontacter)</label>
             <input type="text" id="bug-email">
           </div>
-          <button class="btn btn-primary" type="submit">Envoyer le signalement</button>
+          <button class="btn btn-primary avance" type="submit">Envoyer le signalement</button>
           <div class="form-msg" id="bugReportMsg"></div>
         </form>
       </div>
@@ -3984,6 +4190,19 @@
 
 </main>
 
+<!-- Les fenêtres des formulaires d'accréditation (s'inscrire à un tirage,
+     proposer un concert). Rempli par accredModale : les fiches défilent
+     côte à côte, un formulaire à l'intérieur y serait à l'étroit. Enfant
+     direct du body : dans <main>, la fenêtre passait sous l'en-tête du
+     site, qui lui cachait sa croix de fermeture. -->
+<div class="modal-overlay" id="accredModal">
+  <div class="modal-box" style="max-width:540px;">
+    <button class="modal-close" onclick="accredFermerModale()"
+            aria-label="Fermer">✕</button>
+    <div class="modal-body" id="accredModalCorps"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="authModal" onclick="if(event.target===this) closeAuthModal()">
   <div class="modal-box" style="max-width:380px;">
     <button class="modal-close" onclick="closeAuthModal()">✕</button>
@@ -4024,17 +4243,17 @@
       </div>
 
       <div class="auth-panel active" id="panelLogin">
-        <div class="field"><label>Email</label><input type="email" id="loginEmail"></div>
-        <div class="field"><label>Mot de passe</label><input type="password" id="loginPassword"></div>
-        <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="submitLogin()">Se connecter</button>
+        <div class="field" data-etape><label>Email</label><input type="email" id="loginEmail"></div>
+        <div class="field" data-etape><label>Mot de passe</label><input type="password" id="loginPassword"></div>
+        <button class="btn btn-primary" data-envoi style="width:100%; justify-content:center;" onclick="submitLogin()">Se connecter</button>
         <div class="form-msg" id="loginMsg"></div>
       </div>
 
       <div class="auth-panel" id="panelSignup">
-        <div class="field"><label>Pseudo</label><input type="text" id="signupPseudo" maxlength="40"></div>
-        <div class="field"><label>Email</label><input type="email" id="signupEmail"></div>
-        <div class="field"><label>Mot de passe</label><input type="password" id="signupPassword"></div>
-        <button class="btn btn-primary" style="width:100%; justify-content:center;" onclick="submitSignup()">Créer mon compte</button>
+        <div class="field" data-etape><label>Pseudo</label><input type="text" id="signupPseudo" maxlength="40"></div>
+        <div class="field" data-etape><label>Email</label><input type="email" id="signupEmail"></div>
+        <div class="field" data-etape><label>Mot de passe</label><input type="password" id="signupPassword"></div>
+        <button class="btn btn-primary" data-envoi style="width:100%; justify-content:center;" onclick="submitSignup()">Créer mon compte</button>
         <div class="form-msg" id="signupMsg"></div>
       </div>
     </div>
@@ -4888,8 +5107,10 @@ const BD = {
   if(pageId === 'carte') renderCarte(); else arreterCarte();
   if(pageId === 'community') renderCommunity();
   if(pageId === 'profile') renderProfileForm();
-  if(pageId === 'accreditations') renderAccreditations();
+  // Le compte à rebours des fiches ne tourne que sur leur page.
+  if(pageId === 'accreditations') renderAccreditations(); else arreterCompteursAccred();
   if(pageId === 'submit') jouerEntreeSoumission();
+  if(pageId === 'bugreport') preparerSignalement();
   // La salle recouvre l'écran : on la ferme dès qu'on quitte la page
   // Communauté, ou qu'on y revient sur l'onglet Communauté. L'onglet
   // Waveurs, lui, ne l'arrête pas (voir afficherOngletCommunaute).
@@ -5636,12 +5857,18 @@ async function renderAccreditations(){
 
   if(!liste || !suivi) return;
 
-  liste.innerHTML = `<div class="empty-state">Chargement...</div>`;
-  suivi.innerHTML = '';
+  // « Chargement… » seulement au premier affichage : une fois la liste à
+  // l'écran, elle y reste pendant le rechargement qui suit une inscription
+  // ou un retrait. La remplacer par un message la faisait disparaître,
+  // sautait la page, et perdait la ville choisie sous les yeux.
+  if(liste.dataset.pret !== '1'){
+    liste.innerHTML = `<div class="empty-state">Chargement...</div>`;
+  }
 
   const erreur = await chargerAccreditations(false);
 
   if(erreur){
+    liste.dataset.pret = '';
     liste.innerHTML = `
       <div class="empty-state">
         Accréditations indisponibles : ${escapeHtml(erreur.message)}
@@ -5649,20 +5876,42 @@ async function renderAccreditations(){
     return;
   }
 
-  // Les événements passés restent dans le suivi, pas dans la liste.
-  const ouverts = accredEvenements.filter(e =>
+  accredAfficherListe();
+  renderSuiviAccreditations();
+  renderSouhaits();
+}
+
+
+// Les événements encore à venir : les passés restent dans le suivi, pas
+// dans la liste.
+function accredOuverts(){
+  return accredEvenements.filter(e =>
     e.statut !== 'termine' && !accredDatePassee(e.date_evenement)
   );
+}
+
+
+// La liste : la barre (villes et flèches), puis la piste des fiches.
+// Redessinée après chaque lecture de la base ; un changement de ville,
+// lui, ne passe que par accredAfficherPiste — sans relire quoi que ce
+// soit.
+function accredAfficherListe(){
+
+  const liste = document.getElementById('accredEvenements');
+  if(!liste) return;
+
+  const ouverts = accredOuverts();
+
+  liste.dataset.pret = '1';
 
   if(!ouverts.length){
+    arreterCompteursAccred();
     liste.innerHTML = `
       <div class="empty-state">
         Aucune accréditation ouverte en ce moment. Reviens bientôt : on
         en publie dès qu'une salle nous répond — et dis-nous plus bas où
         tu aimerais shooter.
       </div>`;
-    renderSuiviAccreditations();
-    renderSouhaits();
     return;
   }
 
@@ -5673,39 +5922,69 @@ async function renderAccreditations(){
 
   if(accredVilleFiltre && !villes.includes(accredVilleFiltre)) accredVilleFiltre = '';
 
-  const retenus = accredVilleFiltre
-    ? ouverts.filter(e => e.ville === accredVilleFiltre)
-    : ouverts;
-
   liste.innerHTML = `
-    ${villes.length > 1 ? accredBarreHtml(villes, ouverts) : ''}
-    <div class="accred-piste${retenus.length > 1 ? '' : ' seule'}" id="accredPiste">
-      ${retenus.map(evenementAccredHtml).join('')}
-    </div>`;
+    ${accredBarreHtml(villes, ouverts)}
+    <div class="accred-piste" id="accredPiste"></div>`;
 
-  renderSuiviAccreditations();
-  renderSouhaits();
-  majFlechesAccred();
+  accredAfficherPiste();
+
+  // Le curseur des villes se place tout de suite, puis une seconde fois
+  // à l'image suivante : les polices ont pu changer la largeur des
+  // pastilles entre-temps.
+  accredMajVilles();
+  requestAnimationFrame(accredMajVilles);
 }
 
 
+// Les fiches de la ville choisie. Appelée à l'affichage de la liste et à
+// chaque changement de ville : les fiches se redessinent — et entrent de
+// nouveau, l'une après l'autre — mais rien n'est relu, ni la barre, ni
+// le suivi, ni les propositions.
+function accredAfficherPiste(){
+
+  const piste = document.getElementById('accredPiste');
+  if(!piste) return;
+
+  const retenus = accredOuverts().filter(e =>
+    !accredVilleFiltre || e.ville === accredVilleFiltre
+  );
+
+  piste.className = 'accred-piste' + (retenus.length > 1 ? '' : ' seule');
+  piste.innerHTML = retenus.map((e, i) => evenementAccredHtml(e, i)).join('');
+  piste.scrollLeft = 0;
+
+  majFlechesAccred();
+  demarrerCompteursAccred();
+}
+
+
+// La barre : les villes en pastilles — un seul geste, au lieu d'un menu
+// à ouvrir — et les flèches de la piste, qui servent même quand il n'y
+// a qu'une ville (elles se cachent seules s'il n'y a rien à faire défiler).
 function accredBarreHtml(villes, ouverts){
 
   const compte = ville => ouverts.filter(e => e.ville === ville).length;
 
+  const pastille = (valeur, libelle, nombre) => `
+    <button type="button"
+            class="accred-ville${valeur === accredVilleFiltre ? ' actif' : ''}"
+            data-ville="${escapeAttribute(valeur)}"
+            aria-pressed="${valeur === accredVilleFiltre}"
+            onclick="accredFiltrerVille(this.dataset.ville)">
+      ${escapeHtml(libelle)}<span>${nombre}</span>
+    </button>`;
+
   return `
     <div class="accred-barre">
 
-      <label class="accred-filtre">
-        <span>Ville</span>
-        <select id="accredVille" onchange="accredFiltrerVille(this.value)">
-          <option value="">Toutes (${ouverts.length})</option>
-          ${villes.map(v => `
-            <option value="${escapeAttribute(v)}" ${v === accredVilleFiltre ? 'selected' : ''}>
-              ${escapeHtml(v)} (${compte(v)})
-            </option>`).join('')}
-        </select>
-      </label>
+      ${
+        villes.length > 1
+          ? `<div class="accred-villes" id="accredVilles" role="group" aria-label="Filtrer par ville">
+               ${pastille('', 'Toutes', ouverts.length)}
+               ${villes.map(v => pastille(v, v, compte(v))).join('')}
+             </div>`
+          : '<span></span>'
+      }
 
       <div class="accred-fleches" id="accredFleches" hidden>
         <button type="button" onclick="accredDefiler(-1)" aria-label="Événements précédents">‹</button>
@@ -5718,8 +5997,38 @@ function accredBarreHtml(villes, ouverts){
 
 function accredFiltrerVille(ville){
   accredVilleFiltre = ville || '';
-  renderAccreditations();
+  accredMajVilles();
+  accredAfficherPiste();
 }
+
+
+// La pastille choisie s'éclaire, et le curseur bleu glisse jusqu'à elle
+// (--x et --w, lus par la feuille de style).
+function accredMajVilles(){
+
+  const groupe = document.getElementById('accredVilles');
+  if(!groupe) return;
+
+  let actif = null;
+
+  groupe.querySelectorAll('.accred-ville').forEach(bouton => {
+    const est = bouton.dataset.ville === accredVilleFiltre;
+    bouton.classList.toggle('actif', est);
+    bouton.setAttribute('aria-pressed', est ? 'true' : 'false');
+    if(est) actif = bouton;
+  });
+
+  if(!actif) return;
+
+  groupe.style.setProperty('--x', actif.offsetLeft + 'px');
+  groupe.style.setProperty('--w', actif.offsetWidth + 'px');
+
+  // Sur un écran étroit, la rangée défile : la pastille choisie y reste
+  // visible.
+  actif.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
+}
+
+window.addEventListener('resize', () => accredMajVilles());
 
 
 // Les flèches ne servent qu'à la souris, et seulement s'il y a de quoi
@@ -5741,7 +6050,160 @@ function accredDefiler(sens){
 }
 
 
-function evenementAccredHtml(evenement){
+// ---- Le compte à rebours ----
+//
+// Chaque fiche dit combien de temps il reste pour s'inscrire : jours,
+// heures, minutes, secondes, et une barre qui se vide. Sous les 24 h le
+// bloc passe à l'ambre, sous l'heure au rouge. À zéro, la fiche se
+// redessine d'elle-même en « Inscriptions closes » — sans recharger la
+// page. Un seul minuteur pour toutes les fiches, arrêté dès qu'on quitte
+// la page.
+//
+// Des déclarations de fonctions, pas des constantes : goTo peut ouvrir
+// cette page dès le chargement du script.
+
+function accredCompteHtml(evenement){
+
+  const fin = evenement.inscriptions_jusqu_au;
+
+  if(!fin || accredDatePassee(fin)) return '';
+
+  return `
+    <div class="accred-compte" data-fin="${escapeAttribute(fin)}"
+         data-debut="${escapeAttribute(evenement.cree_le || '')}">
+
+      <div class="accred-compte-tete">
+        <span class="accred-compte-titre">Fin des inscriptions</span>
+        <span class="accred-compte-date">${escapeHtml(accredDateTexte(fin, true))}</span>
+      </div>
+
+      <div class="accred-compte-valeur" aria-hidden="true">
+        ${['j', 'h', 'min', 's'].map(u => `
+          <span class="accred-bloc" data-u="${u}"><b>--</b><i>${u}</i></span>`).join('')}
+      </div>
+
+      <div class="accred-compte-barre" aria-hidden="true"><span></span></div>
+
+      <span class="sr-only accred-compte-lecteur" role="timer"></span>
+    </div>`;
+}
+
+
+function accredTicCompteurs(){
+
+  const maintenant = Date.now();
+
+  document.querySelectorAll('.accred-compte[data-fin]').forEach(bloc => {
+
+    const fin = Date.parse(bloc.dataset.fin);
+    const reste = fin - maintenant;
+
+    if(!(reste > 0)){
+      accredCompteTermine(bloc);
+      return;
+    }
+
+    const total = Math.floor(reste / 1000);
+
+    const valeurs = {
+      j:   Math.floor(total / 86400),
+      h:   Math.floor((total % 86400) / 3600),
+      min: Math.floor((total % 3600) / 60),
+      s:   total % 60
+    };
+
+    // Les unités vides de tête s'effacent : « 40 min 12 s », pas
+    // « 0 j 0 h 40 min 12 s ». Les minutes et les secondes, elles,
+    // restent toujours.
+    const vides = { j: valeurs.j === 0, h: valeurs.j === 0 && valeurs.h === 0 };
+
+    bloc.querySelectorAll('.accred-bloc').forEach(bloc2 => {
+
+      const u = bloc2.dataset.u;
+      const chiffre = bloc2.firstElementChild;
+      const texte = u === 'j' ? String(valeurs.j) : String(valeurs[u]).padStart(2, '0');
+
+      bloc2.classList.toggle('vide', !!vides[u]);
+
+      if(chiffre.textContent !== texte){
+        chiffre.textContent = texte;
+
+        // Un chiffre qui change se rejoue, sauf au premier tour.
+        if(bloc.dataset.vu){
+          chiffre.classList.remove('tic');
+          void chiffre.offsetWidth;
+          chiffre.classList.add('tic');
+        }
+      }
+    });
+
+    bloc.dataset.vu = '1';
+    bloc.classList.toggle('bientot', total < 86400 && total >= 3600);
+    bloc.classList.toggle('urgent', total < 3600);
+
+    // L'avancée : ce qui reste de la fenêtre d'inscription, depuis la
+    // publication de la fiche.
+    const debut = Date.parse(bloc.dataset.debut);
+    const barre = bloc.querySelector('.accred-compte-barre span');
+
+    if(barre && debut && fin > debut){
+      const part = Math.max(0, Math.min(1, reste / (fin - debut)));
+      barre.style.transform = 'scaleX(' + part.toFixed(4) + ')';
+    }
+
+    // Pour les lecteurs d'écran : une phrase, mise à jour à la minute.
+    const lecteur = bloc.querySelector('.accred-compte-lecteur');
+    const morceaux = [];
+    if(valeurs.j) morceaux.push(valeurs.j + ' jour' + (valeurs.j > 1 ? 's' : ''));
+    if(valeurs.h) morceaux.push(valeurs.h + ' heure' + (valeurs.h > 1 ? 's' : ''));
+    if(valeurs.min) morceaux.push(valeurs.min + ' minute' + (valeurs.min > 1 ? 's' : ''));
+
+    const phrase = morceaux.length
+      ? 'Il reste ' + morceaux.join(' ') + ' pour s’inscrire.'
+      : 'Il reste moins d’une minute pour s’inscrire.';
+
+    if(lecteur && lecteur.textContent !== phrase) lecteur.textContent = phrase;
+  });
+}
+
+
+// À zéro : la fiche se redessine en « Inscriptions closes », à sa
+// place, sans rejouer son entrée.
+function accredCompteTermine(bloc){
+
+  const carte = bloc.closest('.accred-carte');
+  const evenement = carte && accredEvenements.find(e => e.id === carte.dataset.id);
+
+  if(!carte || !evenement){
+    bloc.remove();
+    return;
+  }
+
+  const gabarit = document.createElement('div');
+  gabarit.innerHTML = evenementAccredHtml(evenement, 0, true).trim();
+  carte.replaceWith(gabarit.firstElementChild);
+
+  majAccesAccreditations();
+}
+
+
+function demarrerCompteursAccred(){
+
+  arreterCompteursAccred();
+
+  if(!document.querySelector('.accred-compte[data-fin]')) return;
+
+  accredTicCompteurs();
+  demarrerCompteursAccred.minuteur = setInterval(accredTicCompteurs, 1000);
+}
+
+
+function arreterCompteursAccred(){
+  clearInterval(demarrerCompteursAccred.minuteur);
+}
+
+
+function evenementAccredHtml(evenement, rang, sansEntree){
 
   const mienne = accredMesInscriptions.find(i => i.evenement_id === evenement.id);
   const inscrits = accredComptes[evenement.id] || 0;
@@ -5755,7 +6217,9 @@ function evenementAccredHtml(evenement){
       : `<span class="accred-etat">Inscriptions closes</span>`;
 
   return `
-    <article class="accred-carte">
+    <article class="accred-carte${sansEntree ? ' sans-entree' : ''}"
+             data-id="${escapeAttribute(evenement.id)}"
+             style="--i:${Math.min(rang || 0, 7)}">
 
       ${
         safeUrl(evenement.image_url)
@@ -5784,12 +6248,9 @@ function evenementAccredHtml(evenement){
         <p class="accred-ligne">
           ${evenement.places} place${evenement.places > 1 ? 's' : ''}
           · ${inscrits} inscrit${inscrits > 1 ? 's' : ''}
-          ${
-            evenement.inscriptions_jusqu_au
-              ? ' · jusqu’au ' + escapeHtml(accredDateTexte(evenement.inscriptions_jusqu_au))
-              : ''
-          }
         </p>
+
+        ${accredCompteHtml(evenement)}
 
         ${
           evenement.description
@@ -5856,89 +6317,221 @@ function accredBoutonsHtml(evenement, mienne, ouvert){
 }
 
 
-// Le formulaire s'ouvre dans une fenêtre plutôt que dans la fiche : les
-// fiches défilent côte à côte, un formulaire à l'intérieur serait à
-// l'étroit et allongerait la piste.
-function accredOuvrirFormulaire(id){
+// Les deux formulaires — s'inscrire à un tirage, proposer un concert —
+// s'ouvrent dans une fenêtre plutôt que dans la fiche : les fiches
+// défilent côte à côte, un formulaire à l'intérieur serait à l'étroit et
+// allongerait la piste. Même vocabulaire que « Soumettre une sortie » :
+// champs qui entrent un à un, coches, bouton qui se remplit.
+//
+// accredModale pose le contenu et ouvre la fenêtre ; son jeton annule
+// une fermeture automatique en attente si la fenêtre a changé entre-temps.
+function accredModale(html){
 
-  const evenement = accredEvenements.find(e => e.id === id);
   const voile = document.getElementById('accredModal');
   const corps = document.getElementById('accredModalCorps');
 
-  if(!evenement || !voile || !corps) return;
+  if(!voile || !corps) return null;
 
-  const email = emailDuCompte || '';
-  const nom = (currentUser && currentUser.pseudo) || '';
+  accredModale.jeton = (accredModale.jeton || 0) + 1;
 
-  corps.innerHTML = `
-    <span class="eyebrow">Inscription au tirage</span>
-    <h3 style="font-size:19px; margin:6px 0 4px;">
-      ${escapeHtml(evenement.artiste)}
-    </h3>
-    <p class="accred-lieu" style="margin-bottom:16px;">
-      ${escapeHtml(evenement.salle)}${evenement.ville ? ' · ' + escapeHtml(evenement.ville) : ''}
-      · ${escapeHtml(accredDateTexte(evenement.date_evenement, true))}
-    </p>
+  // Un agenda resté posé sur le voile (fermeture en cours) ne survit pas
+  // au contenu qu'il servait.
+  voile.querySelectorAll(':scope > .calendrier').forEach(a => a.remove());
 
-    <form onsubmit="accredEnvoyerInscription(event, '${escapeAttribute(id)}')">
-
-      <p class="accred-aide">
-        Ces informations partent à l'équipe pour l'accréditation auprès de
-        la salle, et ne sont visibles que d'elle.
-      </p>
-
-      <div class="field">
-        <label for="accred-nom">Nom et prénom</label>
-        <input type="text" id="accred-nom" maxlength="120" required
-               value="${escapeAttribute(nom)}">
-      </div>
-
-      <div class="field">
-        <label for="accred-email">Email de contact</label>
-        <input type="email" id="accred-email" maxlength="180" required
-               value="${escapeAttribute(email)}">
-      </div>
-
-      <div class="field">
-        <label for="accred-tel">Téléphone</label>
-        <input type="tel" id="accred-tel" maxlength="30" required
-               placeholder="06 12 34 56 78">
-        <p class="accred-aide" style="margin:6px 0 0;">
-          La salle demande un contact joignable le jour même.
-        </p>
-      </div>
-
-      <div class="field">
-        <label for="accred-portfolio">Portfolio, Instagram ou site</label>
-        <input type="text" id="accred-portfolio" maxlength="200" required
-               placeholder="Un lien vers tes photos">
-      </div>
-
-      <div class="field">
-        <label for="accred-message">Message — facultatif</label>
-        <textarea id="accred-message" rows="3" maxlength="500"
-                  placeholder="Matériel, contraintes, ce que tu veux nous dire"></textarea>
-      </div>
-
-      <div class="inline-actions">
-        <button type="submit" class="btn btn-primary">Valider mon inscription</button>
-        <button type="button" class="btn btn-ghost"
-                onclick="accredFermerModale()">Annuler</button>
-      </div>
-
-      <div class="form-msg" id="accred-modal-msg"></div>
-    </form>`;
-
+  corps.innerHTML = html;
   voile.classList.add('open');
 
-  const premier = document.getElementById('accred-nom');
-  if(premier) premier.focus();
+  return corps;
 }
 
 
 function accredFermerModale(){
   const voile = document.getElementById('accredModal');
+  accredModale.jeton = (accredModale.jeton || 0) + 1;
   if(voile) voile.classList.remove('open');
+}
+
+// Échap referme la fenêtre ; si un agenda est ouvert, c'est lui qui
+// répond d'abord (il arrête la frappe avant qu'elle n'arrive ici).
+document.addEventListener('keydown', (e) => {
+  const voile = document.getElementById('accredModal');
+  if(e.key === 'Escape' && voile && voile.classList.contains('open')) accredFermerModale();
+});
+
+
+// Ce que le site sait déjà du photographe, pour qu'il n'ait rien à
+// retaper : sa dernière inscription (nom, email, téléphone, portfolio —
+// elle ne lui est lisible qu'à lui), puis son profil (le portfolio qu'il
+// y a mis, à défaut son Instagram), puis son compte (pseudo, email).
+// « origine » dit d'où vient le lien, pour le montrer.
+function accredPreremplissage(){
+
+  const derniere = accredMesInscriptions[0] || null;
+  const socials = (currentUser && currentUser.socials) || {};
+
+  let portfolio = '';
+  let origine = '';
+
+  if(socials.portfolio){
+    portfolio = socials.portfolio; origine = 'depuis ton profil';
+  } else if(derniere && derniere.portfolio){
+    portfolio = derniere.portfolio; origine = 'comme ta dernière inscription';
+  } else if(socials.instagram){
+    portfolio = normaliserPortfolio(socials.instagram); origine = 'depuis ton Instagram';
+  }
+
+  const nom = (derniere && derniere.nom) || (currentUser && currentUser.pseudo) || '';
+  const email = (derniere && derniere.email) || emailDuCompte || '';
+  const telephone = (derniere && derniere.telephone) || '';
+
+  return {
+    nom, email, telephone, portfolio, origine,
+    nbRemplis: [nom, email, telephone, portfolio].filter(Boolean).length
+  };
+}
+
+
+// La fenêtre qui confirme, à la place du formulaire : une coche qui se
+// dessine, une phrase, et la fenêtre se referme d'elle-même.
+function accredSuccesHtml(titre, detail){
+  return `
+    <div class="accred-succes">
+      <svg viewBox="0 0 52 52" class="accred-succes-coche" aria-hidden="true">
+        <circle cx="26" cy="26" r="23" fill="none"/>
+        <path d="M15 27.5l8 8 15-17" fill="none"/>
+      </svg>
+      <h3>${titre}</h3>
+      <p>${detail}</p>
+    </div>`;
+}
+
+
+function accredSuccesModale(titre, detail){
+
+  const corps = document.getElementById('accredModalCorps');
+  if(!corps) return;
+
+  corps.innerHTML = accredSuccesHtml(titre, detail);
+
+  const jeton = accredModale.jeton;
+
+  setTimeout(() => {
+    if(accredModale.jeton === jeton) accredFermerModale();
+  }, 2300);
+}
+
+
+function accredOuvrirFormulaire(id){
+
+  const evenement = accredEvenements.find(e => e.id === id);
+
+  if(!evenement) return;
+
+  const pre = accredPreremplissage();
+  const profil = ((currentUser && currentUser.socials) || {}).portfolio || '';
+
+  const corps = accredModale(`
+    <span class="eyebrow">Inscription au tirage</span>
+    <h3 style="font-size:19px; margin:6px 0 4px;">
+      ${escapeHtml(evenement.artiste)}
+    </h3>
+    <p class="accred-lieu" style="margin-bottom:10px;">
+      ${escapeHtml(evenement.salle)}${evenement.ville ? ' · ' + escapeHtml(evenement.ville) : ''}
+      · ${escapeHtml(accredDateTexte(evenement.date_evenement, true))}
+    </p>
+
+    ${accredCompteHtml(evenement)}
+
+    ${
+      pre.nbRemplis
+        ? `<p class="accred-prerempli">Pré-rempli avec ce que tu nous as déjà donné — vérifie, et change ce qu'il faut.</p>`
+        : ''
+    }
+
+    <form class="form-anim form-grille" novalidate
+          onsubmit="accredEnvoyerInscription(event, '${escapeAttribute(id)}')">
+
+      <div class="field pleine" data-etape="ton nom">
+        <label for="accred-nom">Nom et prénom</label>
+        <input type="text" id="accred-nom" maxlength="120" required
+               autocomplete="name" value="${escapeAttribute(pre.nom)}">
+      </div>
+
+      <div class="field" data-etape="ton email">
+        <label for="accred-email">Email de contact</label>
+        <input type="email" id="accred-email" maxlength="180" required
+               autocomplete="email" value="${escapeAttribute(pre.email)}">
+      </div>
+
+      <div class="field" data-etape="ton téléphone">
+        <label for="accred-tel">Téléphone</label>
+        <input type="tel" id="accred-tel" maxlength="30" required
+               autocomplete="tel" placeholder="06 12 34 56 78"
+               value="${escapeAttribute(pre.telephone)}">
+        <p class="aide-champ">La salle demande un contact joignable le jour même.</p>
+      </div>
+
+      <div class="field pleine" data-etape="ton portfolio">
+        <label for="accred-portfolio">
+          Portfolio, Instagram ou site
+          ${pre.origine && pre.portfolio ? `<span class="pre-rempli" id="accred-origine">${escapeHtml(pre.origine)}</span>` : ''}
+        </label>
+        <input type="text" id="accred-portfolio" maxlength="200" required
+               placeholder="Un lien vers tes photos"
+               value="${escapeAttribute(pre.portfolio)}">
+      </div>
+
+      <div class="field pleine">
+        <label for="accred-message">Message — facultatif</label>
+        <textarea id="accred-message" rows="2" maxlength="500"
+                  placeholder="Matériel, contraintes, ce que tu veux nous dire"></textarea>
+      </div>
+
+      <label class="accred-garder pleine" id="accred-garder" hidden>
+        <input type="checkbox" id="accred-garder-profil" ${profil ? '' : 'checked'}>
+        <span>Garder ce lien sur mon profil, pour les prochaines fois</span>
+      </label>
+
+      <p class="accred-aide pleine" style="margin:0; font-size:12px;">
+        Seule l'équipe les voit : elles servent à t'accréditer auprès de la salle.
+      </p>
+
+      <div class="inline-actions pleine" style="margin-top:10px;">
+        <button type="submit" class="btn btn-primary avance">Valider mon inscription</button>
+        <button type="button" class="btn btn-ghost"
+                onclick="accredFermerModale()">Annuler</button>
+      </div>
+
+      <div class="form-msg pleine" id="accred-modal-msg"></div>
+    </form>`);
+
+  if(!corps) return;
+
+  const formulaire = corps.querySelector('form');
+  const portfolio = document.getElementById('accred-portfolio');
+  const garder = document.getElementById('accred-garder');
+
+  // « Garder sur mon profil » n'apparaît que si le lien saisi n'y est pas
+  // déjà ; la mention « depuis ton profil » s'efface dès qu'on le change.
+  const majLien = () => {
+    const lien = normaliserPortfolio(portfolio.value);
+    garder.hidden = !lien || lien === profil;
+    const origine = document.getElementById('accred-origine');
+    if(origine) origine.classList.toggle('efface', portfolio.value !== pre.portfolio);
+  };
+
+  portfolio.addEventListener('input', majLien);
+  majLien();
+
+  activerFormulaire(formulaire);
+  demarrerCompteursAccred();
+
+  // Le curseur va au premier champ à compléter : le premier vide, ou le
+  // nom s'il n'y a rien à compléter.
+  const premier = [...formulaire.querySelectorAll('input[required]')]
+    .find(c => !c.value.trim()) || document.getElementById('accred-nom');
+
+  if(premier) premier.focus({ preventScroll: true });
 }
 
 
@@ -5951,81 +6544,86 @@ let accredMesSouhaits = [];
 
 function accredOuvrirSouhait(){
 
-  const voile = document.getElementById('accredModal');
-  const corps = document.getElementById('accredModalCorps');
-
-  if(!voile || !corps) return;
-
   if(!peutAccreditation()){
     verifierAccesAccreditations();
     return;
   }
 
-  corps.innerHTML = `
+  // Aujourd'hui, à l'heure locale : le concert est à venir.
+  const d = new Date();
+  const aujourdhui = d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+
+  const corps = accredModale(`
     <span class="eyebrow">Proposer un concert</span>
     <h3 style="font-size:19px; margin:6px 0 4px;">Où aimerais-tu shooter ?</h3>
-    <p class="accred-aide" style="margin-bottom:16px;">
+    <p class="accred-aide" style="margin-bottom:14px;">
       On ne promet rien : certaines salles refusent, d'autres répondent
-      trois jours avant. Mais on ne demande jamais pour un concert dont
-      on ignore qu'il vous intéresse.
+      trois jours avant.
     </p>
 
-    <form onsubmit="accredEnvoyerSouhait(event)">
+    <form class="form-anim form-grille" novalidate
+          onsubmit="accredEnvoyerSouhait(event)">
 
-      <div class="field">
+      <div class="field pleine" data-etape="l'artiste ou le festival">
         <label for="souhait-artiste">Artiste ou festival</label>
         <input type="text" id="souhait-artiste" maxlength="120" required
                placeholder="Ben PLG">
       </div>
 
-      <div class="field">
+      <div class="field" data-etape="la salle">
         <label for="souhait-salle">Salle</label>
         <input type="text" id="souhait-salle" maxlength="120" required
                placeholder="Zénith de Paris">
-        <p class="accred-aide" style="margin:6px 0 0;">
-          C'est à elle que l'accréditation se demande.
-        </p>
+        <p class="aide-champ">C'est à elle que l'accréditation se demande.</p>
       </div>
 
-      <div class="field">
+      <div class="field" data-etape="la ville">
         <label for="souhait-ville">Ville</label>
-        <input type="text" id="souhait-ville" maxlength="120" required>
+        <input type="text" id="souhait-ville" maxlength="120" required
+               placeholder="Paris">
       </div>
 
-      <div class="field">
+      <div class="field" data-etape="la date">
         <label for="souhait-date">Date du concert</label>
-        <input type="date" id="souhait-date" required
-               min="${new Date().toISOString().slice(0, 10)}">
+        <input type="date" id="souhait-date" required min="${aujourdhui}">
       </div>
 
-      <div class="field">
+      <div class="field" data-etape="le lien">
         <label for="souhait-lien">Lien vers l'événement</label>
         <input type="url" id="souhait-lien" maxlength="300" required
                placeholder="https://...">
-        <p class="accred-aide" style="margin:6px 0 0;">
+        <p class="aide-champ">
           La billetterie, la page Facebook, le post Instagram : de quoi
           retrouver la date et l'organisateur.
         </p>
       </div>
 
-      <div class="field">
+      <div class="field pleine">
         <label for="souhait-message">Pourquoi celui-là — facultatif</label>
-        <textarea id="souhait-message" rows="3" maxlength="500"
+        <textarea id="souhait-message" rows="2" maxlength="500"
                   placeholder="Ce que tu comptes en faire, ce que tu connais de l'artiste"></textarea>
       </div>
 
-      <div class="inline-actions">
-        <button type="submit" class="btn btn-primary">Envoyer ma proposition</button>
+      <div class="inline-actions pleine" style="margin-top:4px;">
+        <button type="submit" class="btn btn-primary avance">Envoyer ma proposition</button>
         <button type="button" class="btn btn-ghost" onclick="accredFermerModale()">Annuler</button>
       </div>
 
-      <div class="form-msg" id="accred-modal-msg"></div>
-    </form>`;
+      <div class="form-msg pleine" id="accred-modal-msg"></div>
+    </form>`);
 
-  voile.classList.add('open');
+  if(!corps) return;
+
+  // L'agenda du site à la place de celui du navigateur — qui ne laisse
+  // pas griser les jours passés comme celui-ci le fait.
+  Calendrier.attacher(document.getElementById('souhait-date'));
+
+  activerFormulaire(corps.querySelector('form'));
 
   const premier = document.getElementById('souhait-artiste');
-  if(premier) premier.focus();
+  if(premier) premier.focus({ preventScroll: true });
 }
 
 
@@ -6033,7 +6631,10 @@ async function accredEnvoyerSouhait(evenement){
 
   evenement.preventDefault();
 
+  const formulaire = evenement.target;
+  const bouton = formulaire.querySelector('button[type=submit]');
   const msg = document.getElementById('accred-modal-msg');
+
   const valeur = id => {
     const e = document.getElementById(id);
     return e ? e.value.trim() : '';
@@ -6048,8 +6649,8 @@ async function accredEnvoyerSouhait(evenement){
     message: valeur('souhait-message')
   };
 
-  // Le navigateur retient déjà les champs requis ; la base les exige de
-  // son côté, et ce garde couvre un envoi déclenché autrement.
+  // Le bouton grisé retient déjà les champs manquants ; la base les exige
+  // de son côté, et ce garde couvre un envoi déclenché autrement.
   if(!champs.artiste || !champs.salle || !champs.ville || !champs.date || !champs.lien){
     if(msg){
       msg.textContent = "Artiste, salle, ville, date et lien sont nécessaires : c'est ce qu'il faut pour écrire à la salle.";
@@ -6058,17 +6659,29 @@ async function accredEnvoyerSouhait(evenement){
     return;
   }
 
+  bouton.disabled = true;
+  bouton.classList.add('envoi');
+  bouton.textContent = 'Envoi...';
+
   const { error } = await BD.proposerConcert(champs);
+
+  bouton.classList.remove('envoi');
+  bouton.textContent = 'Envoyer ma proposition';
 
   if(error){
     if(msg){
       msg.textContent = 'Proposition refusée : ' + error.message;
       msg.className = 'form-msg err';
     }
+    if(formulaire._formulaire) formulaire._formulaire.actualiser();
     return;
   }
 
-  accredFermerModale();
+  accredSuccesModale(
+    'Proposition envoyée',
+    "On regarde si la salle accorde une accréditation, et on te répond ici."
+  );
+
   await renderSouhaits();
 }
 
@@ -6178,13 +6791,16 @@ function accredMessage(id, texte, ok){
   const zone = document.getElementById('accred-msg-' + id);
   if(!zone) return;
   zone.textContent = texte;
-  zone.className = 'form-msg ' + (ok ? 'ok' : 'err');
+  zone.className = 'form-msg ' + (ok ? 'ok succes' : 'err');
 }
 
 
 async function accredEnvoyerInscription(evenement, id){
 
   evenement.preventDefault();
+
+  const formulaire = evenement.target;
+  const bouton = formulaire.querySelector('button[type=submit]');
 
   const valeur = champ => {
     const e = document.getElementById(champ);
@@ -6198,11 +6814,11 @@ async function accredEnvoyerInscription(evenement, id){
     nom: valeur('accred-nom'),
     email: valeur('accred-email'),
     telephone: valeur('accred-tel'),
-    portfolio: valeur('accred-portfolio'),
+    portfolio: normaliserPortfolio(valeur('accred-portfolio')),
     message: valeur('accred-message')
   };
 
-  // Le navigateur bloque déjà les champs requis, mais un envoi
+  // Le bouton grisé retient déjà les champs manquants, mais un envoi
   // déclenché autrement passerait à côté. La base les exige de son côté.
   if(!champs.nom || !champs.email || !champs.telephone || !champs.portfolio){
     if(msg){
@@ -6212,19 +6828,48 @@ async function accredEnvoyerInscription(evenement, id){
     return;
   }
 
+  bouton.disabled = true;
+  bouton.classList.add('envoi');
+  bouton.textContent = 'Envoi...';
+
   const { error } = await BD.sInscrireAccreditation(champs);
+
+  bouton.classList.remove('envoi');
+  bouton.textContent = 'Valider mon inscription';
 
   if(error){
     if(msg){
       msg.textContent = 'Inscription refusée : ' + error.message;
       msg.className = 'form-msg err';
     }
+    if(formulaire._formulaire) formulaire._formulaire.actualiser();
     return;
   }
 
-  accredFermerModale();
+  // Le lien que le photographe vient de donner rejoint son profil, s'il
+  // l'a demandé : la prochaine fois, le formulaire s'en souviendra. Une
+  // inscription déjà enregistrée ne devient pas une erreur pour autant.
+  const garder = document.getElementById('accred-garder-profil');
+  const caseVisible = document.getElementById('accred-garder');
+
+  if(garder && caseVisible && !caseVisible.hidden && garder.checked && currentUser){
+    try{
+      await saveCurrentProfile({
+        socials: Object.assign({}, currentUser.socials || {}, { portfolio: champs.portfolio })
+      });
+      currentUser = (await fetchProfile(currentUser.id)) || currentUser;
+    }catch(e){
+      console.warn('⚠️ Portfolio non gardé sur le profil :', e.message || e);
+    }
+  }
+
+  accredSuccesModale(
+    'Inscription enregistrée',
+    'Le tirage aura lieu après la date limite. On te contacte si tu es tiré.'
+  );
+
   await renderAccreditations();
-  accredMessage(id, '✅ Inscription enregistrée. Le tirage aura lieu après la date limite.', true);
+  accredMessage(id, 'Inscription enregistrée. Le tirage aura lieu après la date limite.', true);
 }
 
 
@@ -6382,16 +7027,29 @@ async function accredLivrer(evenement, id){
 
   const champ = document.getElementById('accred-lien-' + id);
   const msg = document.getElementById('accred-livraison-msg-' + id);
+  const bouton = evenement.target.querySelector('button[type=submit]');
 
   if(!champ) return;
 
+  const libelle = bouton ? bouton.textContent : '';
+
+  if(bouton){
+    bouton.disabled = true;
+    bouton.textContent = 'Envoi...';
+  }
+
   const { error } = await BD.livrerPhotos(id, champ.value.trim());
+
+  if(bouton){
+    bouton.disabled = false;
+    bouton.textContent = libelle;
+  }
 
   if(msg){
     msg.textContent = error
       ? 'Envoi refusé : ' + error.message
-      : '✅ Lien enregistré, l’équipe le voit dans son espace.';
-    msg.className = 'form-msg ' + (error ? 'err' : 'ok');
+      : 'Lien enregistré, l’équipe le voit dans son espace.';
+    msg.className = 'form-msg ' + (error ? 'err' : 'ok succes');
   }
 
   if(!error) await renderAccreditations();
@@ -6774,6 +7432,7 @@ async function ensureProfileExists(authUser){
   // ne le stocke pas. Il sert à pré-remplir le champ de contact d'une
   // inscription en accréditation, que l'intéressé peut changer.
   emailDuCompte = authUser.email || '';
+  preremplirContacts();
 
   const existant = await fetchProfile(authUser.id);
   if(existant) return existant;
@@ -6994,6 +7653,16 @@ function switchAuthTab(mode){
   document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
   document.getElementById('panelLogin').classList.toggle('active', mode==='login');
   document.getElementById('panelSignup').classList.toggle('active', mode==='signup');
+
+  // Même vocabulaire que les autres formulaires : escalier d'entrée,
+  // coches, Entrée qui valide. Le bouton, lui, reste toujours actif
+  // (bloquer: false) : un gestionnaire de mots de passe remplit les
+  // champs sans qu'aucun événement ne parte, et un bouton grisé
+  // empêcherait alors de se connecter.
+  activerFormulaire(
+    document.getElementById(mode === 'signup' ? 'panelSignup' : 'panelLogin'),
+    { bloquer: false }
+  );
 }
 
 async function submitSignup(){
@@ -7349,6 +8018,8 @@ async function renderProfileForm(){
   document.getElementById('socialSpotify').value = (currentUser.socials || {}).spotify || '';
   document.getElementById('socialAppleMusic').value = (currentUser.socials || {}).appleMusic || '';
   document.getElementById('socialDeezer').value = (currentUser.socials || {}).deezer || '';
+  document.getElementById('socialPortfolio').value = (currentUser.socials || {}).portfolio || '';
+  majChampPortfolio();
 
   // Sans cette reprise, enregistrer le profil effacerait la photo :
   // saveProfile lit cette variable et non le champ.
@@ -7615,6 +8286,63 @@ function confirmCrop(){
   fermerCrop();
 }
 
+// Le champ portfolio n'existe que pour le rôle Photographe : il se montre
+// (en glissant, comme les autres champs qui apparaissent) quand ce rôle
+// est choisi — ou quand le compte a déjà un lien, qu'il faut pouvoir
+// corriger.
+function majChampPortfolio(){
+
+  const champ = document.getElementById('champPortfolio');
+  const role = document.getElementById('profileRole');
+
+  if(!champ || !role) return;
+
+  const voulu = role.value === 'Photographe' ||
+    !!((currentUser && currentUser.socials || {}).portfolio);
+
+  if(champ.hidden === !voulu) return;
+
+  champ.hidden = !voulu;
+
+  // Montré par hidden=false, le champ rejoue son entrée (voir
+  // .form-anim) ; un lien déjà saisi est repris tel quel.
+  if(voulu){
+    const saisie = document.getElementById('socialPortfolio');
+    if(saisie && !saisie.value && currentUser && (currentUser.socials || {}).portfolio){
+      saisie.value = currentUser.socials.portfolio;
+    }
+  }
+}
+
+document.getElementById('profileRole').addEventListener('change', majChampPortfolio);
+
+// À l'ouverture des réglages, les champs du profil entrent un à un.
+document.querySelector('.profil-reglages').addEventListener('toggle', (e) => {
+  if(e.target.open) jouerEntreeFormulaire(document.getElementById('profileFormWrap'));
+});
+
+// Un portfolio se tape comme on le dit : « camille.photo » ou
+// « @camille ». Le profil public en fait un lien — il lui faut une
+// adresse complète, que l'on complète ici.
+function normaliserPortfolio(valeur){
+
+  const brut = String(valeur || '').trim();
+
+  if(!brut) return '';
+
+  if(/^https?:\/\//i.test(brut)) return brut;
+
+  if(brut.startsWith('@')) return 'https://instagram.com/' + brut.replace(/^@+/, '');
+
+  if(/^(www\.)?instagram\.com\//i.test(brut)) return 'https://' + brut.replace(/^www\./i, '');
+
+  // Un nom de domaine, sans espace : on y met le https qui manque. Le
+  // reste est gardé tel quel, au risque de ne pas devenir un lien.
+  if(/^[^\s]+\.[a-z]{2,}(\/.*)?$/i.test(brut)) return 'https://' + brut;
+
+  return brut;
+}
+
 async function saveProfile(){
   if(!currentUser) return;
 
@@ -7625,13 +8353,20 @@ async function saveProfile(){
   const pseudo =
     document.getElementById('profilePseudo').value.trim() || currentUser.pseudo;
 
+  // Le portfolio n'est proposé qu'aux photographes : pour un autre rôle, le
+  // champ est caché, et ce que le compte avait déjà reste intact.
+  const portfolio = document.getElementById('champPortfolio').hidden
+    ? ((currentUser.socials || {}).portfolio || '')
+    : normaliserPortfolio(document.getElementById('socialPortfolio').value);
+
   const socials = {
     instagram: document.getElementById('socialInstagram').value.trim(),
     twitter: document.getElementById('socialTwitter').value.trim(),
     tiktok: document.getElementById('socialTiktok').value.trim(),
     spotify: document.getElementById('socialSpotify').value.trim(),
     appleMusic: document.getElementById('socialAppleMusic').value.trim(),
-    deezer: document.getElementById('socialDeezer').value.trim()
+    deezer: document.getElementById('socialDeezer').value.trim(),
+    portfolio
   };
 
   try{
@@ -8439,7 +9174,7 @@ async function viewProfile(userId){
     ).length;
 
     const socials = user.socials || {};
-    const socialLinks = Object.entries({instagram:'Instagram', twitter:'X', tiktok:'TikTok', spotify:'Spotify', appleMusic:'Apple Music', deezer:'Deezer'})
+    const socialLinks = Object.entries({portfolio:'Portfolio', instagram:'Instagram', twitter:'X', tiktok:'TikTok', spotify:'Spotify', appleMusic:'Apple Music', deezer:'Deezer'})
       .map(([key,label]) => [safeUrl(socials[key]), label])
       .filter(([url]) => url)
       .map(([url,label]) => `<a href="${escapeAttribute(url)}" target="_blank" rel="noopener noreferrer" class="platform-btn-sm">${label}</a>`)
@@ -12903,6 +13638,161 @@ function closeCatalogueModal(){
 }
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeCatalogueModal(); });
 
+// ---------------- FORMULAIRES ----------------
+//
+// Le vocabulaire commun des formulaires du site : entrée en escalier,
+// coche sur chaque champ obligatoire rempli, bouton d'envoi qui se
+// remplit. La feuille de style (.form-anim) fait le dessin ; ceci suit
+// les champs. Ce sont des déclarations de fonctions, non des constantes :
+// goTo peut ouvrir une page — donc un formulaire — dès le chargement du
+// script, avant que celui-ci n'atteigne cet endroit.
+//
+//   activerFormulaire(racine, options)   suit un formulaire
+//   jouerEntreeFormulaire(racine)        rejoue l'escalier d'entrée
+//
+// racine : le <form>, ou le bloc qui en tient lieu. Options :
+//   bouton   le bouton d'envoi (par défaut : le premier bouton submit,
+//            ou portant data-envoi)
+//   bloquer  true (défaut) : le bouton reste grisé, et se remplit, tant
+//            que les champs obligatoires ne le sont pas. false : il reste
+//            actif — pour une connexion, où un gestionnaire de mots de
+//            passe peut remplir les champs sans qu'aucun événement ne
+//            parte.
+//   entree   false : ne pas jouer l'escalier d'entrée.
+//
+// Une « étape » est un .field qui contient un contrôle obligatoire
+// (required), ou qui porte data-etape. Sans required, un seul contrôle
+// rempli suffit — les liens d'écoute, par exemple.
+function jouerEntreeFormulaire(racine){
+
+  if(!racine) return;
+
+  const minuteurs = jouerEntreeFormulaire.minuteurs ||
+    (jouerEntreeFormulaire.minuteurs = new Map());
+
+  clearTimeout(minuteurs.get(racine));
+  racine.classList.add('entree');
+  minuteurs.set(racine, setTimeout(() => racine.classList.remove('entree'), 1400));
+}
+
+
+function activerFormulaire(racine, options){
+
+  if(!racine) return null;
+
+  options = options || {};
+
+  racine.classList.add('form-anim');
+
+  // Déjà suivi : on remet simplement les coches à jour.
+  if(racine._formulaire){
+    racine._formulaire.actualiser();
+    if(options.entree !== false) jouerEntreeFormulaire(racine);
+    return racine._formulaire;
+  }
+
+  const bloquer = options.bloquer !== false;
+
+  const trouverBouton = () =>
+    options.bouton || racine.querySelector('button[type=submit], button[data-envoi]');
+
+  const valeurOk = (c) => {
+
+    if(c.type === 'radio'){
+      return !!(c.name && racine.querySelector('input[type=radio][name="' + c.name + '"]:checked'));
+    }
+
+    if(c.type === 'checkbox') return c.checked;
+
+    if(!String(c.value || '').trim()) return false;
+
+    return c.checkValidity ? c.checkValidity() : true;
+  };
+
+  const champRempli = (champ) => {
+
+    const controles = [...champ.querySelectorAll('input, select, textarea')]
+      .filter(c => !['file', 'button', 'submit', 'hidden'].includes(c.type) && !c.disabled);
+
+    if(!controles.length) return false;
+
+    const obligatoires = controles.filter(c =>
+      c.required || c.getAttribute('aria-required') === 'true');
+
+    return obligatoires.length
+      ? obligatoires.every(valeurOk)
+      : controles.some(valeurOk);
+  };
+
+  // Ce qui manque, dit dans l'info-bulle du bouton : le nom donné à
+  // data-etape s'il y en a un, sinon le libellé du champ.
+  const libelleDe = (champ) => {
+    const nom = champ.getAttribute('data-etape');
+    if(nom) return nom;
+    const l = champ.querySelector('label');
+    const texte = l ? l.textContent.replace(/\s+/g, ' ').replace(/—.*$/, '').trim() : 'ce champ';
+    return texte.charAt(0).toLowerCase() + texte.slice(1);
+  };
+
+  function actualiser(){
+
+    const champs = [...racine.querySelectorAll('.field')].filter(c =>
+      c.hasAttribute('data-etape') ||
+      c.querySelector('[required], [aria-required="true"]'));
+
+    const bilan = champs.map(champ => {
+      if(!champ.hasAttribute('data-etape')) champ.setAttribute('data-etape', '');
+      const ok = champRempli(champ);
+      champ.classList.toggle('fait', ok);
+      return { champ, ok };
+    });
+
+    const manque = bilan.filter(b => !b.ok).map(b => libelleDe(b.champ));
+    const bouton = trouverBouton();
+
+    if(bouton){
+      bouton.style.setProperty(
+        '--avance-n',
+        String(bilan.length ? (bilan.length - manque.length) / bilan.length : 1)
+      );
+
+      if(bloquer){
+        bouton.classList.add('avance');
+        bouton.disabled = manque.length > 0;
+        bouton.title = manque.length ? 'Il reste : ' + manque.join(', ') + '.' : '';
+      }
+    }
+
+    return manque.length === 0;
+  }
+
+  racine.addEventListener('input', actualiser);
+  racine.addEventListener('change', actualiser);
+  racine.addEventListener('reset', () => setTimeout(actualiser, 0));
+
+  // Hors d'un <form>, Entrée ne valide rien : on le lui apprend, sans
+  // jamais forcer un bouton grisé.
+  if(racine.tagName !== 'FORM'){
+    racine.addEventListener('keydown', (e) => {
+      if(e.key !== 'Enter' || e.target.tagName === 'TEXTAREA') return;
+      const bouton = trouverBouton();
+      if(bouton && !bouton.disabled){
+        e.preventDefault();
+        bouton.click();
+      }
+    });
+  }
+
+  racine._formulaire = { actualiser };
+
+  actualiser();
+
+  if(options.entree !== false) jouerEntreeFormulaire(racine);
+
+  return racine._formulaire;
+}
+
+
 // ---------------- CALENDRIER ----------------
 //
 // Remplace le sélecteur de date du navigateur — différent d'un système
@@ -12959,6 +13849,15 @@ const Calendrier = (() => {
 
   const memeJour = (x, y) =>
     !!x && !!y && x.a === y.a && x.m === y.m && x.j === y.j;
+
+  // Ordre de deux dates { a, m, j } : négatif si x précède y.
+  const comparer = (x, y) => (x.a - y.a) || (x.m - y.m) || (x.j - y.j);
+
+  // Le premier et le dernier jour d'un mois, ou d'une année entière
+  // (mois === null) : de quoi savoir si une période tient hors des bornes.
+  const bornesDe = (a, m) => m === null
+    ? { debut: { a, m: 0, j: 1 }, fin: { a, m: 11, j: 31 } }
+    : { debut: { a, m, j: 1 }, fin: { a, m, j: new Date(a, m + 1, 0).getDate() } };
 
   // « 1er octobre 2026 », « 3 octobre 2026 »
   const texteLong = (d) =>
@@ -13038,10 +13937,33 @@ const Calendrier = (() => {
     const titre = champ.querySelector('.cal-titre');
     const corps = champ.querySelector('.cal-corps');
     const aide = champ.querySelector('.date-aide');
+    const zone = champ.querySelector('.date-zone');
+
+    // Dans une fenêtre (qui défile et rogne ce qui dépasse), l'agenda ne
+    // peut pas rester accroché à son champ : il se pose, le temps de
+    // l'ouverture, sur le voile de la fenêtre, en position fixe.
+    const hote = champ.closest('.modal-overlay');
 
     // vue : 'jours' | 'mois' | 'annees' ; annee/mois : le mois affiché ;
     // debut : première des douze années de la vue « années ».
     const etat = { ouvert: false, vue: 'jours', annee: 0, mois: 0, debut: 0, fermeture: null };
+
+    // Bornes du champ (attributs min et max, comme un <input type="date">
+    // ordinaire) : ce qui est hors bornes se voit, et ne se choisit pas.
+    const minimum = () => lire(input.min);
+    const maximum = () => lire(input.max);
+
+    const horsBornes = (d) =>
+      (minimum() && comparer(d, minimum()) < 0) ||
+      (maximum() && comparer(d, maximum()) > 0);
+
+    // Une période (mois ou année) est hors bornes quand elle l'est en
+    // entier.
+    const periodeHorsBornes = (a, m) => {
+      const { debut, fin } = bornesDe(a, m);
+      return (!!minimum() && comparer(fin, minimum()) < 0) ||
+             (!!maximum() && comparer(debut, maximum()) > 0);
+    };
 
 
     // ---- Ce que l'on lit sur le champ ----
@@ -13066,11 +13988,18 @@ const Calendrier = (() => {
       const decalage = (new Date(etat.annee, etat.mois, 1).getDay() + 6) % 7;
       const nb = new Date(etat.annee, etat.mois + 1, 0).getDate();
 
-      // Le jour qui reçoit le focus : le choisi, sinon aujourd'hui,
-      // sinon le premier du mois.
+      // Le jour qui reçoit le focus : le choisi, sinon aujourd'hui, sinon
+      // le premier du mois — et à défaut de jour permis ce jour-là, le
+      // premier qui l'est.
       let cible = 1;
       if(choisi && choisi.a === etat.annee && choisi.m === etat.mois) cible = choisi.j;
       else if(auj.a === etat.annee && auj.m === etat.mois) cible = auj.j;
+
+      if(horsBornes({ a: etat.annee, m: etat.mois, j: cible })){
+        for(let j = 1; j <= nb; j++){
+          if(!horsBornes({ a: etat.annee, m: etat.mois, j })){ cible = j; break; }
+        }
+      }
 
       let h =
         '<div class="cal-semaine" aria-hidden="true">' +
@@ -13089,6 +14018,7 @@ const Calendrier = (() => {
              ' data-j="' + j + '"' +
              ' aria-label="' + j + ' ' + MOIS[etat.mois] + ' ' + etat.annee + '"' +
              ' aria-pressed="' + estChoisi + '"' +
+             (horsBornes(ce) ? ' disabled' : '') +
              ' tabindex="' + (j === cible ? 0 : -1) + '">' + j + '</button>';
       }
 
@@ -13109,7 +14039,8 @@ const Calendrier = (() => {
           '<button type="button" class="cal-cellule' +
             (auj.a === etat.annee && auj.m === i ? ' courant' : '') +
             (choisi && choisi.a === etat.annee && choisi.m === i ? ' choisi' : '') + '"' +
-          ' data-m="' + i + '" aria-label="' + MOIS[i] + ' ' + etat.annee + '">' +
+          ' data-m="' + i + '" aria-label="' + MOIS[i] + ' ' + etat.annee + '"' +
+          (periodeHorsBornes(etat.annee, i) ? ' disabled' : '') + '>' +
           nom + '</button>'
         ).join('') +
       '</div>';
@@ -13126,7 +14057,8 @@ const Calendrier = (() => {
         h += '<button type="button" class="cal-cellule' +
                (auj.a === a ? ' courant' : '') +
                (choisi && choisi.a === a ? ' choisi' : '') + '"' +
-             ' data-a="' + a + '">' + a + '</button>';
+             ' data-a="' + a + '"' +
+             (periodeHorsBornes(a, null) ? ' disabled' : '') + '>' + a + '</button>';
       }
 
       return h + '</div>';
@@ -13141,12 +14073,28 @@ const Calendrier = (() => {
     // « animation » : la classe du mouvement — le mois entrant arrive
     // du côté où l'on va, le zoom accompagne un changement de vue.
     function rendre(animation){
+
       titre.textContent = titreDeVue();
       corps.className = 'cal-corps' + (animation ? ' ' + animation : '');
       corps.innerHTML =
         etat.vue === 'jours' ? htmlJours()
         : etat.vue === 'mois' ? htmlMois()
         : htmlAnnees();
+
+      // Les flèches ne mènent pas là où tout est hors bornes, et
+      // « Aujourd'hui » se grise si aujourd'hui l'est.
+      const periode = (sens) => {
+        if(etat.vue === 'jours'){
+          const d = new Date(etat.annee, etat.mois + sens, 1);
+          return periodeHorsBornes(d.getFullYear(), d.getMonth());
+        }
+        if(etat.vue === 'mois') return periodeHorsBornes(etat.annee + sens, null);
+        return periodeHorsBornes(sens > 0 ? etat.debut + 12 : etat.debut - 1, null);
+      };
+
+      fenetre.querySelector('.cal-nav[data-nav="-1"]').disabled = periode(-1);
+      fenetre.querySelector('.cal-nav[data-nav="1"]').disabled = periode(1);
+      fenetre.querySelector('.cal-aujourdhui').disabled = horsBornes(aujourdhui());
     }
 
 
@@ -13185,6 +14133,12 @@ const Calendrier = (() => {
     // Au clavier, une flèche peut franchir la fin du mois : on change
     // de mois avant de poser le focus.
     function allerA(date){
+
+      // Une flèche ne sort pas des bornes du champ.
+      let borne = { a: date.getFullYear(), m: date.getMonth(), j: date.getDate() };
+      if(minimum() && comparer(borne, minimum()) < 0) borne = minimum();
+      if(maximum() && comparer(borne, maximum()) > 0) borne = maximum();
+      date = new Date(borne.a, borne.m, borne.j);
 
       if(date.getFullYear() !== etat.annee || date.getMonth() !== etat.mois){
         const sens = date > new Date(etat.annee, etat.mois, 1)
@@ -13227,7 +14181,52 @@ const Calendrier = (() => {
     // ---- Ouvrir, fermer ----
 
     function surPointeur(e){
-      if(!champ.contains(e.target)) fermer(false);
+      if(!champ.contains(e.target) && !fenetre.contains(e.target)) fermer(false);
+    }
+
+    // Posé sur le voile : sous le champ s'il y a la place, sinon au-dessus,
+    // sinon là où il tient à l'écran (il recouvre alors un peu le champ).
+    function poserFlottant(){
+
+      const r = declencheur.getBoundingClientRect();
+      const largeur = fenetre.offsetWidth;
+      const hauteur = fenetre.offsetHeight;
+      const marge = 10;
+      const bord = 12;
+
+      const libreBas = window.innerHeight - r.bottom - marge - bord;
+      const libreHaut = r.top - marge - bord;
+
+      let haut;
+
+      if(libreBas >= hauteur){
+        haut = r.bottom + marge;
+        fenetre.classList.remove('au-dessus');
+      } else if(libreHaut >= hauteur){
+        haut = r.top - marge - hauteur;
+        fenetre.classList.add('au-dessus');
+      } else {
+        haut = Math.max(bord, window.innerHeight - hauteur - bord);
+        fenetre.classList.remove('au-dessus');
+      }
+
+      fenetre.style.top = haut + 'px';
+      fenetre.style.left =
+        Math.max(bord, Math.min(r.left, window.innerWidth - largeur - bord)) + 'px';
+    }
+
+    // L'agenda retourne à son champ : la structure de la page reste celle
+    // d'origine, et la fenêtre refermée n'en garde aucune trace.
+    function rangerFlottant(){
+      if(!fenetre.classList.contains('flottant')) return;
+
+      window.removeEventListener('resize', poserFlottant);
+      document.removeEventListener('scroll', poserFlottant, true);
+
+      fenetre.classList.remove('flottant');
+      fenetre.style.top = '';
+      fenetre.style.left = '';
+      zone.appendChild(fenetre);
     }
 
     function positionner(){
@@ -13259,7 +14258,13 @@ const Calendrier = (() => {
       clearTimeout(etat.fermeture);
       fenetre.classList.remove('ferme', 'au-dessus');
 
-      const d = lire(input.value) || aujourdhui();
+      // Sans date choisie, on s'ouvre sur aujourd'hui — ou, si les bornes
+      // l'excluent, sur la plus proche.
+      let d = lire(input.value) || aujourdhui();
+      if(horsBornes(d)){
+        d = (minimum() && comparer(d, minimum()) < 0) ? minimum() : maximum();
+      }
+
       etat.vue = 'jours';
       etat.annee = d.a;
       etat.mois = d.m;
@@ -13270,7 +14275,16 @@ const Calendrier = (() => {
       champ.classList.add('ouvert');
       declencheur.setAttribute('aria-expanded', 'true');
 
-      positionner();
+      if(hote){
+        hote.appendChild(fenetre);
+        fenetre.classList.add('flottant');
+        poserFlottant();
+        window.addEventListener('resize', poserFlottant);
+        document.addEventListener('scroll', poserFlottant, true);
+      } else {
+        positionner();
+      }
+
       document.addEventListener('pointerdown', surPointeur, true);
 
       const cible = corps.querySelector('.cal-jour[tabindex="0"]');
@@ -13291,6 +14305,7 @@ const Calendrier = (() => {
       etat.fermeture = setTimeout(() => {
         fenetre.hidden = true;
         fenetre.classList.remove('ferme');
+        rangerFlottant();
       }, 160);
 
       if(rendreLeFocus) declencheur.focus({ preventScroll: true });
@@ -13331,9 +14346,13 @@ const Calendrier = (() => {
     // Au clavier : Échap referme ; sur un jour, les flèches se
     // déplacent d'un jour ou d'une semaine, Début et Fin vont aux bouts
     // de la semaine, Page haut / Page bas changent de mois.
-    champ.addEventListener('keydown', (e) => {
+    //
+    // Posé sur le voile d'une fenêtre, l'agenda n'est plus dans le champ :
+    // il écoute donc aussi lui-même, une seule fois par frappe.
+    function auClavier(e){
 
-      if(!etat.ouvert) return;
+      if(!etat.ouvert || e.calendrierVu) return;
+      e.calendrierVu = true;
 
       if(e.key === 'Escape'){
         e.preventDefault();
@@ -13370,7 +14389,10 @@ const Calendrier = (() => {
 
       e.preventDefault();
       allerA(cible);
-    });
+    }
+
+    champ.addEventListener('keydown', auClavier);
+    fenetre.addEventListener('keydown', auClavier);
 
     // Un formulaire remis à zéro vide le champ : l'affichage suit.
     if(input.form){
@@ -13396,6 +14418,7 @@ const Calendrier = (() => {
 })();
 
 Calendrier.attacher(document.getElementById('f-release-date'));
+Calendrier.attacher(document.getElementById('admin-release-date'));
 
 
 // ---------------- SUBMIT FORM ----------------
@@ -13565,16 +14588,33 @@ function normalizeInstagramUrl(valeur){
 // — fiche d'artiste, encadré, message — ne soit pas retardé.
 //
 // goTo l'appelle dès le chargement quand l'adresse est #submit, bien
-// avant que le script n'atteigne cet endroit : le minuteur est donc
-// rangé sur la fonction, pas dans une variable déclarée ici — une
-// variable « let » serait encore inaccessible à ce moment-là.
+// avant que le script n'atteigne cet endroit : jouerEntreeFormulaire
+// range donc son minuteur sur la fonction, pas dans une variable
+// déclarée plus bas — une variable « let » serait encore inaccessible à
+// ce moment-là.
 function jouerEntreeSoumission(){
-  const formulaire = document.getElementById('submitForm');
-  if(!formulaire) return;
-  clearTimeout(jouerEntreeSoumission.minuteur);
-  formulaire.classList.add('entree');
-  jouerEntreeSoumission.minuteur =
-    setTimeout(() => formulaire.classList.remove('entree'), 1400);
+  preremplirContacts();
+  jouerEntreeFormulaire(document.getElementById('submitForm'));
+}
+
+// L'email du compte, déjà dans les champs de contact qui en demandent un
+// (dépôt d'une sortie, signalement d'un bug) : ce que la personne a déjà
+// donné au site, elle n'a pas à le retaper. Un champ déjà rempli n'est
+// jamais touché. Appelée à l'ouverture de ces pages, et dès que le compte
+// est connu — la session se reprend après le chargement.
+function preremplirContacts(){
+
+  if(!emailDuCompte) return;
+
+  ['f-email', 'bug-email'].forEach(id => {
+
+    const champ = document.getElementById(id);
+
+    if(champ && !champ.value){
+      champ.value = emailDuCompte;
+      champ.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
 }
 
 
@@ -13819,7 +14859,7 @@ msg.textContent =
     msg.textContent =
       "Envoyé ! L'équipe La Wave va examiner ce titre.";
 
-    msg.className = 'form-msg ok';
+    msg.className = 'form-msg ok succes';
 
 
     // =====================================================
@@ -13927,6 +14967,20 @@ function clearBugImage(){
   bugImageDrop.innerHTML = `<span>Cliquer pour joindre une image</span>`;
 }
 
+// À chaque ouverture de la page : l'escalier d'entrée, et l'email du
+// compte déjà dans le champ de contact — c'est là que l'équipe écrira, et
+// celui qui signale un bug n'a pas à le retaper. goTo l'appelle dès le
+// chargement quand l'adresse est #bugreport : déclaration de fonction,
+// donc disponible dès ce moment-là.
+function preparerSignalement(){
+
+  const formulaire = document.getElementById('bugReportForm');
+  if(!formulaire) return;
+
+  preremplirContacts();
+  activerFormulaire(formulaire);
+}
+
 document.getElementById('bugReportForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const msg = document.getElementById('bugReportMsg');
@@ -13943,6 +14997,7 @@ document.getElementById('bugReportForm').addEventListener('submit', async (e)=>{
   }
 
   submitBtn.disabled = true;
+  submitBtn.classList.add('envoi');
   submitBtn.textContent = 'Envoi en cours...';
   msg.textContent = '';
   msg.className = 'form-msg';
@@ -13971,7 +15026,7 @@ document.getElementById('bugReportForm').addEventListener('submit', async (e)=>{
     if(error) throw error;
 
     msg.textContent = "Merci ! Le signalement a bien été transmis à l'équipe.";
-    msg.className = 'form-msg ok';
+    msg.className = 'form-msg ok succes';
     e.target.reset();
     clearBugImage();
 
@@ -13980,8 +15035,13 @@ document.getElementById('bugReportForm').addEventListener('submit', async (e)=>{
     msg.textContent = "Échec de l'envoi : " + (err.message || err);
     msg.className = 'form-msg err';
   } finally {
-    submitBtn.disabled = false;
+    submitBtn.classList.remove('envoi');
     submitBtn.textContent = 'Envoyer le signalement';
+    // reset() a vidé le champ de contact : on y remet l'email du compte.
+    preremplirContacts();
+    // Le bouton se rallume ou se regrise selon ce qui reste rempli.
+    if(e.target._formulaire) e.target._formulaire.actualiser();
+    else submitBtn.disabled = false;
   }
 });
 
