@@ -7390,6 +7390,39 @@ let currentUser = null;
 // Rempli à la reprise de session ; vidé à la déconnexion.
 var emailDuCompte = '';
 
+// État de l'espace équipe (voir la section ADMIN, plus bas) : le panneau
+// est-il ouvert, et sous quel nom. Déclaré ici, avec la session, parce
+// que goTo('admin') le lit dès le chargement : ouvrir directement #admin
+// lance goTo bien avant que le script n'atteigne la section ADMIN, et un
+// let ou un const déclaré plus bas est encore inaccessible (ReferenceError
+// « before initialization »). Même raison pour les deux listes de phrases
+// d'accueil, que lit renderAdminGreeting.
+let isAdmin = false;
+let currentAdminName = null;
+
+// %s est remplacé par le prénom de la personne connectée.
+const ADMIN_GREETINGS = [
+  'Bonjour %s 👋',
+  'Salut %s !',
+  'Re %s 👀',
+  'Content de te revoir, %s',
+  'Yo %s 🎧',
+  'De retour, %s ?',
+  'Bienvenue %s ✨',
+  'Alors %s, on repère quoi aujourd\'hui ?',
+  'La Wave t\'attendait, %s',
+  'Prêt %s ?'
+];
+
+const ADMIN_SUBTITLES = [
+  'Gérez les sorties envoyées par les artistes et publiez celles qui sont validées.',
+  'Les pépites ne vont pas se valider toutes seules.',
+  'Un tour dans les soumissions ?',
+  'Tout est en ordre, il n\'y a plus qu\'à écouter.',
+  'Le catalogue est entre tes mains.',
+  'Bonne session de découverte.'
+];
+
 // Traduit une ligne "profiles" vers la forme utilisée par l'interface.
 function profileToUser(row){
   if(!row) return null;
@@ -10786,6 +10819,11 @@ restoreSession();
 
 // Applique l'adresse d'arrivée : un lien partagé vers une sortie ou
 // un artiste ouvre directement la bonne page.
+//
+// goTo tourne donc ici, en pleine évaluation du script : tout ce qu'il
+// touche, sous-appels compris, doit être une fonction déclarée ou un
+// objet déjà créé plus haut. Un let ou un const déclaré plus bas est
+// encore inaccessible (ReferenceError « before initialization »).
 lireAdresse();
 
 // ---------------- NOTIFICATIONS ----------------
@@ -15049,12 +15087,12 @@ document.getElementById('bugReportForm').addEventListener('submit', async (e)=>{
 //
 // Plus d'identifiants en dur : l'espace équipe utilise les mêmes
 // comptes Supabase Auth que la communauté. Le droit d'accès vient de
-// profiles.is_admin, et surtout des policies RLS — isAdmin ci-dessous
-// ne fait que piloter l'affichage. Même en forçant cette variable à
-// true dans la console, la base refuserait toute écriture.
-
-let isAdmin = false;
-let currentAdminName = null;
+// profiles.is_admin, et surtout des policies RLS — isAdmin ne fait que
+// piloter l'affichage. Même en forçant cette variable à true dans la
+// console, la base refuserait toute écriture.
+//
+// isAdmin et currentAdminName sont déclarés plus haut, avec
+// currentUser : goTo('admin') les lit pendant le chargement.
 
 function showAdminError(texte){
   const el = document.getElementById('adminErr');
@@ -15158,28 +15196,8 @@ async function adminLogout(){
 // ACCUEIL PERSONNALISÉ DE L'ESPACE ÉQUIPE
 // =========================================================
 
-// %s est remplacé par le prénom de la personne connectée.
-const ADMIN_GREETINGS = [
-  'Bonjour %s 👋',
-  'Salut %s !',
-  'Re %s 👀',
-  'Content de te revoir, %s',
-  'Yo %s 🎧',
-  'De retour, %s ?',
-  'Bienvenue %s ✨',
-  'Alors %s, on repère quoi aujourd\'hui ?',
-  'La Wave t\'attendait, %s',
-  'Prêt %s ?'
-];
-
-const ADMIN_SUBTITLES = [
-  'Gérez les sorties envoyées par les artistes et publiez celles qui sont validées.',
-  'Les pépites ne vont pas se valider toutes seules.',
-  'Un tour dans les soumissions ?',
-  'Tout est en ordre, il n\'y a plus qu\'à écouter.',
-  'Le catalogue est entre tes mains.',
-  'Bonne session de découverte.'
-];
+// Les phrases (ADMIN_GREETINGS et ADMIN_SUBTITLES) sont déclarées plus
+// haut, avec isAdmin : voir le commentaire là-bas.
 
 function pickRandom(liste){
   return liste[Math.floor(Math.random() * liste.length)];
