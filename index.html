@@ -2095,6 +2095,67 @@
   .pick-bascule:hover{color:var(--ink); background:var(--glass-hi);}
   .pick-bascule input{accent-color:var(--blue); margin:0; cursor:pointer;}
 
+  /* Espace équipe, onglet Artistes : filtres par origine, et la recherche
+     d'un artiste sur Deezer pour l'ajouter ou le relier. */
+  .artistes-barre{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:14px 18px; flex-wrap:wrap; margin-top:18px;
+  }
+  .artistes-filtres{display:flex; flex-wrap:wrap; gap:8px;}
+  .artistes-filtre{
+    display:inline-flex; align-items:center; gap:8px; cursor:pointer;
+    padding:8px 14px; border-radius:var(--radius-pill);
+    border:1px solid var(--line-strong); background:var(--glass);
+    color:var(--ink-soft); font-size:13px; font-weight:600;
+    transition:background .25s var(--ease), color .25s var(--ease), border-color .25s var(--ease);
+  }
+  .artistes-filtre span{
+    font-size:11px; font-weight:600; opacity:.7; font-variant-numeric:tabular-nums;
+  }
+  .artistes-filtre:hover{color:var(--ink); background:var(--glass-hi);}
+  .artistes-filtre.actif{background:var(--blue); border-color:transparent; color:#fff;}
+  .artiste-ajout{
+    margin-top:16px; padding:18px 20px; border-radius:var(--radius);
+    background:var(--glass); border:1px solid var(--line);
+    box-shadow:var(--reflet-int);
+    animation:fondu .35s var(--ease);
+  }
+  .artiste-ajout[hidden]{display:none;}
+  .artiste-ajout-tete{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; margin-bottom:8px;
+  }
+  .artiste-ajout-tete h4{margin:0; font-size:15px;}
+  .artiste-ajout-tete .btn{padding:7px 14px; font-size:13px;}
+  .artiste-resultat{
+    display:flex; align-items:center; gap:14px; padding:12px 14px;
+    border-radius:var(--radius-sm); border:1px solid var(--line);
+    background:rgba(0,0,0,0.18);
+  }
+  .artiste-resultat + .artiste-resultat{margin-top:8px;}
+  .artiste-resultat-photo{
+    width:48px; height:48px; border-radius:50%; overflow:hidden; flex:none;
+    border:1px solid var(--line); background:rgba(255,255,255,0.06);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:600; color:var(--ink-soft);
+  }
+  .artiste-resultat-photo img{width:100%; height:100%; max-width:none; object-fit:cover;}
+  .artiste-resultat-infos{flex:1; min-width:0;}
+  .artiste-resultat-infos b{display:block; font-size:14px;}
+  .artiste-resultat-infos span{display:block; font-size:12px; color:var(--muted); margin-top:2px;}
+  .artiste-resultat .btn{padding:8px 14px; font-size:13px; white-space:nowrap;}
+  .artiste-deezer{display:block; margin-top:4px;}
+  .lien-bouton{
+    padding:0; border:0; background:none; cursor:pointer;
+    font:inherit; color:var(--blue); text-decoration:underline;
+    text-underline-offset:2px;
+  }
+  .lien-bouton:hover{color:var(--blue-bright);}
+  @media (max-width:560px){
+    .artiste-resultat{flex-wrap:wrap;}
+    .artiste-resultat .btn{width:100%; justify-content:center;}
+  }
+
   /* « Nouvel artiste » vit dans la barre elle-même plutôt qu'en pied
      de liste : il reste au même endroit quel que soit le nombre de
      résultats, et ne se retrouve jamais poussé hors de vue. */
@@ -4091,6 +4152,13 @@
           Un profil par compte Instagram. La photo réglée ici s'applique
           à toutes les sorties de l'artiste, passées et à venir.
         </p>
+        <p class="desc" style="margin-top:8px;">
+          L'import suit sur Deezer les artistes marqués « suivis » : leurs
+          nouvelles sorties arrivent seules au catalogue, avec leurs
+          invités. Les artistes que l'import ajoute lui-même (invités,
+          artistes principaux d'une sortie) ne sont pas suivis tant que tu
+          ne le décides pas.
+        </p>
       </div>
 
       <button
@@ -4107,6 +4175,32 @@
       id="artistsActionMsg"
       style="margin-top:16px;"
     ></div>
+
+    <div class="artistes-barre">
+      <div class="artistes-filtres" id="artistesFiltres"></div>
+      <button type="button" class="btn btn-primary"
+              onclick="ouvrirAjoutArtiste()">
+        ＋ Ajouter un artiste
+      </button>
+    </div>
+
+    <!-- Chercher un artiste sur Deezer pour l'ajouter, ou pour relier à
+         Deezer un profil qui ne l'est pas. Rempli par rechercherArtisteDeezer. -->
+    <div class="artiste-ajout" id="artisteAjout" hidden>
+      <div class="artiste-ajout-tete">
+        <h4 id="artisteAjoutTitre">Ajouter un artiste</h4>
+        <button type="button" class="btn btn-ghost"
+                onclick="fermerAjoutArtiste()">Fermer</button>
+      </div>
+      <p class="desc" id="artisteAjoutAide" style="margin:0 0 12px;"></p>
+      <div class="field" style="margin-bottom:12px;">
+        <input type="text" id="artisteAjoutRecherche" autocomplete="off"
+               inputmode="search"
+               placeholder="Nom de l'artiste, ou adresse de sa page Deezer"
+               oninput="rechercheDeezerSaisie()">
+      </div>
+      <div id="artisteAjoutResultats" class="admin-list"></div>
+    </div>
 
     <div class="field" style="margin-top:20px; margin-bottom:0;">
       <input type="text" id="rechercheArtistesEquipe" autocomplete="off"
@@ -4831,7 +4925,7 @@ const BD = {
   // artiste dans l'onglet Artistes.
   sortiesParArtiste(){
     return toutesLesPages(() => supabaseClient.from('submissions')
-      .select('artist_handle, status, contact_email')
+      .select('artist_handle, status, contact_email, featuring')
       .order('catalog_number', { ascending: true, nullsFirst: false }));
   },
 
@@ -4872,6 +4966,25 @@ const BD = {
       .update({ ...champs, updated_at: new Date().toISOString() })
       .eq('instagram_handle', handle)
       .select();
+  },
+
+  // Chercher un artiste sur Deezer (par son nom, l'adresse de sa page ou
+  // son numéro) et l'ajouter, ou relier un profil existant à Deezer. C'est
+  // la base qui interroge Deezer : le navigateur n'exécute rien venu d'un
+  // site tiers. Réservé à l'équipe (sql/deezer-featurings.sql).
+  chercherArtisteDeezer(texte){
+    return supabaseClient.rpc('deezer_chercher_artiste', {
+      p_recherche: texte
+    });
+  },
+
+  ajouterArtisteDeezer(idDeezer, nom, photo, handle){
+    return supabaseClient.rpc('ajouter_artiste_deezer', {
+      p_deezer_id: idDeezer,
+      p_nom: nom,
+      p_photo: photo || null,
+      p_handle: handle || null
+    });
   },
 
   // Passe par une fonction de la base : une écriture directe
@@ -18860,6 +18973,19 @@ let artistProfilesData = [];
 let artistProfilesComptes = {};
 let artistProfilesEmails = {};
 
+// Sorties où l'artiste figure en featuring, par pseudo.
+let artistProfilesFeats = {};
+
+// Le filtre de la liste (voir ARTISTES_FILTRES) et la recherche d'un
+// artiste sur Deezer : le profil à relier (null pour un simple ajout), les
+// résultats affichés, le délai de frappe et un jeton qui écarte la réponse
+// d'une recherche dépassée.
+let artistesFiltre = 'tous';
+let artisteAjoutLien = null;
+let artisteAjoutResultats = [];
+let artisteAjoutMinuteur = null;
+let artisteAjoutJeton = 0;
+
 let artistPhotoEditingHandle = null;
 
 const artistPhotoPickerInput = document.createElement('input');
@@ -18927,8 +19053,18 @@ async function loadArtistProfiles(){
 
     artistProfilesComptes = {};
     artistProfilesEmails = {};
+    artistProfilesFeats = {};
 
     (sorties || []).forEach(sortie => {
+
+      (Array.isArray(sortie.featuring) ? sortie.featuring : [])
+        .forEach(feat => {
+          if(feat && feat.handle){
+            artistProfilesFeats[feat.handle] =
+              (artistProfilesFeats[feat.handle] || 0) + 1;
+          }
+        });
+
       if(!sortie.artist_handle) return;
 
       artistProfilesComptes[sortie.artist_handle] =
@@ -18988,6 +19124,11 @@ function renderArtistProfilesList(){
   const list = document.getElementById('artistProfilesList');
   if(!list) return;
 
+  // Les filtres se redessinent avec la liste : leurs comptes suivent
+  // chaque ajout, chaque suivi, chaque retrait.
+  const barre = document.getElementById('artistesFiltres');
+  if(barre) barre.innerHTML = artistesFiltresHtml();
+
   if(artistProfilesData.length === 0){
     list.innerHTML = `
       <div class="empty-state">
@@ -18999,18 +19140,28 @@ function renderArtistProfilesList(){
 
   const requete = texteRecherche('rechercheArtistesEquipe');
 
+  const filtre =
+    artistesFiltres().find(f => f.cle === artistesFiltre) ||
+    artistesFiltres()[0];
+
+  const base = artistProfilesData.filter(filtre.garde);
+
   const trouves = requete
-    ? artistProfilesData.filter(profil =>
+    ? base.filter(profil =>
         String(profil.display_name || '').toLowerCase().includes(requete) ||
         String(profil.instagram_handle || '').toLowerCase().includes(requete) ||
         String(profil.ville || '').toLowerCase().includes(requete)
       )
-    : artistProfilesData;
+    : base;
 
   if(trouves.length === 0){
     list.innerHTML = `
       <div class="empty-state">
-        Aucun artiste ne correspond à « ${escapeHtml(requete)} ».
+        ${
+          requete
+            ? 'Aucun artiste ne correspond à « ' + escapeHtml(requete) + ' ».'
+            : 'Aucun artiste dans cette catégorie.'
+        }
       </div>`;
     return;
   }
@@ -19022,6 +19173,404 @@ function renderArtistProfilesList(){
   list.innerHTML =
     visibles.map(artistProfileRowHtml).join('') +
     pieDeListeEquipe(trouves.length, visibles.length, requete, 'voirTousLesArtistes');
+}
+
+
+// ---- Artistes suivis sur Deezer ----
+//
+// artists.deezer_artist_id relie un profil à sa page Deezer ; deezer_suivi
+// dit si l'import va y chercher de nouvelles sorties. Tant que
+// sql/deezer-featurings.sql n'est pas passé, la colonne deezer_suivi
+// n'existe pas : un artiste relié à Deezer est alors suivi, comme avant.
+
+function artisteDeezerEtat(profil){
+
+  if(!profil.deezer_artist_id) return 'sans';
+
+  return profil.deezer_suivi === false ? 'nonsuivi' : 'suivi';
+}
+
+
+function artistesFiltres(){
+  return [
+    { cle: 'tous',      libelle: 'Tous',
+      garde: () => true },
+    { cle: 'auto',      libelle: 'Ajoutés automatiquement',
+      garde: p => p.source === 'deezer-auto' },
+    { cle: 'suivis',    libelle: 'Suivis sur Deezer',
+      garde: p => artisteDeezerEtat(p) === 'suivi' },
+    { cle: 'nonsuivis', libelle: 'Non suivis',
+      garde: p => artisteDeezerEtat(p) === 'nonsuivi' },
+    { cle: 'sans',      libelle: 'Pas reliés à Deezer',
+      garde: p => artisteDeezerEtat(p) === 'sans' }
+  ];
+}
+
+
+// Une catégorie vide ne s'affiche pas (sauf « Tous » et celle qu'on a
+// ouverte) : avant le SQL, il n'y a ni « non suivis » ni « ajoutés
+// automatiquement » à montrer.
+function artistesFiltresHtml(){
+
+  return artistesFiltres().map(filtre => {
+
+    const nombre = artistProfilesData.filter(filtre.garde).length;
+
+    if(nombre === 0 && filtre.cle !== 'tous' && filtre.cle !== artistesFiltre){
+      return '';
+    }
+
+    return `
+      <button type="button"
+              class="artistes-filtre${filtre.cle === artistesFiltre ? ' actif' : ''}"
+              onclick="choisirFiltreArtistes('${filtre.cle}')">
+        ${filtre.libelle} <span>${nombre}</span>
+      </button>`;
+  }).join('');
+}
+
+
+function choisirFiltreArtistes(cle){
+  artistesFiltre = cle;
+  artistesEquipeTout = false;
+  renderArtistProfilesList();
+}
+
+
+function ilYaTexte(iso){
+
+  const t = Date.parse(iso || '');
+  if(!t) return '';
+
+  const minutes = Math.floor((Date.now() - t) / 60000);
+
+  if(minutes < 1) return "à l'instant";
+  if(minutes < 60) return 'il y a ' + minutes + ' min';
+
+  const heures = Math.floor(minutes / 60);
+
+  if(heures < 48) return 'il y a ' + heures + ' h';
+
+  return 'il y a ' + Math.floor(heures / 24) + ' j';
+}
+
+
+// L'état Deezer d'un artiste, sous son nom, et ce qu'on peut en faire.
+function artisteDeezerHtml(profil, h){
+
+  const etat = artisteDeezerEtat(profil);
+
+  if(etat === 'sans'){
+    return `
+      <span class="artiste-deezer">
+        Pas relié à Deezer : ses sorties ne sont pas importées.
+        <button type="button" class="lien-bouton"
+                onclick="ouvrirAjoutArtiste('${h}')">Relier à Deezer</button>
+      </span>`;
+  }
+
+  const suivi = etat === 'suivi';
+
+  const lien =
+    'https://www.deezer.com/artist/' +
+    encodeURIComponent(profil.deezer_artist_id);
+
+  const verifie = profil.deezer_verifie_le
+    ? 'vérifié ' + ilYaTexte(profil.deezer_verifie_le)
+    : 'pas encore vérifié';
+
+  return `
+    <span class="artiste-deezer">
+      <a href="${escapeAttribute(lien)}" target="_blank"
+         rel="noopener noreferrer" style="color:var(--blue);">Deezer ↗</a>
+      · ${
+        suivi
+          ? 'suivi (' + verifie + ')'
+          : 'non suivi : ses sorties ne sont pas importées'
+      }
+      · <button type="button" class="lien-bouton"
+                onclick="basculerSuiviArtiste('${h}', ${suivi ? 'false' : 'true'})">${
+        suivi ? 'Ne plus suivre' : 'Suivre ses sorties'
+      }</button>
+    </span>`;
+}
+
+
+// Un message d'erreur lisible. Avant le SQL, ni la colonne ni les
+// fonctions n'existent : la base répond « introuvable », ce qui ne dit
+// rien à qui n'a pas le fichier sous les yeux.
+function messageSqlDeezer(error){
+
+  const detail = String((error && error.message) || error || '');
+
+  if(/deezer_suivi|schema cache|could not find the function|does not exist/i.test(detail)){
+    return "La base n'est pas à jour : exécute d'abord " +
+           'sql/deezer-featurings.sql dans Supabase, puis réessaie.';
+  }
+
+  return 'Échec : ' + detail;
+}
+
+
+async function basculerSuiviArtiste(handle, suivre){
+
+  if(!isAdmin) return;
+
+  const profil = artistProfilesData.find(p => p.instagram_handle === handle);
+  if(!profil) return;
+
+  setRowMessage('artistsActionMsg', '');
+
+  // « Suivre » remet la date de vérification à zéro : l'import va voir
+  // l'artiste dès son prochain passage.
+  const { data, error } = await BD.majArtiste(
+    handle,
+    suivre
+      ? { deezer_suivi: true, deezer_verifie_le: null }
+      : { deezer_suivi: false }
+  );
+
+  if(error){
+    setRowMessage('artistsActionMsg', messageSqlDeezer(error), 'err');
+    return;
+  }
+
+  // Écriture réservée à l'équipe : sans droits, Supabase renvoie zéro
+  // ligne modifiée et aucune erreur.
+  if(!data || data.length === 0){
+    setRowMessage(
+      'artistsActionMsg',
+      'Modification refusée : connecte-toi avec un compte marqué administrateur.',
+      'err'
+    );
+    return;
+  }
+
+  Object.assign(profil, data[0]);
+  renderArtistProfilesList();
+
+  const nom = profil.display_name || handle;
+
+  setRowMessage(
+    'artistsActionMsg',
+    suivre
+      ? '✅ ' + nom + " est suivi : l'import ira chercher ses sorties au " +
+        'prochain passage (toutes les 20 minutes).'
+      : '✅ ' + nom + " n'est plus suivi : ses sorties déjà au catalogue y " +
+        "restent, les prochaines n'arriveront plus."
+  );
+}
+
+
+// ---- Chercher un artiste sur Deezer ----
+
+function ouvrirAjoutArtiste(handleALier){
+
+  const panneau = document.getElementById('artisteAjout');
+  const champ = document.getElementById('artisteAjoutRecherche');
+
+  if(!panneau || !champ) return;
+
+  const profil = handleALier
+    ? artistProfilesData.find(p => p.instagram_handle === handleALier)
+    : null;
+
+  artisteAjoutLien = profil ? profil.instagram_handle : null;
+  artisteAjoutResultats = [];
+  artisteAjoutJeton++;
+
+  document.getElementById('artisteAjoutTitre').textContent = profil
+    ? 'Relier « ' + (profil.display_name || handleALier) + ' » à Deezer'
+    : 'Ajouter un artiste';
+
+  document.getElementById('artisteAjoutAide').textContent = profil
+    ? 'Choisis son vrai profil Deezer — la photo et le nombre de fans ' +
+      "aident à ne pas le confondre avec un homonyme. Il est suivi dès " +
+      "qu'il est relié."
+    : "Cherche l'artiste sur Deezer : son profil est créé sur La Wave et " +
+      "ses sorties arrivent au prochain passage de l'import (toutes les 20 " +
+      "minutes). Tu peux aussi coller l'adresse de sa page Deezer.";
+
+  champ.value = profil ? (profil.display_name || '') : '';
+  document.getElementById('artisteAjoutResultats').innerHTML = '';
+
+  panneau.hidden = false;
+  panneau.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  champ.focus({ preventScroll: true });
+
+  if(champ.value.trim().length >= 2) rechercherArtisteDeezer();
+}
+
+
+function fermerAjoutArtiste(){
+
+  const panneau = document.getElementById('artisteAjout');
+  if(panneau) panneau.hidden = true;
+
+  clearTimeout(artisteAjoutMinuteur);
+  artisteAjoutJeton++;
+  artisteAjoutLien = null;
+  artisteAjoutResultats = [];
+}
+
+
+// Une recherche après chaque pause dans la frappe, pas après chaque
+// lettre : Deezer limite le nombre de demandes.
+function rechercheDeezerSaisie(){
+  clearTimeout(artisteAjoutMinuteur);
+  artisteAjoutMinuteur = setTimeout(rechercherArtisteDeezer, 400);
+}
+
+
+async function rechercherArtisteDeezer(){
+
+  const champ = document.getElementById('artisteAjoutRecherche');
+  const zone = document.getElementById('artisteAjoutResultats');
+
+  if(!champ || !zone) return;
+
+  const texte = champ.value.trim();
+  const jeton = ++artisteAjoutJeton;
+
+  if(texte.length < 2){
+    artisteAjoutResultats = [];
+    zone.innerHTML = '';
+    return;
+  }
+
+  zone.innerHTML = '<div class="empty-state">Recherche sur Deezer...</div>';
+
+  const { data, error } = await BD.chercherArtisteDeezer(texte);
+
+  // Une recherche plus récente a pris la place de celle-ci.
+  if(jeton !== artisteAjoutJeton) return;
+
+  if(error){
+    zone.innerHTML = `
+      <div class="form-msg err">${escapeHtml(messageSqlDeezer(error))}</div>`;
+    return;
+  }
+
+  artisteAjoutResultats = Array.isArray(data) ? data : [];
+
+  if(!artisteAjoutResultats.length){
+    zone.innerHTML =
+      '<div class="empty-state">Aucun artiste trouvé sur Deezer.</div>';
+    return;
+  }
+
+  zone.innerHTML =
+    artisteAjoutResultats.map(resultatArtisteDeezerHtml).join('');
+}
+
+
+function resultatArtisteDeezerHtml(resultat, i){
+
+  const photo = safeUrl(resultat.photo);
+  const lien = safeUrl(resultat.lien);
+  const nombre = (n) => Number(n || 0).toLocaleString('fr-FR');
+
+  const infos =
+    nombre(resultat.fans) + ' fans · ' +
+    nombre(resultat.albums) + ' album' + (resultat.albums > 1 ? 's' : '');
+
+  let action;
+
+  if(resultat.deja){
+
+    if(artisteAjoutLien){
+      action = resultat.deja === artisteAjoutLien
+        ? '<span class="release-badge">déjà relié</span>'
+        : '<span class="release-badge">déjà sur La Wave</span>';
+    } else if(resultat.deja_suivi === false){
+      action = `
+        <button type="button" class="btn btn-primary"
+                onclick="choisirArtisteDeezer(${i})">Suivre ses sorties</button>`;
+    } else {
+      action = '<span class="release-badge">déjà suivi</span>';
+    }
+
+  } else {
+    action = `
+      <button type="button" class="btn btn-primary"
+              onclick="choisirArtisteDeezer(${i})">${
+        artisteAjoutLien ? 'Relier à ce profil' : 'Ajouter et suivre'
+      }</button>`;
+  }
+
+  return `
+    <div class="artiste-resultat">
+      <div class="artiste-resultat-photo">${
+        photo
+          ? `<img src="${escapeAttribute(photo)}" alt="" loading="lazy">`
+          : escapeHtml(artistInitial(resultat.nom))
+      }</div>
+      <div class="artiste-resultat-infos">
+        <b>${escapeHtml(resultat.nom || '')}</b>
+        <span>${infos}${
+          resultat.deja
+            ? ' · sur La Wave : ' + escapeHtml(resultat.deja_nom || resultat.deja)
+            : ''
+        }${
+          lien
+            ? ` · <a href="${escapeAttribute(lien)}" target="_blank"
+                     rel="noopener noreferrer"
+                     style="color:var(--blue);">voir sur Deezer ↗</a>`
+            : ''
+        }</span>
+      </div>
+      ${action}
+    </div>`;
+}
+
+
+async function choisirArtisteDeezer(i){
+
+  const resultat = artisteAjoutResultats[i];
+
+  if(!resultat || !isAdmin) return;
+
+  setRowMessage('artistsActionMsg', '');
+
+  const { data, error } = await BD.ajouterArtisteDeezer(
+    resultat.id,
+    resultat.nom,
+    resultat.photo,
+    artisteAjoutLien
+  );
+
+  if(error){
+    setRowMessage('artistsActionMsg', messageSqlDeezer(error), 'err');
+    return;
+  }
+
+  const relie = !!artisteAjoutLien;
+
+  fermerAjoutArtiste();
+
+  // Rechargé : le profil ajouté ou relié apparaît dans la liste, et dans
+  // les comptes des filtres.
+  await loadArtistProfiles();
+
+  const nom =
+    (data && (data.display_name || data.instagram_handle)) || resultat.nom;
+
+  // La liste se met sur son nom : on voit tout de suite ce qui vient
+  // d'arriver, sans chercher parmi des centaines de profils.
+  artistesFiltre = 'tous';
+
+  const recherche = document.getElementById('rechercheArtistesEquipe');
+  if(recherche) recherche.value = nom;
+
+  renderArtistProfilesList();
+
+  setRowMessage(
+    'artistsActionMsg',
+    '✅ ' + nom + (relie ? ' est relié à Deezer et suivi' : ' est ajouté et suivi') +
+    " : ses sorties arriveront au prochain passage de l'import " +
+    '(toutes les 20 minutes). La liste est réduite à son nom : vide la ' +
+    'recherche pour tout revoir.'
+  );
 }
 
 
@@ -19077,9 +19626,11 @@ function artistProfileRowHtml(profil){
                     : '@' + escapeHtml(h)
                 }
                 ${
-                  profil.source
-                    ? `<span class="release-badge">importé</span>`
-                    : ''
+                  profil.source === 'deezer-auto'
+                    ? `<span class="release-badge">ajouté automatiquement</span>`
+                    : profil.source
+                      ? `<span class="release-badge">importé</span>`
+                      : ''
                 }
               </span>
 
@@ -19093,8 +19644,15 @@ function artistProfileRowHtml(profil){
               }
 
               <span style="display:block; margin-top:4px;">
-                ${nombre} sortie${nombre > 1 ? 's' : ''}
+                ${nombre} sortie${nombre > 1 ? 's' : ''}${
+                  artistProfilesFeats[profil.instagram_handle]
+                    ? ' · en featuring sur ' +
+                      artistProfilesFeats[profil.instagram_handle]
+                    : ''
+                }
               </span>
+
+              ${artisteDeezerHtml(profil, h)}
 
               <span style="display:block; margin-top:4px;">
                 ${
