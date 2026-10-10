@@ -1878,100 +1878,413 @@
   }
 
   /* ---------- CARTE DE FRANCE ---------- */
+
+  /* À l'ouverture, l'en-tête, la barre d'outils, la carte et le panneau
+     montent l'un après l'autre. Rejoué à chaque visite de la page. */
+  @keyframes carteMonte{
+    from{opacity:0; transform:translateY(18px);}
+    to{opacity:1; transform:none;}
+  }
+  #page-carte.active .section-head,
+  #page-carte.active .carte-barre,
+  #page-carte.active .carte-plan,
+  #page-carte.active .carte-panneau{
+    animation:carteMonte .9s var(--ease) both;
+  }
+  #page-carte.active .carte-barre{animation-delay:.07s;}
+  #page-carte.active .carte-plan{animation-delay:.14s;}
+  #page-carte.active .carte-panneau{animation-delay:.21s;}
+
+  /* Les pays à gauche, la recherche à droite. Au-dessus de la carte,
+     pour que la liste de résultats la recouvre. */
+  .carte-barre{
+    position:relative; z-index:40;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:18px 32px; flex-wrap:wrap; margin:0 0 30px;
+  }
+
   .carte-zone{
     display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);
-    gap:32px; align-items:start;
+    gap:32px; align-items:stretch;
   }
   @media (max-width:860px){
-    .carte-zone{grid-template-columns:1fr; gap:24px;}
+    .carte-zone{grid-template-columns:1fr; gap:22px;}
   }
-  .carte-plan{position:relative;}
-  /* Trois cartes, un onglet chacune : même dessin que les onglets de
-     l'espace équipe, le compteur en retrait. La page Communauté (onglets
-     Communauté / Waveurs) reprend ce dessin tel quel. */
-  .carte-pays, .onglets-communaute{
+
+  /* Les onglets de la page Communauté. */
+  .onglets-communaute{
     display:inline-flex; gap:6px; flex-wrap:wrap; margin:0 0 24px;
     padding:6px; background:rgba(255,255,255,0.05); border-radius:var(--radius);
   }
-  .carte-pays:empty{display:none;}
-  .carte-pays button, .onglets-communaute button{
+  .onglets-communaute button{
     display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
     padding:9px 16px; font-size:13px; font-weight:600;
     color:var(--muted); background:transparent; border:none;
     border-radius:var(--radius-pill); transition:color .15s, background .15s;
   }
-  .carte-pays button:hover, .onglets-communaute button:hover{color:var(--ink);}
-  .carte-pays button[aria-selected="true"], .onglets-communaute button[aria-selected="true"]{
+  .onglets-communaute button:hover{color:var(--ink);}
+  .onglets-communaute button[aria-selected="true"]{
     color:var(--ink); background:rgba(255,255,255,0.12);
   }
+
+  /* Un onglet par pays. Le fond clair n'appartient à aucun bouton : il
+     glisse de l'un à l'autre en changeant de largeur, calé en JS sur
+     l'onglet actif (placerFondOnglets). */
+  .carte-pays{
+    position:relative; display:inline-flex; gap:2px; margin:0; padding:5px;
+    background:rgba(255,255,255,0.05); border-radius:var(--radius-pill);
+    box-shadow:var(--reflet-int);
+  }
+  .carte-pays-fond{
+    position:absolute; top:5px; bottom:5px; left:0; width:0; opacity:0;
+    border-radius:var(--radius-pill); pointer-events:none;
+    background:rgba(255,255,255,0.13);
+    box-shadow:var(--reflet-int), 0 2px 10px rgba(0,0,0,0.25);
+    transition:transform .6s var(--ease), width .6s var(--ease), opacity .5s var(--ease);
+  }
+  .carte-pays-fond.pret{opacity:1;}
+  .carte-pays button{
+    position:relative; z-index:1;
+    display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
+    padding:9px 18px; font-size:13px; font-weight:600;
+    color:var(--muted); background:transparent; border:none;
+    border-radius:var(--radius-pill);
+    transition:color .3s var(--ease);
+  }
+  .carte-pays button:hover{color:var(--ink-soft);}
+  .carte-pays button[aria-selected="true"]{color:var(--ink);}
+  .carte-pays button:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
   .carte-pays-compte{
     font-size:11px; font-weight:500; letter-spacing:.04em;
     color:var(--muted); font-variant-numeric:tabular-nums;
+    transition:color .3s var(--ease);
   }
+  .carte-pays button[aria-selected="true"] .carte-pays-compte{color:var(--ink-soft);}
+
+  /* ---------- RECHERCHE SUR LA CARTE ----------
+     Une ligne fine sous une loupe, comme au catalogue : rien d'autre. Le
+     champ s'élargit quand on s'y trouve, et un filet de lumière s'ouvre
+     sous lui depuis le centre. */
+  .carte-recherche{
+    position:relative; width:270px; max-width:100%; color:var(--muted);
+    /* Toujours collé à droite : il grandit vers la gauche, dans l'espace
+       libre entre lui et les onglets. */
+    margin-left:auto;
+    transition:width .6s var(--ease);
+  }
+  .carte-recherche:focus-within{width:360px;}
+  @media (max-width:900px){
+    .carte-recherche:focus-within{width:270px;}
+  }
+  .carte-loupe{
+    position:absolute; left:2px; top:22px; width:16px; height:16px;
+    transform:translateY(-50%); pointer-events:none;
+    transition:color .3s var(--ease);
+  }
+  .carte-recherche:focus-within .carte-loupe{color:var(--blue-bright);}
+  .carte-recherche input{
+    width:100%; padding:11px 34px 11px 30px;
+    background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0;
+    box-shadow:none; -webkit-appearance:none; appearance:none;
+    font:inherit; font-size:14px; color:var(--ink);
+    transition:border-color .25s var(--ease);
+  }
+  .carte-recherche input::placeholder{color:var(--muted);}
+  .carte-recherche input:hover{border-bottom-color:rgba(255,255,255,0.24);}
+  .carte-recherche input:focus{outline:none;}
+  .carte-recherche::after{
+    content:''; position:absolute; left:0; right:0; bottom:0; height:1px;
+    pointer-events:none; opacity:.95;
+    background:linear-gradient(90deg, transparent, var(--blue-bright) 28%, var(--blue-bright) 72%, transparent);
+    transform:scaleX(0); transition:transform .8s var(--ease);
+  }
+  .carte-recherche:focus-within::after{transform:scaleX(1);}
+  /* Si un gestionnaire de mots de passe y glisse quand même quelque
+     chose, le champ ne devient pas un rectangle clair sur fond sombre. */
+  .carte-recherche input:-webkit-autofill,
+  .carte-recherche input:-webkit-autofill:hover,
+  .carte-recherche input:-webkit-autofill:focus{
+    -webkit-text-fill-color:var(--ink); caret-color:var(--ink);
+    transition:background-color 600000s 0s, color 600000s 0s;
+  }
+  .carte-effacer{
+    position:absolute; right:0; top:22px; width:26px; height:26px; padding:0;
+    display:flex; align-items:center; justify-content:center;
+    border:none; border-radius:50%; background:transparent; color:var(--muted);
+    transform:translateY(-50%);
+    transition:color .2s var(--ease), background .2s var(--ease);
+    animation:carteEffacerEntre .4s var(--ease);
+  }
+  .carte-effacer[hidden]{display:none;}
+  .carte-effacer:hover{color:var(--ink); background:var(--glass-hi);}
+  .carte-effacer:focus-visible{outline:2px solid var(--blue-bright); outline-offset:1px;}
+  .carte-effacer svg{width:12px; height:12px;}
+  @keyframes carteEffacerEntre{
+    from{opacity:0; transform:translateY(-50%) scale(.5);}
+    to{opacity:1; transform:translateY(-50%) scale(1);}
+  }
+
+  .carte-resultats{
+    position:absolute; left:-14px; right:-14px; top:calc(100% + 12px); z-index:50;
+    padding:8px; max-height:min(64vh, 430px); overflow-y:auto; overscroll-behavior:contain;
+    border-radius:var(--radius); transform-origin:50% 0;
+    background:rgba(9,12,17,0.92);
+    backdrop-filter:blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(180%);
+    box-shadow:var(--ombre-3), var(--reflet-int);
+    scrollbar-width:thin; scrollbar-color:var(--line-strong) transparent;
+    animation:carteResultatsEntre .4s var(--ease);
+  }
+  .carte-resultats[hidden]{display:none;}
+  @keyframes carteResultatsEntre{
+    from{opacity:0; transform:translateY(-10px) scale(.97);}
+    to{opacity:1; transform:none;}
+  }
+  .carte-res-titre{
+    margin:10px 10px 4px; font-size:11px; font-weight:500;
+    letter-spacing:.18em; text-transform:uppercase; color:var(--muted);
+  }
+  .carte-res-titre:first-child{margin-top:4px;}
+  .carte-res{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    padding:9px 10px; border:0; border-radius:var(--radius-sm);
+    background:transparent; color:var(--ink-soft); font:inherit; font-size:14px;
+    transition:background .2s var(--ease), color .2s var(--ease);
+    animation:carteLigneEntre .45s var(--ease) both;
+    animation-delay:calc(var(--i, 0) * 24ms);
+  }
+  .carte-res:hover, .carte-res.actif{background:var(--glass-hi); color:var(--ink);}
+  .carte-res:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
+  .carte-res-vignette, .carte-res-icone{
+    width:36px; height:36px; border-radius:50%; flex-shrink:0; overflow:hidden;
+    border:1px solid var(--line); background:rgba(255,255,255,0.06);
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:600; color:var(--ink-soft);
+  }
+  .carte-res-vignette img{width:100%; height:100%; object-fit:cover;}
+  .carte-res-icone{border-color:rgba(79,180,255,0.35); background:rgba(79,180,255,0.10);}
+  .carte-res-icone svg{width:16px; height:16px; color:var(--blue-bright);}
+  .carte-res-texte{display:flex; flex-direction:column; min-width:0; line-height:1.3;}
+  .carte-res-nom{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink);}
+  .carte-res-nom b{font-weight:600; color:#fff;}
+  .carte-res-sous{
+    font-size:12px; color:var(--muted); overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;
+  }
+  .carte-res-vide{margin:0; padding:18px 12px; text-align:center; font-size:13px; color:var(--muted);}
+  @keyframes carteLigneEntre{
+    from{opacity:0; transform:translateY(8px);}
+    to{opacity:1; transform:none;}
+  }
+
+  /* ---------- LA CARTE ---------- */
+  .carte-plan{position:relative; isolation:isolate;}
+  /* Une lueur froide sous la carte : sans elle, les points flottent sur
+     le fond sans rien qui les pose. */
+  .carte-plan::before{
+    content:''; position:absolute; inset:-4% -6%; z-index:-1; pointer-events:none;
+    background:radial-gradient(58% 54% at 46% 52%, rgba(20,137,222,0.13), transparent 72%);
+  }
+  /* La hauteur est posée ici, et dessinerCarte la lit : la mise en
+     page est juste avant même le premier dessin — le panneau voisin prend
+     la hauteur de la carte. */
   #carteCanvas{
-    width:100%; display:block; touch-action:none; cursor:grab;
+    width:100%; aspect-ratio:5/4; display:block; touch-action:none; cursor:grab;
   }
+  @media (max-width:620px){
+    #carteCanvas{aspect-ratio:1/1;}
+  }
+  #carteCanvas.sur-pastille{cursor:pointer;}
   #carteCanvas.saisie{cursor:grabbing;}
   .carte-aide{
     position:absolute; left:0; bottom:0; margin:0;
     font-size:11px; font-weight:500; letter-spacing:.18em; text-transform:uppercase;
     color:var(--muted); pointer-events:none;
-    opacity:.65; transition:opacity .4s var(--ease);
+    opacity:.65; transition:opacity .5s var(--ease);
   }
   .carte-plan:hover .carte-aide{opacity:0;}
-
-  /* Commandes de zoom : la molette ne suffit pas au doigt. */
-  .carte-outils{
-    position:absolute; top:0; right:0;
-    display:flex; flex-direction:column; gap:6px;
+  .carte-aide-tactile{display:none;}
+  @media (pointer:coarse){
+    .carte-aide-souris{display:none;}
+    .carte-aide-tactile{display:inline;}
+    .carte-plan:hover .carte-aide{opacity:.65;}
   }
-  .carte-outils button{
-    width:34px; height:34px; border-radius:var(--radius-sm);
-    border:1px solid var(--line-strong); background:var(--glass);
-    color:var(--ink-soft); font-size:15px; line-height:1;
+
+  /* Les commandes de zoom, réunies en une seule pastille de verre. */
+  .carte-outils{
+    position:absolute; top:6px; right:6px;
+    display:flex; flex-direction:column; overflow:hidden;
+    border:1px solid var(--line-strong); border-radius:var(--radius-sm);
+    background:var(--glass);
     backdrop-filter:blur(var(--glass-blur-sm));
     -webkit-backdrop-filter:blur(var(--glass-blur-sm));
-    transition:color .2s var(--ease), background .2s var(--ease);
+    box-shadow:var(--ombre-1), var(--reflet-int);
   }
+  .carte-outils button{
+    width:38px; height:38px; display:flex; align-items:center; justify-content:center;
+    padding:0; border:0; background:transparent; color:var(--ink-soft);
+    transition:color .2s var(--ease), background .2s var(--ease), transform .25s var(--ease);
+  }
+  .carte-outils button svg{width:16px; height:16px;}
+  .carte-outils button + button{border-top:1px solid var(--line);}
   .carte-outils button:hover{color:var(--ink); background:var(--glass-hi);}
+  .carte-outils button:active{transform:scale(.88);}
+  .carte-outils button:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
+  /* Le retour à la vue d'ensemble reste replié tant qu'on n'a pas
+     bougé : il se déploie sous les deux autres au premier zoom. */
+  #carteVueGenerale{
+    height:0; opacity:0; pointer-events:none; overflow:hidden;
+    border-top-width:0;
+    transition:height .5s var(--ease), opacity .4s var(--ease),
+               color .2s var(--ease), background .2s var(--ease), transform .25s var(--ease);
+  }
+  #carteVueGenerale.visible{height:38px; opacity:1; pointer-events:auto; border-top-width:1px;}
 
+  /* ---------- LE PANNEAU ----------
+     Hauteur fixe, celle de la carte à côté : les vues se superposent
+     (position absolue) et se relaient en fondu, sans que la page ne
+     bouge. */
   .carte-panneau{
-    border-radius:var(--radius); padding:20px 22px;
-    background:var(--glass); position:relative; overflow:hidden;
+    position:relative; min-height:380px; overflow:hidden;
+    border-radius:var(--radius); background:var(--glass);
     box-shadow:var(--ombre-2), var(--reflet-int);
     backdrop-filter:blur(var(--glass-blur-sm)) saturate(150%);
     -webkit-backdrop-filter:blur(var(--glass-blur-sm)) saturate(150%);
-    min-height:180px;
   }
-  .carte-panneau h3{font-size:19px; margin-bottom:2px;}
-  .carte-panneau .carte-compte{
+  /* Bordure de verre en dégradé, dessinée dans un masque en anneau. */
+  .carte-panneau::after{
+    content:''; position:absolute; inset:0; border-radius:inherit;
+    padding:1px; pointer-events:none;
+    background:var(--bord-verre);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite:exclude;
+  }
+  @media (max-width:860px){
+    .carte-panneau{min-height:410px;}
+  }
+  .carte-vue{
+    position:absolute; inset:0; padding:26px 28px 22px;
+    display:flex; flex-direction:column; min-height:0;
+  }
+  .carte-vue.sortante{pointer-events:none;}
+  .carte-titre{margin:0 0 2px; font-size:19px; font-weight:600; line-height:1.25;}
+  .carte-vue-accueil .carte-titre{
+    display:flex; align-items:baseline; gap:10px;
+    font-size:16px; font-weight:400; color:var(--ink-soft);
+  }
+  .carte-chiffre{
+    font-size:46px; font-weight:700; letter-spacing:-.02em; line-height:1;
+    color:var(--ink); font-variant-numeric:tabular-nums;
+  }
+  .carte-compte{
     font-size:12px; color:var(--muted); display:block; margin-bottom:16px;
   }
-  .carte-artiste{
-    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
-    padding:10px; border:1px solid transparent; border-radius:var(--radius-sm);
-    background:transparent; color:var(--ink-soft); font-size:14px;
-    transition:background .2s var(--ease), color .2s var(--ease);
-  }
-  .carte-artiste:hover{background:var(--glass-hi); color:var(--ink);}
-  .carte-vignette{
-    width:38px; height:38px; border-radius:50%; overflow:hidden; flex-shrink:0;
-    border:1px solid var(--line); background:rgba(255,255,255,0.06);
-    display:flex; align-items:center; justify-content:center;
-    font-size:14px; font-weight:600; color:var(--ink-soft);
-  }
-  .carte-vignette img{width:100%; height:100%; object-fit:cover;}
-  .carte-sorties{display:block; font-size:12px; color:var(--muted);}
   .carte-invite{font-size:14px; color:var(--muted); line-height:1.6;}
-  .carte-retour{
-    font-size:12px; padding:8px 14px; margin-bottom:14px;
+  .carte-vue-vide{justify-content:center;}
+  .carte-vue-vide .carte-invite{margin:0;}
+
+  /* L'attente des données : trois traits qui respirent. */
+  .carte-squelette{display:flex; flex-direction:column; gap:14px; margin-top:6px;}
+  .carte-squelette i{
+    display:block; height:14px; width:52%; border-radius:8px;
+    background:linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.13), rgba(255,255,255,0.05));
+    background-size:200% 100%; animation:carteBrille 1.5s ease-in-out infinite;
   }
-  /* La liste défile dans le panneau : Paris compte plusieurs dizaines
-     d'artistes, et le panneau s'allongeait jusqu'à étirer toute la
-     page. Sa hauteur est calée en JS sur celle de la carte. */
+  .carte-squelette i:first-child{height:34px; width:38%;}
+  .carte-squelette i:nth-child(3){width:72%;}
+  @keyframes carteBrille{
+    from{background-position:100% 0;}
+    to{background-position:-100% 0;}
+  }
+
+  /* Un seul artiste à la fois, en grand : le panneau sert à donner
+     envie d'ouvrir une page, pas à lister. Les cartes qui se relaient
+     occupent la même case de la grille le temps du fondu. */
+  .carte-defile{
+    flex:1; min-height:0; display:grid; place-items:center;
+  }
+  .carte-vedette{
+    grid-area:1/1; display:flex; flex-direction:column; align-items:center; gap:8px;
+    width:100%; padding:10px 12px 6px; text-align:center;
+    background:transparent; border:none; color:var(--ink); cursor:pointer;
+    border-radius:var(--radius);
+  }
+  .carte-vedette.sortante{pointer-events:none;}
+  .carte-vedette:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+  .carte-vedette-photo{
+    position:relative; width:136px; height:136px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; margin-bottom:6px;
+    background:rgba(255,255,255,0.06);
+    font-size:46px; font-weight:600; color:var(--ink-soft);
+    box-shadow:var(--ombre-2);
+    transition:transform .5s var(--ease);
+  }
+  .carte-vedette-photo img{width:100%; height:100%; object-fit:cover; border-radius:50%;}
+  /* Un anneau de lumière qui tourne lentement autour du visage. */
+  .carte-vedette-photo::before{
+    content:''; position:absolute; inset:-6px; border-radius:50%; pointer-events:none;
+    background:conic-gradient(from 0deg, var(--blue-bright), transparent 30%, var(--blue) 58%, transparent 82%, var(--blue-bright));
+    -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+    mask:radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+    opacity:.55; animation:carteAnneau 10s linear infinite;
+    transition:opacity .4s var(--ease);
+  }
+  @keyframes carteAnneau{to{transform:rotate(360deg);}}
+  .carte-vedette:hover .carte-vedette-photo{transform:scale(1.045);}
+  .carte-vedette:hover .carte-vedette-photo::before{opacity:1;}
+  .carte-vedette-nom{font-size:20px; font-weight:600; line-height:1.3;}
+  .carte-vedette-lieu{
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:13px; color:var(--ink-soft);
+  }
+  .carte-pin{width:14px; height:14px; color:var(--blue-bright); flex-shrink:0;}
+  .carte-vedette-sorties{font-size:12px; color:var(--muted);}
+  .carte-vedette-voir{
+    margin-top:4px; font-size:12px; font-weight:500; color:var(--blue-bright);
+    opacity:0; transform:translateY(5px);
+    transition:opacity .35s var(--ease), transform .35s var(--ease);
+  }
+  .carte-vedette:hover .carte-vedette-voir,
+  .carte-vedette:focus-visible .carte-vedette-voir{opacity:1; transform:none;}
+  @media (hover:none){
+    .carte-vedette-voir{opacity:.8; transform:none;}
+  }
+
+  /* Le temps qu'il reste à l'artiste affiché. Il s'arrête avec le
+     survol. */
+  .carte-defile-barre{
+    display:block; height:2px; margin:12px 0 0; border-radius:2px;
+    background:rgba(255,255,255,0.08); overflow:hidden;
+  }
+  .carte-defile-barre i{
+    display:block; width:100%; height:100%; transform-origin:left center;
+    background:linear-gradient(90deg, var(--blue), var(--blue-bright));
+    animation:carteBarre 3000ms linear both;
+  }
+  .carte-defile-barre.en-pause i{animation-play-state:paused;}
+  @keyframes carteBarre{
+    from{transform:scaleX(0);}
+    to{transform:scaleX(1);}
+  }
+
+  /* La liste d'une ville. Elle défile dans le panneau : Paris compte
+     plusieurs dizaines d'artistes. */
+  .carte-retour{
+    align-self:flex-start; display:inline-flex; align-items:center; gap:6px;
+    margin:0 0 14px -8px; padding:6px 14px 6px 8px;
+    font-size:12px; font-weight:500; color:var(--ink-soft);
+    background:transparent; border:1px solid transparent; border-radius:var(--radius-pill);
+    transition:color .25s var(--ease), background .25s var(--ease);
+  }
+  .carte-retour svg{width:14px; height:14px; transition:transform .35s var(--ease);}
+  .carte-retour:hover{color:var(--ink); background:var(--glass-hi);}
+  .carte-retour:hover svg{transform:translateX(-3px);}
+  .carte-retour:focus-visible{outline:2px solid var(--blue-bright); outline-offset:1px;}
   .carte-liste{
-    overflow-y:auto; overscroll-behavior:contain;
-    margin:0 -8px; padding:0 8px;
+    flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain;
+    margin:0 -10px; padding:0 10px 6px;
     scrollbar-width:thin; scrollbar-color:var(--line-strong) transparent;
   }
   .carte-liste-ville{
@@ -1981,36 +2294,73 @@
     color:var(--muted);
   }
   .carte-liste-ville:first-child{margin-top:0;}
-  /* Un seul artiste à la fois, en grand : le panneau sert à donner
-     envie d'ouvrir une page, pas à lister. */
-  .carte-defile{display:flex; justify-content:center;}
-  .carte-vedette{
-    display:flex; flex-direction:column; align-items:center; gap:9px;
-    width:100%; padding:16px 12px 8px; text-align:center;
-    background:transparent; border:none; color:var(--ink);
-    animation:vedetteEntre .5s var(--ease);
+  .carte-artiste{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+    padding:10px; border:1px solid transparent; border-radius:var(--radius-sm);
+    background:transparent; color:var(--ink-soft); font-size:14px;
+    transition:background .25s var(--ease), color .25s var(--ease), border-color .25s var(--ease);
+    animation:carteLigneEntre .55s var(--ease) both;
+    animation-delay:calc(140ms + var(--i, 0) * 34ms);
   }
-  .carte-vedette-photo{
-    width:132px; height:132px; border-radius:50%; overflow:hidden;
+  .carte-artiste:hover{background:var(--glass-hi); color:var(--ink);}
+  .carte-artiste:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
+  .carte-vignette{
+    width:38px; height:38px; border-radius:50%; overflow:hidden; flex-shrink:0;
     border:1px solid var(--line); background:rgba(255,255,255,0.06);
     display:flex; align-items:center; justify-content:center;
-    font-size:46px; font-weight:600; color:var(--ink-soft);
-    box-shadow:var(--ombre-2);
-    transition:border-color .25s var(--ease), transform .25s var(--ease);
+    font-size:14px; font-weight:600; color:var(--ink-soft);
   }
-  .carte-vedette-photo img{width:100%; height:100%; object-fit:cover;}
-  .carte-vedette:hover .carte-vedette-photo{
-    border-color:var(--blue); transform:scale(1.03);
+  .carte-vignette img{width:100%; height:100%; object-fit:cover;}
+  /* Un visage arrive en fondu plutôt que d'un coup. */
+  .carte-vedette-photo img, .carte-vignette img, .carte-res-vignette img{
+    animation:carteImageEntre .6s var(--ease) both;
   }
-  .carte-vedette-nom{font-size:19px; font-weight:600; line-height:1.3;}
-  .carte-vedette-lieu{font-size:13px; color:var(--ink-soft);}
-  .carte-vedette-sorties{font-size:12px; color:var(--muted);}
-  @keyframes vedetteEntre{
-    from{opacity:0; transform:scale(.94);}
-    to{opacity:1; transform:scale(1);}
+  @keyframes carteImageEntre{
+    from{opacity:0; transform:scale(1.08);}
+    to{opacity:1; transform:none;}
   }
+  .carte-artiste-texte{min-width:0;}
+  .carte-sorties{display:block; font-size:12px; color:var(--muted);}
+  .carte-artiste-fleche{
+    margin-left:auto; color:var(--blue-bright); opacity:0; transform:translateX(-6px);
+    transition:opacity .3s var(--ease), transform .3s var(--ease);
+  }
+  .carte-artiste:hover .carte-artiste-fleche,
+  .carte-artiste:focus-visible .carte-artiste-fleche{opacity:1; transform:none;}
+  /* L'artiste que la recherche vient de trouver : en tête de liste, une
+     onde de lumière part de sa ligne. */
+  .carte-artiste.trouve{
+    color:var(--ink); border-color:rgba(79,180,255,0.42);
+    background:linear-gradient(90deg, rgba(79,180,255,0.18), rgba(79,180,255,0.04));
+    animation:carteLigneEntre .55s var(--ease) both, carteTrouve 1.7s var(--ease) .6s 2;
+  }
+  @keyframes carteTrouve{
+    from{box-shadow:0 0 0 0 rgba(79,180,255,0.5);}
+    to{box-shadow:0 0 0 14px rgba(79,180,255,0);}
+  }
+
+  @media (max-width:620px){
+    .carte-aide{font-size:10px; letter-spacing:.14em;}
+    .carte-barre{flex-direction:column; align-items:stretch; gap:22px; margin-bottom:24px;}
+    .carte-pays{align-self:flex-start; max-width:100%; overflow-x:auto; scrollbar-width:none;}
+    .carte-pays button{padding:9px 14px;}
+    .carte-recherche, .carte-recherche:focus-within{width:100%; margin-left:0;}
+    .carte-vue{padding:22px 22px 18px;}
+    .carte-chiffre{font-size:40px;}
+    .carte-vedette-photo{width:112px; height:112px; font-size:38px;}
+  }
+
   @media (prefers-reduced-motion: reduce){
-    .carte-vedette{animation:none;}
+    #page-carte.active .section-head,
+    #page-carte.active .carte-barre,
+    #page-carte.active .carte-plan,
+    #page-carte.active .carte-panneau,
+    .carte-res, .carte-artiste, .carte-artiste.trouve, .carte-resultats,
+    .carte-effacer, .carte-squelette i, .carte-vedette-photo::before,
+    .carte-vedette-photo img, .carte-vignette img, .carte-res-vignette img{animation:none;}
+    .carte-pays-fond, .carte-recherche, .carte-recherche::after,
+    #carteVueGenerale, .carte-vedette-photo, .carte-vedette-voir{transition:none;}
+    .carte-defile-barre{display:none;}
     .carte-vedette:hover .carte-vedette-photo{transform:none;}
   }
 
@@ -3232,30 +3582,101 @@
     <section>
       <div class="section-head">
         <div>
-          <span class="eyebrow mono">Sur le territoire</span>
           <h2>La carte des artistes</h2>
           <p class="desc">
             D'où viennent les artistes repérés par La Wave. Clique sur
-            une ville pour voir qui en est originaire.
+            une ville, ou cherche un artiste.
           </p>
         </div>
       </div>
 
-      <div class="carte-pays" id="cartePays" role="tablist" aria-label="Pays"
-           onkeydown="clavierOngletsPays(event)"></div>
+      <div class="carte-barre">
+
+        <!-- Les trois onglets sont là dès le chargement, sans compte : la
+             barre ne surgit pas, et la recherche ne change pas de côté, quand
+             les données arrivent. renderOngletsPays les renseigne. -->
+        <div class="carte-pays" id="cartePays" role="tablist" aria-label="Pays"
+             onkeydown="clavierOngletsPays(event)">
+          <span class="carte-pays-fond" aria-hidden="true"></span>
+          <button type="button" role="tab" id="cartePays-france" aria-selected="false"
+                  tabindex="-1" onclick="choisirPaysCarte('france')">
+            France <span class="carte-pays-compte"></span>
+          </button>
+          <button type="button" role="tab" id="cartePays-belgique" aria-selected="false"
+                  tabindex="-1" onclick="choisirPaysCarte('belgique')">
+            Belgique <span class="carte-pays-compte"></span>
+          </button>
+          <button type="button" role="tab" id="cartePays-suisse" aria-selected="false"
+                  tabindex="-1" onclick="choisirPaysCarte('suisse')">
+            Suisse <span class="carte-pays-compte"></span>
+          </button>
+        </div>
+
+        <!-- Un formulaire à lui seul, comme la recherche du catalogue : les
+             champs de connexion cachés de la page forment pour le
+             navigateur un pseudo-formulaire d'identification, et il y
+             déposerait l'adresse mail enregistrée. -->
+        <form class="carte-recherche" id="carteRecherche" role="search"
+              autocomplete="off" onsubmit="event.preventDefault()">
+          <svg class="carte-loupe" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+          </svg>
+          <input type="text" id="carteRechercheChamp" name="q" autocomplete="off"
+                 data-lpignore="true" data-1p-ignore="true" data-bwignore="true"
+                 spellcheck="false" enterkeyhint="search" inputmode="search"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false"
+                 aria-controls="carteResultats"
+                 placeholder="Artiste ou ville"
+                 aria-label="Rechercher un artiste ou une ville sur la carte"
+                 oninput="surRechercheCarte()" onfocus="surFocusRechercheCarte()"
+                 onkeydown="clavierRechercheCarte(event)">
+          <button type="button" class="carte-effacer" id="carteEffacer" hidden
+                  aria-label="Effacer la recherche" onclick="effacerRechercheCarte()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                 stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+          </button>
+          <!-- Garder le champ ciblé quand on clique dans la liste : sans
+               cela il perdrait le focus avant que le clic n'arrive. -->
+          <div class="carte-resultats" id="carteResultats" role="listbox"
+               aria-label="Résultats" hidden onmousedown="event.preventDefault()"></div>
+          <p class="sr-only" id="carteRechercheEtat" aria-live="polite"></p>
+        </form>
+
+      </div>
 
       <div class="carte-zone">
         <div class="carte-plan">
           <canvas id="carteCanvas" aria-hidden="true"></canvas>
           <div class="carte-outils">
-            <button type="button" onclick="zoomerCarte(1.4)" aria-label="Zoomer">+</button>
-            <button type="button" onclick="zoomerCarte(1/1.4)" aria-label="Dézoomer">−</button>
-            <button type="button" onclick="reinitialiserCarte()" aria-label="Revenir à la vue d'ensemble">⤢</button>
+            <button type="button" onclick="zoomerCarte(1.5)" aria-label="Zoomer" title="Zoomer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <button type="button" onclick="zoomerCarte(1/1.5)" aria-label="Dézoomer" title="Dézoomer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+            </button>
+            <button type="button" id="carteVueGenerale" onclick="vueGeneraleCarte()"
+                    tabindex="-1" aria-hidden="true"
+                    aria-label="Revenir à la vue d'ensemble" title="Vue d'ensemble">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>
+              </svg>
+            </button>
           </div>
-          <p class="carte-aide">Molette pour zoomer · glisser pour déplacer</p>
+          <p class="carte-aide">
+            <span class="carte-aide-souris">Molette pour zoomer · glisser pour déplacer</span>
+            <span class="carte-aide-tactile">Pincer pour zoomer · glisser</span>
+          </p>
         </div>
         <aside class="carte-panneau" id="cartePanneau"></aside>
       </div>
+
+      <!-- Ce que la caméra et le panneau font tout seuls, dit aux lecteurs
+           d'écran. -->
+      <p class="sr-only" id="carteAnnonce" aria-live="polite"></p>
     </section>
   </section>
 
@@ -13141,30 +13562,69 @@ const CARTE_3D = {
   ecartPastilles: 4    // en pixels : sous cet écart, deux villes fusionnent
 };
 
+const CARTE_TAU = Math.PI * 2;
+
 // `var` et non `let` : goTo appelle arreterCarte dès le démarrage,
 // pour couper l'animation quand on ouvre une autre page. Or ce code
 // vit plus bas dans le script — avec `let`, la lecture tomberait dans
 // la zone morte temporelle, l'erreur remonterait au niveau racine et
 // interromprait tout ce qui suit. `var` vaut undefined avant son
-// initialisation, ce que le garde de arreterCarte accepte.
+// initialisation, ce que les gardes de arreterCarte acceptent. Tout ce
+// que arreterCarte touche est donc déclaré ainsi.
 var carteAnim = null;
-// Le glisser déplace la vue plutôt que de la faire pivoter : dès qu'on
-// zoome pour distinguer deux villes proches, se déplacer devient le
-// geste utile, et le balancement automatique suffit à garder le
-// volume perceptible.
+var carteTempsPrecedent = null;
+var carteDefile = null;      // minuteur et éléments du défilé du panneau
+var carteMqReduit = null;
+
+
+// ---- Caméra ----
+//
+// Ce qui est dessiné (zoom et déplacement) suit une cible à la manière
+// d'un ressort amorti : la molette, les boutons, un clic sur une ville
+// ou une recherche ne font que déplacer la cible, et la vue la rejoint
+// en douceur, sans à-coup ni arrêt net. Un ressort amorti critique
+// ne dépasse jamais sa cible, démarre sans secousse et se laisse
+// rediriger en plein mouvement — ce que ne permettait pas une durée
+// fixe. Le glisser, lui, obéit directement au doigt, et le lâcher lui
+// laisse son élan.
 let carteZoom = 1;
 let cartePanX = 0;
 let cartePanY = 0;
-let carteSaisie = null;     // position du pointeur pendant un glisser
+let carteVitesse = { zoom: 0, panX: 0, panY: 0 };
+let carteCible = null;     // null : la vue est arrivée
+let carteRaideur = 10;     // raideur du ressort, en s⁻¹ : plus haut, plus vif
+
+let carteSaisie = null;    // le glisser en cours (un doigt)
+let carteGeste = null;     // le pincement en cours (deux doigts)
+const carteDoigts = new Map();
 let carteDernierGlisser = false;
-let carteSurvol = null;     // clé du groupe survolé
-let carteEcran = [];        // position à l'écran de chaque groupe, pour le clic
-let carteTransition = null; // zoom animé vers un groupe
+let carteSurvol = null;    // clé du groupe survolé
+let carteEcran = [];       // position à l'écran de chaque groupe, pour le clic
+
+// Horloge de l'animation (celle de requestAnimationFrame) et numéro de
+// l'image : tout ce qui bouge sur la carte se mesure avec eux, jamais
+// avec l'heure du système, pour qu'un onglet qu'on retrouve ne rejoue
+// pas des secondes d'animation d'un coup.
+let carteTemps = 0;
+let carteImage = 0;
+
+// État animé de chaque pastille (survol, sélection, apparition), par
+// clé de groupe.
+let carteEtats = new Map();
+let carteEntree = false;   // vrai jusqu'à la première image d'un pays
+let carteSignature = '';
+let carteMiseEnAvant = null;   // ville ou artiste trouvé par la recherche
+let carteRetourVue = null;     // la vue d'avant une sélection, pour y revenir
+let carteEtiquette = { alpha: 0, texte: '', x: 0, y: 0, rayon: 0 };
 
 
 function carteMouvementReduit(){
-  return window.matchMedia &&
-         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if(!carteMqReduit && window.matchMedia){
+    carteMqReduit = window.matchMedia('(prefers-reduced-motion: reduce)');
+  }
+
+  return !!(carteMqReduit && carteMqReduit.matches);
 }
 
 
@@ -13210,7 +13670,9 @@ function imageArtiste(url){
 
   if(!imagesArtistes.has(url)){
     const entree = { img: new Image(), pret: false };
-    entree.img.onload = () => { entree.pret = true; };
+    // L'heure d'arrivée, pour que la photo se fonde sur l'initiale
+    // au lieu de la remplacer d'un coup.
+    entree.img.onload = () => { entree.pret = true; entree.img._charge = performance.now(); };
     entree.img.onerror = () => { entree.pret = false; };
     entree.img.src = url;
     imagesArtistes.set(url, entree);
@@ -13242,6 +13704,65 @@ function pointsGrille(){
 
   cartePointsGrille[cartePays] = points;
   return points;
+}
+
+
+// Les points du fond, prêts à être dessinés. Chacun était projeté,
+// trié par profondeur puis tracé un à un à chaque image : près de
+// deux mille objets créés et jetés soixante fois par seconde. Ici
+// l'ordre du plus lointain au plus proche est établi une fois — le
+// balancement est trop faible pour le changer — et les points sont
+// rangés par bandes de profondeur, chacune tracée d'un seul trait.
+let carteRendu = {};
+
+function pointsRendu(){
+
+  if(carteRendu[cartePays]) return carteRendu[cartePays];
+
+  const pays = CARTES_PAYS[cartePays];
+  const cosR = Math.cos(CARTE_3D.redressement);
+
+  const tries = pointsGrille().map(([c, r]) => {
+    const x0 = c - pays.colonnes / 2;
+    const w0 = pays.ligneCentre - r;
+    return { x0, w0, e: CARTE_3D.focale / (CARTE_3D.focale + w0 * cosR) };
+  }).sort((a, b) => a.e - b.e);
+
+  const nombre = tries.length;
+  const NB_BANDES = 6;
+
+  const x0 = new Float32Array(nombre);
+  const w0 = new Float32Array(nombre);
+
+  const eMin = nombre ? tries[0].e : 1;
+  const eMax = nombre ? tries[nombre - 1].e : 1;
+
+  const bandes = Array.from({ length: NB_BANDES }, () => ({ debut: 0, fin: 0, somme: 0 }));
+
+  tries.forEach((point, i) => {
+    x0[i] = point.x0;
+    w0[i] = point.w0;
+    const b = Math.min(
+      NB_BANDES - 1,
+      Math.floor((point.e - eMin) / (eMax - eMin + 1e-9) * NB_BANDES)
+    );
+    const bande = bandes[b];
+    if(bande.fin === 0 && bande.somme === 0) bande.debut = i;
+    bande.fin = i + 1;
+    bande.somme += point.e;
+  });
+
+  bandes.forEach(bande => {
+    const n = bande.fin - bande.debut;
+    const e = n ? bande.somme / n : 1;
+    // Un point proche est plus gros et plus clair : c'est ce couple
+    // qui donne la profondeur, davantage que la perspective elle-même.
+    const force = Math.max(0.08, Math.min(1, (e - 0.72) / 0.55));
+    bande.alpha = 0.10 + force * 0.34;
+  });
+
+  carteRendu[cartePays] = { x0, w0, bandes };
+  return carteRendu[cartePays];
 }
 
 
@@ -13284,8 +13805,7 @@ function calculerCadre(largeur, hauteur){
     pointsGrille().forEach(([c, r]) => retenir(projeter3D(c, r, 0, etat)));
 
     carteVilles.forEach(ville => {
-      const g = projeterSurCarte(ville.lon, ville.lat);
-      const tete = projeter3D(g.x, g.y, CARTE_3D.hauteurMarqueur, etat);
+      const tete = projeter3D(ville.g.x, ville.g.y, CARTE_3D.hauteurMarqueur, etat);
       retenir(tete);
       if(tete.echelle > echelleMax) echelleMax = tete.echelle;
     });
@@ -13342,6 +13862,20 @@ function rayonMarqueur(k){
 }
 
 
+// Où tombe le pied d'une ville, et quelle est la longueur de sa tige,
+// pour un zoom donné et sans balancement : ce que la caméra doit viser
+// pour amener la ville au centre. Les distances au sol sont
+// proportionnelles au zoom ; la tige, elle, garde sa longueur à l'écran.
+function positionSolVille(ville, zoom, cadre){
+
+  const etat = { angle: 0, cx: 0, cy: 0, zoom: cadre.echelle * zoom };
+  const sol = projeter3D(ville.g.x, ville.g.y, 0, etat);
+  const tete = projeter3D(ville.g.x, ville.g.y, CARTE_3D.hauteurMarqueur / zoom, etat);
+
+  return { x: sol.x, y: sol.y, tige: sol.y - tete.y };
+}
+
+
 // ---- Regroupement des villes proches ----
 //
 // Une quarantaine de communes d'Île-de-France tiennent dans quelques
@@ -13358,28 +13892,12 @@ function rayonMarqueur(k){
 // jusqu'à ce qu'aucune ne se touche. Le groupe se place au barycentre
 // de ses villes, pondéré par leurs artistes — un groupe autour de
 // Paris reste posé sur Paris.
-let carteGroupesMemo = null;
-
-function groupesDeLaCarte(largeur, cadre){
-
-  // Pendant un zoom animé, les groupes sont ceux de l'arrivée : calculés
-  // une fois, ils s'écartent pendant l'animation au lieu d'être refaits
-  // à chaque image.
-  const zoom = carteTransition ? carteTransition.vers.zoom : carteZoom;
-
-  const cle = largeur + '|' + cadre.echelle + '|' + zoom;
-
-  if(carteGroupesMemo &&
-     carteGroupesMemo.villes === carteVilles &&
-     carteGroupesMemo.cle === cle){
-    return carteGroupesMemo.groupes;
-  }
+function calculerGroupes(largeur, cadre, zoom){
 
   const etat = { angle: 0, cx: 0, cy: 0, zoom: cadre.echelle * zoom };
 
   const provisoires = carteVilles.map((ville, index) => {
-    const g = projeterSurCarte(ville.lon, ville.lat);
-    const p = projeter3D(g.x, g.y, 0, etat);
+    const p = projeter3D(ville.g.x, ville.g.y, 0, etat);
     return {
       indices: [index],
       x: p.x,
@@ -13424,7 +13942,7 @@ function groupesDeLaCarte(largeur, cadre){
     provisoires.splice(b, 1);
   }
 
-  const groupes = provisoires.map(provisoire => {
+  return provisoires.map(provisoire => {
 
     // La ville la plus fournie d'abord : c'est elle qui nomme le groupe.
     const indices = provisoire.indices.slice().sort((x, y) =>
@@ -13451,6 +13969,27 @@ function groupesDeLaCarte(largeur, cadre){
         : principale
     };
   });
+}
+
+
+let carteGroupesMemo = null;
+
+function groupesDeLaCarte(largeur, cadre){
+
+  // Pendant un déplacement de la caméra, les groupes sont ceux de
+  // l'arrivée : calculés une fois, ils s'écartent pendant le trajet au
+  // lieu d'être refaits à chaque image.
+  const zoom = carteCible ? carteCible.zoom : carteZoom;
+
+  const cle = largeur + '|' + cadre.echelle + '|' + zoom;
+
+  if(carteGroupesMemo &&
+     carteGroupesMemo.villes === carteVilles &&
+     carteGroupesMemo.cle === cle){
+    return carteGroupesMemo.groupes;
+  }
+
+  const groupes = calculerGroupes(largeur, cadre, zoom);
 
   carteGroupesMemo = { villes: carteVilles, cle, groupes };
 
@@ -13458,85 +13997,429 @@ function groupesDeLaCarte(largeur, cadre){
 }
 
 
-// Zoom animé vers un groupe. Zoom et déplacement s'interpolent tous
-// deux linéairement : le groupe glisse alors en ligne droite vers le
-// centre pendant que la carte grossit.
-function animerVueCarte(zoom, panX, panY){
+// ---- Mouvements de la caméra ----
 
-  if(carteMouvementReduit()){
-    carteTransition = null;
-    carteZoom = zoom;
-    cartePanX = panX;
-    cartePanY = panY;
-    return;
-  }
+// Ressort amorti critique, résolu exactement : le résultat ne dépend
+// pas du découpage du temps, une image lente n'y change rien.
+function ressortCritique(valeur, vitesse, cible, omega, dt){
 
-  carteTransition = {
-    debut: performance.now(),
-    duree: 450,
-    de: { zoom: carteZoom, panX: cartePanX, panY: cartePanY },
-    vers: { zoom, panX, panY }
-  };
+  const ecart = valeur - cible;
+  const e = Math.exp(-omega * dt);
+  const b = vitesse + omega * ecart;
+
+  return [
+    cible + (ecart + b * dt) * e,
+    (vitesse - omega * b * dt) * e
+  ];
 }
 
 
-function avancerTransitionCarte(temps){
+// La cible de la caméra, créée au besoin à partir de la vue actuelle :
+// on part de là où l'on est, jamais d'une valeur périmée.
+function cibleCamera(){
 
-  const t = carteTransition;
-  if(!t) return;
-
-  const avance = Math.max(0, Math.min(1, (temps - t.debut) / t.duree));
-  const e = avance < 0.5
-    ? 4 * avance * avance * avance
-    : 1 - Math.pow(-2 * avance + 2, 3) / 2;
-
-  // À l'arrivée, les valeurs exactes : a + (b − a) ne redonne pas
-  // toujours b au dernier chiffre près, et le regroupement calculé pour
-  // le zoom d'arrivée serait refait pour rien.
-  if(avance >= 1){
-    carteZoom = t.vers.zoom;
-    cartePanX = t.vers.panX;
-    cartePanY = t.vers.panY;
-    carteTransition = null;
-    return;
+  if(!carteCible){
+    carteCible = { zoom: carteZoom, panX: cartePanX, panY: cartePanY };
   }
 
-  carteZoom = t.de.zoom + (t.vers.zoom - t.de.zoom) * e;
-  cartePanX = t.de.panX + (t.vers.panX - t.de.panX) * e;
-  cartePanY = t.de.panY + (t.vers.panY - t.de.panY) * e;
+  return carteCible;
 }
 
 
-function dessinerCarte(temps){
+// La vue ne doit pas pouvoir être tirée jusqu'à sortir la France du
+// cadre : au zoom minimal elle reste centrée, et plus on zoome plus on
+// s'autorise à s'éloigner du centre.
+function margeDeplacementCarte(zoom){
+  const canvas = document.getElementById('carteCanvas');
+  return canvas ? canvas.clientWidth * 0.55 * (zoom - 1) : 0;
+}
+
+function brider(vue){
+  const marge = margeDeplacementCarte(vue.zoom);
+  vue.panX = Math.max(-marge, Math.min(marge, vue.panX));
+  vue.panY = Math.max(-marge, Math.min(marge, vue.panY));
+}
+
+
+// Sans mouvement (préférence du système), la vue saute à sa cible.
+function appliquerCibleSiReduit(){
+
+  if(!carteCible || !carteMouvementReduit()) return;
+
+  carteZoom = carteCible.zoom;
+  cartePanX = carteCible.panX;
+  cartePanY = carteCible.panY;
+  carteVitesse = { zoom: 0, panX: 0, panY: 0 };
+  carteCible = null;
+}
+
+
+function avancerCamera(dt){
+
+  const cible = carteCible;
+
+  // Pendant un glisser ou un pincement, la vue obéit au doigt.
+  if(!cible || carteSaisie || carteGeste || !(dt > 0)) return;
+
+  const z = ressortCritique(carteZoom, carteVitesse.zoom, cible.zoom, carteRaideur, dt);
+  const x = ressortCritique(cartePanX, carteVitesse.panX, cible.panX, carteRaideur, dt);
+  const y = ressortCritique(cartePanY, carteVitesse.panY, cible.panY, carteRaideur, dt);
+
+  carteZoom = Math.max(1, Math.min(CARTE_3D.zoomMax, z[0]));
+  cartePanX = x[0];
+  cartePanY = y[0];
+  carteVitesse.zoom = z[1];
+  carteVitesse.panX = x[1];
+  carteVitesse.panY = y[1];
+
+  const arrive =
+    Math.abs(carteZoom - cible.zoom) < 0.0008 &&
+    Math.abs(cartePanX - cible.panX) < 0.04 &&
+    Math.abs(cartePanY - cible.panY) < 0.04 &&
+    Math.abs(carteVitesse.zoom) < 0.004 &&
+    Math.abs(carteVitesse.panX) < 0.4 &&
+    Math.abs(carteVitesse.panY) < 0.4;
+
+  // À l'arrivée, les valeurs exactes : le regroupement calculé pour le
+  // zoom visé ne serait pas retrouvé au dernier chiffre près, et serait
+  // refait pour rien.
+  if(arrive){
+    carteZoom = cible.zoom;
+    cartePanX = cible.panX;
+    cartePanY = cible.panY;
+    carteVitesse = { zoom: 0, panX: 0, panY: 0 };
+    carteCible = null;
+  }
+}
+
+
+// Envoie la caméra vers une vue. La raideur règle l'allure : 11 pour la
+// molette, qui doit suivre la main ; 6 à 7 pour un trajet, qu'on veut
+// voir se faire.
+function animerVueCarte(zoom, panX, panY, raideur){
+
+  const cible = cibleCamera();
+
+  cible.zoom = Math.max(1, Math.min(CARTE_3D.zoomMax, zoom));
+  cible.panX = panX;
+  cible.panY = panY;
+  brider(cible);
+
+  carteRaideur = raideur || 7;
+
+  appliquerCibleSiReduit();
+}
+
+
+// Zoom ancré sur le pointeur : le point survolé ne bouge pas pendant
+// que la carte grossit. Un zoom centré sur le cadre obligerait à
+// repositionner la vue après chaque cran de molette. Ici il s'applique
+// à la cible : cran après cran, elle s'accumule, et la vue la suit.
+function zoomerCarte(facteur, versX, versY, raideur){
 
   const canvas = document.getElementById('carteCanvas');
   if(!canvas) return;
 
-  const ctx = canvas.getContext('2d');
   const largeur = canvas.clientWidth;
-  const hauteur = Math.round(largeur * 0.80);
+  const hauteur = canvas.clientHeight;
+  if(!largeur) return;
 
+  const mx = versX === undefined ? largeur / 2 : versX;
+  const my = versY === undefined ? hauteur / 2 : versY;
+
+  const cible = cibleCamera();
+
+  const avant = cible.zoom;
+  cible.zoom = Math.max(1, Math.min(CARTE_3D.zoomMax, avant * facteur));
+
+  const reel = cible.zoom / avant;
+  if(reel === 1) return;
+
+  const cadre = cadrageCarte(largeur, hauteur);
+
+  cible.panX = mx + (cadre.cx + cible.panX - mx) * reel - cadre.cx;
+  cible.panY = my + (cadre.cy + cible.panY - my) * reel - cadre.cy;
+  brider(cible);
+
+  carteRaideur = raideur || 11;
+
+  appliquerCibleSiReduit();
+}
+
+
+// Remise à zéro immédiate : un nouveau pays ne doit pas glisser depuis
+// la vue de l'ancien.
+function reinitialiserCarte(){
+  carteCible = null;
+  carteVitesse = { zoom: 0, panX: 0, panY: 0 };
+  carteZoom = 1;
+  cartePanX = 0;
+  cartePanY = 0;
+}
+
+
+// Le bouton « vue d'ensemble » : la caméra recule d'un trait, et le
+// panneau redevient celui du pays entier.
+function vueGeneraleCarte(){
+
+  carteMiseEnAvant = null;
+  carteRetourVue = null;
+  viderRechercheChoisieCarte();
+
+  animerVueCarte(1, 0, 0, 7);
+
+  if(carteVilleActive >= 0 || carteGroupeActif) panneauToutesLesVilles();
+}
+
+
+// Amène des villes au centre du cadre, au zoom donné : le centre de
+// gravité de leurs pieds, pondéré par leurs artistes, au milieu du
+// cadre, la tige comprise.
+function centrerCarteSur(indices, zoom, raideur){
+
+  const canvas = document.getElementById('carteCanvas');
+  if(!canvas || !indices.length) return;
+
+  const largeur = canvas.clientWidth;
+  const hauteur = canvas.clientHeight;
+  const cadre = cadrageCarte(largeur, hauteur);
+
+  let poids = 0, sx = 0, sy = 0, tige = 0;
+
+  indices.forEach(i => {
+    const ville = carteVilles[i];
+    const n = ville.artistes.length;
+    const sol = positionSolVille(ville, zoom, cadre);
+    poids += n;
+    sx += sol.x * n;
+    sy += sol.y * n;
+    tige = Math.max(tige, sol.tige);
+  });
+
+  animerVueCarte(
+    zoom,
+    largeur / 2 - cadre.cx - sx / poids,
+    hauteur / 2 + tige / 2 - cadre.cy - sy / poids,
+    raideur
+  );
+}
+
+
+// Le plus petit zoom — pas en dessous de ce que la vue montre déjà —
+// qui détache une ville de ses voisines. Si même le zoom maximal ne
+// suffit pas, c'est lui qu'on renvoie : on listera le groupe.
+function zoomPourIsoler(index, depart){
+
+  const canvas = document.getElementById('carteCanvas');
+  if(!canvas) return depart;
+
+  const largeur = canvas.clientWidth;
+  const cadre = cadrageCarte(largeur, canvas.clientHeight);
+
+  let zoom = Math.max(depart, Math.min(2.2, CARTE_3D.zoomMax));
+
+  for(let essai = 0; essai < 24; essai++){
+
+    const groupe = calculerGroupes(largeur, cadre, zoom)
+      .find(g => g.indices.includes(index));
+
+    if(!groupe || groupe.indices.length === 1) return zoom;
+    if(zoom >= CARTE_3D.zoomMax) break;
+
+    zoom = Math.min(CARTE_3D.zoomMax, zoom * 1.2);
+  }
+
+  return CARTE_3D.zoomMax;
+}
+
+
+// ---- Dessin ----
+
+function hashTexteCarte(texte){
+
+  let h = 0;
+
+  for(let i = 0; i < texte.length; i++){
+    h = (h * 31 + texte.charCodeAt(i)) | 0;
+  }
+
+  return Math.abs(h);
+}
+
+
+// L'état animé d'une pastille. Créé à sa première apparition : c'est
+// de là que partent son entrée, et le décalage qui évite que toutes
+// les photos d'un groupe changent au même instant.
+function etatGroupeCarte(cle, rang){
+
+  let etat = carteEtats.get(cle);
+
+  if(!etat){
+    etat = {
+      naissance: carteMouvementReduit()
+        ? -1e9
+        : carteTemps + (rang >= 0 ? Math.min(rang, 45) * 16 : 0),
+      survol: 0,
+      actif: 0,
+      vu: 0,
+      decalage: hashTexteCarte(cle) % 2800
+    };
+    carteEtats.set(cle, etat);
+  }
+
+  etat.vu = carteImage;
+
+  return etat;
+}
+
+
+// Apparition d'une pastille : elle monte sur sa tige et dépasse à
+// peine sa taille avant de s'y poser.
+function apparitionCarte(age){
+
+  const t = Math.max(0, Math.min(1, age / 620));
+  const c1 = 1.4;
+  const c3 = c1 + 1;
+
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+
+
+// Le fond pointillé, du plus lointain au plus proche, bande par bande.
+function dessinerPointsCarte(ctx, etat, cadre, largeur, hauteur){
+
+  const rendu = pointsRendu();
+
+  const cosA = Math.cos(etat.angle);
+  const sinA = Math.sin(etat.angle);
+  const cosR = Math.cos(CARTE_3D.redressement);
+  const sinR = Math.sin(CARTE_3D.redressement);
+  const focale = CARTE_3D.focale;
+
+  // Le point grossit avec le zoom jusqu'à 4, puis se fige : au zoom
+  // 12 il aurait atteint la taille d'une pastille.
+  const echelleRayon = cadre.echelle * Math.min(carteZoom, 4) * 0.17;
+
+  // Hors du cadre, un point ne se trace pas : au zoom 12, presque tous.
+  const marge = 8;
+
+  ctx.fillStyle = '#ffffff';
+
+  rendu.bandes.forEach(bande => {
+
+    if(bande.fin <= bande.debut) return;
+
+    ctx.globalAlpha = bande.alpha;
+    ctx.beginPath();
+
+    for(let i = bande.debut; i < bande.fin; i++){
+
+      const x0 = rendu.x0[i];
+      const w0 = rendu.w0[i];
+
+      const x1 = x0 * cosA + w0 * sinA;
+      const w1 = -x0 * sinA + w0 * cosA;
+      const e = focale / (focale + w1 * cosR);
+
+      const sx = etat.cx + x1 * e * etat.zoom;
+      const sy = etat.cy - w1 * sinR * e * etat.zoom;
+
+      if(sx < -marge || sx > largeur + marge ||
+         sy < -marge || sy > hauteur + marge) continue;
+
+      const r = Math.max(0.5, e * echelleRayon);
+
+      ctx.moveTo(sx + r, sy);
+      ctx.arc(sx, sy, r, 0, CARTE_TAU);
+    }
+
+    ctx.fill();
+  });
+
+  ctx.globalAlpha = 1;
+}
+
+
+// Un visage dans le disque d'une pastille : la photo, ou l'initiale
+// comme partout ailleurs sur le site quand l'équipe n'en a pas réglé.
+function dessinerVisageCarte(ctx, profil, x, y, rayon, alpha){
+
+  if(alpha <= 0.002) return;
+
+  const photo = imageArtiste(safeUrl(profil.photo_url));
+
+  // Une photo qui vient d'arriver se fond sur l'initiale en un tiers
+  // de seconde.
+  const fondu = !photo ? 0
+    : carteMouvementReduit() ? 1
+    : Math.max(0, Math.min(1, (carteTemps - (photo._charge || 0)) / 320));
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath();
+  ctx.arc(x, y, rayon, 0, CARTE_TAU);
+  ctx.clip();
+
+  if(fondu < 1){
+    ctx.fillStyle = '#0b1016';
+    ctx.fillRect(x - rayon, y - rayon, rayon * 2, rayon * 2);
+    ctx.fillStyle = '#C4C9D0';
+    ctx.font = '600 ' + Math.round(rayon * 1.05) + 'px "Public Sans", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(
+      artistInitial(profil.display_name || profil.instagram_handle),
+      x, y + rayon * 0.04
+    );
+  }
+
+  if(fondu > 0){
+    ctx.globalAlpha = alpha * fondu;
+    ctx.drawImage(photo, x - rayon, y - rayon, rayon * 2, rayon * 2);
+  }
+
+  ctx.restore();
+}
+
+
+function dessinerCarte(temps, dt){
+
+  const canvas = document.getElementById('carteCanvas');
+  if(!canvas) return;
+
+  // Page masquée : rien à dessiner, et surtout pas un canvas de 0 px.
+  const largeur = canvas.clientWidth;
+  if(!largeur) return;
+
+  carteTemps = temps;
+  carteImage++;
+
+  const reduit = carteMouvementReduit();
+  const ctx = canvas.getContext('2d');
+
+  // La hauteur est celle que la feuille de style donne au canvas
+  // (aspect-ratio) : plus carrée sur téléphone, où la largeur manque.
+  const hauteur = Math.round(canvas.clientHeight);
   const ratio = Math.min(window.devicePixelRatio || 1, 2);
 
-  if(canvas.width !== Math.round(largeur * ratio)){
+  if(canvas.width !== Math.round(largeur * ratio) ||
+     canvas.height !== Math.round(hauteur * ratio)){
     canvas.width = Math.round(largeur * ratio);
     canvas.height = Math.round(hauteur * ratio);
-    canvas.style.height = hauteur + 'px';
-    // La liste du panneau suit la hauteur de la carte.
-    ajusterListeCarte();
   }
 
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
   ctx.clearRect(0, 0, largeur, hauteur);
 
-  avancerTransitionCarte(temps);
+  avancerCamera(dt);
+  majOutilsCarte();
 
   // Le balancement tourne autour du centre de la France : zoomé sur
   // Paris, il déplaçait la vue de plus de deux cents pixels au zoom 12,
   // et la pastille visée se dérobait sous le pointeur. Son amplitude
   // décroît avec le zoom, ce qui garde à l'écran le même mouvement
   // qu'en vue d'ensemble.
-  const balancement = carteMouvementReduit()
+  const balancement = reduit
     ? 0
     : Math.sin((temps / CARTE_3D.periode) * Math.PI * 2) * CARTE_3D.amplitude / carteZoom;
 
@@ -13549,53 +14432,42 @@ function dessinerCarte(temps){
     zoom: cadre.echelle * carteZoom
   };
 
-  // ---- Fond pointillé, du plus lointain au plus proche ----
-  const points = pointsGrille()
-    .map(([c, r]) => {
-      const p = projeter3D(c, r, 0, etat);
-      return { p, profondeur: p.echelle };
-    })
-    .sort((a, b) => a.profondeur - b.profondeur);
-
-  points.forEach(({ p }) => {
-    // Un point proche est plus gros et plus clair : c'est ce couple
-    // qui donne la profondeur, davantage que la perspective elle-même.
-    const t = (p.echelle - 0.72) / 0.55;
-    const force = Math.max(0.08, Math.min(1, t));
-    ctx.globalAlpha = 0.10 + force * 0.34;
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    // Le point grossit avec le zoom jusqu'à 4, puis se fige : au zoom
-    // 12 il aurait atteint la taille d'une pastille.
-    ctx.arc(
-      p.x, p.y,
-      Math.max(0.5, p.echelle * cadre.echelle * Math.min(carteZoom, 4) * 0.17),
-      0, Math.PI * 2
-    );
-    ctx.fill();
-  });
-
-  ctx.globalAlpha = 1;
+  dessinerPointsCarte(ctx, etat, cadre, largeur, hauteur);
 
   // ---- Villes, regroupées quand leurs pastilles se toucheraient ----
   carteEcran = [];
 
-  const projections = carteVilles.map(ville => {
-    const g = projeterSurCarte(ville.lon, ville.lat);
-    return {
-      base: projeter3D(g.x, g.y, 0, etat),
-      // La tige garde sa longueur à l'écran quel que soit le zoom : elle
-      // grandissait avec lui, et au zoom 6 les pastilles flottaient à
-      // six cents pixels au-dessus de leur ville.
-      tete: projeter3D(g.x, g.y, CARTE_3D.hauteurMarqueur / carteZoom, etat)
-    };
-  });
+  const projections = carteVilles.map(ville => ({
+    base: projeter3D(ville.g.x, ville.g.y, 0, etat),
+    // La tige garde sa longueur à l'écran quel que soit le zoom : elle
+    // grandissait avec lui, et au zoom 6 les pastilles flottaient à
+    // six cents pixels au-dessus de leur ville.
+    tete: projeter3D(ville.g.x, ville.g.y, CARTE_3D.hauteurMarqueur / carteZoom, etat)
+  }));
 
-  const groupes = groupesDeLaCarte(largeur, cadre).map(groupe => {
+  const groupesBruts = carteVilles.length
+    ? groupesDeLaCarte(largeur, cadre)
+    : [];
+
+  // À l'ouverture d'un pays, les pastilles arrivent l'une après l'autre,
+  // les plus fournies d'abord : Paris avant les petites communes.
+  let rangs = null;
+
+  if(carteEntree && groupesBruts.length){
+    rangs = new Map();
+    groupesBruts.slice()
+      .sort((a, b) => b.total - a.total)
+      .forEach((g, i) => rangs.set(g.cle, i));
+  }
+
+  // Le facteur de lissage des survols et des sélections : quelques
+  // images pour passer d'un état à l'autre, quelle que soit la cadence.
+  const lissage = reduit ? 1 : 1 - Math.exp(-(dt || 0) * 16);
+
+  const elements = groupesBruts.map(groupe => {
 
     let poids = 0;
     let bx = 0, by = 0, be = 0, hx = 0, hy = 0;
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
 
     groupe.indices.forEach(i => {
       const n = carteVilles[i].artistes.length;
@@ -13603,40 +14475,64 @@ function dessinerCarte(temps){
       poids += n;
       bx += base.x * n;  by += base.y * n;  be += base.echelle * n;
       hx += tete.x * n;  hy += tete.y * n;
-      minX = Math.min(minX, base.x);  maxX = Math.max(maxX, base.x);
-      minY = Math.min(minY, base.y);  maxY = Math.max(maxY, base.y);
     });
 
-    return {
-      groupe,
-      base: { x: bx / poids, y: by / poids, echelle: be / poids },
-      tete: { x: hx / poids, y: hy / poids },
-      etendue: { x: maxX - minX, y: maxY - minY }
-    };
-  }).sort((a, b) => a.base.echelle - b.base.echelle);
-
-  const pulsation = carteMouvementReduit()
-    ? 0.5
-    : ((temps % 2000) / 2000);
-
-  let etiquette = null;
-
-  groupes.forEach(({ groupe, base, tete, etendue }) => {
+    const e = etatGroupeCarte(groupe.cle, rangs ? rangs.get(groupe.cle) : -1);
 
     const actif =
       groupe.indices.includes(carteVilleActive) ||
       !!(carteGroupeActif && groupe.indices.some(i => carteGroupeActif.includes(i)));
+
     const survole = groupe.cle === carteSurvol;
+
+    e.survol += ((survole ? 1 : 0) - e.survol) * lissage;
+    e.actif += ((actif ? 1 : 0) - e.actif) * lissage * 0.7;
+
+    return {
+      groupe, e, survole,
+      trouve: !!(carteMiseEnAvant &&
+        groupe.indices.some(i => carteMiseEnAvant.indices.includes(i))),
+      base: { x: bx / poids, y: by / poids, echelle: be / poids },
+      tete: { x: hx / poids, y: hy / poids }
+    };
+  });
+
+  // Le plus lointain d'abord ; celle qu'on désigne passe devant.
+  elements.sort((a, b) => {
+    const pa = Math.max(a.e.survol, a.e.actif) > 0.45 ? 1 : 0;
+    const pb = Math.max(b.e.survol, b.e.actif) > 0.45 ? 1 : 0;
+    return pa - pb || a.base.echelle - b.base.echelle;
+  });
+
+  const pulsation = reduit ? 0.5 : ((temps % 2000) / 2000);
+
+  let voulue = null;
+
+  elements.forEach(({ groupe, e, survole, trouve, base, tete }) => {
+
+    // Entrée échelonnée : pas encore son tour.
+    if(temps < e.naissance) return;
+
+    const age = temps - e.naissance;
+    const p = reduit ? 1 : apparitionCarte(age);
+    const arrivee = reduit ? 1 : Math.min(1, age / 260);
+
+    const emphase = Math.max(e.survol, e.actif);
+
     // Taille des pastilles, anneaux et tiges : celle du zoom 1, pour que
     // zoomer écarte les villes au lieu de grossir les pastilles avec.
     const k = base.echelle * cadre.echelle;
+
+    // La tige pousse avec l'apparition.
+    const tx = base.x + (tete.x - base.x) * p;
+    const ty = base.y + (tete.y - base.y) * p;
 
     // Anneaux au sol : deux ondes décalées, comme un signal qui part
     // du point. Elles restent sur le plan, donc elles se déforment
     // avec lui — c'est ce qui les rattache à la carte.
     [0, 0.5].forEach(decalage => {
       const phase = (pulsation + decalage) % 1;
-      ctx.globalAlpha = (1 - phase) * (actif ? 0.55 : 0.32);
+      ctx.globalAlpha = (1 - phase) * (0.32 + 0.23 * emphase) * arrivee;
       ctx.strokeStyle = '#4FB4FF';
       ctx.lineWidth = Math.max(0.8, k * 0.05);
       ctx.beginPath();
@@ -13644,92 +14540,129 @@ function dessinerCarte(temps){
         base.x, base.y,
         k * (0.25 + phase * 1.5),
         k * (0.25 + phase * 1.5) * Math.sin(CARTE_3D.redressement),
-        0, 0, Math.PI * 2
+        0, 0, CARTE_TAU
       );
       ctx.stroke();
     });
 
     // Tige jusqu'à la tête du marqueur.
-    ctx.globalAlpha = actif || survole ? 0.85 : 0.5;
+    ctx.globalAlpha = (0.5 + 0.35 * emphase) * arrivee;
     ctx.strokeStyle = '#4FB4FF';
     ctx.lineWidth = Math.max(0.8, k * 0.035);
     ctx.beginPath();
     ctx.moveTo(base.x, base.y);
-    ctx.lineTo(tete.x, tete.y);
+    ctx.lineTo(tx, ty);
     ctx.stroke();
+
+    const rayon = rayonMarqueur(k) * (1 + 0.18 * emphase) * (0.55 + 0.45 * Math.min(p, 1.08));
+
+    // Une ville trouvée par la recherche : deux ondes partent de sa
+    // tête, pour que l'œil la retrouve au milieu de la carte.
+    if(trouve && !reduit){
+      const ecoule = temps - carteMiseEnAvant.debut;
+      [0, 650].forEach(retard => {
+        const phase = (ecoule - retard) / 1500;
+        if(phase < 0 || phase > 1) return;
+        ctx.globalAlpha = (1 - phase) * 0.85;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(1.2, rayon * 0.09);
+        ctx.beginPath();
+        ctx.arc(tx, ty, rayon * (1.25 + phase * 2.2), 0, CARTE_TAU);
+        ctx.stroke();
+      });
+    }
 
     // Tête : la photo de l'artiste plutôt qu'un point. Quand la ville
     // en compte plusieurs, elles défilent — un point unique ne disait
     // pas qui s'y trouvait, et empiler les pastilles aurait encombré
-    // la carte dès qu'une ville en réunit trois ou quatre.
-    const rayon = rayonMarqueur(k) * (actif || survole ? 1.18 : 1);
+    // la carte dès qu'une ville en réunit trois ou quatre. Le
+    // changement se fait en fondu, et chaque groupe a son propre
+    // rythme : toutes les photos ne basculent pas ensemble.
+    const defile = groupe.defile;
+    const profilTrouve = trouve && carteMiseEnAvant.handle
+      ? artistsByHandle[carteMiseEnAvant.handle]
+      : null;
 
-    const tour = groupe.defile.length > 1
-      ? Math.floor(temps / 2600) % groupe.defile.length
-      : 0;
+    let artiste = defile[0];
+    let suivant = null;
+    let melange = 0;
 
-    const artiste = groupe.defile[tour];
-    const photo = imageArtiste(safeUrl(artiste.photo_url));
+    if(profilTrouve){
 
-    ctx.globalAlpha = 1;
+      artiste = profilTrouve;
+
+    } else if(defile.length > 1){
+
+      const duree = 2800;
+      const fondu = 480;
+      const t = temps + e.decalage;
+      const tour = Math.floor(t / duree);
+      const phase = t - tour * duree;
+
+      artiste = defile[tour % defile.length];
+      suivant = defile[(tour + 1) % defile.length];
+
+      // Chargée avant d'être montrée : le fondu ne part pas d'un vide.
+      imageArtiste(safeUrl(suivant.photo_url));
+
+      if(!reduit && phase > duree - fondu){
+        const u = (phase - (duree - fondu)) / fondu;
+        melange = u * u * (3 - 2 * u);
+      }
+    }
 
     // Halo puis fond : la photo doit se détacher du fond pointillé.
-    ctx.fillStyle = 'rgba(79,180,255,0.22)';
+    ctx.globalAlpha = arrivee;
+    ctx.fillStyle = 'rgba(79,180,255,' + (0.22 + 0.12 * emphase).toFixed(3) + ')';
     ctx.beginPath();
-    ctx.arc(tete.x, tete.y, rayon * 1.55, 0, Math.PI * 2);
+    ctx.arc(tx, ty, rayon * 1.55, 0, CARTE_TAU);
     ctx.fill();
 
     ctx.fillStyle = '#0b1016';
     ctx.beginPath();
-    ctx.arc(tete.x, tete.y, rayon, 0, Math.PI * 2);
+    ctx.arc(tx, ty, rayon, 0, CARTE_TAU);
     ctx.fill();
 
-    if(photo){
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(tete.x, tete.y, rayon, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.drawImage(photo, tete.x - rayon, tete.y - rayon, rayon * 2, rayon * 2);
-      ctx.restore();
-    } else {
-      // Pas encore de photo réglée par l'équipe : l'initiale, comme
-      // partout ailleurs sur le site.
-      ctx.fillStyle = '#C4C9D0';
-      ctx.font = '600 ' + Math.round(rayon * 1.05) + 'px "Public Sans", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(
-        artistInitial(artiste.display_name || artiste.instagram_handle),
-        tete.x, tete.y + rayon * 0.04
-      );
-    }
+    dessinerVisageCarte(ctx, artiste, tx, ty, rayon, arrivee);
+    if(suivant && melange > 0) dessinerVisageCarte(ctx, suivant, tx, ty, rayon, melange * arrivee);
 
-    // Anneau par-dessus, pour border la photo proprement.
-    ctx.strokeStyle = actif || survole ? '#ffffff' : '#4FB4FF';
+    // Anneau par-dessus, pour border la photo proprement : bleu au
+    // repos, blanc à mesure qu'on la désigne.
     ctx.lineWidth = Math.max(1.2, rayon * 0.11);
+    ctx.globalAlpha = arrivee;
+    ctx.strokeStyle = '#4FB4FF';
     ctx.beginPath();
-    ctx.arc(tete.x, tete.y, rayon, 0, Math.PI * 2);
+    ctx.arc(tx, ty, rayon, 0, CARTE_TAU);
     ctx.stroke();
+
+    if(emphase > 0.01){
+      ctx.globalAlpha = emphase * arrivee;
+      ctx.strokeStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(tx, ty, rayon, 0, CARTE_TAU);
+      ctx.stroke();
+    }
 
     // Un second anneau distingue un groupe de plusieurs villes d'une
     // ville seule : un clic dessus zoome au lieu d'ouvrir une liste.
     if(groupe.indices.length > 1){
-      ctx.globalAlpha = 0.5;
+      ctx.globalAlpha = 0.5 * arrivee;
+      ctx.strokeStyle = emphase > 0.5 ? '#ffffff' : '#4FB4FF';
       ctx.lineWidth = Math.max(1, rayon * 0.07);
       ctx.beginPath();
-      ctx.arc(tete.x, tete.y, rayon * 1.32, 0, Math.PI * 2);
+      ctx.arc(tx, ty, rayon * 1.32, 0, CARTE_TAU);
       ctx.stroke();
-      ctx.globalAlpha = 1;
     }
 
     // Combien d'artistes sous cette pastille, quand il y en a plusieurs.
     if(groupe.total > 1){
       const rc = rayon * 0.46;
-      const cxp = tete.x + rayon * 0.78;
-      const cyp = tete.y - rayon * 0.78;
+      const cxp = tx + rayon * 0.78;
+      const cyp = ty - rayon * 0.78;
+      ctx.globalAlpha = arrivee;
       ctx.fillStyle = '#4FB4FF';
       ctx.beginPath();
-      ctx.arc(cxp, cyp, rc, 0, Math.PI * 2);
+      ctx.arc(cxp, cyp, rc, 0, CARTE_TAU);
       ctx.fill();
       ctx.fillStyle = '#05070a';
       ctx.font = '700 ' + Math.round(rc * 1.25) + 'px "Public Sans", sans-serif';
@@ -13738,22 +14671,88 @@ function dessinerCarte(temps){
       ctx.fillText(String(groupe.total), cxp, cyp + rc * 0.06);
     }
 
-    if(survole) etiquette = { texte: groupe.nom, x: tete.x, y: tete.y, rayon };
+    ctx.globalAlpha = 1;
 
+    // L'étiquette : le nom de ce qu'on survole, ou de ce que la
+    // recherche vient de trouver.
+    if(survole){
+      voulue = { texte: groupe.nom, x: tx, y: ty, rayon };
+    } else if(trouve && !voulue && temps - carteMiseEnAvant.debut < 5200){
+      voulue = {
+        texte: profilTrouve
+          ? (profilTrouve.display_name || profilTrouve.instagram_handle) + ' · ' + groupe.nom
+          : groupe.nom,
+        x: tx, y: ty, rayon
+      };
+    }
+
+    // Visée au clic : un peu plus large que la pastille.
     carteEcran.push({
       groupe,
-      x: tete.x, y: tete.y,
-      rayon: Math.max(16, rayon * 1.6),
-      base, etendue,
-      tige: base.y - tete.y
+      x: tx, y: ty,
+      rayon: Math.max(16, rayon * 1.6)
     });
   });
 
-  // Le nom de ce qu'on survole, dessiné en dernier pour qu'aucune
-  // pastille ne le recouvre.
-  if(etiquette) dessinerEtiquetteCarte(ctx, etiquette, largeur);
+  adoucirBordsCarte(ctx, largeur, hauteur);
+
+  // Le nom, dessiné en dernier pour qu'aucune pastille ne le recouvre.
+  // Il s'estompe plutôt que d'apparaître d'un coup.
+  if(voulue) Object.assign(carteEtiquette, voulue);
+
+  carteEtiquette.alpha += ((voulue ? 1 : 0) - carteEtiquette.alpha) * lissage;
+
+  if(carteEtiquette.alpha > 0.02){
+    dessinerEtiquetteCarte(ctx, carteEtiquette, largeur);
+  }
 
   ctx.globalAlpha = 1;
+
+  // Les états des groupes qui n'existent plus à ce zoom ne servent
+  // plus : on les purge de loin en loin.
+  if(carteEtats.size > 320){
+    carteEtats.forEach((etatGroupe, cle) => {
+      if(etatGroupe.vu < carteImage - 60) carteEtats.delete(cle);
+    });
+  }
+
+  carteEntree = false;
+}
+
+
+// Les bords du cadre s'estompent : zoomée, la carte était coupée net,
+// et les points du fond finissaient en demi-disques contre le bord.
+// Quelques dizaines de pixels, assez pour que la coupe ne se voie plus
+// sans toucher aux pastilles — celles de la vue d'ensemble sont à plus
+// de vingt pixels du bord par construction du cadrage.
+function adoucirBordsCarte(ctx, largeur, hauteur){
+
+  const h = Math.min(24, largeur * 0.035);
+  const v = Math.min(20, hauteur * 0.035);
+
+  const degrade = (x0, y0, x1, y1) => {
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, 'rgba(0,0,0,1)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    return g;
+  };
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-out';
+
+  ctx.fillStyle = degrade(0, 0, h, 0);
+  ctx.fillRect(0, 0, h, hauteur);
+
+  ctx.fillStyle = degrade(largeur, 0, largeur - h, 0);
+  ctx.fillRect(largeur - h, 0, h, hauteur);
+
+  ctx.fillStyle = degrade(0, 0, 0, v);
+  ctx.fillRect(0, 0, largeur, v);
+
+  ctx.fillStyle = degrade(0, hauteur, 0, hauteur - v);
+  ctx.fillRect(0, hauteur - v, largeur, v);
+
+  ctx.restore();
 }
 
 
@@ -13761,8 +14760,8 @@ function dessinerEtiquetteCarte(ctx, etiquette, largeur){
 
   ctx.font = '600 12px "Public Sans", sans-serif';
 
-  const l = ctx.measureText(etiquette.texte).width + 18;
-  const h = 24;
+  const l = ctx.measureText(etiquette.texte).width + 20;
+  const h = 26;
 
   const x = Math.max(4, Math.min(largeur - l - 4, etiquette.x - l / 2));
   let y = etiquette.y - etiquette.rayon * 1.6 - h - 4;
@@ -13770,10 +14769,13 @@ function dessinerEtiquetteCarte(ctx, etiquette, largeur){
   // Trop près du haut : l'étiquette passe sous la pastille.
   if(y < 4) y = etiquette.y + etiquette.rayon * 1.6 + 4;
 
-  ctx.globalAlpha = 1;
+  // Elle se pose en montant de quelques pixels.
+  y += (1 - etiquette.alpha) * 5;
+
+  ctx.globalAlpha = etiquette.alpha;
   ctx.fillStyle = 'rgba(8,12,18,0.92)';
   ctx.beginPath();
-  if(ctx.roundRect) ctx.roundRect(x, y, l, h, 12);
+  if(ctx.roundRect) ctx.roundRect(x, y, l, h, 13);
   else ctx.rect(x, y, l, h);
   ctx.fill();
 
@@ -13789,7 +14791,16 @@ function dessinerEtiquetteCarte(ctx, etiquette, largeur){
 
 
 function boucleCarte(temps){
-  dessinerCarte(temps || 0);
+
+  // Écart depuis l'image précédente, plafonné : un onglet qu'on
+  // retrouve après une minute ne doit pas faire sauter les ressorts.
+  const dt = carteTempsPrecedent === null
+    ? 0
+    : Math.min(0.05, Math.max(0, (temps - carteTempsPrecedent) / 1000));
+
+  carteTempsPrecedent = temps;
+
+  dessinerCarte(temps || 0, dt);
   carteAnim = requestAnimationFrame(boucleCarte);
 }
 
@@ -13807,8 +14818,34 @@ function arreterCarte(){
   if(!carteAnim) return;
   cancelAnimationFrame(carteAnim);
   carteAnim = null;
+  carteTempsPrecedent = null;
 }
 
+
+// Le bouton « vue d'ensemble » n'a de sens que loin de celle-ci : il
+// n'apparaît qu'une fois la carte zoomée ou déplacée.
+let carteOutilsEcarte = null;
+
+function majOutilsCarte(){
+
+  const cible = carteCible || { zoom: carteZoom, panX: cartePanX, panY: cartePanY };
+  const loin = cible.zoom > 1.04 || Math.abs(cible.panX) > 6 || Math.abs(cible.panY) > 6;
+
+  if(loin === carteOutilsEcarte) return;
+  carteOutilsEcarte = loin;
+
+  const bouton = document.getElementById('carteVueGenerale');
+
+  if(bouton){
+    bouton.classList.toggle('visible', loin);
+    bouton.tabIndex = loin ? 0 : -1;
+    bouton.setAttribute('aria-hidden', String(!loin));
+  }
+}
+
+
+
+// ---- Gestes ----
 
 // La pastille sous le pointeur : une ville seule ou un groupe.
 function cibleSousLePointeur(evenement){
@@ -13845,94 +14882,134 @@ function approcherGroupeCarte(cible){
   const hauteur = canvas.clientHeight;
   const cadre = cadrageCarte(largeur, hauteur);
 
-  // Assez pour que le groupe occupe près de la moitié du cadre, au
-  // moins le double du zoom actuel, jamais au-delà du maximum.
-  const ajuste = 0.45 * Math.min(largeur, hauteur) /
-                 Math.max(cible.etendue.x, cible.etendue.y, 1);
+  const indices = cible.groupe.indices;
+  const depart = cibleCamera().zoom;
 
-  const facteur = Math.min(CARTE_3D.zoomMax / carteZoom, Math.max(2, ajuste));
+  // Ce que le groupe occupe au zoom 1 : on en déduit le zoom qui le
+  // fait tenir dans environ la moitié du cadre.
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+  indices.forEach(i => {
+    const sol = positionSolVille(carteVilles[i], 1, cadre);
+    minX = Math.min(minX, sol.x);  maxX = Math.max(maxX, sol.x);
+    minY = Math.min(minY, sol.y);  maxY = Math.max(maxY, sol.y);
+  });
+
+  const etendue = Math.max(maxX - minX, maxY - minY, 1);
+  const ajuste = 0.45 * Math.min(largeur, hauteur) / etendue;
+
+  // Au moins le double du zoom actuel, jamais au-delà du maximum.
+  const facteur = Math.min(CARTE_3D.zoomMax / depart, Math.max(2, ajuste / depart));
 
   if(facteur < 1.05){
-    ouvrirGroupeCarte(cible.groupe.indices);
+    memoriserVueCarte();
+    ouvrirGroupeCarte(indices);
     return;
   }
 
-  const zoom = carteZoom * facteur;
-
-  // Autour du centre du cadre, les distances au sol sont multipliées
-  // par le facteur ; la tige, elle, garde sa longueur. D'où ces deux
-  // équations, qui amènent la pastille du groupe au centre.
-  const cx = cadre.cx + cartePanX;
-  const cy = cadre.cy + cartePanY;
-
-  const panX = largeur / 2 - facteur * (cible.base.x - cx) - cadre.cx;
-  const panY = hauteur / 2 + cible.tige - facteur * (cible.base.y - cy) - cadre.cy;
-
-  const marge = margeDeplacementCarte(zoom);
-
-  animerVueCarte(
-    zoom,
-    Math.max(-marge, Math.min(marge, panX)),
-    Math.max(-marge, Math.min(marge, panY))
-  );
+  centrerCarteSur(indices, depart * facteur, 7);
 }
 
 
-// Zoom ancré sur le pointeur : le point survolé ne bouge pas pendant
-// que la carte grossit. Un zoom centré sur le cadre obligerait à
-// repositionner la vue après chaque cran de molette.
-function zoomerCarte(facteur, versX, versY){
+// Le doigt est levé en plein mouvement : la carte garde son élan et
+// s'arrête en douceur. La vitesse se lit sur les derniers instants du
+// geste ; le ressort, lancé avec elle, glisse sur la distance qu'elle
+// autorise (vitesse ÷ raideur) sans à-coup au moment du lâcher.
+function lancerElanCarte(saisie, tFin){
 
-  const canvas = document.getElementById('carteCanvas');
-  if(!canvas) return;
+  if(carteMouvementReduit()) return;
 
-  const largeur = canvas.clientWidth;
-  const hauteur = canvas.clientHeight;
+  const recents = saisie.echantillons.filter(p => tFin - p.t < 110);
+  if(recents.length < 2) return;
 
-  const mx = versX === undefined ? largeur / 2 : versX;
-  const my = versY === undefined ? hauteur / 2 : versY;
+  const premier = recents[0];
+  const dernier = recents[recents.length - 1];
+  const duree = dernier.t - premier.t;
+  if(duree < 8) return;
 
-  // La molette reprend la main sur un zoom animé en cours.
-  carteTransition = null;
+  let vx = (dernier.x - premier.x) / duree * 1000;
+  let vy = (dernier.y - premier.y) / duree * 1000;
 
-  const avant = carteZoom;
-  carteZoom = Math.max(1, Math.min(CARTE_3D.zoomMax, carteZoom * facteur));
+  const vitesse = Math.hypot(vx, vy);
+  if(vitesse < 140) return;
 
-  const reel = carteZoom / avant;
-  if(reel === 1) return;
+  const plafond = 2600;
+  if(vitesse > plafond){
+    vx *= plafond / vitesse;
+    vy *= plafond / vitesse;
+  }
 
-  const cadre = cadrageCarte(largeur, hauteur);
+  carteRaideur = 6;
 
-  const cx = cadre.cx + cartePanX;
-  const cy = cadre.cy + cartePanY;
+  const cible = cibleCamera();
 
-  cartePanX = mx + (cx - mx) * reel - cadre.cx;
-  cartePanY = my + (cy - my) * reel - cadre.cy;
-
-  brider();
+  carteVitesse.panX = vx;
+  carteVitesse.panY = vy;
+  cible.panX = cartePanX + vx / carteRaideur;
+  cible.panY = cartePanY + vy / carteRaideur;
+  brider(cible);
 }
 
 
-// La vue ne doit pas pouvoir être tirée jusqu'à sortir la France du
-// cadre : au zoom minimal elle reste centrée, et plus on zoome plus on
-// s'autorise à s'éloigner du centre.
-function margeDeplacementCarte(zoom){
-  const canvas = document.getElementById('carteCanvas');
-  return canvas ? canvas.clientWidth * 0.55 * (zoom - 1) : 0;
-}
+// Pendant un glisser ou un pincement, la vue courante reste dans ses
+// limites, comme sa cible.
+function briderVueCourante(){
 
-function brider(){
   const marge = margeDeplacementCarte(carteZoom);
+
   cartePanX = Math.max(-marge, Math.min(marge, cartePanX));
   cartePanY = Math.max(-marge, Math.min(marge, cartePanY));
 }
 
 
-function reinitialiserCarte(){
-  carteTransition = null;
-  carteZoom = 1;
-  cartePanX = 0;
-  cartePanY = 0;
+function commencerPincementCarte(canvas){
+
+  const [a, b] = [...carteDoigts.values()];
+  const cadreCanvas = canvas.getBoundingClientRect();
+  const cadre = cadrageCarte(canvas.clientWidth, canvas.clientHeight);
+
+  carteCible = null;
+  carteVitesse = { zoom: 0, panX: 0, panY: 0 };
+  carteSaisie = null;
+  canvas.classList.remove('saisie');
+
+  carteGeste = {
+    d0: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+    mx0: (a.x + b.x) / 2 - cadreCanvas.left,
+    my0: (a.y + b.y) / 2 - cadreCanvas.top,
+    zoom0: carteZoom,
+    cx0: cadre.cx + cartePanX,
+    cy0: cadre.cy + cartePanY
+  };
+
+  carteDernierGlisser = true;
+}
+
+
+// Le point entre les deux doigts reste sous eux : on cherche où doit
+// tomber le centre de la carte pour que le point du sol qu'ils
+// enserraient au départ soit à leur milieu, au zoom d'aujourd'hui.
+function mettreAJourPincementCarte(canvas){
+
+  if(!carteGeste || carteDoigts.size < 2) return;
+
+  const [a, b] = [...carteDoigts.values()];
+  const g = carteGeste;
+  const cadreCanvas = canvas.getBoundingClientRect();
+  const cadre = cadrageCarte(canvas.clientWidth, canvas.clientHeight);
+
+  const d = Math.hypot(a.x - b.x, a.y - b.y);
+  const mx = (a.x + b.x) / 2 - cadreCanvas.left;
+  const my = (a.y + b.y) / 2 - cadreCanvas.top;
+
+  const zoom = Math.max(1, Math.min(CARTE_3D.zoomMax, g.zoom0 * d / g.d0));
+  const reel = zoom / g.zoom0;
+
+  carteZoom = zoom;
+  cartePanX = mx - (g.mx0 - g.cx0) * reel - cadre.cx;
+  cartePanY = my - (g.my0 - g.cy0) * reel - cadre.cy;
+
+  briderVueCourante();
 }
 
 
@@ -13944,77 +15021,211 @@ function brancherCarte(){
   canvas.dataset.branche = '1';
 
   canvas.addEventListener('pointerdown', (e) => {
-    // Saisir la carte interrompt un zoom animé : sinon il continuerait
-    // de déplacer la vue sous le doigt.
-    carteTransition = null;
-    carteSaisie = {
-      x: e.clientX, y: e.clientY,
-      panX: cartePanX, panY: cartePanY,
-      bouge: false
-    };
-    canvas.classList.add('saisie');
-  });
 
-  window.addEventListener('pointermove', (e) => {
+    if(e.pointerType === 'mouse' && e.button !== 0) return;
 
-    if(carteSaisie){
-      const dx = e.clientX - carteSaisie.x;
-      const dy = e.clientY - carteSaisie.y;
-      if(Math.abs(dx) > 3 || Math.abs(dy) > 3) carteSaisie.bouge = true;
-      cartePanX = carteSaisie.panX + dx;
-      cartePanY = carteSaisie.panY + dy;
-      brider();
+    carteDoigts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    // Le doigt reste « à nous » même s'il sort du cadre en glissant.
+    try{ canvas.setPointerCapture(e.pointerId); }catch(erreur){ /* sans effet */ }
+
+    carteDernierGlisser = false;
+
+    if(carteDoigts.size === 2){
+      commencerPincementCarte(canvas);
       return;
     }
 
-    if(!document.getElementById('page-carte').classList.contains('active')) return;
+    if(carteDoigts.size > 2) return;
+
+    // Saisir la carte arrête tout mouvement en cours : sinon la vue
+    // continuerait de glisser sous le doigt.
+    carteCible = null;
+    carteVitesse = { zoom: 0, panX: 0, panY: 0 };
+
+    carteSaisie = {
+      x: e.clientX, y: e.clientY,
+      panX: cartePanX, panY: cartePanY,
+      bouge: false,
+      echantillons: [{ t: e.timeStamp, x: e.clientX, y: e.clientY }]
+    };
+
+    canvas.classList.add('saisie');
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+
+    if(carteDoigts.has(e.pointerId)){
+      carteDoigts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    if(carteGeste){
+      mettreAJourPincementCarte(canvas);
+      return;
+    }
+
+    if(carteSaisie){
+
+      const dx = e.clientX - carteSaisie.x;
+      const dy = e.clientY - carteSaisie.y;
+
+      if(Math.abs(dx) > 3 || Math.abs(dy) > 3) carteSaisie.bouge = true;
+
+      if(carteSaisie.bouge){
+        cartePanX = carteSaisie.panX + dx;
+        cartePanY = carteSaisie.panY + dy;
+        briderVueCourante();
+      }
+
+      carteSaisie.echantillons.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
+      if(carteSaisie.echantillons.length > 12) carteSaisie.echantillons.shift();
+
+      return;
+    }
+
+    // Le survol n'existe qu'à la souris : au doigt, il ne ferait que
+    // laisser une étiquette collée à la dernière pastille touchée.
+    if(e.pointerType !== 'mouse') return;
 
     const trouvee = cibleSousLePointeur(e);
     const cle = trouvee ? trouvee.groupe.cle : null;
+
     if(cle !== carteSurvol){
       carteSurvol = cle;
-      canvas.style.cursor = trouvee ? 'pointer' : 'grab';
+      canvas.classList.toggle('sur-pastille', !!trouvee);
     }
-  }, { passive: true });
-
-  window.addEventListener('pointerup', () => {
-    if(carteSaisie) canvas.classList.remove('saisie');
-    carteSaisie = null;
   });
 
+  canvas.addEventListener('pointerleave', (e) => {
+    if(e.pointerType !== 'mouse' || carteSaisie) return;
+    carteSurvol = null;
+    canvas.classList.remove('sur-pastille');
+  });
+
+  const finDuDoigt = (e) => {
+
+    carteDoigts.delete(e.pointerId);
+
+    try{ canvas.releasePointerCapture(e.pointerId); }catch(erreur){ /* sans effet */ }
+
+    if(carteGeste){
+
+      // Un doigt se lève : le pincement s'achève, et celui qui reste
+      // reprend la main sans que la carte saute.
+      carteGeste = null;
+      carteDernierGlisser = true;
+
+      if(carteDoigts.size === 1){
+        const [reste] = [...carteDoigts.values()];
+        carteSaisie = {
+          x: reste.x, y: reste.y,
+          panX: cartePanX, panY: cartePanY,
+          bouge: true,
+          echantillons: []
+        };
+        canvas.classList.add('saisie');
+      }
+
+      return;
+    }
+
+    if(!carteSaisie) return;
+
+    const saisie = carteSaisie;
+    carteSaisie = null;
+    canvas.classList.remove('saisie');
+
+    // Le clic arrive après le relâchement : on retient si le geste
+    // était un déplacement, pour ne pas ouvrir la ville effleurée.
+    carteDernierGlisser = saisie.bouge;
+
+    if(saisie.bouge && e.type === 'pointerup') lancerElanCarte(saisie, e.timeStamp);
+  };
+
+  canvas.addEventListener('pointerup', finDuDoigt);
+  canvas.addEventListener('pointercancel', finDuDoigt);
+
   canvas.addEventListener('wheel', (e) => {
+
     e.preventDefault();
+
+    // Une molette envoie ±100 par cran, un pavé tactile de petits
+    // écarts en continu : la même loi exponentielle les rend tous
+    // deux fluides. Le pincement du pavé arrive avec Ctrl, plus fin.
+    let delta = e.deltaY;
+    if(e.deltaMode === 1) delta *= 33;
+    if(e.deltaMode === 2) delta *= 400;
+    delta = Math.max(-240, Math.min(240, delta));
+
     const cadre = canvas.getBoundingClientRect();
+
     zoomerCarte(
-      e.deltaY < 0 ? 1.16 : 1 / 1.16,
+      Math.exp(-delta * (e.ctrlKey ? 0.012 : 0.0017)),
       e.clientX - cadre.left,
-      e.clientY - cadre.top
+      e.clientY - cadre.top,
+      11
     );
+
   }, { passive: false });
+
+  // Double clic dans le vide : un zoom d'un bon cran vers le point visé.
+  canvas.addEventListener('dblclick', (e) => {
+
+    if(cibleSousLePointeur(e)) return;
+
+    const cadre = canvas.getBoundingClientRect();
+
+    zoomerCarte(2.2, e.clientX - cadre.left, e.clientY - cadre.top, 9);
+  });
 
   // Un glisser ne doit pas ouvrir la ville qu'on a effleurée en cours
   // de route : seul un clic sans déplacement compte.
   canvas.addEventListener('click', (e) => {
+
     if(carteDernierGlisser) return;
+
     const cible = cibleSousLePointeur(e);
     if(!cible) return;
-    if(cible.groupe.indices.length === 1) ouvrirVilleCarte(cible.groupe.indices[0]);
+
+    if(cible.groupe.indices.length === 1) selectionnerVilleCarte(cible.groupe.indices[0]);
     else approcherGroupeCarte(cible);
   });
 
-  // Le clic arrive après le relâchement : on retient si le geste
-  // précédent était un déplacement.
-  canvas.addEventListener('pointerup', () => {
-    carteDernierGlisser = !!(carteSaisie && carteSaisie.bouge);
-    setTimeout(() => { carteDernierGlisser = false; }, 0);
+  // La barre des pays suit sa police et sa largeur : le fond mobile
+  // doit rester calé sur l'onglet actif.
+  const barre = document.getElementById('cartePays');
+
+  if(barre && window.ResizeObserver){
+    new ResizeObserver(() => placerFondOnglets(false)).observe(barre);
+  }
+
+  // Un clic ailleurs referme la liste de la recherche.
+  document.addEventListener('pointerdown', (e) => {
+    const formulaire = document.getElementById('carteRecherche');
+    if(formulaire && !formulaire.contains(e.target)) fermerResultatsCarte();
+  });
+
+  // Échap quitte la ville ouverte et rend la vue d'ensemble — sauf si
+  // la recherche l'a déjà utilisé pour se refermer.
+  document.addEventListener('keydown', (e) => {
+
+    if(e.key !== 'Escape' || e.defaultPrevented) return;
+
+    const page = document.getElementById('page-carte');
+    if(!page || !page.classList.contains('active')) return;
+
+    if(carteVilleActive >= 0 || carteGroupeActif) fermerSelectionCarte();
   });
 }
 
 
-// Regroupe les artistes du pays affiché par ville : plusieurs artistes
-// d'une même commune partagent un seul point, sinon leurs marqueurs se
+
+// ---- Les villes et les artistes de la carte ----
+
+// Regroupe les artistes d'un pays par ville : plusieurs artistes d'une
+// même commune partagent un seul point, sinon leurs marqueurs se
 // recouvriraient exactement.
-function villesDeLaCarte(){
+function villesDuPays(cle){
 
   const villes = {};
 
@@ -14022,16 +15233,16 @@ function villesDeLaCarte(){
 
     const lieu = lieuDuProfil(profil);
 
-    if(!lieu || paysDuLieu(lieu.lat, lieu.lon) !== cartePays) return;
+    if(!lieu || paysDuLieu(lieu.lat, lieu.lon) !== cle) return;
 
     const { lat, lon } = lieu;
-    const cle = profil.ville.toLowerCase() + '|' + lat.toFixed(3) + '|' + lon.toFixed(3);
+    const clePoint = profil.ville.toLowerCase() + '|' + lat.toFixed(3) + '|' + lon.toFixed(3);
 
-    if(!villes[cle]){
-      villes[cle] = { nom: profil.ville, lat, lon, artistes: [] };
+    if(!villes[clePoint]){
+      villes[clePoint] = { cle: clePoint, nom: profil.ville, lat, lon, pays: cle, artistes: [] };
     }
 
-    villes[cle].artistes.push(profil);
+    villes[clePoint].artistes.push(profil);
   });
 
   return Object.values(villes).sort((a, b) =>
@@ -14046,64 +15257,72 @@ let carteVilleActive = -1;
 let carteGroupeActif = null;   // indices des villes listées ensemble
 
 
-async function renderCarte(){
+function villesDeLaCarte(){
 
-  const canvas = document.getElementById('carteCanvas');
-  const panneau = document.getElementById('cartePanneau');
+  const villes = villesDuPays(cartePays);
 
-  if(!canvas || !panneau) return;
+  // Position sur la grille du pays affiché, calculée une fois.
+  villes.forEach(ville => {
+    ville.g = projeterSurCarte(ville.lon, ville.lat);
+  });
 
-  // Les sorties servent à compter celles de chaque artiste ; les
-  // profils portent la ville.
-  if(!catalogueData.length) await renderCatalogue();
-  await loadArtists();
+  return villes;
+}
 
-  // Le menu mène à #carte sans préciser de pays : l'adresse reprend
-  // celui qu'on regardait, pour qu'un lien copié rouvre la même carte.
-  if(document.getElementById('page-carte').classList.contains('active')){
-    history.replaceState(null, '', adresseCarte(cartePays));
+
+function artistesLocalises(){
+
+  const liste = [];
+
+  carteVilles.forEach((ville, index) => {
+    ville.artistes.forEach(profil => liste.push({ profil, ville, index }));
+  });
+
+  return liste;
+}
+
+
+// Le nombre de sorties de chaque artiste, d'après le catalogue : lui
+// comme invité compte aussi, comme sur sa page. Calculé une fois par
+// lecture du catalogue plutôt qu'une fois par ligne affichée.
+let carteComptesSorties = null;
+
+function sortiesParArtisteCarte(){
+
+  if(carteComptesSorties && carteComptesSorties.ref === catalogueData){
+    return carteComptesSorties.comptes;
   }
 
-  // Revenir d'une fiche artiste garde le zoom ; arriver sur un autre
-  // pays repart de la vue d'ensemble.
-  afficherPaysCarte(cartePaysAffiche !== cartePays);
+  const comptes = new Map();
 
-  brancherCarte();
-  demarrerCarte();
+  const compter = (handle) => {
+    if(handle) comptes.set(handle, (comptes.get(handle) || 0) + 1);
+  };
+
+  catalogueData.forEach(sortie => {
+    compter(sortie.artistHandle || instagramHandle(sortie.instagram));
+    (sortie.featuring || []).forEach(feat => compter(feat.handle));
+  });
+
+  carteComptesSorties = { ref: catalogueData, comptes };
+
+  return comptes;
 }
 
 
-var cartePaysAffiche = null;
+function libelleSortiesCarte(handle){
 
+  const n = sortiesParArtisteCarte().get(handle) || 0;
 
-function adresseCarte(cle){
-  return '#carte' + (cle === 'france' ? '' : '/' + cle);
-}
-
-
-// Prépare la carte du pays courant : ses villes, un cadrage neuf, et le
-// panneau qui résume ce pays. La vue d'ensemble n'est rétablie que sur
-// demande.
-function afficherPaysCarte(reinitialiser){
-
-  carteVilles = villesDeLaCarte();
-  carteVilleActive = -1;
-  carteGroupeActif = null;
-  carteSurvol = null;
-
-  // Le cadrage dépend de la grille et des villes affichées.
-  carteCadre = null;
-  if(reinitialiser) reinitialiserCarte();
-  cartePaysAffiche = cartePays;
-
-  renderOngletsPays();
-  panneauToutesLesVilles();
+  return n
+    ? n + ' sortie' + (n > 1 ? 's' : '') + ' sur La Wave'
+    : 'Pas encore de sortie';
 }
 
 
 // ---- Onglets France / Belgique / Suisse ----
 
-function renderOngletsPays(){
+function renderOngletsPays(animer){
 
   const barre = document.getElementById('cartePays');
   if(!barre) return;
@@ -14115,16 +15334,47 @@ function renderOngletsPays(){
     if(lieu) comptes[paysDuLieu(lieu.lat, lieu.lon)]++;
   });
 
-  barre.innerHTML = Object.keys(CARTES_PAYS).map(cle => {
+  // Les boutons sont dans la page depuis le départ et ne sont jamais
+  // reconstruits : le fond qui glisse de l'un à l'autre ne survivrait pas
+  // à une reconstruction, et le focus clavier non plus.
+  Object.keys(CARTES_PAYS).forEach(cle => {
+    const bouton = document.getElementById('cartePays-' + cle);
     const actif = cle === cartePays;
-    return `
-      <button type="button" role="tab" id="cartePays-${cle}"
-              aria-selected="${actif}" tabindex="${actif ? 0 : -1}"
-              onclick="choisirPaysCarte('${cle}')">
-        ${escapeHtml(CARTES_PAYS[cle].nom)}
-        <span class="carte-pays-compte">${comptes[cle]}</span>
-      </button>`;
-  }).join('');
+    bouton.setAttribute('aria-selected', String(actif));
+    bouton.tabIndex = actif ? 0 : -1;
+    bouton.querySelector('.carte-pays-compte').textContent = comptes[cle];
+  });
+
+  placerFondOnglets(!!animer);
+}
+
+
+// Le fond mobile prend la place et la largeur de l'onglet actif.
+function placerFondOnglets(animer){
+
+  const barre = document.getElementById('cartePays');
+  if(!barre) return;
+
+  const fond = barre.querySelector('.carte-pays-fond');
+  const actif = barre.querySelector('button[aria-selected="true"]');
+
+  // Page masquée : les mesures seraient nulles.
+  if(!fond || !actif || !actif.offsetWidth) return;
+
+  if(!animer || carteMouvementReduit()){
+    fond.style.transition = 'none';
+  }
+
+  fond.style.width = actif.offsetWidth + 'px';
+  fond.style.transform = 'translateX(' + actif.offsetLeft + 'px)';
+  fond.classList.add('pret');
+
+  if(!animer || carteMouvementReduit()){
+    // Lu pour que le navigateur applique la position avant de
+    // rendre les transitions.
+    void fond.offsetWidth;
+    fond.style.transition = '';
+  }
 }
 
 
@@ -14132,8 +15382,6 @@ function choisirPaysCarte(cle, depuisClavier){
 
   if(!paysCarteValide(cle) || cle === cartePays) return;
 
-  // Les onglets sont redessinés : le focus doit suivre sur le nouveau,
-  // sinon il retombe au début de la page.
   const barre = document.getElementById('cartePays');
   const avaitFocus = !!(barre && barre.contains(document.activeElement));
 
@@ -14143,7 +15391,7 @@ function choisirPaysCarte(cle, depuisClavier){
   // l'historique, le bouton Précédent quitte la carte.
   history.replaceState(null, '', adresseCarte(cle));
 
-  afficherPaysCarte(true);
+  afficherPaysCarte(true, true);
 
   if(depuisClavier || avaitFocus){
     const onglet = document.getElementById('cartePays-' + cle);
@@ -14155,8 +15403,11 @@ function choisirPaysCarte(cle, depuisClavier){
   const canvas = document.getElementById('carteCanvas');
   if(canvas && canvas.animate && !carteMouvementReduit()){
     canvas.animate(
-      [{ opacity: 0, transform: 'scale(.97)' }, { opacity: 1, transform: 'none' }],
-      { duration: 320, easing: 'cubic-bezier(.2,.7,.2,1)' }
+      [
+        { opacity: 0, transform: 'scale(.965)', filter: 'blur(6px)' },
+        { opacity: 1, transform: 'none', filter: 'blur(0)' }
+      ],
+      { duration: 520, easing: 'cubic-bezier(.16,1,.3,1)' }
     );
   }
 }
@@ -14182,49 +15433,231 @@ function clavierOngletsPays(evenement){
 }
 
 
-// Depuis la fiche d'un artiste : la carte de son pays.
+// Depuis la fiche d'un artiste : la carte de son pays, et l'artiste
+// retrouvé dessus une fois la carte installée.
+var carteAllerA = null;
+
 function ouvrirCarteDeLArtiste(handle){
 
   const profil = artistsByHandle[handle];
   const lieu = profil && lieuDuProfil(profil);
 
-  if(lieu) cartePays = paysDuLieu(lieu.lat, lieu.lon);
+  if(lieu){
+    cartePays = paysDuLieu(lieu.lat, lieu.lon);
+    carteAllerA = handle;
+  }
 
   goTo('carte', { parametre: cartePays === 'france' ? '' : cartePays });
 }
 
 
-// ---- Panneau de droite : un artiste à la fois ----
+function adresseCarte(cle){
+  return '#carte' + (cle === 'france' ? '' : '/' + cle);
+}
+
+
+// ---- Ouverture de la page ----
+
+var carteArtistesLusLe = 0;
+var cartePaysAffiche = null;
+
+async function renderCarte(){
+
+  const canvas = document.getElementById('carteCanvas');
+  const panneau = document.getElementById('cartePanneau');
+
+  if(!canvas || !panneau) return;
+
+  // Le temps de lire les données, le panneau n'est pas un vide : un
+  // fond qui respire. Rien ici ne touche une variable déclarée plus
+  // bas dans le script — goTo peut nous appeler pendant son chargement.
+  if(!panneau.firstElementChild){
+    panneau.innerHTML =
+      '<div class="carte-vue"><div class="carte-squelette" aria-hidden="true">' +
+      '<i></i><i></i><i></i></div></div>';
+  }
+
+  // Les sorties servent à compter celles de chaque artiste ; les
+  // profils portent la ville.
+  if(!catalogueData.length) await renderCatalogue();
+
+  // Les profils ne sont relus que s'ils datent : revenir d'une fiche
+  // d'artiste ne doit pas retélécharger la liste entière.
+  if(!Object.keys(artistsByHandle).length || Date.now() - carteArtistesLusLe > 60000){
+    await loadArtists();
+    carteArtistesLusLe = Date.now();
+  }
+
+  // Le menu mène à #carte sans préciser de pays : l'adresse reprend
+  // celui qu'on regardait, pour qu'un lien copié rouvre la même carte.
+  if(document.getElementById('page-carte').classList.contains('active')){
+    history.replaceState(null, '', adresseCarte(cartePays));
+  }
+
+  carteDoigts.clear();
+  carteSaisie = null;
+  carteGeste = null;
+
+  // Revenir d'une fiche artiste garde le zoom ; arriver sur un autre
+  // pays repart de la vue d'ensemble.
+  afficherPaysCarte(cartePaysAffiche !== cartePays, false);
+
+  brancherCarte();
+  demarrerCarte();
+
+  if(carteAllerA){
+    const handle = carteAllerA;
+    carteAllerA = null;
+    // Après l'entrée des pastilles : la caméra part d'une carte installée.
+    setTimeout(() => allerAArtisteCarte(handle), 650);
+  }
+}
+
+
+// Prépare la carte du pays courant : ses villes, un cadrage neuf, et le
+// panneau qui résume ce pays. La vue d'ensemble n'est rétablie que sur
+// demande.
+function afficherPaysCarte(reinitialiser, animerOnglets){
+
+  carteVilles = villesDeLaCarte();
+  carteSurvol = null;
+
+  // Le cadrage dépend de la grille et des villes affichées.
+  carteCadre = null;
+  carteGroupesMemo = null;
+
+  if(reinitialiser) reinitialiserCarte();
+
+  // Revenir d'une fiche d'artiste, c'est retrouver la carte comme on
+  // l'a laissée : le zoom, la ville ouverte et sa liste, et des
+  // pastilles qui ne rejouent pas leur entrée. Un autre pays, ou des
+  // villes qui ont changé, repartent de zéro.
+  const signature = cartePays + '|' + carteVilles.map(v => v.cle + ':' + v.artistes.length).join(';');
+  const memeCarte = !reinitialiser && signature === carteSignature;
+
+  if(!memeCarte){
+    carteEtats = new Map();
+    carteEntree = true;
+    carteVilleActive = -1;
+    carteGroupeActif = null;
+    carteMiseEnAvant = null;
+    carteRetourVue = null;
+  }
+
+  carteSignature = signature;
+  cartePaysAffiche = cartePays;
+
+  renderOngletsPays(animerOnglets);
+
+  if(!memeCarte || (carteVilleActive < 0 && !carteGroupeActif)){
+    panneauToutesLesVilles();
+  }
+}
+
+
+// ---- Panneau de droite ----
 //
-// La liste des villes disait où regarder, pas qui on allait trouver.
-// À la place, un seul profil en grand, tiré au hasard, renouvelé
-// toutes les deux secondes : le panneau montre un artiste plutôt
-// qu'un sommaire.
-//
-// Le défilé s'arrête au survol, sinon la fiche visée se dérobe au
-// moment du clic.
-const CARTE_DEFILE = {
-  periode: 2000
-};
+// Il montre un artiste en grand, tiré au hasard et renouvelé : un
+// sommaire des villes disait où regarder, pas qui on allait trouver.
+// Une ville choisie y déploie la liste de ses artistes. Chaque
+// changement se fait en fondu — l'ancienne vue s'efface en montant
+// pendant que la nouvelle arrive de dessous —, dans un cadre de hauteur
+// fixe : rien ne saute dans la page.
 
-var carteDefileTimer = null;   // `var` : arreterDefileCarte est appelée avant
-let carteDefileDernier = null; // handle affiché, pour ne pas le retirer
-let carteDefileFige = false;
+const ICONE_RETOUR_CARTE =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="m15 18-6-6 6-6"/></svg>';
+
+const CARTE_DEFILE = { periode: 3000 };
+
+// Le total de l'accueil du panneau compte jusqu'à sa valeur, et passe
+// d'un pays à l'autre en comptant — de 299 à 12 sans que le chiffre ne
+// saute. Il part du dernier total affiché : revenir à la liste d'une
+// ville vers ce même total ne le rejoue pas.
+let carteDernierTotal = 0;
+
+function animerChiffreCarte(element, vers){
+
+  const de = carteDernierTotal;
+  carteDernierTotal = vers;
+
+  // Page masquée, ou mouvement réduit : la valeur d'arrivée, tout de
+  // suite — requestAnimationFrame ne tournerait pas.
+  if(!element || de === vers || carteMouvementReduit() || document.hidden){
+    if(element) element.textContent = String(vers);
+    return;
+  }
+
+  element.textContent = String(de);
+
+  const debut = performance.now();
+  const duree = 1000;
+
+  const pas = (t) => {
+    if(!element.isConnected) return;
+    const u = Math.max(0, Math.min(1, (t - debut) / duree));
+    // Sortie exponentielle : vif au départ, long à l'arrivée, comme
+    // tout ce qui bouge sur le site.
+    const e = u >= 1 ? 1 : 1 - Math.pow(2, -10 * u);
+    element.textContent = String(Math.round(de + (vers - de) * e));
+    if(u < 1) requestAnimationFrame(pas);
+  };
+
+  requestAnimationFrame(pas);
+}
 
 
-function artistesLocalises(){
-  const liste = [];
-  carteVilles.forEach((ville, index) => {
-    ville.artistes.forEach(profil => liste.push({ profil, ville, index }));
-  });
-  return liste;
+function changerPanneau(remplir){
+
+  const panneau = document.getElementById('cartePanneau');
+  if(!panneau) return null;
+
+  const vue = document.createElement('div');
+  vue.className = 'carte-vue';
+  remplir(vue);
+
+  const actuelle = panneau.querySelector('.carte-vue:not(.sortante)');
+  const animer = !!actuelle && !!panneau.animate && !carteMouvementReduit();
+
+  if(!animer){
+    panneau.replaceChildren(vue);
+    return vue;
+  }
+
+  // Une vue encore en train de sortir cède la place à la plus récente.
+  panneau.querySelectorAll('.carte-vue.sortante').forEach(ancienne => ancienne.remove());
+
+  actuelle.classList.add('sortante');
+  actuelle.inert = true;
+  panneau.appendChild(vue);
+
+  actuelle.animate(
+    [
+      { opacity: 1, transform: 'none' },
+      { opacity: 0, transform: 'translateY(-10px) scale(.985)' }
+    ],
+    { duration: 220, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }
+  ).onfinish = () => actuelle.remove();
+
+  vue.animate(
+    [
+      { opacity: 0, transform: 'translateY(16px)' },
+      { opacity: 1, transform: 'none' }
+    ],
+    { duration: 560, easing: 'cubic-bezier(.16,1,.3,1)', delay: 80, fill: 'backwards' }
+  );
+
+  return vue;
 }
 
 
 function arreterDefileCarte(){
-  if(!carteDefileTimer) return;
-  clearInterval(carteDefileTimer);
-  carteDefileTimer = null;
+
+  if(!carteDefile) return;
+
+  clearTimeout(carteDefile.timer);
+  carteDefile = null;
 }
 
 
@@ -14240,57 +15673,130 @@ function panneauToutesLesVilles(){
   const nomPays = CARTES_PAYS[cartePays].nom;
 
   if(carteVilles.length === 0){
-    panneau.innerHTML = cartePays === 'france'
-      ? `<p class="carte-invite">
-           Aucun artiste localisé pour l'instant. L'équipe renseigne leur
-           ville depuis l'espace équipe, onglet <strong>Artistes</strong> —
-           ils apparaissent alors ici.
-         </p>`
-      : `<p class="carte-invite">
-           Aucun artiste localisé en ${escapeHtml(nomPays)} pour l'instant.
-         </p>`;
+    carteDernierTotal = 0;
+    changerPanneau(vue => {
+      vue.classList.add('carte-vue-vide');
+      vue.innerHTML = cartePays === 'france'
+        ? `<p class="carte-invite">
+             Aucun artiste localisé pour l'instant. L'équipe renseigne leur
+             ville depuis l'espace équipe, onglet <strong>Artistes</strong> —
+             ils apparaissent alors ici.
+           </p>`
+        : `<p class="carte-invite">
+             Aucun artiste localisé en ${escapeHtml(nomPays)} pour l'instant.
+           </p>`;
+    });
     return;
   }
 
   const tous = artistesLocalises();
 
-  panneau.innerHTML = `
-    <h3>${tous.length} artiste${tous.length > 1 ? 's' : ''}</h3>
-    <span class="carte-compte">
-      ${carteVilles.length} ville${carteVilles.length > 1 ? 's' : ''} en ${escapeHtml(nomPays)}
-    </span>
-    <div class="carte-defile" id="carteDefile"></div>`;
+  const vue = changerPanneau(v => {
+    v.classList.add('carte-vue-accueil');
+    v.innerHTML = `
+      <h3 class="carte-titre">
+        <span class="carte-chiffre">${carteDernierTotal || tous.length}</span>
+        artiste${tous.length > 1 ? 's' : ''}
+      </h3>
+      <span class="carte-compte">
+        ${carteVilles.length} ville${carteVilles.length > 1 ? 's' : ''} en ${escapeHtml(nomPays)}
+      </span>
+      <div class="carte-defile"></div>
+      <span class="carte-defile-barre" aria-hidden="true"></span>`;
+  });
 
-  carteDefileDernier = null;
-  dessinerDefileCarte();
+  animerChiffreCarte(vue.querySelector('.carte-chiffre'), tous.length);
+
+  carteDefile = {
+    zone: vue.querySelector('.carte-defile'),
+    barre: vue.querySelector('.carte-defile-barre'),
+    timer: null,
+    debut: 0,
+    reste: CARTE_DEFILE.periode,
+    fige: false,
+    dernier: null
+  };
+
+  montrerVedetteCarte(true);
 
   // Rien à faire tourner s'il n'y en a qu'un.
   if(tous.length < 2) return;
 
-  const zone = document.getElementById('carteDefile');
+  const defile = carteDefile;
 
-  if(zone){
-    zone.addEventListener('pointerenter', () => { carteDefileFige = true; });
-    zone.addEventListener('pointerleave', () => { carteDefileFige = false; });
-    zone.addEventListener('focusin', () => { carteDefileFige = true; });
-    zone.addEventListener('focusout', () => { carteDefileFige = false; });
-  }
+  // Le défilé s'arrête au survol, sinon la fiche visée se dérobe au
+  // moment du clic ; la barre du bas s'arrête avec lui.
+  defile.zone.addEventListener('pointerenter', figerDefileCarte);
+  defile.zone.addEventListener('pointerleave', reprendreDefileCarte);
+  defile.zone.addEventListener('focusin', figerDefileCarte);
+  defile.zone.addEventListener('focusout', reprendreDefileCarte);
 
-  carteDefileFige = false;
+  relancerBarreDefileCarte();
+  planifierDefileCarte(CARTE_DEFILE.periode);
+}
 
-  carteDefileTimer = setInterval(() => {
+
+// La barre fine sous l'artiste dit combien de temps il lui reste. Son
+// animation repart à zéro à chaque nouvel artiste ; recréer l'élément
+// suffit à la relancer.
+function relancerBarreDefileCarte(){
+
+  const d = carteDefile;
+  if(!d) return;
+
+  const trait = document.createElement('i');
+  trait.style.animationDuration = CARTE_DEFILE.periode + 'ms';
+
+  d.barre.replaceChildren(trait);
+}
+
+
+function planifierDefileCarte(ms){
+
+  const d = carteDefile;
+  if(!d) return;
+
+  clearTimeout(d.timer);
+
+  d.debut = Date.now();
+  d.reste = ms;
+
+  d.timer = setTimeout(() => {
 
     // Le panneau a pu être remplacé par celui d'une ville.
-    if(!document.getElementById('carteDefile')){
-      arreterDefileCarte();
+    if(carteDefile !== d || !d.zone.isConnected){
+      if(carteDefile === d) arreterDefileCarte();
       return;
     }
 
-    if(carteDefileFige) return;
+    montrerVedetteCarte(false);
+    relancerBarreDefileCarte();
+    planifierDefileCarte(CARTE_DEFILE.periode);
 
-    dessinerDefileCarte();
+  }, ms);
+}
 
-  }, CARTE_DEFILE.periode);
+
+function figerDefileCarte(){
+
+  const d = carteDefile;
+  if(!d || d.fige) return;
+
+  d.fige = true;
+  clearTimeout(d.timer);
+  d.reste = Math.max(0, d.reste - (Date.now() - d.debut));
+  d.barre.classList.add('en-pause');
+}
+
+
+function reprendreDefileCarte(){
+
+  const d = carteDefile;
+  if(!d || !d.fige) return;
+
+  d.fige = false;
+  d.barre.classList.remove('en-pause');
+  planifierDefileCarte(Math.max(250, d.reste));
 }
 
 
@@ -14299,8 +15805,10 @@ function panneauToutesLesVilles(){
 // vedette semblait figée.
 function tirerUnArtiste(tous){
 
+  const dernier = carteDefile ? carteDefile.dernier : null;
+
   const libres = tous.filter(entree =>
-    entree.profil.instagram_handle !== carteDefileDernier
+    entree.profil.instagram_handle !== dernier
   );
 
   const source = libres.length ? libres : tous;
@@ -14309,18 +15817,48 @@ function tirerUnArtiste(tous){
 }
 
 
-function dessinerDefileCarte(){
+// Le nouvel artiste se pose sur l'ancien, qui s'efface en reculant :
+// les deux occupent la même case de la grille le temps du fondu.
+function montrerVedetteCarte(premier){
 
-  const zone = document.getElementById('carteDefile');
-  if(!zone) return;
+  const d = carteDefile;
+  if(!d || !d.zone) return;
 
   const entree = tirerUnArtiste(artistesLocalises());
   if(!entree) return;
 
-  carteDefileDernier = entree.profil.instagram_handle;
+  d.dernier = entree.profil.instagram_handle;
 
-  zone.innerHTML = '';
-  zone.appendChild(carteDefileCarteHtml(entree));
+  const carte = carteDefileCarteHtml(entree);
+  const ancienne = d.zone.querySelector('.carte-vedette:not(.sortante)');
+
+  if(premier || !ancienne || !carte.animate || carteMouvementReduit()){
+    d.zone.replaceChildren(carte);
+    return;
+  }
+
+  d.zone.querySelectorAll('.carte-vedette.sortante').forEach(a => a.remove());
+
+  ancienne.classList.add('sortante');
+  ancienne.tabIndex = -1;
+  ancienne.inert = true;
+  d.zone.appendChild(carte);
+
+  ancienne.animate(
+    [
+      { opacity: 1, transform: 'none' },
+      { opacity: 0, transform: 'scale(.94) translateY(-8px)' }
+    ],
+    { duration: 300, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }
+  ).onfinish = () => ancienne.remove();
+
+  carte.animate(
+    [
+      { opacity: 0, transform: 'scale(.92) translateY(12px)' },
+      { opacity: 1, transform: 'none' }
+    ],
+    { duration: 620, easing: 'cubic-bezier(.16,1,.3,1)', delay: 90, fill: 'backwards' }
+  );
 }
 
 
@@ -14329,11 +15867,6 @@ function carteDefileCarteHtml(entree){
   const profil = entree.profil;
   const nom = profil.display_name || profil.instagram_handle;
   const photo = safeUrl(profil.photo_url);
-
-  const sorties = catalogueData.filter(s =>
-    s.artistHandle === profil.instagram_handle ||
-    (s.featuring || []).some(feat => feat.handle === profil.instagram_handle)
-  ).length;
 
   const bouton = document.createElement('button');
   bouton.type = 'button';
@@ -14353,49 +15886,111 @@ function carteDefileCarteHtml(entree){
       }
     </span>
     <strong class="carte-vedette-nom">${escapeHtml(nom)}</strong>
-    <span class="carte-vedette-lieu">📍 ${escapeHtml(entree.ville.nom)}</span>
-    <span class="carte-vedette-sorties">
-      ${
-        sorties
-          ? sorties + ' sortie' + (sorties > 1 ? 's' : '') + ' sur La Wave'
-          : 'Pas encore de sortie'
-      }
-    </span>`;
+    <span class="carte-vedette-lieu">${ICONE_PIN_CARTE}${escapeHtml(entree.ville.nom)}</span>
+    <span class="carte-vedette-sorties">${libelleSortiesCarte(profil.instagram_handle)}</span>
+    <span class="carte-vedette-voir">Voir sa page →</span>`;
 
   return bouton;
 }
 
 
-function ouvrirVilleCarte(index){
+const ICONE_PIN_CARTE =
+  '<svg class="carte-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+  'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/>' +
+  '<circle cx="12" cy="10" r="2.3"/></svg>';
+
+
+// ---- Sélection d'une ville ----
+
+// La vue d'avant la première sélection : « Tous les artistes » y
+// ramène la caméra, d'où qu'on vienne.
+function memoriserVueCarte(){
+
+  if(carteRetourVue) return;
+
+  const vue = carteCible || { zoom: carteZoom, panX: cartePanX, panY: cartePanY };
+
+  carteRetourVue = { zoom: vue.zoom, panX: vue.panX, panY: vue.panY };
+}
+
+
+function fermerSelectionCarte(){
+
+  carteMiseEnAvant = null;
+  viderRechercheChoisieCarte();
+
+  const retour = carteRetourVue;
+  carteRetourVue = null;
+
+  if(retour) animerVueCarte(retour.zoom, retour.panX, retour.panY, 7);
+
+  panneauToutesLesVilles();
+}
+
+
+// Clic sur une ville seule : la caméra vient la chercher, au moins
+// jusqu'à un zoom confortable, pendant que sa liste s'ouvre.
+function selectionnerVilleCarte(index){
 
   const ville = carteVilles[index];
-  const panneau = document.getElementById('cartePanneau');
+  if(!ville) return;
 
-  if(!ville || !panneau) return;
+  memoriserVueCarte();
+
+  carteMiseEnAvant = null;
+
+  centrerCarteSur([index], Math.max(cibleCamera().zoom, Math.min(2.2, CARTE_3D.zoomMax)), 7);
+
+  ouvrirVilleCarte(index);
+
+  annoncerCarte(ville.nom + ' : ' + ville.artistes.length +
+    ' artiste' + (ville.artistes.length > 1 ? 's' : '') + '.');
+}
+
+
+// Ce que la recherche a trouvé passe en tête de la liste, mis en
+// valeur : pas de défilement à deviner dans les cinquante noms de Paris.
+function ordonnerArtistesCarte(artistes, handle){
+
+  if(!handle) return artistes;
+
+  return artistes.filter(p => p.instagram_handle === handle)
+    .concat(artistes.filter(p => p.instagram_handle !== handle));
+}
+
+
+function ouvrirVilleCarte(index, options){
+
+  const ville = carteVilles[index];
+  if(!ville) return;
 
   carteVilleActive = index;
   carteGroupeActif = null;
+  arreterDefileCarte();
 
-  panneau.innerHTML = `
-    <button type="button" class="btn btn-ghost carte-retour"
-            onclick="panneauToutesLesVilles()">
-      ← Retour aux artistes
-    </button>
-    <h3>${escapeHtml(ville.nom)}</h3>
-    <span class="carte-compte">
-      ${ville.artistes.length} artiste${ville.artistes.length > 1 ? 's' : ''}
-    </span>
-    <div class="carte-liste" id="carteListe">
-      ${ville.artistes.map(ligneArtisteCarte).join('')}
-    </div>`;
+  const handle = options && options.handle;
+  const n = ville.artistes.length;
 
-  ajusterListeCarte();
+  changerPanneau(vue => {
+    vue.classList.add('carte-vue-liste');
+    vue.innerHTML = `
+      <button type="button" class="carte-retour" onclick="fermerSelectionCarte()">
+        ${ICONE_RETOUR_CARTE} Tous les artistes
+      </button>
+      <h3 class="carte-titre">${escapeHtml(ville.nom)}</h3>
+      <span class="carte-compte">${n} artiste${n > 1 ? 's' : ''}</span>
+      <div class="carte-liste">
+        ${ordonnerArtistesCarte(ville.artistes, handle)
+            .map((profil, i) => ligneArtisteCarte(profil, i, handle)).join('')}
+      </div>`;
+  });
 }
 
 
 // Plusieurs villes que le zoom maximal ne sépare pas : une seule liste,
 // découpée par ville.
-function ouvrirGroupeCarte(indices){
+function ouvrirGroupeCarte(indices, options){
 
   const panneau = document.getElementById('cartePanneau');
   const villes = indices.map(i => carteVilles[i]).filter(Boolean);
@@ -14404,7 +15999,9 @@ function ouvrirGroupeCarte(indices){
 
   carteVilleActive = -1;
   carteGroupeActif = indices.slice();
+  arreterDefileCarte();
 
+  const handle = options && options.handle;
   const total = villes.reduce((n, ville) => n + ville.artistes.length, 0);
   const autres = villes.length - 2;
 
@@ -14415,77 +16012,616 @@ function ouvrirGroupeCarte(indices){
       : villes[0].nom + ', ' + villes[1].nom +
         ' et ' + autres + ' autre' + (autres > 1 ? 's' : '');
 
-  panneau.innerHTML = `
-    <button type="button" class="btn btn-ghost carte-retour"
-            onclick="panneauToutesLesVilles()">
-      ← Retour aux artistes
-    </button>
-    <h3>${escapeHtml(titre)}</h3>
-    <span class="carte-compte">
-      ${total} artiste${total > 1 ? 's' : ''}${villes.length > 1 ? ' · ' + villes.length + ' villes' : ''}
-    </span>
-    <div class="carte-liste" id="carteListe">
-      ${
-        villes.map(ville => `
-          <p class="carte-liste-ville">
-            <span>${escapeHtml(ville.nom)}</span>
-            <span>${ville.artistes.length}</span>
-          </p>
-          ${ville.artistes.map(ligneArtisteCarte).join('')}`
-        ).join('')
-      }
-    </div>`;
+  // La ville de l'artiste trouvé d'abord.
+  const ordonnees = handle
+    ? villes.slice().sort((a, b) =>
+        Number(b.artistes.some(p => p.instagram_handle === handle)) -
+        Number(a.artistes.some(p => p.instagram_handle === handle)))
+    : villes;
 
-  ajusterListeCarte();
+  let rang = 0;
+
+  changerPanneau(vue => {
+    vue.classList.add('carte-vue-liste');
+    vue.innerHTML = `
+      <button type="button" class="carte-retour" onclick="fermerSelectionCarte()">
+        ${ICONE_RETOUR_CARTE} Tous les artistes
+      </button>
+      <h3 class="carte-titre">${escapeHtml(titre)}</h3>
+      <span class="carte-compte">
+        ${total} artiste${total > 1 ? 's' : ''}${villes.length > 1 ? ' · ' + villes.length + ' villes' : ''}
+      </span>
+      <div class="carte-liste">
+        ${
+          ordonnees.map(ville => `
+            <p class="carte-liste-ville">
+              <span>${escapeHtml(ville.nom)}</span>
+              <span>${ville.artistes.length}</span>
+            </p>
+            ${ordonnerArtistesCarte(ville.artistes, handle)
+                .map(profil => ligneArtisteCarte(profil, rang++, handle)).join('')}`
+          ).join('')
+        }
+      </div>`;
+  });
 }
 
 
-function ligneArtisteCarte(profil){
+function ligneArtisteCarte(profil, rang, handleTrouve){
 
   const nom = profil.display_name || profil.instagram_handle;
   const photo = safeUrl(profil.photo_url);
-
-  const sorties = catalogueData.filter(s =>
-    s.artistHandle === profil.instagram_handle ||
-    s.artist === nom
-  ).length;
+  const trouve = handleTrouve && profil.instagram_handle === handleTrouve;
 
   return `
-    <button type="button" class="carte-artiste"
+    <button type="button" class="carte-artiste${trouve ? ' trouve' : ''}"
+            style="--i:${Math.min(rang, 14)}"
             onclick="ouvrirPageArtiste('${handleSain(profil.instagram_handle)}', false, 'carte')">
       <span class="carte-vignette">
         ${
           photo
-            ? `<img src="${escapeAttribute(photo)}" alt="">`
+            ? `<img src="${escapeAttribute(photo)}" alt="" loading="lazy" decoding="async">`
             : escapeHtml(artistInitial(nom))
         }
       </span>
-      <span style="min-width:0;">
+      <span class="carte-artiste-texte">
         ${escapeHtml(nom)}
-        <span class="carte-sorties">
-          ${sorties ? sorties + ' sortie' + (sorties > 1 ? 's' : '') : 'Pas encore de sortie'}
-        </span>
+        <span class="carte-sorties">${libelleSortiesCarte(profil.instagram_handle).replace(' sur La Wave', '')}</span>
       </span>
+      <span class="carte-artiste-fleche" aria-hidden="true">→</span>
     </button>`;
 }
 
 
-// Le panneau ne dépasse plus la hauteur de la carte : c'est la liste
-// qui défile. Un plancher garde quelques lignes visibles sur mobile,
-// où la carte est basse et le panneau passe dessous.
-function ajusterListeCarte(){
+// Une phrase pour les lecteurs d'écran : la caméra et le panneau
+// bougent, rien d'autre n'annonce ce qui vient de se passer.
+function annoncerCarte(texte){
 
-  const liste = document.getElementById('carteListe');
-  const canvas = document.getElementById('carteCanvas');
+  const zone = document.getElementById('carteAnnonce');
+  if(!zone) return;
 
-  if(!liste || !canvas) return;
-
-  // offsetTop se mesure depuis le bord du panneau, marge intérieure
-  // comprise ; 20 px pour la marge du bas.
-  const disponible = canvas.clientHeight - liste.offsetTop - 20;
-
-  liste.style.maxHeight = Math.max(280, disponible) + 'px';
+  zone.textContent = '';
+  setTimeout(() => { zone.textContent = texte; }, 60);
 }
+
+
+// ---- Recherche d'un artiste ou d'une ville ----
+//
+// Un seul champ, sans bouton : on tape, la liste répond, et choisir un
+// résultat envoie la caméra sur place. Les accents et la casse ne
+// comptent pas. La recherche porte sur les trois pays à la fois — un
+// résultat d'un autre pays change de carte avant de s'y rendre — et
+// signale aussi les artistes qui n'ont pas encore de ville : sans cela,
+// un nom absent de la carte laisserait croire qu'il n'est pas sur le
+// site.
+
+let carteRecherche = { liste: [], actif: -1, choisi: '' };
+let carteIndexMemo = null;
+
+
+// Les villes (une ligne par nom et par pays), les artistes localisés et
+// ceux qui ne le sont pas, avec leur texte déjà débarrassé des accents :
+// rien à recalculer à chaque frappe.
+function indexCarte(){
+
+  if(carteIndexMemo && carteIndexMemo.ref === artistsByHandle) return carteIndexMemo;
+
+  const villes = new Map();
+  const artistes = [];
+  const sansLieu = [];
+
+  const nomProfil = (profil) => profil.display_name || profil.instagram_handle;
+
+  Object.keys(CARTES_PAYS).forEach(pays => {
+
+    villesDuPays(pays).forEach(ville => {
+
+      const nu = texteNu(ville.nom);
+      const cle = pays + '|' + nu;
+
+      if(!villes.has(cle)){
+        villes.set(cle, { nom: ville.nom, nu, pays, cles: [], n: 0 });
+      }
+
+      const entree = villes.get(cle);
+      entree.cles.push(ville.cle);
+      entree.n += ville.artistes.length;
+
+      ville.artistes.forEach(profil => artistes.push({
+        profil, ville, pays,
+        nom: nomProfil(profil),
+        nu: texteNu(nomProfil(profil)),
+        nuHandle: texteNu(profil.instagram_handle)
+      }));
+    });
+  });
+
+  Object.values(artistsByHandle).forEach(profil => {
+    if(lieuDuProfil(profil)) return;
+    sansLieu.push({
+      profil,
+      nom: nomProfil(profil),
+      nu: texteNu(nomProfil(profil)),
+      nuHandle: texteNu(profil.instagram_handle)
+    });
+  });
+
+  carteIndexMemo = { ref: artistsByHandle, villes: [...villes.values()], artistes, sansLieu };
+
+  return carteIndexMemo;
+}
+
+
+// 0 : le texte commence par la requête ; 1 : un de ses mots ; 2 : elle
+// s'y trouve ; -1 : rien. « bil » trouve ainsi Boulogne-Billancourt
+// après les villes qui commencent par « bil ».
+function rangCorrespondanceCarte(nu, requete){
+
+  if(!nu) return -1;
+  if(nu.startsWith(requete)) return 0;
+
+  const i = nu.indexOf(requete);
+  if(i < 0) return -1;
+
+  const avant = nu[i - 1];
+
+  return avant === ' ' || avant === '-' || avant === "'" || avant === '’' || avant === '.'
+    ? 1
+    : 2;
+}
+
+
+function chercherSurLaCarte(texte){
+
+  const requete = texteNu(texte).trim().replace(/\s+/g, ' ');
+
+  if(!requete) return { requete, villes: [], artistes: [], ailleurs: [] };
+
+  const index = indexCarte();
+
+  const villes = [];
+
+  index.villes.forEach(entree => {
+    const rang = rangCorrespondanceCarte(entree.nu, requete);
+    if(rang >= 0) villes.push({ type: 'ville', rang, ...entree });
+  });
+
+  villes.sort((a, b) =>
+    a.rang - b.rang || b.n - a.n || a.nom.localeCompare(b.nom)
+  );
+
+  // L'identifiant Instagram ne sert qu'à départager au-delà de deux
+  // lettres : « ab » ne doit pas remonter tout ce qui en contient.
+  const chercherArtistes = (liste) => {
+    const trouves = [];
+    liste.forEach(entree => {
+      let rang = rangCorrespondanceCarte(entree.nu, requete);
+      if(rang < 0 && requete.length > 2){
+        rang = rangCorrespondanceCarte(entree.nuHandle, requete);
+        if(rang >= 0) rang += 3;
+      }
+      if(rang >= 0) trouves.push({ rang, ...entree });
+    });
+    return trouves.sort((a, b) => a.rang - b.rang || a.nom.localeCompare(b.nom));
+  };
+
+  const artistes = chercherArtistes(index.artistes).slice(0, 5)
+    .map(entree => ({ type: 'artiste', ...entree }));
+
+  const ailleurs = chercherArtistes(index.sansLieu)
+    .slice(0, Math.max(0, Math.min(2, 6 - artistes.length)))
+    .map(entree => ({ type: 'ailleurs', ...entree }));
+
+  return { requete, villes: villes.slice(0, 3), artistes, ailleurs };
+}
+
+
+// Le texte avec la partie trouvée en gras. Les accents ne comptent pas
+// pour la recherche, mais la mise en valeur doit retomber sur les
+// lettres d'origine : chaque caractère est donc ramené seul, et sa
+// position notée.
+function surlignerCarte(texte, requete){
+
+  const original = String(texte);
+
+  let nu = '';
+  const origine = [];
+
+  for(let i = 0; i < original.length; i++){
+    const morceau = texteNu(original[i]);
+    for(let j = 0; j < morceau.length; j++){
+      nu += morceau[j];
+      origine.push(i);
+    }
+  }
+
+  const debut = requete ? nu.indexOf(requete) : -1;
+
+  if(debut < 0) return escapeHtml(original);
+
+  const a = origine[debut];
+  const b = origine[debut + requete.length - 1] + 1;
+
+  return escapeHtml(original.slice(0, a)) +
+         '<b>' + escapeHtml(original.slice(a, b)) + '</b>' +
+         escapeHtml(original.slice(b));
+}
+
+
+function vignetteResultatCarte(profil){
+
+  const photo = safeUrl(profil.photo_url);
+  const nom = profil.display_name || profil.instagram_handle;
+
+  return `
+    <span class="carte-res-vignette">
+      ${
+        photo
+          ? `<img src="${escapeAttribute(photo)}" alt="" loading="lazy">`
+          : escapeHtml(artistInitial(nom))
+      }
+    </span>`;
+}
+
+
+function dessinerResultatsCarte(resultats, texte){
+
+  const zone = document.getElementById('carteResultats');
+  if(!zone) return;
+
+  const liste = [];
+  let html = '';
+
+  const groupe = (titre, items, ligne) => {
+    if(!items.length) return;
+    html += `<p class="carte-res-titre" role="presentation">${titre}</p>`;
+    items.forEach(item => {
+      const i = liste.length;
+      liste.push(item);
+      html += ligne(item, i);
+    });
+  };
+
+  const entete = (i) =>
+    `type="button" role="option" id="carteRes-${i}" class="carte-res" ` +
+    `data-i="${i}" aria-selected="false" style="--i:${i}" onclick="choisirResultatCarte(${i})"`;
+
+  const ailleurs = (item) => item.pays !== cartePays
+    ? ' · ' + escapeHtml(CARTES_PAYS[item.pays].nom)
+    : '';
+
+  groupe('Villes', resultats.villes, (item, i) => `
+    <button ${entete(i)}>
+      <span class="carte-res-icone">${ICONE_PIN_CARTE}</span>
+      <span class="carte-res-texte">
+        <span class="carte-res-nom">${surlignerCarte(item.nom, resultats.requete)}</span>
+        <span class="carte-res-sous">${item.n} artiste${item.n > 1 ? 's' : ''}${ailleurs(item)}</span>
+      </span>
+    </button>`);
+
+  groupe('Artistes', resultats.artistes, (item, i) => `
+    <button ${entete(i)}>
+      ${vignetteResultatCarte(item.profil)}
+      <span class="carte-res-texte">
+        <span class="carte-res-nom">${surlignerCarte(item.nom, resultats.requete)}</span>
+        <span class="carte-res-sous">${escapeHtml(item.ville.nom)}${ailleurs(item)}</span>
+      </span>
+    </button>`);
+
+  groupe('Pas encore sur la carte', resultats.ailleurs, (item, i) => `
+    <button ${entete(i)}>
+      ${vignetteResultatCarte(item.profil)}
+      <span class="carte-res-texte">
+        <span class="carte-res-nom">${surlignerCarte(item.nom, resultats.requete)}</span>
+        <span class="carte-res-sous">Ville pas encore renseignée · voir sa page</span>
+      </span>
+    </button>`);
+
+  if(!liste.length){
+    html = `<p class="carte-res-vide">Rien pour « ${escapeHtml(String(texte).trim())} »</p>`;
+  }
+
+  zone.innerHTML = html;
+
+  carteRecherche.liste = liste;
+  carteRecherche.actif = -1;
+
+  const champ = document.getElementById('carteRechercheChamp');
+  if(champ) champ.removeAttribute('aria-activedescendant');
+
+  const etat = document.getElementById('carteRechercheEtat');
+  if(etat){
+    etat.textContent = liste.length
+      ? liste.length + ' résultat' + (liste.length > 1 ? 's' : '')
+      : 'Aucun résultat';
+  }
+}
+
+
+function ouvrirResultatsCarte(){
+
+  const zone = document.getElementById('carteResultats');
+  const champ = document.getElementById('carteRechercheChamp');
+  if(!zone || !zone.hidden) return;
+
+  zone.hidden = false;
+  if(champ) champ.setAttribute('aria-expanded', 'true');
+}
+
+
+function fermerResultatsCarte(){
+
+  const zone = document.getElementById('carteResultats');
+  const champ = document.getElementById('carteRechercheChamp');
+  if(!zone || zone.hidden) return;
+
+  zone.hidden = true;
+
+  if(champ){
+    champ.setAttribute('aria-expanded', 'false');
+    champ.removeAttribute('aria-activedescendant');
+  }
+
+  carteRecherche.actif = -1;
+}
+
+
+function surRechercheCarte(){
+
+  const champ = document.getElementById('carteRechercheChamp');
+  const effacer = document.getElementById('carteEffacer');
+  if(!champ) return;
+
+  if(effacer) effacer.hidden = !champ.value;
+
+  if(!champ.value.trim()){
+    fermerResultatsCarte();
+    carteRecherche.liste = [];
+    return;
+  }
+
+  dessinerResultatsCarte(chercherSurLaCarte(champ.value), champ.value);
+  ouvrirResultatsCarte();
+}
+
+
+function surFocusRechercheCarte(){
+
+  const champ = document.getElementById('carteRechercheChamp');
+
+  if(champ && champ.value.trim() && carteRecherche.liste.length){
+    ouvrirResultatsCarte();
+  }
+}
+
+
+// Quitter la ville trouvée vide le champ qui la nommait : « Roubaix »
+// à côté d'une carte d'ensemble ne renverrait à rien. Un texte tapé à
+// la main, lui, n'est pas touché.
+function viderRechercheChoisieCarte(){
+
+  const champ = document.getElementById('carteRechercheChamp');
+  const effacer = document.getElementById('carteEffacer');
+
+  if(!champ || !carteRecherche.choisi || champ.value !== carteRecherche.choisi) return;
+
+  champ.value = '';
+  if(effacer) effacer.hidden = true;
+
+  carteRecherche.choisi = '';
+  carteRecherche.liste = [];
+}
+
+
+function effacerRechercheCarte(){
+
+  const champ = document.getElementById('carteRechercheChamp');
+  const effacer = document.getElementById('carteEffacer');
+
+  if(champ) champ.value = '';
+  if(effacer) effacer.hidden = true;
+
+  fermerResultatsCarte();
+  carteRecherche.liste = [];
+
+  if(champ) champ.focus();
+}
+
+
+// Le résultat désigné au clavier : surligné, et amené dans la vue de
+// la liste sans faire défiler la page.
+function marquerResultatActifCarte(){
+
+  const zone = document.getElementById('carteResultats');
+  const champ = document.getElementById('carteRechercheChamp');
+  if(!zone) return;
+
+  zone.querySelectorAll('.carte-res').forEach(ligne => {
+    const actif = Number(ligne.dataset.i) === carteRecherche.actif;
+    ligne.classList.toggle('actif', actif);
+    ligne.setAttribute('aria-selected', String(actif));
+
+    if(actif){
+      if(champ) champ.setAttribute('aria-activedescendant', ligne.id);
+      const haut = ligne.offsetTop - 8;
+      const bas = ligne.offsetTop + ligne.offsetHeight + 8;
+      if(haut < zone.scrollTop) zone.scrollTop = haut;
+      else if(bas > zone.scrollTop + zone.clientHeight) zone.scrollTop = bas - zone.clientHeight;
+    }
+  });
+}
+
+
+function clavierRechercheCarte(e){
+
+  const liste = carteRecherche.liste;
+  const zone = document.getElementById('carteResultats');
+  const ouvert = !!zone && !zone.hidden;
+
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+
+    if(!liste.length) return;
+
+    e.preventDefault();
+    ouvrirResultatsCarte();
+
+    const n = liste.length;
+
+    carteRecherche.actif = e.key === 'ArrowDown'
+      ? (carteRecherche.actif + 1) % n
+      : (carteRecherche.actif - 1 + n) % n;
+
+    marquerResultatActifCarte();
+    return;
+  }
+
+  if(e.key === 'Enter'){
+
+    e.preventDefault();
+
+    if(liste.length){
+      choisirResultatCarte(carteRecherche.actif >= 0 ? carteRecherche.actif : 0);
+    }
+
+    return;
+  }
+
+  if(e.key === 'Escape'){
+
+    const champ = document.getElementById('carteRechercheChamp');
+
+    if(ouvert){
+      e.preventDefault();
+      fermerResultatsCarte();
+    } else if(champ && champ.value){
+      e.preventDefault();
+      effacerRechercheCarte();
+    }
+
+    return;
+  }
+
+  if(e.key === 'Tab') fermerResultatsCarte();
+}
+
+
+function choisirResultatCarte(i){
+
+  const item = carteRecherche.liste[i];
+  if(!item) return;
+
+  const champ = document.getElementById('carteRechercheChamp');
+  const effacer = document.getElementById('carteEffacer');
+
+  // Le champ garde ce qu'on a choisi : on voit d'où vient ce que la
+  // carte montre, et la croix le remet à zéro.
+  if(champ) champ.value = item.nom;
+  if(effacer) effacer.hidden = false;
+
+  carteRecherche.choisi = item.nom;
+
+  fermerResultatsCarte();
+
+  // Au doigt, le clavier se range pour laisser voir la carte.
+  if(champ && window.matchMedia && window.matchMedia('(pointer: coarse)').matches){
+    champ.blur();
+  }
+
+  if(item.type === 'ailleurs'){
+    ouvrirPageArtiste(item.profil.instagram_handle, false, 'carte');
+    return;
+  }
+
+  allerAuLieuCarte({
+    pays: item.pays,
+    cles: item.type === 'ville' ? item.cles : [item.ville.cle],
+    handle: item.type === 'artiste' ? item.profil.instagram_handle : null
+  });
+}
+
+
+// ---- Aller quelque part sur la carte ----
+
+function allerAuLieuCarte(lieu){
+
+  const lancer = () => {
+
+    const indices = lieu.cles
+      .map(cle => carteVilles.findIndex(ville => ville.cle === cle))
+      .filter(i => i >= 0);
+
+    if(indices.length) mettreEnAvantCarte(indices, lieu.handle);
+  };
+
+  if(lieu.pays === cartePays){
+    lancer();
+    return;
+  }
+
+  // Un autre pays : la carte change d'abord, avec son fondu, puis la
+  // caméra part de sa vue d'ensemble.
+  choisirPaysCarte(lieu.pays);
+  setTimeout(lancer, 420);
+}
+
+
+function allerAArtisteCarte(handle){
+
+  const profil = artistsByHandle[handle];
+  const lieu = profil && lieuDuProfil(profil);
+  if(!lieu) return;
+
+  allerAuLieuCarte({
+    pays: paysDuLieu(lieu.lat, lieu.lon),
+    cles: [profil.ville.toLowerCase() + '|' + lieu.lat.toFixed(3) + '|' + lieu.lon.toFixed(3)],
+    handle
+  });
+}
+
+
+// La caméra vient chercher la ville, au zoom où elle se détache de
+// ses voisines ; sa liste s'ouvre, l'artiste trouvé en tête, et une
+// onde part de sa pastille.
+function mettreEnAvantCarte(indices, handle){
+
+  const canvas = document.getElementById('carteCanvas');
+  if(!canvas || !canvas.clientWidth) return;
+
+  memoriserVueCarte();
+
+  const depart = cibleCamera().zoom;
+  const zoom = Math.max(...indices.map(i => zoomPourIsoler(i, depart)));
+
+  centrerCarteSur(indices, zoom, 6.5);
+
+  carteMiseEnAvant = { indices: indices.slice(), handle: handle || null, debut: carteTemps };
+
+  const largeur = canvas.clientWidth;
+  const cadre = cadrageCarte(largeur, canvas.clientHeight);
+
+  // Même au zoom maximal, certaines communes restent collées : on
+  // liste alors tout le groupe plutôt qu'une ville qu'on ne peut pas
+  // viser.
+  const groupe = indices.length === 1
+    ? calculerGroupes(largeur, cadre, zoom).find(g => g.indices.includes(indices[0]))
+    : null;
+
+  if(groupe && groupe.indices.length > 1){
+    ouvrirGroupeCarte(groupe.indices, { handle });
+  } else if(indices.length === 1){
+    ouvrirVilleCarte(indices[0], { handle });
+  } else {
+    ouvrirGroupeCarte(indices, { handle });
+  }
+
+  const ville = carteVilles[indices[0]];
+  const profil = handle ? artistsByHandle[handle] : null;
+
+  annoncerCarte(profil
+    ? (profil.display_name || profil.instagram_handle) + ', ' + ville.nom + '.'
+    : ville.nom + ' : ' + ville.artistes.length + ' artiste' + (ville.artistes.length > 1 ? 's' : '') + '.');
+}
+
 
 
 // ---------------- PAGE ARTISTE ----------------
