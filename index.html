@@ -19202,7 +19202,12 @@ function artistesFiltres(){
     { cle: 'nonsuivis', libelle: 'Non suivis',
       garde: p => artisteDeezerEtat(p) === 'nonsuivi' },
     { cle: 'sans',      libelle: 'Pas reliés à Deezer',
-      garde: p => artisteDeezerEtat(p) === 'sans' }
+      garde: p => artisteDeezerEtat(p) === 'sans' },
+    // Ceux qui n'ont pas de photo de profil : l'import reprend celle de
+    // Deezer (sql/deezer-photos.sql) ; restent ceux que Deezer n'illustre
+    // pas, à compléter à la main.
+    { cle: 'sansphoto', libelle: 'Sans photo',
+      garde: p => !p.photo_url }
   ];
 }
 
