@@ -1935,14 +1935,14 @@
     background:rgba(255,255,255,0.05); border-radius:var(--radius-pill);
     box-shadow:var(--reflet-int);
   }
-  .carte-pays:empty{display:none;}
   .carte-pays-fond{
-    position:absolute; top:5px; bottom:5px; left:0; width:0;
+    position:absolute; top:5px; bottom:5px; left:0; width:0; opacity:0;
     border-radius:var(--radius-pill); pointer-events:none;
     background:rgba(255,255,255,0.13);
     box-shadow:var(--reflet-int), 0 2px 10px rgba(0,0,0,0.25);
-    transition:transform .6s var(--ease), width .6s var(--ease);
+    transition:transform .6s var(--ease), width .6s var(--ease), opacity .5s var(--ease);
   }
+  .carte-pays-fond.pret{opacity:1;}
   .carte-pays button{
     position:relative; z-index:1;
     display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
@@ -1967,14 +1967,14 @@
      sous lui depuis le centre. */
   .carte-recherche{
     position:relative; width:270px; max-width:100%; color:var(--muted);
-    transition:width .6s var(--ease), margin-left .6s var(--ease);
+    /* Toujours collé à droite : il grandit vers la gauche, dans l'espace
+       libre entre lui et les onglets. */
+    margin-left:auto;
+    transition:width .6s var(--ease);
   }
-  /* Il grandit vers la gauche : la marge négative compense la largeur
-     gagnée, pour que l'encombrement de la barre ne change pas et que
-     rien ne passe à la ligne. */
-  .carte-recherche:focus-within{width:360px; margin-left:-90px;}
+  .carte-recherche:focus-within{width:360px;}
   @media (max-width:900px){
-    .carte-recherche:focus-within{width:270px; margin-left:0;}
+    .carte-recherche:focus-within{width:270px;}
   }
   .carte-loupe{
     position:absolute; left:2px; top:22px; width:16px; height:16px;
@@ -3592,8 +3592,25 @@
 
       <div class="carte-barre">
 
+        <!-- Les trois onglets sont là dès le chargement, sans compte : la
+             barre ne surgit pas, et la recherche ne change pas de côté, quand
+             les données arrivent. renderOngletsPays les renseigne. -->
         <div class="carte-pays" id="cartePays" role="tablist" aria-label="Pays"
-             onkeydown="clavierOngletsPays(event)"></div>
+             onkeydown="clavierOngletsPays(event)">
+          <span class="carte-pays-fond" aria-hidden="true"></span>
+          <button type="button" role="tab" id="cartePays-france" aria-selected="false"
+                  tabindex="-1" onclick="choisirPaysCarte('france')">
+            France <span class="carte-pays-compte"></span>
+          </button>
+          <button type="button" role="tab" id="cartePays-belgique" aria-selected="false"
+                  tabindex="-1" onclick="choisirPaysCarte('belgique')">
+            Belgique <span class="carte-pays-compte"></span>
+          </button>
+          <button type="button" role="tab" id="cartePays-suisse" aria-selected="false"
+                  tabindex="-1" onclick="choisirPaysCarte('suisse')">
+            Suisse <span class="carte-pays-compte"></span>
+          </button>
+        </div>
 
         <!-- Un formulaire à lui seul, comme la recherche du catalogue : les
              champs de connexion cachés de la page forment pour le
@@ -15317,20 +15334,9 @@ function renderOngletsPays(animer){
     if(lieu) comptes[paysDuLieu(lieu.lat, lieu.lon)]++;
   });
 
-  // Les boutons ne sont construits qu'une fois : le fond qui glisse de
-  // l'un à l'autre ne survivrait pas à une reconstruction, et le focus
-  // clavier non plus.
-  if(!barre.querySelector('button')){
-    barre.innerHTML =
-      '<span class="carte-pays-fond" aria-hidden="true"></span>' +
-      Object.keys(CARTES_PAYS).map(cle => `
-        <button type="button" role="tab" id="cartePays-${cle}"
-                onclick="choisirPaysCarte('${cle}')">
-          ${escapeHtml(CARTES_PAYS[cle].nom)}
-          <span class="carte-pays-compte"></span>
-        </button>`).join('');
-  }
-
+  // Les boutons sont dans la page depuis le départ et ne sont jamais
+  // reconstruits : le fond qui glisse de l'un à l'autre ne survivrait pas
+  // à une reconstruction, et le focus clavier non plus.
   Object.keys(CARTES_PAYS).forEach(cle => {
     const bouton = document.getElementById('cartePays-' + cle);
     const actif = cle === cartePays;
@@ -15361,6 +15367,7 @@ function placerFondOnglets(animer){
 
   fond.style.width = actif.offsetWidth + 'px';
   fond.style.transform = 'translateX(' + actif.offsetLeft + 'px)';
+  fond.classList.add('pret');
 
   if(!animer || carteMouvementReduit()){
     // Lu pour que le navigateur applique la position avant de
