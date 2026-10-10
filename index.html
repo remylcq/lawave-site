@@ -610,36 +610,6 @@
     background:rgba(255,255,255,0.04);
   }
   .role-chip.small{font-size:10px; padding:2px 7px;}
-  .role-filters{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px;}
-  .role-filter{
-    font-size:12px; font-weight:600; padding:8px 14px;
-    border:1px solid var(--line); border-radius:var(--radius-pill);
-    background:var(--bg-alt); color:var(--muted);
-  }
-  .role-filter:hover{color:var(--ink);}
-  .role-filter.active{color:var(--ink); border-color:var(--blue); background:rgba(20,137,222,0.12);}
-  .member-grid{
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr));
-    gap:12px;
-  }
-  .member-card{
-    display:flex; flex-direction:column; align-items:center; text-align:center;
-    gap:8px; padding:20px 16px; cursor:pointer;
-    border:1px solid var(--line); border-radius:var(--radius); background:var(--bg-alt);
-    transition:border-color .15s, transform .15s;
-  }
-  .member-card:hover{border-color:var(--blue); transform:translateY(-2px);}
-  .member-avatar{
-    width:64px; height:64px; border-radius:50%; overflow:hidden;
-    border:1px solid var(--line); background:rgba(255,255,255,0.06);
-    display:flex; align-items:center; justify-content:center;
-    font-size:24px; font-weight:600; color:var(--ink-soft);
-  }
-  .member-avatar img{width:100%; height:100%; object-fit:cover;}
-  .member-pseudo{font-size:14px; font-weight:600;}
-  .member-xp{font-size:11px; color:var(--muted);}
-
-
   /* ---------- NOTIFICATIONS ---------- */
   .notif-zone{
     position:fixed; top:82px; right:20px; z-index:400;
@@ -1911,21 +1881,14 @@
     .carte-zone{grid-template-columns:1fr; gap:22px;}
   }
 
-  /* Les onglets de la page Communauté. */
-  .onglets-communaute{
-    display:inline-flex; gap:6px; flex-wrap:wrap; margin:0 0 24px;
-    padding:6px; background:rgba(255,255,255,0.05); border-radius:var(--radius);
+  /* Le retour vers la communauté, en tête de l'espace des waveurs. */
+  .wv-retour-com{
+    display:inline-flex; align-items:center; gap:6px; margin:0 0 18px; padding:8px 16px;
+    font-size:13px; font-weight:600; color:var(--ink-soft);
+    background:var(--glass); border:1px solid var(--line); border-radius:var(--radius-pill);
+    transition:color .25s var(--ease), border-color .25s var(--ease), background .25s var(--ease);
   }
-  .onglets-communaute button{
-    display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
-    padding:9px 16px; font-size:13px; font-weight:600;
-    color:var(--muted); background:transparent; border:none;
-    border-radius:var(--radius-pill); transition:color .15s, background .15s;
-  }
-  .onglets-communaute button:hover{color:var(--ink);}
-  .onglets-communaute button[aria-selected="true"]{
-    color:var(--ink); background:rgba(255,255,255,0.12);
-  }
+  .wv-retour-com:hover{color:var(--ink); border-color:var(--line-strong); background:var(--glass-hi);}
 
   /* Un onglet par pays. Le fond clair n'appartient à aucun bouton : il
      glisse de l'un à l'autre en changeant de largeur, calé en JS sur
@@ -2730,92 +2693,14 @@
     .defis-panneau{width:calc(100vw - 32px);}
   }
 
-  /* ---------- FORUM ---------- */
-  .forum-new{display:flex; flex-direction:column; gap:12px; margin-bottom:24px;}
-  .forum-new textarea{
-    width:100%; padding:13px 15px; border:1px solid rgba(255,255,255,0.09); background:rgba(0,0,0,0.26);
-    color:var(--ink); font-family:inherit; font-size:14px; resize:vertical; border-radius:var(--radius-sm);
-    box-shadow:inset 0 1px 3px rgba(0,0,0,0.34), inset 0 -1px 0 rgba(255,255,255,0.05);
-  }
-  .forum-new .btn{align-self:flex-end;}
-  .forum-new-actions{display:flex; align-items:center; justify-content:space-between; gap:12px;}
-  .forum-attach-btn{
-    background:none; border:1px solid var(--line); color:var(--ink-soft); font-size:12px; font-weight:600;
-    padding:8px 14px; border-radius:var(--radius-pill);
-  }
-  .forum-attach-btn:hover{border-color:var(--blue); color:var(--blue);}
-  .forum-image-preview{display:none; align-items:center; gap:10px;}
-  .forum-image-preview img{width:64px; height:64px; object-fit:cover; border-radius:var(--radius-sm); border:1px solid var(--line);}
-  .forum-image-preview button{
-    width:24px; height:24px; border-radius:50%; border:none; background:rgba(255,255,255,0.1); color:var(--ink); font-size:12px;
-  }
-  .forum-post-image{margin-bottom:14px; border-radius:var(--radius-sm); overflow:hidden; border:1px solid var(--line);}
-  .forum-post-image img{width:100%; max-height:360px; object-fit:cover; display:block;}
-  .forum-sort{display:flex; gap:6px; margin-bottom:20px;}
-  .sort-btn{
-    font-size:13px; font-weight:600; padding:8px 16px; border-radius:var(--radius-pill);
-    border:1px solid var(--line); background:transparent; color:var(--muted);
-  }
-  .sort-btn.active{color:var(--ink); background:rgba(255,255,255,0.10); border-color:rgba(255,255,255,0.2);}
-  .forum-list{display:flex; flex-direction:column; gap:14px;}
-  .forum-post{
-    border:1px solid var(--line); background:var(--bg-alt); border-radius:var(--radius);
-    display:flex; gap:14px; padding:18px 20px;
-  }
-  .vote-col{display:flex; flex-direction:column; align-items:center; gap:4px; padding-top:2px; flex-shrink:0;}
-  .vote-btn{
-    width:28px; height:28px; border-radius:50%; border:none; background:transparent; color:var(--muted);
-    display:flex; align-items:center; justify-content:center; font-size:15px;
-  }
-  .vote-btn:hover{background:rgba(255,255,255,0.08); color:var(--ink);}
-  .vote-btn.voted-up{color:var(--blue);}
-  .vote-btn.voted-down{color:var(--danger);}
-  .vote-score{font-size:13px; font-weight:700;}
-  .forum-post-main{flex:1; min-width:0;}
-  .forum-post-head{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
-  .forum-avatar{width:32px; height:32px; border-radius:50%; object-fit:cover; background:rgba(255,255,255,0.08);}
-  .forum-post-head .fp-name{font-size:13px; font-weight:600;}
-  .forum-post-head .fp-date{font-size:11px; color:var(--muted); margin-left:auto;}
-  .forum-post-body{font-size:14px; color:var(--ink-soft); margin:0 0 14px; white-space:pre-wrap;}
-  .reaction-row{display:flex; gap:6px; margin-bottom:14px; flex-wrap:wrap;}
-  .reaction-chip{
-    display:inline-flex; align-items:center; gap:5px; font-size:12px; padding:5px 10px;
-    border-radius:var(--radius-pill); border:1px solid var(--line); background:rgba(255,255,255,0.04); color:var(--ink-soft);
-  }
-  .reaction-chip:hover{border-color:var(--blue);}
-  .reaction-chip.active{border-color:var(--blue); background:rgba(20,137,222,0.16); color:var(--ink);}
-  .comment-toggle{
-    font-size:12px; color:var(--muted); background:none; border:none; padding:0; margin-bottom:10px;
-  }
-  .comment-toggle:hover{color:var(--ink);}
-  .forum-comments{display:none; flex-direction:column; gap:10px; margin-bottom:10px; padding-left:14px; border-left:2px solid var(--line);}
-  .forum-comments.open{display:flex;}
+  /* ---------- FORUM (ancienne fiche de membre) ----------
+     Le forum d'avant a été remplacé par la page Communauté (communaute.js) ;
+     il ne reste ici que ce que lit encore l'ancienne fiche, gardée en recours
+     tant que communaute.sql n'est pas passé (voir viewProfile). */
   .forum-comment{
     font-size:13px; color:var(--ink-soft);
     display:flex; align-items:flex-start; gap:9px;
   }
-  .fc-avatar{
-    width:26px; height:26px; border-radius:50%; flex-shrink:0; cursor:pointer;
-    object-fit:cover; border:1px solid var(--line); background:rgba(255,255,255,0.08);
-  }
-  .fc-initiale{
-    display:flex; align-items:center; justify-content:center;
-    font-size:12px; font-weight:600; color:var(--ink-soft);
-  }
-  .fc-corps{flex:1; min-width:0;}
-  .fc-texte{display:block; margin-top:2px; white-space:pre-wrap; word-break:break-word;}
-  .forum-comment .fc-name{color:var(--ink); font-weight:600; margin-right:6px;}
-  .forum-comment-form{display:flex; gap:8px;}
-  .forum-comment-form input{
-    flex:1; padding:9px 12px; border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.06);
-    color:var(--ink); font-size:13px; font-family:inherit; border-radius:var(--radius-pill);
-  }
-  .forum-comment-form button{
-    font-size:12px; font-weight:600; padding:9px 14px; border:1px solid var(--blue); color:var(--blue); background:transparent;
-    border-radius:var(--radius-pill);
-  }
-  .forum-comment-form button:hover{background:var(--blue); color:#fff;}
-  .forum-post-admin{font-size:11px; color:var(--danger); border-bottom:1px dotted var(--danger); margin-left:10px; background:none; border-top:none; border-left:none; border-right:none; padding:0;}
 
   /* ---------- PROFILE ---------- */
   .profile-form{max-width:520px;}
@@ -2856,12 +2741,12 @@
      pourtour. Les tuiles qui portent une pochette pleine largeur ne
      reçoivent que l'arête — un voile clair par-dessus délaverait
      l'artwork, ce que faisait l'ancienne version. */
-  .modal-box, .admin-row, .forum-post, .xp-card, .challenge-dropdown,
-  .cat-tile, .news-cover, .member-card, .empty-state, .notif{
+  .modal-box, .admin-row, .xp-card, .challenge-dropdown,
+  .cat-tile, .news-cover, .empty-state, .notif{
     position:relative;
   }
-  .modal-box, .admin-row, .forum-post, .xp-card, .challenge-dropdown,
-  .cat-tile, .news-cover, .member-card{
+  .modal-box, .admin-row, .xp-card, .challenge-dropdown,
+  .cat-tile, .news-cover{
     overflow:hidden;
     box-shadow:var(--ombre-2), var(--reflet-int);
     /* L'arête en dégradé remplace le trait uni : les garder tous les
@@ -2874,9 +2759,9 @@
      évidé au masque. Une bordure CSS ordinaire ne sait pas varier
      sur son pourtour, or c'est précisément ce qui fait lire une
      surface comme du verre plutôt que comme un rectangle cerné. */
-  .modal-box::after, .admin-row::after, .forum-post::after, .xp-card::after,
+  .modal-box::after, .admin-row::after, .xp-card::after,
   .challenge-dropdown::after, .account-dropdown::after, .cat-tile::after,
-  .member-card::after, .news-cover::after{
+  .news-cover::after{
     content:''; position:absolute; inset:0; border-radius:inherit;
     padding:1px; pointer-events:none; z-index:2;
     background:var(--bord-verre);
@@ -2887,9 +2772,8 @@
   }
 
   /* Reflet spéculaire, réservé aux panneaux sans image de fond. */
-  .modal-box::before, .admin-row::before, .forum-post::before,
-  .xp-card::before, .account-dropdown::before, .challenge-dropdown::before,
-  .member-card::before{
+  .modal-box::before, .admin-row::before,
+  .xp-card::before, .account-dropdown::before, .challenge-dropdown::before{
     content:''; position:absolute; inset:0; pointer-events:none; z-index:1;
     border-radius:inherit;
     background:linear-gradient(152deg, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0) 42%);
@@ -3017,11 +2901,6 @@
     font-size:12px; padding:6px 12px; border:1px solid var(--line); border-radius:var(--radius-pill); color:var(--ink-soft);
   }
   .platform-btn-sm:hover{border-color:var(--blue); color:var(--blue);}
-  .fp-name{cursor:pointer;}
-  .fp-name:hover{color:var(--blue);}
-  .forum-avatar{cursor:pointer;}
-  .fc-name{cursor:pointer;}
-  .fc-name:hover{color:var(--blue);}
 
   /* ---------- ACCRÉDITATIONS ---------- */
   /* Une classe qui pose display: l'emporte sur la règle [hidden] du
@@ -3452,7 +3331,10 @@
       </button>
       <button class="navlink" data-page="content">Contenu</button>
       <button class="navlink" data-page="carte">Carte</button>
-      <button class="navlink" data-page="community">Communauté</button>
+      <button class="navlink" data-page="community">
+        Communauté
+        <span class="nav-pastille" id="navComPastille" hidden></span>
+      </button>
     </nav>
     <div class="account-zone">
       <button class="account-icon" id="accountIconBtn" onclick="toggleAccountMenu()" aria-label="Compte">
@@ -3999,93 +3881,26 @@
   <section id="page-community" class="page">
     <section>
 
-      <!-- Deux onglets : la communauté, et l'espace des waveurs (la salle
-           de machines à sous, qui avait sa page dans le menu). La barre est
-           placée avant les blocs connecté / déconnecté et le panneau
-           Waveurs en est indépendant : les deux onglets se visitent sans
-           compte. Gérés par afficherOngletCommunaute (navigation). -->
-      <div class="onglets-communaute" id="ongletsCommunaute" role="tablist"
-           aria-label="Sections de la communauté"
-           onkeydown="clavierOngletsCommunaute(event)">
-        <button type="button" role="tab" id="ongletCommunaute-communaute"
-                aria-selected="true" aria-controls="panneauCommunaute-communaute"
-                tabindex="0" onclick="choisirOngletCommunaute('communaute')">Communauté</button>
-        <button type="button" role="tab" id="ongletCommunaute-waveurs"
-                aria-selected="false" aria-controls="panneauCommunaute-waveurs"
-                tabindex="-1" onclick="choisirOngletCommunaute('waveurs')">Waveurs</button>
-      </div>
-
-      <div role="tabpanel" id="panneauCommunaute-communaute"
-           aria-labelledby="ongletCommunaute-communaute">
-
-        <div class="section-head">
-          <div>
-            <span class="eyebrow mono">Espace communauté — démo</span>
-            <h2>Communauté La Wave</h2>
-            <p class="desc">Discute, partage, gagne de l'XP en participant à la vie de La Wave.</p>
-          </div>
-        </div>
-
-        <!-- Annuaire visible de tous : c'est ce qui permet de repérer
-             les artistes et beatmakers sans avoir de compte. -->
-        <span class="eyebrow mono">Annuaire</span>
-        <h3 style="font-size:18px; margin:6px 0 4px;">Les membres</h3>
-        <p class="desc" style="margin-bottom:18px;">
-          Repère les artistes, beatmakers et DJ de la communauté.
-          Clique sur un membre pour voir son profil et ses réseaux.
-        </p>
-
-        <div class="role-filters" id="roleFilters"></div>
-        <div class="member-grid" id="memberGrid"></div>
-
-        <div class="hairline" style="margin:40px 0;"></div>
-
-        <div id="communityLoggedOut" class="empty-state" style="padding:40px 24px;">
-          Connecte-toi ou crée un compte pour poster, répondre et suivre ton XP.
-          <div style="margin-top:16px;">
-            <button class="btn btn-primary" onclick="openAuthModal('signup')">Créer un compte</button>
-          </div>
-        </div>
-
-        <div id="communityLoggedIn" style="display:none;">
-          <!-- La carte d'XP et les défis du jour ne sont plus ici : l'XP se lit
-               dans le profil, et les défis vivent dans le bouton flottant
-               #defisFlottant, présent sur toutes les pages. -->
-          <details class="challenge-dropdown" id="onboardingDetails">
-            <summary><span class="eyebrow mono" style="margin:0;">Pour bien démarrer</span><span class="new-dot" id="onboardingNewDot">!</span><span class="chevron">⌄</span></summary>
-            <div class="challenge-list" id="onboardingList"></div>
-          </details>
-
-          <div class="hairline" style="margin:36px 0;"></div>
-
-          <div class="forum-new">
-            <textarea id="forumNewPost" placeholder="Quoi de neuf ? Partage un son, une question, une actu..." rows="3"></textarea>
-            <div id="forumImagePreview" class="forum-image-preview"></div>
-            <div class="forum-new-actions">
-              <button type="button" class="forum-attach-btn" onclick="document.getElementById('forumImageInput').click()">📷 Ajouter une image</button>
-              <input type="file" id="forumImageInput" accept="image/*" style="display:none;" onchange="attachForumImage(this)">
-              <button class="btn btn-primary" onclick="submitForumPost()">Publier</button>
-            </div>
-          </div>
-
-          <div class="forum-sort">
-            <button class="sort-btn active" id="sortNewBtn" onclick="setForumSort('new')">Nouveaux</button>
-            <button class="sort-btn" id="sortTopBtn" onclick="setForumSort('top')">Tendances</button>
-          </div>
-
-          <div class="forum-list" id="forumList"></div>
-        </div>
-
+      <!-- La communauté : un réseau social complet (fil, annonces, annuaire,
+           messages privés, notifications, profils), entièrement dessiné par
+           communaute.js, chargé à la demande quand cette page s'ouvre. Le
+           second panneau de la page est l'espace des waveurs, qu'on ouvre
+           depuis la colonne de gauche ou par l'adresse #waveurs
+           (voir afficherOngletCommunaute). -->
+      <div role="tabpanel" id="panneauCommunaute-communaute" aria-label="La communauté">
+        <div id="com-racine"><noscript>La communauté a besoin de JavaScript.</noscript></div>
       </div>
 
       <!-- L'espace des waveurs : une salle de casino en 3D, dans le
            navigateur. Cet onglet n'est que la porte d'entrée. La salle
            elle-même est dans waveurs.js, chargé seulement quand on clique
            sur « Entrer » — le reste du site n'en paie pas le poids.
-           Hors de #communityLoggedIn : la carte d'état gère elle-même le
-           cas du visiteur sans compte (voir renderWaveurs). -->
+           La carte d'état gère elle-même le cas du visiteur sans compte
+           (voir renderWaveurs). -->
       <div role="tabpanel" id="panneauCommunaute-waveurs"
-           aria-labelledby="ongletCommunaute-waveurs" hidden>
+           aria-label="L'espace des waveurs" hidden>
+
+        <button type="button" class="wv-retour-com" onclick="goTo('community')">← La communauté</button>
 
         <div class="section-head">
           <div>
@@ -4905,9 +4720,13 @@
       Communauté
     </span>
 
-    <h3 style="font-size:18px; margin-bottom:16px;">
-      Modération du forum
+    <h3 style="font-size:18px; margin-bottom:6px;">
+      Modération de la communauté
     </h3>
+    <p class="desc" style="margin-bottom:16px;">
+      Les signalements des membres, puis les derniers messages. Les messages privés
+      ne sont lisibles par personne, équipe comprise.
+    </p>
 
     <div
       class="admin-list"
@@ -5638,24 +5457,6 @@ const BD = {
 
   // ---------- FORUM ----------
 
-  postsForum(){
-    return supabaseClient.from('forum_posts')
-      .select('*').order('created_at', { ascending: false });
-  },
-
-  commentairesForum(){
-    return supabaseClient.from('forum_comments')
-      .select('*').order('created_at', { ascending: true });
-  },
-
-  votesForum(){
-    return supabaseClient.from('forum_votes').select('*');
-  },
-
-  reactionsForum(){
-    return supabaseClient.from('forum_reactions').select('*');
-  },
-
   postsDeLAuteur(auteurId){
     return supabaseClient.from('forum_posts')
       .select('content, image_url')
@@ -5667,41 +5468,6 @@ const BD = {
     return supabaseClient.from('forum_posts')
       .select('id', { count: 'exact', head: true })
       .eq('author_id', auteurId);
-  },
-
-  creerPost(champs){
-    return supabaseClient.from('forum_posts').insert(champs);
-  },
-
-  supprimerPost(id){
-    return supabaseClient.from('forum_posts')
-      .delete().eq('id', id).select();
-  },
-
-  creerCommentaire(champs){
-    return supabaseClient.from('forum_comments').insert(champs);
-  },
-
-  poserVote(postId, userId, valeur){
-    return supabaseClient.from('forum_votes')
-      .upsert({ post_id: postId, user_id: userId, value: valeur },
-              { onConflict: 'post_id,user_id' });
-  },
-
-  retirerVote(postId, userId){
-    return supabaseClient.from('forum_votes')
-      .delete().eq('post_id', postId).eq('user_id', userId);
-  },
-
-  poserReaction(postId, userId, emoji){
-    return supabaseClient.from('forum_reactions')
-      .insert({ post_id: postId, user_id: userId, emoji });
-  },
-
-  retirerReaction(postId, userId, emoji){
-    return supabaseClient.from('forum_reactions')
-      .delete().eq('post_id', postId)
-      .eq('user_id', userId).eq('emoji', emoji);
   },
 
 
@@ -5836,41 +5602,6 @@ const BD = {
     if(nom === 'waveurs') renderWaveurs(); else arreterWaveurs();
   }
 
-  // Clic ou flèche sur un onglet. L'adresse suit, comme pour une page :
-  // le bouton Précédent revient à l'onglet d'avant.
-  function choisirOngletCommunaute(nom, depuisClavier){
-    if(!ONGLETS_COMMUNAUTE.includes(nom) || nom === ongletCommunaute) return;
-
-    afficherOngletCommunaute(nom);
-    ecrireAdresse(nom === 'waveurs' ? 'waveurs' : 'community');
-
-    // Les onglets ne sont pas redessinés, mais le focus doit suivre la
-    // flèche, sinon il resterait sur l'onglet qu'on vient de quitter.
-    if(depuisClavier){
-      const onglet = document.getElementById('ongletCommunaute-' + nom);
-      if(onglet) onglet.focus();
-    }
-  }
-
-  // Flèches gauche et droite entre les onglets, comme le veut le rôle
-  // tablist.
-  function clavierOngletsCommunaute(evenement){
-
-    const i = ONGLETS_COMMUNAUTE.indexOf(ongletCommunaute);
-    const n = ONGLETS_COMMUNAUTE.length;
-
-    let suivant = null;
-    if(evenement.key === 'ArrowRight') suivant = ONGLETS_COMMUNAUTE[(i + 1) % n];
-    if(evenement.key === 'ArrowLeft') suivant = ONGLETS_COMMUNAUTE[(i - 1 + n) % n];
-    if(evenement.key === 'Home') suivant = ONGLETS_COMMUNAUTE[0];
-    if(evenement.key === 'End') suivant = ONGLETS_COMMUNAUTE[n - 1];
-
-    if(!suivant) return;
-
-    evenement.preventDefault();
-    choisirOngletCommunaute(suivant, true);
-  }
-
   function goTo(pageId, options){
     const opt = options || {};
 
@@ -5892,6 +5623,10 @@ const BD = {
     const page = document.getElementById('page-'+pageId);
     if(!page) return goTo('home');
     page.classList.add('active');
+
+    // Sur la page Communauté, la barre du bas et le bouton « publier » prennent
+    // la place du bouton des défis (voir .com-actif dans communaute.js).
+    document.body.classList.toggle('com-actif', pageId === 'community');
 
     document.querySelectorAll('.navlink').forEach(b=>b.classList.remove('active'));
   const navBtn = document.querySelector(`.navlink[data-page="${pageId}"]`);
@@ -5973,7 +5708,10 @@ function adresseDeLaPageAffichee(){
     return '#artiste/' + encodeURIComponent(artisteAffiche);
   }
   if(id === 'carte') return adresseCarte(cartePays);
-  if(id === 'community') return ongletCommunaute === 'waveurs' ? '#waveurs' : '#community';
+  if(id === 'community'){
+    if(ongletCommunaute === 'waveurs') return '#waveurs';
+    return /^#community/.test(location.hash) ? location.hash : '#community';
+  }
 
   return '#' + id;
 }
@@ -9288,6 +9026,46 @@ async function connexionFournisseur(fournisseur){
 }
 
 
+// ---- Messages et notifications non lus : la pastille du menu ----
+//
+// Hors de la page Communauté, communaute.js n'est même pas chargé : une
+// demande très légère (com_compteurs, deux nombres) suffit à tenir la pastille
+// à jour. Sur la page, c'est la communauté elle-même qui la nourrit. Si
+// communaute.sql n'a pas été passé, l'erreur est simplement ignorée.
+function majBadgeCommunaute(total){
+
+  const pastille = document.getElementById('navComPastille');
+
+  if(!pastille) return;
+
+  pastille.hidden = !total;
+  pastille.textContent = total > 9 ? '9+' : String(total || '');
+}
+
+let compteursCommunauteLe = 0;
+
+async function majCompteursCommunaute(){
+
+  if(!currentUser || document.hidden) return;
+
+  const surLaPage = document.getElementById('page-community').classList.contains('active');
+
+  // Sur la page, la communauté fait déjà ce travail.
+  if(surLaPage && window.Com) return;
+
+  if(Date.now() - compteursCommunauteLe < 20000) return;
+  compteursCommunauteLe = Date.now();
+
+  try{
+    const { data, error } = await supabaseClient.rpc('com_compteurs');
+    if(error || !data) return;
+    majBadgeCommunaute((data.messages || 0) + (data.notifications || 0));
+  }catch(erreur){}
+}
+
+setInterval(majCompteursCommunaute, 75000);
+document.addEventListener('visibilitychange', () => { if(!document.hidden) majCompteursCommunaute(); });
+
 // Supabase Auth conserve lui-même la session : au chargement, on la
 // relit et on récupère le profil correspondant.
 async function restoreSession(){
@@ -9392,9 +9170,11 @@ function refreshAccountUI(){
     loggedOut.style.display = 'none';
     loggedIn.style.display = 'block';
     document.getElementById('accDropPseudo').textContent = currentUser.pseudo;
+    majCompteursCommunaute();
   } else {
     loggedOut.style.display = 'block';
     loggedIn.style.display = 'none';
+    majBadgeCommunaute(0);
   }
 }
 
@@ -9735,8 +9515,7 @@ async function renderProfileForm(){
   if(!catalogueData.length) await renderCatalogue();
 
   try{
-    const { count } = await BD.nombreDePostsDeLAuteur(currentUser.id);
-    profilNbPosts = count || 0;
+    profilNbPosts = await nombreDePostsCommunaute(currentUser.id);
   }catch(e){
     profilNbPosts = 0;
   }
@@ -10052,6 +9831,9 @@ function confirmCrop(){
     // Photo proposée pour un artiste encore inconnu : elle attend
     // l'envoi du formulaire, elle n'est pas posée tout de suite.
     poserPhotoNouvelArtiste(cropTarget.slice('artiste-nouveau-'.length), dataUrl);
+  } else if(cropTarget === 'com-avatar'){
+    // Photo de profil changée depuis la page Communauté : envoyée aussitôt.
+    if(window.Com) window.Com.avatarRecadre(dataUrl);
   } else if(cropTarget === 'artist-profile-photo'){
     // Photo de profil artiste : enregistrée immédiatement, elle vaut
     // pour toutes les sorties de l'artiste.
@@ -10179,7 +9961,6 @@ async function saveProfile(){
   }
 
   refreshAccountUI();
-  loadMembers(); // le rôle et l'avatar changent dans l'annuaire
   await checkOnboarding();
   ensureDailyChallenges(currentUser);
   await awardXP('updateProfile', 5);
@@ -10215,10 +9996,9 @@ const DAILY_CHALLENGES = [
   { key: 'enregistrerSortie', label: 'Enregistrer une sortie', xp: 5, auto: true },
   { key: 'visiterArtiste', label: 'Visiter la page d\'un artiste', xp: 5, auto: true },
   { key: 'decouvrirMembre', label: 'Consulter le profil d\'un membre', xp: 5, auto: true },
-  { key: 'postForum', label: 'Publier un message sur le forum', xp: 10, auto: true },
-  { key: 'commentForum', label: 'Commenter un post', xp: 5, auto: true },
-  { key: 'voterForum', label: 'Voter sur un post', xp: 5, auto: true },
-  { key: 'reagirForum', label: 'Réagir à un post', xp: 5, auto: true },
+  { key: 'postForum', label: 'Publier un message dans la communauté', xp: 10, auto: true },
+  { key: 'commentForum', label: 'Commenter un message de la communauté', xp: 5, auto: true },
+  { key: 'reagirForum', label: 'Réagir à un message de la communauté', xp: 5, auto: true },
   { key: 'updateProfile', label: 'Mettre à jour son profil', xp: 5, auto: true },
   { key: 'instaComment', label: 'Commenter notre dernier post Instagram', xp: 5, auto: false }
 ];
@@ -10236,11 +10016,24 @@ function ensureOnboarding(user){
   }
 }
 
+// Le nombre de messages publiés par un membre dans la communauté. Avant
+// l'activation de communaute.sql, c'est l'ancien forum qui répond.
+async function nombreDePostsCommunaute(userId){
+
+  try{
+    const { data, error } = await supabaseClient.rpc('com_nb_posts', { p_auteur: userId });
+    if(!error && typeof data === 'number') return data;
+  }catch(erreur){}
+
+  const { count } = await BD.nombreDePostsDeLAuteur(userId);
+
+  return count || 0;
+}
+
 async function checkOnboarding(){
   if(!currentUser) return;
   ensureOnboarding(currentUser);
-  const { count } = await BD.nombreDePostsDeLAuteur(currentUser.id);
-  const hasPosted = (count || 0) > 0;
+  const hasPosted = (await nombreDePostsCommunaute(currentUser.id)) > 0;
   const checks = {
     avatarSet: !!currentUser.avatar,
     bioAdded: !!(currentUser.bio && currentUser.bio.trim()),
@@ -10285,32 +10078,9 @@ function majCarteXpProfil(){
     </div>`;
 }
 
-function renderOnboarding(){
-  ensureOnboarding(currentUser);
-  const list = document.getElementById('onboardingList');
-  if(!list) return;
-
-  // Une fois les quatre étapes faites, le volet n'a plus rien à
-  // proposer : il n'occupe plus la page.
-  const volet = document.getElementById('onboardingDetails');
-  const restant = ONBOARDING_CHALLENGES.filter(c => !currentUser.onboarding[c.key]);
-
-  if(volet) volet.style.display = restant.length ? '' : 'none';
-
-  if(!restant.length) return;
-
-  list.innerHTML = ONBOARDING_CHALLENGES.map(c => {
-    const done = currentUser.onboarding[c.key];
-    const action = done
-      ? `<span class="c-done">✓ Fait</span>`
-      : `<span class="mono" style="font-size:11px; color:var(--muted);">À faire</span>`;
-    return `
-      <div class="challenge-item">
-        <span class="c-label">${c.label} <span class="c-xp">+${c.xp} XP</span></span>
-        ${action}
-      </div>`;
-  }).join('');
-}
+// L'encart « Pour bien démarrer » (photo, description, réseaux, premier message)
+// est dessiné par communaute.js, en tête du fil : il lit ONBOARDING_CHALLENGES et
+// currentUser.onboarding, et disparaît quand les quatre étapes sont faites.
 
 function renderChallenges(){
 
@@ -10437,119 +10207,74 @@ async function awardXP(challengeKey, amount){
   }
 }
 
-async function renderCommunity(){
-  const loggedOut = document.getElementById('communityLoggedOut');
-  const loggedIn = document.getElementById('communityLoggedIn');
+// La communauté est un réseau social complet, dessiné par communaute.js. Le
+// fichier se charge à la demande (comme waveurs.js) : le reste du site n'en
+// paie pas le poids. Les défis du jour et le suivi du démarrage vivent hors de
+// la page (bouton flottant, volet) : ils sont remis à jour ici.
+const COMMUNAUTE_FICHIER = 'communaute.js?v=1';
+let communauteChargement = null;
 
-  // L'annuaire est consultable sans compte : c'est le point d'entrée
-  // pour repérer les artistes et beatmakers.
-  loadMembers();
+function chargerCommunaute(){
 
-  if(!currentUser){
-    loggedOut.style.display = 'block';
-    loggedIn.style.display = 'none';
-    return;
-  }
-  loggedOut.style.display = 'none';
-  loggedIn.style.display = 'block';
-  ensureDailyChallenges(currentUser);
-  ensureOnboarding(currentUser);
-  await checkOnboarding();
-  renderOnboarding();
-  renderChallenges();
-  refreshChallengeDots();
-  await loadForumPosts();
-  renderForum();
-}
+  if(window.Com) return Promise.resolve();
+  if(communauteChargement) return communauteChargement;
 
-// Le forum vit dans Supabase : posts, commentaires, votes et
-// réactions sont dans quatre tables, recomposées ici sous la forme
-// imbriquée qu'attend l'affichage (votes.up / votes.down, reactions
-// par emoji, comments en tableau).
-async function getForumPosts(){
+  communauteChargement = new Promise((resolve, reject) => {
 
-  const [posts, comments, votes, reactions, profils] = await Promise.all([
-    BD.postsForum(),
-    BD.commentairesForum(),
-    BD.votesForum(),
-    BD.reactionsForum(),
-    BD.profilsResumes()
-  ]);
+    const s = document.createElement('script');
+    s.src = COMMUNAUTE_FICHIER;
 
-  const premiereErreur =
-    [posts, comments, votes, reactions, profils].find(r => r.error);
-
-  if(premiereErreur){
-    console.warn('⚠️ Forum illisible :', premiereErreur.error.message);
-    return [];
-  }
-
-  const parId = {};
-  (profils.data || []).forEach(p => { parId[p.id] = p; });
-
-  const nomDe = (id) => (parId[id] && parId[id].pseudo) || 'Compte supprimé';
-  const roleDe = (id) => (parId[id] && parId[id].role) || 'Auditeur';
-
-  return (posts.data || []).map(post => {
-
-    const sesVotes = (votes.data || []).filter(v => v.post_id === post.id);
-    const sesReactions = {};
-
-    (reactions.data || [])
-      .filter(r => r.post_id === post.id)
-      .forEach(r => {
-        if(!sesReactions[r.emoji]) sesReactions[r.emoji] = [];
-        sesReactions[r.emoji].push(r.user_id);
-      });
-
-    return {
-      id: post.id,
-      authorId: post.author_id,
-      authorPseudo: nomDe(post.author_id),
-      authorRole: roleDe(post.author_id),
-      authorAvatar: (parId[post.author_id] && parId[post.author_id].avatar_url) || '',
-      content: post.content || '',
-      image: post.image_url || null,
-      createdAt: post.created_at,
-      votes: {
-        up: sesVotes.filter(v => v.value === 1).map(v => v.user_id),
-        down: sesVotes.filter(v => v.value === -1).map(v => v.user_id)
-      },
-      reactions: sesReactions,
-      comments: (comments.data || [])
-        .filter(c => c.post_id === post.id)
-        .map(c => ({
-          id: c.id,
-          authorId: c.author_id,
-          authorPseudo: nomDe(c.author_id),
-          authorRole: roleDe(c.author_id),
-          authorAvatar: (parId[c.author_id] && parId[c.author_id].avatar_url) || '',
-          content: c.content,
-          createdAt: c.created_at
-        }))
+    s.onload = () => {
+      if(window.Com) resolve();
+      else reject(new Error("Le fichier de la communauté s'est chargé, mais il ne s'est pas lancé."));
     };
+
+    s.onerror = () => {
+      communauteChargement = null;
+      reject(new Error(
+        "Le fichier de la communauté (communaute.js) est introuvable. Il doit être " +
+        "transféré sur le serveur en même temps que index.html."
+      ));
+    };
+
+    document.head.appendChild(s);
   });
+
+  return communauteChargement;
 }
 
-const REACTION_EMOJIS = ['🔥','❤️','😂','👏','💯'];
-let forumSortMode = 'new';
-let openCommentThreads = new Set();
+async function renderCommunity(){
 
-// ---- Cache local : les actions du forum se reflètent à l'écran immédiatement,
-// la sauvegarde vers le stockage partagé se fait ensuite en arrière-plan. ----
-let forumPostsCache = [];
+  if(currentUser){
+    ensureDailyChallenges(currentUser);
+    ensureOnboarding(currentUser);
+    renderChallenges();
+    refreshChallengeDots();
+  }
 
-async function loadForumPosts(){
-  forumPostsCache = await getForumPosts();
-  if(!Array.isArray(forumPostsCache)) forumPostsCache = [];
-}
+  const racine = document.getElementById('com-racine');
 
-// Chaque action écrit désormais sa propre ligne : plus de sauvegarde
-// globale du forum. On recharge après coup pour rester aligné sur ce
-// que les autres visiteurs ont publié entre-temps.
-async function refreshForum(){
-  await loadForumPosts();
-  if(document.getElementById('forumList')) renderForum();
+  if(!racine) return;
+
+  // L'espace des waveurs n'a pas besoin de la communauté : elle ne se charge
+  // qu'au retour sur son onglet.
+  if(/^#waveurs/.test(location.hash)) return;
+
+  try{
+    await chargerCommunaute();
+    window.Com.ouvrir();
+  }catch(erreur){
+    racine.innerHTML = `<div class="empty-state">${escapeHtml(erreur.message)}</div>`;
+  }
+
+  // Les étapes de démarrage se cochent d'elles-mêmes (photo, bio, réseaux,
+  // premier message) : on les relit sans retarder la page.
+  if(currentUser){
+    checkOnboarding().then(() => {
+      if(window.Com && window.Com.majOnboarding) window.Com.majOnboarding();
+      renderChallenges();
+    }).catch(() => {});
+  }
 }
 
 // ---- Badges liés au niveau ----
@@ -10565,362 +10290,25 @@ function badgeForXP(xp){
   return BADGE_TIERS.find(b => level >= b.minLevel) || BADGE_TIERS[BADGE_TIERS.length-1];
 }
 
-let forumImageDataUrl = null;
-
-async function submitForumPost(){
-  if(!currentUser) return;
-  const textarea = document.getElementById('forumNewPost');
-  const content = textarea.value.trim();
-  if(!content && !forumImageDataUrl) return;
-
-  // L'image part dans le bucket : la stocker en base64 ferait grossir
-  // chaque lecture du forum pour tout le monde.
-  let imageUrl = null;
-
-  if(forumImageDataUrl){
-    try{
-      imageUrl = await uploadCoverDataUrl(forumImageDataUrl, 'forum', currentUser.pseudo);
-    }catch(err){
-      console.warn('⚠️ Image du post non envoyée :', err.message);
-    }
-  }
-
-  const { error } = await BD.creerPost({
-    author_id: currentUser.id,
-    content,
-    image_url: imageUrl
-  });
-
-  if(error){
-    console.error('❌ Post non publié :', error.message);
-    alert("Publication impossible : " + error.message);
-    return;
-  }
-
-  textarea.value = '';
-  clearForumImage();
-  await refreshForum();
-  await awardXP('postForum', 10);
-  await checkOnboarding();
-  if(document.getElementById('onboardingList')) renderOnboarding();
-}
-
-function attachForumImage(input){
-  const file = input.files[0];
-  if(!file) return;
-  const reader = new FileReader();
-  reader.onload = (e)=>{
-    forumImageDataUrl = e.target.result;
-    const preview = document.getElementById('forumImagePreview');
-    preview.style.display = 'flex';
-    preview.innerHTML = `<img src="${forumImageDataUrl}"><button type="button" onclick="clearForumImage()">✕</button>`;
-  };
-  reader.readAsDataURL(file);
-}
-function clearForumImage(){
-  forumImageDataUrl = null;
-  const input = document.getElementById('forumImageInput');
-  if(input) input.value = '';
-  const preview = document.getElementById('forumImagePreview');
-  if(preview){ preview.style.display = 'none'; preview.innerHTML = ''; }
-}
-
-async function submitForumComment(postId){
-  if(!currentUser) return;
-  const input = document.getElementById('comment-input-' + postId);
-  const content = input.value.trim();
-  if(!content) return;
-
-  const { error } = await BD.creerCommentaire({
-    post_id: postId,
-    author_id: currentUser.id,
-    content
-  });
-
-  if(error){
-    console.error('❌ Commentaire non publié :', error.message);
-    return;
-  }
-
-  input.value = '';
-  openCommentThreads.add(postId);
-  await refreshForum();
-  await awardXP('commentForum', 5);
-}
-
-// toggle : re-cliquer sur le même vote l'annule
-async function toggleVote(postId, direction){
-  if(!currentUser) return;
-  const post = forumPostsCache.find(p=>p.id===postId);
-  if(!post) return;
-
-  const uid = currentUser.id;
-  const valeur = direction === 'up' ? 1 : -1;
-  const dejaAinsi = (post.votes[direction] || []).includes(uid);
-
-  // Affichage immédiat, écriture ensuite : le clic ne doit pas
-  // attendre l'aller-retour réseau.
-  post.votes.up = post.votes.up.filter(id => id !== uid);
-  post.votes.down = post.votes.down.filter(id => id !== uid);
-  if(!dejaAinsi) post.votes[direction].push(uid);
-  renderForum();
-
-  const { error } = await (dejaAinsi
-    ? BD.retirerVote(postId, uid)
-    : BD.poserVote(postId, uid, valeur));
-  if(error){
-    console.warn('⚠️ Vote non enregistré :', error.message);
-    return;
-  }
-
-  if(!dejaAinsi) await awardXP('voterForum', 5);
-}
-
-async function toggleReaction(postId, emoji){
-  if(!currentUser) return;
-  const post = forumPostsCache.find(p=>p.id===postId);
-  if(!post) return;
-
-  if(!post.reactions) post.reactions = {};
-  if(!post.reactions[emoji]) post.reactions[emoji] = [];
-
-  const uid = currentUser.id;
-  const dejaReagi = post.reactions[emoji].includes(uid);
-
-  post.reactions[emoji] = dejaReagi
-    ? post.reactions[emoji].filter(id => id !== uid)
-    : [...post.reactions[emoji], uid];
-  renderForum();
-
-  const { error } = await (dejaReagi
-    ? BD.retirerReaction(postId, uid, emoji)
-    : BD.poserReaction(postId, uid, emoji));
-  if(error){
-    console.warn('⚠️ Réaction non enregistrée :', error.message);
-    return;
-  }
-
-  if(!dejaReagi) await awardXP('reagirForum', 5);
-}
-
-function toggleCommentThread(postId){
-  if(openCommentThreads.has(postId)) openCommentThreads.delete(postId);
-  else openCommentThreads.add(postId);
-  renderForum();
-}
-
-function setForumSort(mode){
-  forumSortMode = mode;
-  document.getElementById('sortNewBtn').classList.toggle('active', mode==='new');
-  document.getElementById('sortTopBtn').classList.toggle('active', mode==='top');
-  renderForum();
-}
-
-// La suppression est autorisée à l'auteur du post et aux profils
-// marqués is_admin en base — c'est la RLS qui trancne, pas le
-// navigateur tranche. Le bouton n'est qu'un raccourci.
-async function deleteForumPost(postId){
-
-  const { data, error } = await BD.supprimerPost(postId);
-
-  if(error){
-    console.error('❌ Suppression refusée :', error.message);
-    alert('Suppression impossible : ' + error.message);
-    return;
-  }
-
-  if(!data || data.length === 0){
-    alert(
-      "Suppression refusée : il faut être l'auteur du post, ou avoir " +
-      "un compte communauté marqué administrateur en base."
-    );
-    return;
-  }
-
-  await loadForumPosts();
-  if(document.getElementById('forumList')) renderForum();
-  if(document.getElementById('forumModList')) renderForumModeration();
-}
-
-function formatDate(iso){
-  const d = new Date(iso);
-  return d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
-}
-
-function forumPostHtml(post){
-  const votes = post.votes || { up: [], down: [] };
-  const score = votes.up.length - votes.down.length;
-  const uid = currentUser ? currentUser.id : null;
-  const votedUp = uid && votes.up.includes(uid);
-  const votedDown = uid && votes.down.includes(uid);
-
-  const avatarUrl = safeUrl(post.authorAvatar);
-  const avatar = avatarUrl
-    ? `<img class="forum-avatar" src="${escapeAttribute(avatarUrl)}" alt="" onclick="viewProfile('${post.authorId}')">`
-    : `<div class="forum-avatar" onclick="viewProfile('${post.authorId}')"></div>`;
-  // L'auteur peut supprimer son propre post, l'équipe n'importe lequel.
-  const peutSupprimer =
-    isAdmin ||
-    (currentUser && (currentUser.isAdmin || currentUser.id === post.authorId));
-  const adminDelete = peutSupprimer ? `<button class="forum-post-admin" onclick="deleteForumPost('${post.id}')">Supprimer</button>` : '';
-
-  const reactions = post.reactions || {};
-  const reactionRow = REACTION_EMOJIS.map(emoji => {
-    const users = reactions[emoji] || [];
-    const active = uid && users.includes(uid);
-    return `<button class="reaction-chip${active ? ' active' : ''}" onclick="toggleReaction('${post.id}','${emoji}')">${emoji}${users.length ? ' ' + users.length : ''}</button>`;
-  }).join('');
-
-  const commentsOpen = openCommentThreads.has(post.id);
-  const comments = post.comments.map(c => {
-    const url = safeUrl(c.authorAvatar);
-    const photo = url
-      ? `<img class="fc-avatar" src="${escapeAttribute(url)}" alt=""
-              onclick="viewProfile('${c.authorId}')">`
-      : `<span class="fc-avatar fc-initiale"
-              onclick="viewProfile('${c.authorId}')">${escapeHtml(artistInitial(c.authorPseudo))}</span>`;
-
-    return `
-      <div class="forum-comment">
-        ${photo}
-        <div class="fc-corps">
-          <span class="fc-name" onclick="viewProfile('${c.authorId}')">${escapeHtml(c.authorPseudo)}</span>
-          ${roleBadgeHtml(c.authorRole, 'small')}
-          <span class="fc-texte">${escapeHtml(c.content)}</span>
-        </div>
-      </div>`;
-  }).join('');
-  const commentForm = currentUser ? `
-    <div class="forum-comment-form">
-      <input type="text" id="comment-input-${post.id}" placeholder="Répondre...">
-      <button onclick="submitForumComment('${post.id}')">Envoyer</button>
-    </div>` : '';
-
-  const imageUrl = safeUrl(post.image);
-  const postImage = imageUrl
-    ? `<div class="forum-post-image"><img src="${escapeAttribute(imageUrl)}" alt=""></div>`
-    : '';
-
-  return `
-    <div class="forum-post">
-      <div class="vote-col">
-        <button class="vote-btn${votedUp ? ' voted-up' : ''}" onclick="toggleVote('${post.id}','up')">▲</button>
-        <span class="vote-score">${score}</span>
-        <button class="vote-btn${votedDown ? ' voted-down' : ''}" onclick="toggleVote('${post.id}','down')">▼</button>
-      </div>
-      <div class="forum-post-main">
-        <div class="forum-post-head">
-          ${avatar}
-          <span class="fp-name" onclick="viewProfile('${post.authorId}')">${escapeHtml(post.authorPseudo)}</span>
-          ${roleBadgeHtml(post.authorRole, 'small')}
-          <span class="fp-date">${formatDate(post.createdAt)}</span>
-          ${adminDelete}
-        </div>
-        ${post.content ? `<p class="forum-post-body">${escapeHtml(post.content)}</p>` : ''}
-        ${postImage}
-        <div class="reaction-row">${reactionRow}</div>
-        <button class="comment-toggle" onclick="toggleCommentThread('${post.id}')">
-          ${post.comments.length} commentaire${post.comments.length !== 1 ? 's' : ''} ${commentsOpen ? '▲' : '▼'}
-        </button>
-        <div class="forum-comments${commentsOpen ? ' open' : ''}">${comments}</div>
-        ${commentsOpen ? commentForm : ''}
-      </div>
-    </div>`;
-}
-
-function renderForum(){
-  const sorted = [...forumPostsCache].sort((a,b) => {
-    if(forumSortMode === 'top'){
-      const scoreA = (a.votes?.up.length||0) - (a.votes?.down.length||0);
-      const scoreB = (b.votes?.up.length||0) - (b.votes?.down.length||0);
-      return scoreB - scoreA;
-    }
-    return new Date(b.createdAt) - new Date(a.createdAt);
-  });
-  const list = document.getElementById('forumList');
-  list.innerHTML = sorted.length
-    ? sorted.map(forumPostHtml).join('')
-    : `<div class="empty-state">Aucun post pour l'instant. Sois le premier à lancer la discussion.</div>`;
-}
-
-// ---- Annuaire des membres ----
-let membersData = [];
-let memberRoleFilter = 'Tous';
-
-// Recharge la liste depuis Supabase, puis réaffiche.
-async function loadMembers(){
-  membersData = await getUsers();
-  renderMembers();
-}
-
-// Affichage seul : changer de filtre ne doit pas relancer de requête.
-function renderMembers(){
-
-  const grid = document.getElementById('memberGrid');
-  if(!grid) return;
-
-  // Un filtre n'a d'intérêt que s'il correspond à des membres.
-  const rolesPresents = MEMBER_ROLES
-    .map(r => r.name)
-    .filter(nom => membersData.some(m => roleNom(m.role) === nom));
-
-  const filtres = document.getElementById('roleFilters');
-
-  if(filtres){
-    filtres.innerHTML = ['Tous', ...rolesPresents].map(nom => {
-      const info = nom === 'Tous' ? null : roleInfo(nom);
-      const nb = nom === 'Tous'
-        ? membersData.length
-        : membersData.filter(m => roleNom(m.role) === nom).length;
-      return `
-        <button type="button"
-          class="role-filter${memberRoleFilter === nom ? ' active' : ''}"
-          onclick="setMemberRoleFilter('${escapeAttribute(nom)}')">
-          ${info ? info.icon + ' ' : ''}${escapeHtml(nom)} ${nb}
-        </button>`;
-    }).join('');
-  }
-
-  const visibles = memberRoleFilter === 'Tous'
-    ? membersData
-    : membersData.filter(m => roleNom(m.role) === memberRoleFilter);
-
-  // Les profils les plus actifs d'abord.
-  const tries = [...visibles].sort((a, b) => (b.xp || 0) - (a.xp || 0));
-
-  if(!tries.length){
-    grid.innerHTML = `
-      <div class="empty-state">
-        ${membersData.length
-          ? 'Aucun membre avec ce rôle pour l\'instant.'
-          : 'Aucun membre inscrit pour l\'instant.'}
-      </div>`;
-    return;
-  }
-
-  grid.innerHTML = tries.map(m => `
-    <div class="member-card" onclick="viewProfile('${m.id}')">
-      <div class="member-avatar">
-        ${safeUrl(m.avatar)
-          ? `<img src="${escapeAttribute(safeUrl(m.avatar))}" alt="">`
-          : escapeHtml(artistInitial(m.pseudo))}
-      </div>
-      <span class="member-pseudo">${escapeHtml(m.pseudo)}</span>
-      ${roleBadgeHtml(m.role)}
-      <span class="member-xp">${badgeForXP(m.xp).icon} ${m.xp || 0} XP</span>
-    </div>
-  `).join('');
-}
-
-function setMemberRoleFilter(nom){
-  memberRoleFilter = nom;
-  renderMembers();
-}
-
-
 // ---- Palmarès ----
 // ---- Profil visitable ----
+// Le profil d'un membre se lit dans la communauté. Tant que celle-ci n'est pas
+// activée côté base (communaute.sql), l'ancienne fiche en fenêtre prend le relais.
 async function viewProfile(userId){
+
+  if(!userId) return;
+
+  try{
+    await chargerCommunaute();
+    if(window.Com && await window.Com.profil(userId)) return;
+  }catch(erreur){
+    // Fichier introuvable : l'ancienne fiche suffit.
+  }
+
+  return viewProfileClassique(userId);
+}
+
+async function viewProfileClassique(userId){
   if(!userId) return;
 
   // Consulter son propre profil ne compte pas comme une découverte.
@@ -11092,10 +10480,6 @@ function loadSeenFlags(user){
   user.seenOnboarding = storageRead('lawave:vu:' + user.id + ':seenOnboarding') || false;
   user.seenDailyDate = storageRead('lawave:vu:' + user.id + ':seenDailyDate') || null;
 }
-
-document.getElementById('onboardingDetails').addEventListener('toggle', function(){
-  if(this.open) markSeen('seenOnboarding', true);
-});
 
 // ---------------- PLATEFORMES D'ÉCOUTE ----------------
 //
@@ -23351,26 +22735,113 @@ async function renderAboutStats(){
   }
 }
 
+// L'équipe voit d'abord ce qu'on lui a signalé, puis les derniers messages du
+// fil. Tout passe par les fonctions com_* : elles vérifient que l'appelant est
+// bien de l'équipe (est_equipe), le navigateur n'a pas voix au chapitre.
 async function renderForumModeration(){
+
   if(!isAdmin) return;
-  const posts = await getForumPosts();
+
   const list = document.getElementById('forumModList');
+
   if(!list) return;
-  if(!posts.length){
-    list.innerHTML = `<div class="empty-state">Aucun post publié pour l'instant.</div>`;
+
+  list.innerHTML = `<div class="empty-state">Chargement…</div>`;
+
+  const [signalements, fil] = await Promise.all([
+    supabaseClient.rpc('com_signalements_liste'),
+    supabaseClient.rpc('com_fil', { p_vue: 'recent', p_limite: 25 })
+  ]);
+
+  const erreur = signalements.error || fil.error;
+
+  if(erreur){
+    list.innerHTML = /Could not find the function|schema cache/i.test(erreur.message)
+      ? `<div class="empty-state">La nouvelle communauté n'est pas encore activée : le fichier communaute.sql n'a pas été passé dans Supabase.</div>`
+      : `<div class="empty-state">${escapeHtml(erreur.message)}</div>`;
     return;
   }
-  list.innerHTML = posts.map(p => `
-    <div class="admin-row">
-      <div class="meta">
-        <h4>${escapeHtml(p.authorPseudo)}</h4>
-        <span>${escapeHtml(p.content.slice(0,120))}${p.content.length>120 ? '…' : ''} · ${p.comments.length} commentaire(s)</span>
-      </div>
-      <div class="admin-actions">
-        <button class="reject" onclick="deleteForumPost('${p.id}')">Supprimer</button>
-      </div>
-    </div>
-  `).join('');
+
+  const motifs = { spam: 'Spam', haine: 'Propos haineux', harcelement: 'Harcèlement', faux: 'Faux profil', autre: 'Autre' };
+  const liste = signalements.data || [];
+  const posts = (fil.data && fil.data.posts) || [];
+
+  const cibleTexte = (s) => {
+    const c = s.cible;
+    if(!c) return '(contenu supprimé)';
+    if(s.cible_type === 'membre') return 'Membre : ' + (c.pseudo || '?');
+    return (c.auteur ? c.auteur.pseudo + ' : ' : '') + String(c.extrait || '').slice(0, 140);
+  };
+
+  list.innerHTML = `
+    <span class="eyebrow mono">Signalements ouverts · ${liste.length}</span>
+    ${liste.length ? liste.map(s => `
+      <div class="admin-row">
+        <div class="meta">
+          <h4>${escapeHtml(motifs[s.motif] || s.motif)} — signalé par ${escapeHtml(s.auteur ? s.auteur.pseudo : '?')}</h4>
+          <span>${escapeHtml(cibleTexte(s))}${s.details ? ' · « ' + escapeHtml(s.details) + ' »' : ''}</span>
+        </div>
+        <div class="admin-actions">
+          <button class="approve" onclick="traiterSignalementCom('${escapeAttribute(s.id)}','ignorer')">Ignorer</button>
+          <button class="reject" onclick="traiterSignalementCom('${escapeAttribute(s.id)}','supprimer')">Supprimer</button>
+        </div>
+      </div>`).join('') : `<div class="empty-state">Aucun signalement en attente.</div>`}
+
+    <span class="eyebrow mono" style="margin-top:28px;">Derniers messages</span>
+    ${posts.length ? posts.map(p => `
+      <div class="admin-row">
+        <div class="meta">
+          <h4>${escapeHtml(p.auteur ? p.auteur.pseudo : '?')}${p.epingle ? ' · 📌 épinglé' : ''}</h4>
+          <span>${escapeHtml(String(p.contenu || '(image ou lien)').slice(0, 120))}${(p.contenu || '').length > 120 ? '…' : ''} · ${p.nb_commentaires} commentaire(s)</span>
+        </div>
+        <div class="admin-actions">
+          <button class="approve" onclick="epinglerPostCom('${escapeAttribute(p.id)}', ${p.epingle ? 'false' : 'true'})">${p.epingle ? 'Désépingler' : 'Épingler'}</button>
+          <button class="reject" onclick="supprimerPostCom('${escapeAttribute(p.id)}')">Supprimer</button>
+        </div>
+      </div>`).join('') : `<div class="empty-state">Aucun message publié pour l'instant.</div>`}`;
+}
+
+async function traiterSignalementCom(id, action){
+
+  if(action === 'supprimer' && !confirm('Supprimer le contenu signalé ? Cette action est définitive.')) return;
+
+  const { error } = await supabaseClient.rpc('com_traiter_signalement', { p_id: id, p_action: action });
+
+  if(error){
+    alert('Action impossible : ' + error.message);
+    return;
+  }
+
+  renderForumModeration();
+}
+
+async function epinglerPostCom(id, actif){
+
+  const { error } = await supabaseClient.rpc('com_epingler', { p_id: id, p_actif: actif });
+
+  if(error){
+    alert('Action impossible : ' + error.message);
+    return;
+  }
+
+  renderForumModeration();
+}
+
+async function supprimerPostCom(id){
+
+  if(!confirm('Supprimer ce message ? Cette action est définitive.')) return;
+
+  const { data, error } = await supabaseClient.rpc('com_supprimer_post', { p_id: id });
+
+  if(error){
+    alert('Suppression impossible : ' + error.message);
+    return;
+  }
+
+  // Les images d'un message supprimé quittent aussi le stockage.
+  if(data && data.images && data.images.length) Fichiers.supprimerParUrl.apply(Fichiers, data.images);
+
+  renderForumModeration();
 }
 
 function generatePostVisual(sub, catalogNum){
