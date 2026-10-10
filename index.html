@@ -370,6 +370,8 @@
                transform .25s var(--ease), box-shadow .25s var(--ease);
   }
   .social-icon svg{width:18px; height:18px;}
+  /* Une classe qui pose display l'emporte sur [hidden] : on le redit. */
+  .social-icon[hidden]{display:none;}
   .social-icon:hover{
     color:#fff; border-color:rgba(255,255,255,0.30); transform:translateY(-3px);
     box-shadow:var(--reflet-int), var(--ombre-2);
@@ -447,6 +449,7 @@
     transition:transform .55s var(--ease);
   }
   .cat-tile:hover .cat-cover img{transform:scale(1.07);}
+  .cat-tile:focus-visible{outline:2px solid var(--blue-bright); outline-offset:3px;}
 
   /* La page du catalogue n'a ni titre ni compteur : des pochettes, et
      un trait pour chercher. Le champ n'a ni cadre ni fond — une ligne
@@ -2578,8 +2581,11 @@
   #cropModal.sortie{animation:cropSort .2s var(--ease) forwards;}
   @keyframes cropSort{to{opacity:0; transform:scale(.98);}}
 
+  /* 46vh : sur un écran bas (téléphone couché), le cadre, le curseur et
+     les deux boutons dépassaient l'écran, et le bouton de validation
+     n'était plus atteignable. */
   .crop-viewport{
-    position:relative; width:min(300px, 76vw); aspect-ratio:1/1;
+    position:relative; width:min(300px, 76vw, 46vh); aspect-ratio:1/1;
     border-radius:50%; overflow:hidden; background:#000;
     cursor:grab; touch-action:none; outline:none;
     box-shadow:0 0 0 1px rgba(255,255,255,0.20), 0 24px 70px rgba(0,0,0,0.6);
@@ -2609,7 +2615,7 @@
   }
   .crop-viewport.deplace::after{opacity:1;}
 
-  .crop-zoom{display:flex; align-items:center; gap:14px; width:min(300px, 76vw); color:var(--muted);}
+  .crop-zoom{display:flex; align-items:center; gap:14px; width:min(300px, 76vw, 46vh); color:var(--muted);}
   .crop-zoom svg{width:15px; height:15px; flex:none; opacity:.8;}
   #cropZoom{
     -webkit-appearance:none; appearance:none; flex:1; min-width:0; height:24px; margin:0;
@@ -3129,17 +3135,23 @@
            double dans le fichier. -->
       <img id="heroLogo" alt="La Wave">
     </div>
+    <!-- Instagram et YouTube : les comptes de La Wave, les mêmes que sur la
+         page Contenu. TikTok et X n'ont pas encore d'adresse : masqués
+         plutôt que de renvoyer vers « # » (qui remontait la page et relisait
+         le catalogue). Pour les remettre : href réel et retrait de « hidden ». -->
     <div class="social-row">
-      <a href="#" class="social-icon" aria-label="Instagram" title="Instagram">
+      <a href="https://www.instagram.com/lawavefr/" target="_blank" rel="noopener noreferrer"
+         class="social-icon" aria-label="Instagram" title="Instagram">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none"/></svg>
       </a>
-      <a href="#" class="social-icon" aria-label="TikTok" title="TikTok">
+      <a class="social-icon" aria-label="TikTok" title="TikTok" hidden>
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14.5 3h2.6c.2 1.6 1.2 3 2.7 3.7v2.7c-1.4 0-2.7-.4-3.8-1.2v6.4c0 3-2.4 5.4-5.4 5.4S5.2 17.6 5.2 14.6c0-2.9 2.3-5.3 5.2-5.4v2.8c-1.4.1-2.5 1.3-2.5 2.6 0 1.5 1.2 2.7 2.7 2.7s2.7-1.2 2.7-2.7V3z"/></svg>
       </a>
-      <a href="#" class="social-icon" aria-label="X (Twitter)" title="X">
+      <a class="social-icon" aria-label="X (Twitter)" title="X" hidden>
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4l7.2 8.6L4.4 20h2l6-6.4 4.5 6.4H20l-7.5-9 6.4-7.6h-2l-5.6 6-4.2-6H4z"/></svg>
       </a>
-      <a href="#" class="social-icon" aria-label="YouTube" title="YouTube">
+      <a href="https://www.youtube.com/@LaWavefr" target="_blank" rel="noopener noreferrer"
+         class="social-icon" aria-label="YouTube" title="YouTube">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="M10.5 9.5l5 2.5-5 2.5z" fill="currentColor" stroke="none"/></svg>
       </a>
     </div>
@@ -4883,6 +4895,15 @@ const BD = {
       .order('release_date', { ascending: false, nullsFirst: false }));
   },
 
+  // Une seule ligne : de quoi savoir si la base répond, sans relire le
+  // catalogue entier (plus de mille sorties, deux requêtes).
+  verifierConnexion(){
+    return supabaseClient.from('submissions')
+      .select('id')
+      .eq('status', 'approved')
+      .limit(1);
+  },
+
   // Espace équipe : même contenu, trié par numéro de catalogue.
   sortiesValidees(){
     return toutesLesPages(() => supabaseClient.from('submissions')
@@ -5336,8 +5357,10 @@ const BD = {
 
   // ---------------- TEST SUPABASE ----------------
 
+  // Ce test relisait tout le catalogue public, que la page relit aussitôt
+  // après pour l'afficher : chaque visite le téléchargeait deux fois.
   async function testSupabaseConnection() {
-    const { error } = await BD.sortiesPubliees();
+    const { error } = await BD.verifierConnexion();
 
     if (error) {
       console.error('❌ Backend injoignable :', error);
@@ -5460,7 +5483,7 @@ const BD = {
     ecrireAdresse(adresse, opt.parametre);
   }
 
-  if(pageId === 'catalogue' || pageId === 'home') renderCatalogue();
+  if(pageId === 'catalogue' || pageId === 'home') renderCatalogueSiPerime();
   if(pageId === 'admin'){ autoOpenAdminIfAllowed(); renderForumModeration(); }
   if(pageId === 'about') renderAboutStats();
   // Une vidéo lue sur place se tairait avec la page : sans cela, son
@@ -5487,7 +5510,11 @@ const BD = {
 }
 
 // L'accueil n'a pas d'ancre : une adresse nue reste propre.
-function ecrireAdresse(pageId, parametre){
+//
+// etat : marque, dans l'historique, l'entrée ajoutée pour une fiche de
+// sortie. La fermer revient en arrière au lieu d'en ajouter une
+// (voir closeCatalogueModal).
+function ecrireAdresse(pageId, parametre, etat){
   const cible = pageId === 'home'
     ? ' '
     : '#' + pageId + (parametre ? '/' + encodeURIComponent(parametre) : '');
@@ -5495,33 +5522,102 @@ function ecrireAdresse(pageId, parametre){
   if(cible === ' '){
     history.replaceState(null, '', location.pathname + location.search);
   } else if(location.hash !== cible){
-    history.pushState(null, '', cible);
+    history.pushState(etat || null, '', cible);
   }
 }
 
-// Applique l'adresse courante. Appelée au chargement et à chaque
-// Précédent / Suivant.
-function lireAdresse(){
-  const brut = location.hash.replace(/^#/, '');
+// Un lien tronqué ou mal copié peut finir par un « % » seul :
+// decodeURIComponent lève alors une erreur. Lue au chargement, elle
+// arrêtait le script entier — plus de catalogue, plus de formulaires.
+// Les adresses mal formées restent lues telles quelles.
+function decoderAdresse(valeur){
+  try{
+    return decodeURIComponent(valeur);
+  }catch(erreur){
+    return String(valeur || '');
+  }
+}
 
-  if(!brut){
-    lectureAdresseEnCours = true;
-    goTo('home');
-    lectureAdresseEnCours = false;
-    return;
+// Artiste dont la page est à l'écran, pour retrouver son adresse.
+let artisteAffiche = null;
+
+// Adresse de la page affichée : celle qu'on retrouve en refermant une
+// fiche de sortie ouverte par-dessus.
+function adresseDeLaPageAffichee(){
+
+  const active = document.querySelector('.page.active');
+  const id = active ? active.id.replace(/^page-/, '') : 'home';
+
+  if(id === 'home') return location.pathname + location.search;
+  if(id === 'artiste' && artisteAffiche){
+    return '#artiste/' + encodeURIComponent(artisteAffiche);
+  }
+  if(id === 'carte') return adresseCarte(cartePays);
+  if(id === 'community') return ongletCommunaute === 'waveurs' ? '#waveurs' : '#community';
+
+  return '#' + id;
+}
+
+// Vrai quand l'adresse désigne la page déjà à l'écran : c'est le cas
+// en refermant une fiche, et il n'y a alors rien à refaire — ni relire
+// le catalogue, ni remonter la page en haut.
+function pageDejaAffichee(page, parametre){
+
+  const active = document.querySelector('.page.active');
+  const id = page === 'waveurs' ? 'community' : (page || 'home');
+
+  if(!active || active.id !== 'page-' + id) return false;
+
+  if(id === 'artiste') return decoderAdresse(parametre || '') === artisteAffiche;
+
+  // Ces deux pages portent un complément dans l'adresse : l'onglet de la
+  // communauté, le pays de la carte.
+  if(id === 'community'){
+    return !parametre && (page === 'waveurs' ? 'waveurs' : 'communaute') === ongletCommunaute;
   }
 
+  if(id === 'carte'){
+    const pays = decoderAdresse(parametre || '');
+    return (paysCarteValide(pays) ? pays : 'france') === cartePays;
+  }
+
+  return !parametre;
+}
+
+// Applique l'adresse courante. Appelée au chargement et à chaque
+// Précédent / Suivant (alors avec l'évènement, qui garde l'ancienne
+// adresse).
+function lireAdresse(evenement){
+  const brut = location.hash.replace(/^#/, '');
   const [page, parametre] = brut.split('/');
+
+  // Une fiche ouverte se ferme dès que l'adresse n'est plus la sienne :
+  // Précédent, ou le geste « retour » d'un téléphone. Si la page dessous
+  // est déjà celle de l'adresse, on s'arrête là.
+  if(page !== 'sortie'){
+
+    const etaitOuverte = masquerFiche();
+
+    const venaitDUneFiche = etaitOuverte ||
+      !!(evenement && /#sortie\//.test(evenement.oldURL || ''));
+
+    if(venaitDUneFiche && pageDejaAffichee(page, parametre)) return;
+  }
 
   lectureAdresseEnCours = true;
 
-  if(page === 'artiste' && parametre){
-    ouvrirPageArtiste(decodeURIComponent(parametre), true);
+  if(!page){
+    goTo('home');
+  } else if(page === 'artiste' && parametre){
+    ouvrirPageArtiste(decoderAdresse(parametre), true);
+  } else if(page === 'artiste'){
+    // Sans pseudo, la page artiste n'aurait rien à montrer.
+    goTo('catalogue');
   } else if(page === 'sortie' && parametre){
-    ouvrirSortieParNumero(decodeURIComponent(parametre));
+    ouvrirSortieParNumero(decoderAdresse(parametre), !!evenement);
   } else if(page === 'carte'){
     // #carte/belgique ouvre la carte belge ; #carte seul, la France.
-    const pays = decodeURIComponent(parametre || '');
+    const pays = decoderAdresse(parametre || '');
     cartePays = paysCarteValide(pays) ? pays : 'france';
     goTo('carte');
   } else if(page === 'waveurs' || document.getElementById('page-' + page)){
@@ -10880,6 +10976,10 @@ function apresChoixArtiste(ctx){
   if(ctx === 'f' && typeof updateSubmitButtonState === 'function'){
     updateSubmitButtonState();
   }
+
+  // La liste des featurings écarte l'artiste principal : elle suit son
+  // choix.
+  rechercherFeats(ctx === 'admin' ? 'admin-feat' : 'f-feat');
 }
 
 
@@ -10895,7 +10995,9 @@ function rechercherArtistes(ctx){
 
   if(!champ || !zone) return;
 
-  const requete = champ.value.trim().toLowerCase();
+  // Sans tenir compte des accents : « doc gyneco » doit retrouver
+  // « Doc Gynéco », sinon on crée un doublon de l'artiste.
+  const requete = texteNu(champ.value.trim());
 
   // Correspondance par le début du nom affiché, et sur lui seul. Une
   // recherche « contient » sur le pseudo Instagram faisait remonter
@@ -10903,8 +11005,7 @@ function rechercherArtistes(ctx){
   const trouves = requete
     ? Object.values(artistsByHandle)
         .filter(profil =>
-          String(profil.display_name || profil.instagram_handle || '')
-            .toLowerCase()
+          texteNu(profil.display_name || profil.instagram_handle || '')
             .startsWith(requete)
         )
         .sort((a, b) =>
@@ -11428,7 +11529,7 @@ function rechercherFeats(prefixe){
 
   if(!champ || !zone) return;
 
-  const requete = champ.value.trim().toLowerCase();
+  const requete = texteNu(champ.value.trim());
 
   // Ni un artiste déjà en featuring, ni l'artiste principal.
   const exclus = new Set(featsDe(p).map(feat => feat.handle));
@@ -11440,12 +11541,19 @@ function rechercherFeats(prefixe){
 
   if(principal) exclus.add(principal);
 
+  // L'Instagram n'est pas toujours connu (profils importés) : le profil
+  // choisi dans la liste suffit à écarter l'artiste principal.
+  const choisi = p === 'f-feat' ? artisteChoisi.f
+               : p === 'admin-feat' ? artisteChoisi.admin
+               : null;
+
+  if(choisi) exclus.add(choisi);
+
   const trouves = requete
     ? Object.values(artistsByHandle)
         .filter(profil => !exclus.has(profil.instagram_handle))
         .filter(profil =>
-          String(profil.display_name || profil.instagram_handle || '')
-            .toLowerCase()
+          texteNu(profil.display_name || profil.instagram_handle || '')
             .startsWith(requete)
         )
         .sort((a, b) =>
@@ -11796,9 +11904,14 @@ function onRechercheCatalogue(){
   renderCatalogueGrille();
 }
 
+// La pochette s'ouvre aussi au clavier (Tab puis Entrée ou Espace) : une
+// <div> avec un simple onclick n'était ni atteignable ni annoncée.
 function tileHtml(item){
   return `
-    <div class="cat-tile" onclick="openCatalogueModal('${item.id}')">
+    <div class="cat-tile" role="button" tabindex="0"
+         aria-label="${escapeAttribute(item.title + ' — ' + item.artist)}"
+         onclick="openCatalogueModal('${item.id}')"
+         onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openCatalogueModal('${item.id}'); }">
       <div class="cat-cover">
         <img src="${escapeAttribute(safeUrl(item.cover))}"
              alt="${escapeAttribute(item.title)}" loading="lazy">
@@ -11815,6 +11928,22 @@ function tileHtml(item){
 // verrou tombe dès qu'elle est finie : un appel ultérieur, après une
 // suppression ou une validation, relit bien la base.
 let catalogueEnCours = null;
+
+// Accueil et Catalogue se dessinent de la même lecture. La refaire à
+// chaque passage de l'un à l'autre retéléchargeait plus d'un mégaoctet de
+// JSON et redessinait les pochettes une seconde fois (elles rejouaient
+// leur animation) : une lecture de moins d'une minute suffit. Les
+// validations de l'espace équipe, elles, appellent renderCatalogue
+// directement et relisent toujours.
+const CATALOGUE_FRAICHEUR_MS = 60000;
+let catalogueLuLe = 0;
+
+function renderCatalogueSiPerime(){
+  if(catalogueData.length && Date.now() - catalogueLuLe < CATALOGUE_FRAICHEUR_MS){
+    return;
+  }
+  renderCatalogue();
+}
 
 async function renderCatalogue(){
 
@@ -11839,11 +11968,14 @@ async function chargerEtAfficherCatalogue(){
     // ==========================================
 
     // Les photos viennent des profils artistes, les moyennes des
-    // notes : on charge les deux avant de construire les fiches.
-    await loadArtists();
-    await chargerNotes();
-
-    const { data, error } = await BD.sortiesPubliees();
+    // notes : on charge les deux avant de construire les fiches. Les trois
+    // lectures partent ensemble — l'une après l'autre, l'accueil attendait
+    // la somme des trois.
+    const [, , { data, error }] = await Promise.all([
+      loadArtists(),
+      chargerNotes(),
+      BD.sortiesPubliees()
+    ]);
 
 
     if(error){
@@ -11936,6 +12068,7 @@ const list = (data || [])
 
 
     catalogueData = list;
+    catalogueLuLe = Date.now();
 
 
     // ==========================================
@@ -11982,15 +12115,12 @@ const list = (data || [])
       // Quatre pochettes : la grille en tient quatre par ligne sur un
       // écran d'ordinateur, trois y laissaient un vide à droite.
       //
-      // Seules les sorties choisies par La Wave y figurent. L'accueil
-      // est la vitrine éditoriale : une discographie importée, plus
-      // fournie et plus récente, y prendrait toute la place et
-      // reléguerait les trouvailles du média. Le catalogue, lui,
-      // montre tout.
-      const propres = sorted.filter(item => !item.source);
-
-      const latest =
-        (propres.length ? propres : sorted).slice(0, 4);
+      // Ce sont les quatre premières du catalogue, dans le même ordre :
+      // l'accueil montre vraiment les dernières sorties, importées
+      // comprises. Les mettre de côté laissait l'accueil sur des sorties
+      // de plusieurs semaines pendant que le catalogue s'ouvrait sur
+      // celles de la veille.
+      const latest = sorted.slice(0, 4);
 
       homeGrid.innerHTML =
         latest.length
@@ -12009,7 +12139,8 @@ const list = (data || [])
 
     console.log(
       '✅ Catalogue Supabase chargé :',
-      sorted
+      sorted.length,
+      'sorties'
     );
 
 
@@ -12019,6 +12150,10 @@ const list = (data || [])
       '❌ Erreur chargement catalogue :',
       error
     );
+
+    // Des sorties déjà à l'écran valent mieux qu'un message d'erreur :
+    // une relecture qui échoue (coupure passagère) les laisse en place.
+    if(catalogueData.length) return;
 
 
     const grid =
@@ -12037,6 +12172,22 @@ const list = (data || [])
 
     }
 
+    // L'accueil n'avait aucun message : sa section restait vide.
+    const homeGrid =
+      document.getElementById(
+        'homeLatestGrid'
+      );
+
+    if(homeGrid){
+
+      homeGrid.innerHTML = `
+        <div class="empty-state">
+          Impossible de charger les dernières sorties pour l'instant.
+        </div>
+      `;
+
+    }
+
   }
 
 }
@@ -12046,8 +12197,16 @@ renderCatalogue();
 restoreSession();
 
 // Applique l'adresse d'arrivée : un lien partagé vers une sortie ou
-// un artiste ouvre directement la bonne page.
-lireAdresse();
+// un artiste ouvre directement la bonne page. Une adresse inattendue ne
+// doit pas arrêter le script : tout ce qui suit (formulaires, notes,
+// espace équipe) en dépend.
+try{
+  lireAdresse();
+}catch(erreur){
+  console.error('❌ Adresse illisible :', erreur);
+  lectureAdresseEnCours = false;
+  goTo('home');
+}
 
 // ---------------- NOTIFICATIONS ----------------
 //
@@ -14357,6 +14516,10 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
     sansAdresse: !!depuisAdresse
   });
 
+  // Retenu pour retrouver l'adresse de la page quand une fiche s'ouvre
+  // et se referme par-dessus.
+  artisteAffiche = handle;
+
   const corps = document.getElementById('artistePageBody');
   corps.innerHTML = `<div class="empty-state">Chargement...</div>`;
 
@@ -14390,8 +14553,18 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
     (s.artistHandle || instagramHandle(s.instagram)) === handle
   );
 
+  // Un invité dont le profil a été supprimé n'a plus que son nom, gardé
+  // dans les sorties où il figure : mieux que son pseudo brut.
+  const nomInvite = (() => {
+    for(const sortie of sorties){
+      const feat = (sortie.featuring || []).find(f => f.handle === handle);
+      if(feat) return feat.nom;
+    }
+    return '';
+  })();
+
   const nom = (sienne && sienne.artist) ||
-              (profil && profil.display_name) || handle;
+              (profil && profil.display_name) || nomInvite || handle;
 
   const photo = (profil && safeUrl(profil.photo_url)) || '';
   const instagram = safeUrl(profil && profil.instagram_url) ||
@@ -14713,9 +14886,19 @@ async function refuserDemandeArtiste(handle){
 
 
 // Ouvre une sortie à partir de son numéro de catalogue (#sortie/5).
-async function ouvrirSortieParNumero(numero){
+//
+// Au chargement, la fiche s'ouvre sur le catalogue. Par Précédent ou
+// Suivant (garderPage), elle reste sur l'accueil ou le catalogue si l'on
+// y est déjà : c'est de là qu'elle avait été ouverte.
+async function ouvrirSortieParNumero(numero, garderPage){
 
-  goTo('catalogue', { sansAdresse: true });
+  const active = document.querySelector('.page.active');
+  const surLesPochettes = !!active &&
+    (active.id === 'page-home' || active.id === 'page-catalogue');
+
+  if(!(garderPage && surLesPochettes)){
+    goTo('catalogue', { sansAdresse: true });
+  }
 
   if(!catalogueData.length) await renderCatalogue();
 
@@ -14802,7 +14985,7 @@ function openCatalogueModal(id){
     artistEl.style.cursor = 'pointer';
     artistEl.style.textDecoration = 'underline';
     artistEl.onclick = () => {
-      closeCatalogueModal();
+      closeCatalogueModal(true);
       ouvrirPageArtiste(item.artistHandle);
     };
   } else {
@@ -14832,7 +15015,7 @@ function openCatalogueModal(id){
     featEl.innerHTML =
       'feat. ' +
       feats.map(feat =>
-        `<button type="button" onclick="closeCatalogueModal(); ` +
+        `<button type="button" onclick="closeCatalogueModal(true); ` +
         `ouvrirPageArtiste('${handleSain(feat.handle)}')">` +
         `${escapeHtml(nomAfficheDuFeat(feat))}</button>`
       ).join(', ');
@@ -14877,25 +15060,58 @@ document.getElementById(
 
   document.getElementById('catalogueModal').classList.add('open');
 
-  // Adresse partageable de la sortie ouverte.
+  // Adresse partageable de la sortie ouverte. L'entrée est marquée : la
+  // fermer, c'est revenir en arrière dans l'historique.
   if(!lectureAdresseEnCours && item.catalogNum){
-    ecrireAdresse('sortie', String(item.catalogNum));
+    ecrireAdresse('sortie', String(item.catalogNum), { fiche: true });
   }
   if(currentUser){
     ensureDailyChallenges(currentUser);
     awardXP('exploreCatalogue', 5);
   }
 }
-function closeCatalogueModal(){
+
+// Retire la fiche de l'écran et dit si elle y était. Le clip lu sur place
+// part avec elle : seulement masqué, son iframe continuait de jouer en
+// fond, le son ne s'arrêtait qu'à l'ouverture d'une autre fiche.
+function masquerFiche(){
+
   const modale = document.getElementById('catalogueModal');
+  if(!modale) return false;
+
   const etaitOuverte = modale.classList.contains('open');
   modale.classList.remove('open');
 
-  // On quitte l'adresse de la sortie pour revenir à celle du
-  // catalogue, sinon Précédent rouvrirait la modale en boucle.
-  if(etaitOuverte && !lectureAdresseEnCours && location.hash.startsWith('#sortie/')){
-    ecrireAdresse('catalogue');
+  const zoneClip = document.getElementById('modalClip');
+  if(zoneClip) zoneClip.innerHTML = '';
+
+  return etaitOuverte;
+}
+
+// partir : vrai quand on ferme la fiche pour ouvrir la page d'un
+// artiste. L'historique n'est pas touché : la page de l'artiste s'ajoute
+// après la fiche, et Précédent rouvre la fiche.
+function closeCatalogueModal(partir){
+  const etaitOuverte = masquerFiche();
+
+  if(!etaitOuverte || lectureAdresseEnCours || !location.hash.startsWith('#sortie/')){
+    return;
   }
+
+  if(partir === true) return;
+
+  // La fiche a ajouté « #sortie/N » à l'historique : la fermer, c'est
+  // revenir à la page d'où l'on venait (accueil, catalogue, artiste...),
+  // là où on l'a laissée. Auparavant, l'adresse retombait sur #catalogue
+  // même depuis l'accueil, et Précédent rouvrait la fiche.
+  if(history.state && history.state.fiche){
+    history.back();
+    return;
+  }
+
+  // Arrivé par un lien direct : rien à retirer de l'historique, l'entrée
+  // reprend l'adresse de la page.
+  history.replaceState(null, '', adresseDeLaPageAffichee());
 }
 document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') closeCatalogueModal(); });
 
@@ -16128,6 +16344,10 @@ msg.textContent =
     // =====================================================
 
     e.target.reset();
+
+    // reset() a aussi vidé l'email : celui du compte revient, pour
+    // qu'envoyer une deuxième sortie ne demande pas de le retaper.
+    preremplirContacts();
 
     // reset() vide les champs, pas la commune retenue, ni la liste de
     // résultats affichée dessous, ni l'artiste et les featurings
