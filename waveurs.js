@@ -3030,6 +3030,10 @@ const ICONES_UI = {
   muet: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>',
   plein: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>',
   quitter: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+  carnet: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 21.5V5.5"/><path d="M9 8h7"/><path d="M9 12h5"/></svg>',
+  flamme: '<svg class="wv-flamme" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 22.2c-4 0-7-2.8-7-6.8 0-3.6 2.6-5.6 3.8-8.2.9 1.4 1.7 1.8 2.4 2.5C12.6 8.6 12.8 5.4 12 2c4.2 2.2 7 6.4 7 10.8 0 5.2-3 9.4-7 9.4z" fill="#ffb02e" stroke="#ff7a1a" stroke-width="1.3" stroke-linejoin="round"/><path d="M12 22.2c-2.2 0-3.8-1.5-3.8-3.6 0-2 1.5-3 2.2-4.4.6.9 1.2 1 1.6 1.6.5-.9.6-2 .3-3.4 2 1.3 3.5 3.2 3.5 5.5 0 2.4-1.7 4.3-3.8 4.3z" fill="#ffe08a"/></svg>',
+  coche: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>',
+  verrou: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
   piece: '<svg class="wv-ico" aria-hidden="true" focusable="false" viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="10" fill="#e9b949"/><circle cx="12" cy="12" r="10" fill="none" stroke="#a87817" stroke-width="1.5"/><circle cx="12" cy="12" r="6.4" fill="none" stroke="#a87817" stroke-width="1.2"/><path d="M8.6 9.4 10.2 15l1.8-4.2L13.8 15l1.6-5.6" fill="none" stroke="#7a5510" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 };
 
@@ -3273,7 +3277,90 @@ body.wv-en-jeu .notif.persistante{display:none}
   .wv-zoom-scene{height:auto;width:min(84vw,calc(min(70vh,560px) * .715))}
   .wv-ouv-bas{gap:8px}
 }
+.wv-bouton{position:relative}
+.wv-pastille-carnet{position:absolute;top:-5px;right:-5px;min-width:19px;height:19px;padding:0 5px;border-radius:99px;background:#ffb02e;color:#2a1800;font:700 11px/19px 'Public Sans',system-ui,sans-serif;font-style:normal;text-align:center;box-shadow:0 0 0 2px #02060c,0 0 12px rgba(255,176,46,.7);animation:wvPulse 2s ease-in-out infinite}
+.wv-pastille-carnet[hidden]{display:none}
+@keyframes wvPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+.wv-ecran.wv-ecran-carnet{padding:14px}
+.wv-panneau.wv-carnet{width:min(880px,100%);max-height:100%;padding:22px 24px 20px;display:flex;flex-direction:column;gap:12px;overflow:hidden}
+.wv-carnet-tete{display:flex;align-items:flex-end;justify-content:space-between;gap:6px 14px;flex-wrap:wrap}
+.wv-carnet-tete h2{margin:4px 0 0}
+.wv-carnet-pied{align-items:center;flex-wrap:nowrap}
+.wv-panneau .wv-carnet-pied p{margin:0;flex:1 1 180px;min-width:0;padding:9px 14px}
+.wv-carnet-reset{font-size:12px;color:#9fb0c2;letter-spacing:.03em;padding-bottom:4px}
+.wv-carnet-reset b{color:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+.wv-coll-filtres button i{font-style:normal;margin-left:7px;padding:0 6px;border-radius:99px;background:#ffb02e;color:#2a1800;font-size:11px;font-weight:700}
+.wv-coll-filtres button i[hidden]{display:none}
+.wv-carnet-corps,.wv-coll-grille{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.28) transparent}
+.wv-carnet-corps{flex:1 1 auto;overflow:auto;display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-content:start;padding:2px 3px 8px;min-height:130px;touch-action:pan-y}
+.wv-carnet-titre{margin:4px 0 0;font-size:11px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:#7fb8e8}
+.wv-serie{padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,rgba(255,150,40,.14),rgba(255,70,90,.07));border:1px solid rgba(255,160,70,.3)}
+.wv-serie-haut{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.wv-flamme{flex:none;width:28px;height:28px;filter:drop-shadow(0 0 8px rgba(255,150,40,.65))}
+.wv-serie-chiffre{display:flex;align-items:baseline;gap:8px}
+.wv-serie-chiffre b{font-size:34px;font-weight:700;color:#ffd08a;font-variant-numeric:tabular-nums;line-height:1}
+.wv-serie-chiffre span{font-size:13px;color:#ecd9c2}
+.wv-panneau .wv-serie-note{margin:0;font-size:12.5px;line-height:1.5;color:#d8c6b0;flex:1 1 230px}
+.wv-paliers{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px}
+.wv-palier .wv-recup{padding:5px 12px;font-size:12px}
+.wv-palier{display:flex;flex-direction:column;gap:5px;padding:9px 11px;border-radius:12px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.1);transition:border-color .25s,background .25s}
+.wv-palier.atteint{border-color:rgba(255,176,70,.5)}
+.wv-palier.reclame{opacity:.62}
+.wv-palier-jours{font-size:12.5px;font-weight:700;color:#fff}
+.wv-palier-gain{font-size:11.5px;color:#d3c3ae;line-height:1.35}
+.wv-defis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+.wv-defi,.wv-succes{position:relative;display:flex;flex-direction:column;gap:7px;padding:13px 14px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);transition:border-color .25s,background .25s}
+.wv-defi.reclamable,.wv-succes.reclamable,.wv-palier.reclamable{border-color:rgba(255,200,90,.75);background:rgba(255,190,70,.09);box-shadow:0 0 22px rgba(255,176,46,.13)}
+.wv-defi.reclame,.wv-succes.reclame{opacity:.62}
+.wv-groupe{font-size:10.5px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#7fb8e8}
+.wv-defi-nom,.wv-succes-nom{margin:0;font-size:16px;font-weight:700;color:#fff;line-height:1.2;letter-spacing:-.01em}
+.wv-panneau .wv-defi-desc{margin:0;font-size:12.5px;line-height:1.45;color:#b9c4d0}
+.wv-jauge{height:6px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden}
+.wv-jauge span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#1489de,#4FB4FF);transition:width .6s cubic-bezier(.2,.7,.2,1)}
+.reclamable .wv-jauge span,.reclame .wv-jauge span{background:linear-gradient(90deg,#ffb02e,#ffd36b)}
+.wv-defi-pied{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.wv-prog{font-size:12px;color:#9fb0c2;font-variant-numeric:tabular-nums}
+.wv-gain-chip{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;background:rgba(255,224,138,.1);border:1px solid rgba(255,224,138,.32);font-size:11.5px;font-weight:600;color:#ffe08a;white-space:nowrap}
+.wv-recup{align-self:flex-start;padding:7px 15px;font-size:12.5px}
+.wv-recup-ok{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:#8fe0b2}
+.wv-panneau .wv-compte-succes{margin:0;font-size:12.5px;color:#9fb0c2}
+.wv-succes-liste{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.wv-succes{flex-direction:row;align-items:flex-start;gap:12px}
+.wv-succes-medaille{flex:none;display:flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.18);color:#6e7f92}
+.wv-succes.debloque .wv-succes-medaille{background:linear-gradient(135deg,#ffd36b,#ff9f43);border-color:transparent;color:#2a1800}
+.wv-succes-corps{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:6px}
+.wv-flash{animation:wvFlashCarnet .9s ease-out}
+@keyframes wvFlashCarnet{0%{box-shadow:0 0 0 0 rgba(255,200,90,.85)}35%{box-shadow:0 0 0 12px rgba(255,200,90,0)}100%{box-shadow:0 0 0 0 rgba(255,200,90,0)}}
+.wv-coll-droite{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+.wv-recycler{padding:7px 14px;font-size:12.5px}
+.wv-recycler[hidden]{display:none}
+.wv-coll-recycle{position:absolute;inset:0;z-index:3;display:flex;align-items:center;justify-content:center;padding:16px;border-radius:20px;background:rgba(3,8,16,.94)}
+.wv-coll-recycle[hidden]{display:none}
+.wv-recycle-boite{width:min(460px,100%);padding:22px;border-radius:18px;background:rgba(10,20,34,.96);border:1px solid rgba(255,255,255,.18)}
+.wv-recycle-choix{display:grid;gap:8px;margin:12px 0 16px}
+.wv-recycle-choix button{display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;padding:11px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.05);color:#fff;font:600 13.5px 'Public Sans',system-ui,sans-serif;cursor:pointer;transition:background .2s,border-color .2s}
+.wv-recycle-choix button:hover:not(:disabled){background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.42)}
+.wv-recycle-choix button:disabled{opacity:.4;cursor:default}
+.wv-recycle-choix button:focus-visible{outline:2px solid #4FB4FF;outline-offset:2px}
+.wv-recycle-choix small{display:block;font-weight:300;color:#9fb0c2;font-size:11.5px;margin-top:2px}
+.wv-recycle-choix b{color:#ffe08a;white-space:nowrap;font-variant-numeric:tabular-nums}
+.wv-panneau .wv-album-info{margin:0;padding:8px 12px;border-radius:12px;font-size:12.5px}
+.wv-zoom-recycler{padding:9px 18px;font-size:13px}
+.wv-zoom-recycler[hidden]{display:none}
+.wv-coll-zoom .wv-album-info{max-width:min(420px,90vw);text-align:center}
+@media (max-width:760px){
+  .wv-panneau.wv-carnet{padding:16px 14px 14px}
+  .wv-defis,.wv-succes-liste{grid-template-columns:minmax(0,1fr)}
+  .wv-paliers{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .wv-serie-chiffre b{font-size:28px}
+}
+@media (max-height:520px){
+  .wv-panneau.wv-carnet{padding:12px 14px;gap:8px}
+  .wv-carnet-tete h2{font-size:18px}
+}
 @media (prefers-reduced-motion:reduce){
+  .wv-pastille-carnet,.wv-flash{animation:none}
+  .wv-jauge span{transition:none}
   .wv-gain.anim,.wv-plus.anim{animation:wvGainDoux 2.6s linear forwards}
   .wv-barre span{transition:none}
   .wv-pack img{animation:none;transform:rotateY(-8deg) rotateX(4deg)}
@@ -3302,6 +3389,7 @@ const HTML_JEU = `
     </div>
   </div>
   <div class="wv-haut-droite">
+    <button type="button" class="wv-bouton" id="wvCarnet" aria-label="Carnet des défis" title="Carnet (J)" hidden>${ICONES_UI.carnet}<i class="wv-pastille-carnet" id="wvCarnetPastille" hidden></i></button>
     <button type="button" class="wv-bouton" id="wvSon" aria-label="Couper le son" title="Son (M)"></button>
     <button type="button" class="wv-bouton" id="wvPlein" aria-label="Plein écran" title="Plein écran (F)">${ICONES_UI.plein}</button>
     <button type="button" class="wv-bouton" id="wvQuitter" aria-label="Quitter la salle" title="Quitter la salle">${ICONES_UI.quitter}</button>
@@ -3397,7 +3485,15 @@ const etat = {
   remarque: null,                 // ce que dit le croupier
   gains: null,
   glisse: false,
-  attente: null                   // résultat reçu, pas encore annoncé
+  attente: null,                  // résultat reçu, pas encore annoncé
+  carnet: null,                   // le carnet tel que la base l'a rendu
+  carnetAReclamer: 0,             // ce qui attend d'être récupéré (la pastille du bouton)
+  carnetCles: null,               // ce qui était à récupérer à la dernière lecture
+  carnetIndispo: false,           // le SQL du carnet n'est pas encore passé
+  carnetOnglet: 'jour',
+  carnetDepuis: null,             // l'écran d'où l'on a ouvert le carnet
+  carnetAction: false,            // une récompense est en train d'être récupérée
+  recyclage: false                // un recyclage est en cours
 };
 
 const touches = new Set();
@@ -3493,6 +3589,7 @@ function construireOverlay(){
     tours: q('wvTours'), pastilles: q('wvPastilles'), gagne: q('wvGagne'),
     bourse: q('wvBourse'), pieces: q('wvPieces'), boosters: q('wvBoosters'),
     son: q('wvSon'), plein: q('wvPlein'), quitter: q('wvQuitter'),
+    carnet: q('wvCarnet'), carnetPastille: q('wvCarnetPastille'),
     viseur: q('wvViseur'), invite: q('wvInvite'), gain: q('wvGain'), plus: q('wvPlus'),
     gains: q('wvGains'), message: q('wvMessage'), ecran: q('wvEcran'),
     tactile: q('wvTactile'), joy: q('wvJoy'), pouce: q('wvPouce'),
@@ -3508,6 +3605,7 @@ function construireOverlay(){
   if(!overlay.requestFullscreen && !overlay.webkitRequestFullscreen) H.plein.hidden = true;
 
   H.son.addEventListener('click', basculerSon);
+  H.carnet.addEventListener('click', ouvrirCarnet);
   H.plein.addEventListener('click', basculerPleinEcran);
   H.quitter.addEventListener('click', quitter);
   H.action.addEventListener('click', actionPrincipale);
@@ -8834,6 +8932,9 @@ function fermerOuverture(versBoutique){
     montrerEcran('boutique');
     majBoutique();
   }
+
+  // Ouvrir un booster, ou y trouver une carte nouvelle, a pu accomplir un défi.
+  rafraichirCarnet(true).then(() => majBoutonCarnet());
 }
 
 // Un autre booster, tout de suite.
@@ -9028,16 +9129,21 @@ function majOuverture(dt){
    ---------------------------------------------------------------------- */
 
 // Le catalogue et ce qu'on en possède, chargés à la demande.
-const album = { catalogue: null, collection: new Map(), miniatures: new Map(), filtre: 'toutes' };
+const album = { catalogue: null, collection: new Map(), miniatures: new Map(), filtre: 'toutes', recyclage: null };
 
 async function chargerAlbum(){
 
   if(!options.cartes || !options.collection) throw new Error('L’album n’est pas disponible : recharge la page.');
 
-  const [catalogue, collection] = await Promise.all([options.cartes(), options.collection()]);
+  // Le carnet se lit en même temps : il donne le barème du recyclage (absent
+  // tant que le SQL du carnet n'est pas passé, et le recyclage disparaît alors).
+  const [catalogue, collection] = await Promise.all([options.cartes(), options.collection(), rafraichirCarnet()]);
 
   album.catalogue = catalogue;
   album.collection = new Map(collection.map(l => [Number(l.carte_id), Number(l.quantite) || 1]));
+
+  const bareme = etat.carnet && etat.carnet.recyclage;
+  album.recyclage = bareme && Object.keys(bareme).length ? bareme : null;
 }
 
 // La vignette d'une carte possédée, dessinée une fois.
@@ -9129,6 +9235,8 @@ function dessinerAlbum(){
 
     grille.appendChild(el);
   });
+
+  majRecyclage();
 }
 
 // Une carte en grand, avec un reflet qui suit le pointeur.
@@ -9155,6 +9263,21 @@ function voirCarte(id){
 
   zoom.querySelector('.wv-zoom-legende').textContent =
     cfg.nom + ' · ' + carte.categorie + (q > 1 ? ' · ' + q + ' exemplaires' : '');
+
+  // Un double se recycle en pièces (le barème vient du carnet).
+  const rec = zoom.querySelector('#wvZoomRecycler');
+
+  if(rec){
+    const valeur = album.recyclage ? Number(album.recyclage[carte.rarete]) || 0 : 0;
+    rec.hidden = !(album.recyclage && q > 1);
+    rec.disabled = false;
+    delete rec.dataset.confirme;
+    rec.textContent = 'Recycler un double · +' + valeur + ' ' + pluriel(valeur, 'pièce');
+    rec.onclick = () => recyclerCarte(id, rec);
+  }
+
+  const info = zoom.querySelector('#wvZoomInfo');
+  if(info) info.hidden = true;
 
   zoom.hidden = false;
 
@@ -9194,6 +9317,8 @@ async function brancherCollection(){
 
   dans('#wvCollRetour').addEventListener('click', fermerCollection);
   dans('#wvZoomFermer').addEventListener('click', fermerZoom);
+  dans('#wvRecycler').addEventListener('click', ouvrirRecyclage);
+  dans('#wvRecycleFermer').addEventListener('click', fermerRecyclage);
 
   dans('#wvCollFiltres').addEventListener('click', e => {
     const b = e.target.closest('button[data-f]');
@@ -9236,6 +9361,752 @@ async function brancherCollection(){
     grille.appendChild(p);
   }
 }
+
+
+/* ----------------------------------------------------------------------
+   Recycler ses doubles
+   ---------------------------------------------------------------------- */
+
+const ORDRE_RARETES = ['commune', 'rare', 'epique', 'legendaire'];
+
+// Les doubles de l'album, par rareté : combien de cartes en trop, et ce
+// qu'elles rapportent. Un exemplaire de chaque carte reste toujours.
+function doublesAlbum(){
+
+  const bareme = album.recyclage || {};
+  const tout = {};
+
+  ORDRE_RARETES.forEach(r => { tout[r] = { cartes: 0, pieces: 0, valeur: Number(bareme[r]) || 0 }; });
+
+  (album.catalogue || []).forEach(c => {
+    const q = album.collection.get(c.id) || 0;
+    const t = tout[c.rarete];
+    if(q > 1 && t){
+      t.cartes += q - 1;
+      t.pieces += (q - 1) * t.valeur;
+    }
+  });
+
+  return tout;
+}
+
+// Le bouton « Recycler mes doubles » : visible s'il y a de quoi recycler en
+// bloc (les légendaires ne se recyclent qu'une par une, depuis la carte).
+function majRecyclage(){
+
+  const b = H.ecran && H.ecran.querySelector('#wvRecycler');
+  if(!b) return;
+
+  const d = doublesAlbum();
+  const n = ORDRE_RARETES.slice(0, 3).reduce((somme, r) => somme + d[r].cartes, 0);
+
+  b.hidden = !album.recyclage || n < 1;
+  b.textContent = 'Recycler mes doubles (' + n + ')';
+}
+
+// Une phrase pour dire ce qui vient de se passer, dans la grille comme dans
+// la carte en grand (celle qui est devant).
+function messageAlbum(texte, erreur){
+
+  if(!H.ecran) return;
+
+  H.ecran.querySelectorAll('.wv-album-info').forEach(p => {
+    p.hidden = !texte;
+    p.textContent = texte || '';
+    p.className = 'wv-album-info ' + (erreur ? 'wv-alerte' : 'wv-reussite');
+    p.setAttribute('role', erreur ? 'alert' : 'status');
+  });
+
+  clearTimeout(messageAlbum.minuteur);
+
+  if(texte && !erreur){
+    messageAlbum.minuteur = setTimeout(() => {
+      if(H.ecran) H.ecran.querySelectorAll('.wv-album-info').forEach(p => { p.hidden = true; });
+    }, 4200);
+  }
+}
+
+function ouvrirRecyclage(){
+
+  const fen = H.ecran.querySelector('#wvRecycle');
+  const choix = H.ecran.querySelector('#wvRecycleChoix');
+  if(!fen || !choix || !album.recyclage) return;
+
+  const d = doublesAlbum();
+
+  const niveaux = [
+    { jusqua: 'commune', libelle: 'Les communes', rar: ['commune'] },
+    { jusqua: 'rare', libelle: 'Communes et rares', rar: ['commune', 'rare'] },
+    { jusqua: 'epique', libelle: 'Communes, rares et épiques', rar: ['commune', 'rare', 'epique'] }
+  ];
+
+  choix.textContent = '';
+
+  niveaux.forEach(n => {
+
+    const cartes = n.rar.reduce((somme, r) => somme + d[r].cartes, 0);
+    const pieces = n.rar.reduce((somme, r) => somme + d[r].pieces, 0);
+
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.disabled = cartes < 1;
+
+    const gauche = document.createElement('span');
+    gauche.textContent = n.libelle;
+    const petit = document.createElement('small');
+    petit.textContent = cartes + ' ' + pluriel(cartes, 'double');
+    gauche.appendChild(petit);
+
+    const droite = document.createElement('b');
+    droite.textContent = '+' + pieces + ' ' + pluriel(pieces, 'pièce');
+
+    b.append(gauche, droite);
+    b.addEventListener('click', () => recyclerEnBloc(n.jusqua));
+    choix.appendChild(b);
+  });
+
+  fen.hidden = false;
+
+  const premier = choix.querySelector('button:not(:disabled)') || H.ecran.querySelector('#wvRecycleFermer');
+  if(premier) premier.focus({ preventScroll: true });
+}
+
+function fermerRecyclage(){
+
+  const fen = H.ecran && H.ecran.querySelector('#wvRecycle');
+  if(!fen || fen.hidden) return false;
+
+  fen.hidden = true;
+
+  const panneau = H.ecran.querySelector('.wv-collection');
+  if(panneau) panneau.focus({ preventScroll: true });
+
+  return true;
+}
+
+// Ce qui change après un recyclage : les pièces, la collection, les doubles.
+async function apresRecyclage(res){
+
+  seqEtat++;
+
+  if(etat.bourse && Number.isFinite(Number(res.pieces_total))){
+    etat.bourse = Object.assign({}, etat.bourse, { pieces: Number(res.pieces_total) });
+  }
+
+  if(res.pieces > 0) Son.pieces(res.pieces);
+
+  majHud();
+
+  await chargerAlbum();
+
+  if(etat.ecran !== 'collection') return;
+
+  dessinerAlbum();
+}
+
+async function recyclerEnBloc(jusqua){
+
+  if(etat.recyclage || !options.recycler) return;
+
+  etat.recyclage = true;
+
+  H.ecran.querySelectorAll('#wvRecycleChoix button').forEach(b => { b.disabled = true; });
+
+  try{
+
+    const res = await options.recycler(null, 1, jusqua);
+
+    await apresRecyclage(res);
+
+    if(etat.ecran === 'collection'){
+      fermerRecyclage();
+      messageAlbum('Recyclé : ' + res.cartes + ' ' + pluriel(res.cartes, 'carte') +
+        ', +' + res.pieces + ' ' + pluriel(res.pieces, 'pièce') + '.', false);
+    }
+
+  }catch(e){
+
+    Son.erreur();
+
+    if(etat.ecran === 'collection'){
+      fermerRecyclage();
+      messageAlbum(e && e.message ? e.message : 'Le recyclage a échoué : réessaie.', true);
+    }
+  }
+
+  etat.recyclage = false;
+}
+
+// Un double, depuis la carte en grand. Une carte épique ou légendaire demande
+// une confirmation : un second appui sur le même bouton.
+async function recyclerCarte(id, bouton){
+
+  if(etat.recyclage || !options.recycler || !album.catalogue) return;
+
+  const carte = album.catalogue.find(c => c.id === id);
+  if(!carte) return;
+
+  const valeur = album.recyclage ? Number(album.recyclage[carte.rarete]) || 0 : 0;
+
+  if((carte.rarete === 'epique' || carte.rarete === 'legendaire') && !bouton.dataset.confirme){
+    bouton.dataset.confirme = '1';
+    bouton.textContent = 'Confirmer · +' + valeur + ' ' + pluriel(valeur, 'pièce');
+    return;
+  }
+
+  etat.recyclage = true;
+  bouton.disabled = true;
+
+  try{
+
+    const res = await options.recycler(id, 1, null);
+
+    await apresRecyclage(res);
+
+    if(etat.ecran === 'collection'){
+      voirCarte(id);
+      messageAlbum('Recyclé : +' + res.pieces + ' ' + pluriel(res.pieces, 'pièce') + '.', false);
+      const zoom = H.ecran.querySelector('#wvZoomInfo');
+      if(zoom) zoom.hidden = false;
+    }
+
+  }catch(e){
+
+    Son.erreur();
+    bouton.disabled = false;
+    delete bouton.dataset.confirme;
+    messageAlbum(e && e.message ? e.message : 'Le recyclage a échoué : réessaie.', true);
+  }
+
+  etat.recyclage = false;
+}
+
+
+/* ----------------------------------------------------------------------
+   Le carnet : défis du jour, série, succès
+   ---------------------------------------------------------------------- */
+
+const GROUPES_DEFIS = { machine: 'La machine', cartes: 'Les cartes', chance: 'La chance' };
+
+const nombreSur = x => Number.isFinite(Number(x)) ? Number(x) : 0;
+
+function noeud(balise, classe, texte){
+  const n = document.createElement(balise);
+  if(classe) n.className = classe;
+  if(texte !== undefined && texte !== null) n.textContent = String(texte);
+  return n;
+}
+
+// Ce que rapporte une récompense, en toutes lettres : « +8 pièces · 1 booster ».
+function texteRecompense(r){
+
+  const p = [];
+  const pieces = nombreSur(r.pieces), boosters = nombreSur(r.boosters), xp = nombreSur(r.xp);
+
+  if(pieces > 0) p.push('+' + pieces + ' ' + pluriel(pieces, 'pièce'));
+  if(boosters > 0) p.push(boosters + ' ' + pluriel(boosters, 'booster'));
+  if(xp > 0) p.push('+' + xp + ' XP');
+
+  return p.join(' · ');
+}
+
+// Le temps qui reste avant minuit à Paris : le moment où les défis changent.
+function secondesAvantMinuit(){
+
+  try{
+    const f = new Intl.DateTimeFormat('fr-FR', {
+      timeZone: 'Europe/Paris', hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23'
+    });
+    const p = {};
+    f.formatToParts(new Date()).forEach(x => { p[x.type] = Number(x.value); });
+    return 86400 - (p.hour * 3600 + p.minute * 60 + p.second);
+  }catch(e){
+    const d = new Date();
+    return 86400 - (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds());
+  }
+}
+
+// Tout ce qui attend d'être récupéré, sous forme de clés : de quoi voir ce
+// qui est nouveau d'une lecture à l'autre.
+function clesAReclamer(c){
+
+  const cles = new Set();
+
+  (c.defis || []).forEach(d => { if(d.reclamable) cles.add('defi:' + c.jour + ':' + d.id); });
+  ((c.serie && c.serie.paliers) || []).forEach(p => { if(p.reclamable) cles.add('serie:' + p.jours); });
+  (c.succes || []).forEach(x => { if(x.reclamable) cles.add('succes:' + x.id); });
+
+  return cles;
+}
+
+// Relit le carnet (sans jamais échouer) : la pastille du bouton dit s'il y a
+// quelque chose à récupérer. `annoncer` : dire à voix haute ce qui vient d'être
+// accompli.
+async function rafraichirCarnet(annoncer){
+
+  if(!options.carnet || etat.carnetIndispo || !options.connecte || !options.connecte()){
+    etat.carnet = null;
+    etat.carnetAReclamer = 0;
+    etat.carnetCles = null;
+    majBoutonCarnet();
+    return null;
+  }
+
+  const visite = sessionJeu;
+  const numero = rafraichirCarnet.seq = (rafraichirCarnet.seq || 0) + 1;
+
+  try{
+
+    const c = await options.carnet();
+
+    // Une lecture plus récente, ou une autre visite : celle-ci ne compte plus.
+    if(numero !== rafraichirCarnet.seq || visite !== sessionJeu) return etat.carnet;
+
+    const avant = etat.carnetCles;
+    const cles = clesAReclamer(c);
+
+    etat.carnet = c;
+    etat.carnetErreur = null;
+    etat.carnetAReclamer = nombreSur(c.a_reclamer);
+    etat.carnetCles = cles;
+
+    majBoutonCarnet();
+
+    if(annoncer && avant && actif && !etat.ecran && !ouv){
+      const nouveau = Array.from(cles).find(k => !avant.has(k));
+      if(nouveau) annoncerCarnet(c, nouveau);
+    }
+
+    return c;
+
+  }catch(e){
+
+    if(visite !== sessionJeu) return null;
+
+    // Le SQL du carnet n'est pas passé : on le laisse tranquille jusqu'à la
+    // prochaine visite.
+    if(e && e.indisponible) etat.carnetIndispo = true;
+
+    etat.carnetErreur = e && e.message ? e.message : 'Le carnet n’a pas pu se charger : réessaie.';
+    etat.carnet = null;
+    etat.carnetAReclamer = 0;
+    majBoutonCarnet();
+
+    return null;
+  }
+}
+
+function annoncerCarnet(c, cle){
+
+  const [sorte, a, b] = cle.split(':');
+  let texte = '';
+
+  if(sorte === 'defi'){
+    const d = (c.defis || []).find(x => String(x.id) === b);
+    texte = 'Défi accompli' + (d ? ' : ' + d.nom : '');
+  } else if(sorte === 'serie'){
+    texte = 'Série de ' + a + ' ' + pluriel(Number(a), 'jour') + ' !';
+  } else if(sorte === 'succes'){
+    const x = (c.succes || []).find(y => String(y.id) === a);
+    texte = 'Succès débloqué' + (x ? ' : ' + x.nom : '');
+  }
+
+  if(!texte) return;
+
+  try{ Son.gain(1); }catch(e){ /* sans son */ }
+
+  afficherMessage(texte + (etat.tactile ? ' — ta récompense t’attend dans le carnet.' : ' — touche J pour la récupérer.'), 4600);
+}
+
+// Le bouton du carnet, sa pastille, et le bouton de la boutique.
+function majBoutonCarnet(){
+
+  const dispo = !!(options.carnet && !etat.carnetIndispo && options.connecte && options.connecte());
+  const n = dispo ? nombreSur(etat.carnetAReclamer) : 0;
+
+  if(H.carnet){
+    H.carnet.hidden = !dispo;
+    H.carnet.setAttribute('aria-label', n > 0
+      ? 'Carnet des défis, ' + n + ' ' + pluriel(n, 'récompense') + ' à récupérer'
+      : 'Carnet des défis');
+  }
+
+  if(H.carnetPastille){
+    H.carnetPastille.hidden = n < 1;
+    H.carnetPastille.textContent = n > 9 ? '9+' : String(n);
+  }
+
+  const b = H.ecran && H.ecran.querySelector('#wvCarnetBoutique');
+  if(b) b.textContent = n > 0 ? 'Mon carnet · ' + n + ' à récupérer' : 'Mon carnet';
+}
+
+// Ouvre le carnet depuis le jeu (touche J, bouton du HUD), la pause ou la
+// boutique du croupier.
+function ouvrirCarnet(){
+
+  if(!actif || !options.carnet || etat.carnetIndispo) return;
+  if(!options.connecte || !options.connecte()) return;
+  if(etat.enTirage || etat.intro || etat.ouverture || etat.achat || ouv) return;
+  if(etat.ecran && etat.ecran !== 'pause' && etat.ecran !== 'boutique') return;
+
+  etat.carnetDepuis = etat.ecran;
+
+  touches.clear();
+
+  montrerEcran('carnet');
+  Son.clic();
+}
+
+function fermerCarnet(){
+
+  if(etat.ecran !== 'carnet') return;
+
+  const retour = etat.carnetDepuis;
+  etat.carnetDepuis = null;
+
+  if(retour === 'boutique'){
+    montrerEcran('boutique');
+    majBoutique();
+    return;
+  }
+
+  if(retour === 'pause'){
+    montrerEcran('pause');
+    return;
+  }
+
+  montrerEcran(null);
+
+  // Un double appui sur « Fermer » ne doit pas rouvrir la boutique derrière.
+  etat.fermeeA = performance.now();
+
+  if(!etat.tactile && !etat.sansVerrou) demanderVerrou();
+}
+
+function majCompteARebours(){
+
+  const z = H.ecran && H.ecran.querySelector('#wvCarnetReset');
+  if(!z) return;
+
+  const s = secondesAvantMinuit();
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+
+  z.textContent = '';
+  z.append('Nouveaux défis dans ', noeud('b', '', h > 0 ? h + ' h ' + String(m).padStart(2, '0') : Math.max(1, m) + ' min'));
+
+  // Minuit est passé : un nouveau jour, de nouveaux défis.
+  if(majCompteARebours.dernier !== undefined && s > majCompteARebours.dernier + 30){
+    rafraichirCarnet().then(() => { if(etat.ecran === 'carnet') dessinerCarnet(); });
+  }
+
+  majCompteARebours.dernier = s;
+}
+
+function poserMessageCarnet(texte, erreur){
+
+  const z = H.ecran && H.ecran.querySelector('#wvCarnetMessage');
+  if(!z) return;
+
+  clearTimeout(poserMessageCarnet.minuteur);
+
+  z.hidden = !texte;
+  z.textContent = texte || '';
+  z.className = erreur ? 'wv-alerte' : 'wv-reussite';
+  z.setAttribute('role', erreur ? 'alert' : 'status');
+
+  if(texte && !erreur){
+    poserMessageCarnet.minuteur = setTimeout(() => { if(z.isConnected) z.hidden = true; }, 4200);
+  }
+}
+
+// Récupère une récompense : la base vérifie que l'objectif est atteint et que
+// la récompense n'a pas déjà été prise.
+async function reclamerCarnet(sorte, id, cle){
+
+  if(etat.carnetAction || !options.reclamer) return;
+
+  etat.carnetAction = true;
+  poserMessageCarnet(null);
+
+  H.ecran.querySelectorAll('#wvCarnetCorps button').forEach(b => { b.disabled = true; });
+
+  try{
+
+    const res = await options.reclamer(sorte, id);
+
+    // Le solde que la base vient de donner fait foi : pas de lecture plus
+    // ancienne par-dessus.
+    seqEtat++;
+
+    etat.bourse = Object.assign({}, etat.bourse, {
+      pieces: Number.isFinite(Number(res.pieces_total)) ? Number(res.pieces_total) : ((etat.bourse && etat.bourse.pieces) || 0),
+      boosters: Number.isFinite(Number(res.boosters_total)) ? Number(res.boosters_total) : ((etat.bourse && etat.bourse.boosters) || 0)
+    });
+
+    if(nombreSur(res.pieces) > 0) Son.pieces(nombreSur(res.pieces));
+    else Son.gain(2);
+
+    etat.carnetFlash = cle;
+    poserMessageCarnet('Récupéré : ' + texteRecompense(res) + '.', false);
+
+    majHud();
+
+    await rafraichirCarnet();
+
+  }catch(e){
+
+    Son.erreur();
+    poserMessageCarnet(e && e.message ? e.message : 'La récompense n’a pas pu être récupérée : réessaie.', true);
+
+    await rafraichirCarnet();
+  }
+
+  etat.carnetAction = false;
+
+  if(etat.ecran === 'carnet') dessinerCarnet();
+}
+
+// Une jauge de progression.
+function jauge(progres, objectif){
+
+  const j = noeud('div', 'wv-jauge');
+  const pct = objectif > 0 ? clamp(progres / objectif, 0, 1) * 100 : 0;
+
+  j.setAttribute('role', 'progressbar');
+  j.setAttribute('aria-valuemin', '0');
+  j.setAttribute('aria-valuemax', String(objectif));
+  j.setAttribute('aria-valuenow', String(progres));
+
+  const barre = noeud('span');
+  barre.style.width = pct.toFixed(1) + '%';
+  j.appendChild(barre);
+
+  return j;
+}
+
+function boutonRecup(sorte, id){
+
+  const b = noeud('button', 'wv-cta wv-recup', 'Récupérer');
+  b.type = 'button';
+  b.dataset.r = sorte;
+  b.dataset.id = String(id);
+
+  return b;
+}
+
+function dejaRecupere(){
+  const o = noeud('span', 'wv-recup-ok');
+  o.insertAdjacentHTML('beforeend', ICONES_UI.coche);
+  o.append('Récupéré');
+  return o;
+}
+
+function dessinerCarnet(){
+
+  const corps = H.ecran && H.ecran.querySelector('#wvCarnetCorps');
+  const c = etat.carnet;
+
+  if(!corps) return;
+
+  if(!c){
+    corps.textContent = '';
+    corps.appendChild(noeud('p', 'wv-alerte', etat.carnetErreur || 'Le carnet n’a pas pu se charger : réessaie.'));
+    return;
+  }
+
+  const flash = etat.carnetFlash;
+  etat.carnetFlash = null;
+
+  const marquer = (n, cle) => {
+    n.dataset.cle = cle;
+    if(flash === cle && !etat.reduit) n.classList.add('wv-flash');
+    return n;
+  };
+
+  const defis = c.defis || [], succes = c.succes || [], serie = c.serie || {}, paliers = serie.paliers || [];
+
+  // Les onglets, avec ce qui attend dans chacun.
+  const nbJour = defis.filter(d => d.reclamable).length + paliers.filter(p => p.reclamable).length;
+  const nbSucces = succes.filter(x => x.reclamable).length;
+
+  H.ecran.querySelectorAll('#wvCarnetOnglets button').forEach(b => {
+    b.setAttribute('aria-pressed', b.dataset.o === etat.carnetOnglet ? 'true' : 'false');
+    const i = b.querySelector('i');
+    const n = b.dataset.o === 'jour' ? nbJour : nbSucces;
+    if(i){ i.hidden = n < 1; i.textContent = String(n); }
+  });
+
+  const haut = corps.scrollTop;
+  corps.textContent = '';
+
+  if(etat.carnetOnglet === 'succes'){
+
+    const debloques = succes.filter(x => x.debloque).length;
+
+    corps.appendChild(noeud('p', 'wv-compte-succes', debloques + ' / ' + succes.length + ' succès débloqués'));
+
+    // À récupérer d'abord, puis ceux en cours (les plus avancés devant), puis
+    // ceux déjà pris.
+    const rang = x => x.reclamable ? 0 : (x.reclame ? 2 : 1);
+    const ratio = x => nombreSur(x.objectif) > 0 ? nombreSur(x.progres) / nombreSur(x.objectif) : 0;
+
+    const liste = succes.slice().sort((a, b) => rang(a) - rang(b) || ratio(b) - ratio(a));
+
+    const grille = noeud('div', 'wv-succes-liste');
+
+    liste.forEach(x => {
+
+      const objectif = nombreSur(x.objectif), progres = nombreSur(x.progres);
+
+      const carte = marquer(noeud('article', 'wv-succes' +
+        (x.debloque ? ' debloque' : '') + (x.reclamable ? ' reclamable' : '') + (x.reclame ? ' reclame' : '')), 'succes:' + x.id);
+
+      const medaille = noeud('span', 'wv-succes-medaille');
+      medaille.setAttribute('aria-hidden', 'true');
+      medaille.insertAdjacentHTML('beforeend', x.debloque ? ICONES_UI.coche : ICONES_UI.verrou);
+
+      const c2 = noeud('div', 'wv-succes-corps');
+      c2.append(noeud('h3', 'wv-succes-nom', x.nom), noeud('p', 'wv-defi-desc', x.description || ''));
+
+      if(!x.debloque && objectif > 1){
+        c2.append(jauge(progres, objectif));
+      }
+
+      const pied = noeud('div', 'wv-defi-pied');
+      if(!x.debloque && objectif > 1) pied.appendChild(noeud('span', 'wv-prog', progres + ' / ' + objectif));
+      const gain = texteRecompense(x);
+      if(gain) pied.appendChild(noeud('span', 'wv-gain-chip', gain));
+      c2.appendChild(pied);
+
+      if(x.reclamable) c2.appendChild(boutonRecup('succes', x.id));
+      else if(x.reclame) c2.appendChild(dejaRecupere());
+
+      carte.append(medaille, c2);
+      grille.appendChild(carte);
+    });
+
+    corps.appendChild(grille);
+
+  } else {
+
+    // ---- La série
+    const jours = nombreSur(serie.jours), meilleure = nombreSur(serie.meilleure);
+
+    const sect = noeud('section', 'wv-serie');
+    sect.setAttribute('aria-label', 'Série de jours');
+
+    const entete = noeud('div', 'wv-serie-haut');
+    entete.insertAdjacentHTML('beforeend', ICONES_UI.flamme);
+
+    const chiffre = noeud('div', 'wv-serie-chiffre');
+    chiffre.append(noeud('b', '', jours), noeud('span', '', pluriel(jours, 'jour') + ' de suite'));
+
+    let note;
+
+    if(jours === 0) note = 'Joue un tour pour lancer ta série.';
+    else if(serie.aujourdhui) note = 'Tu as joué aujourd’hui : ta série est assurée jusqu’à demain.';
+    else note = 'Joue un tour avant minuit pour prolonger ta série.';
+
+    if(meilleure > jours) note += ' Ta meilleure série : ' + meilleure + ' ' + pluriel(meilleure, 'jour') + '.';
+
+    entete.append(chiffre, noeud('p', 'wv-serie-note', note));
+    sect.appendChild(entete);
+
+    const ol = noeud('ol', 'wv-paliers');
+
+    paliers.forEach(p => {
+
+      const li = marquer(noeud('li', 'wv-palier' +
+        (p.atteint ? ' atteint' : '') + (p.reclamable ? ' reclamable' : '') + (p.reclame ? ' reclame' : '')), 'serie:' + p.jours);
+
+      li.append(noeud('span', 'wv-palier-jours', nombreSur(p.jours) + ' ' + pluriel(nombreSur(p.jours), 'jour')),
+                noeud('span', 'wv-palier-gain', texteRecompense(p)));
+
+      if(p.reclamable) li.appendChild(boutonRecup('serie', p.jours));
+      else if(p.reclame) li.appendChild(dejaRecupere());
+
+      ol.appendChild(li);
+    });
+
+    sect.appendChild(ol);
+    corps.appendChild(sect);
+
+    // ---- Les défis du jour
+    corps.appendChild(noeud('h3', 'wv-carnet-titre', 'Défis du jour'));
+
+    const grille = noeud('div', 'wv-defis');
+
+    defis.forEach(d => {
+
+      const objectif = nombreSur(d.objectif), progres = nombreSur(d.progres);
+
+      const carte = marquer(noeud('article', 'wv-defi' +
+        (d.reclamable ? ' reclamable' : '') + (d.reclame ? ' reclame' : '')), 'defi:' + d.id);
+
+      carte.append(noeud('span', 'wv-groupe', GROUPES_DEFIS[d.groupe] || ''),
+                   noeud('h3', 'wv-defi-nom', d.nom),
+                   noeud('p', 'wv-defi-desc', d.description || ''),
+                   jauge(progres, objectif));
+
+      const pied = noeud('div', 'wv-defi-pied');
+      pied.appendChild(noeud('span', 'wv-prog', progres + ' / ' + objectif));
+      const gain = texteRecompense(d);
+      if(gain) pied.appendChild(noeud('span', 'wv-gain-chip', gain));
+      carte.appendChild(pied);
+
+      if(d.reclamable) carte.appendChild(boutonRecup('defi', d.id));
+      else if(d.reclame) carte.appendChild(dejaRecupere());
+
+      grille.appendChild(carte);
+    });
+
+    corps.appendChild(grille);
+  }
+
+  corps.scrollTop = haut;
+}
+
+async function brancherCarnet(){
+
+  const panneau = H.ecran.querySelector('.wv-carnet');
+  if(!panneau) return;
+
+  const dans = sel => H.ecran.querySelector(sel);
+
+  dans('#wvCarnetRetour').addEventListener('click', fermerCarnet);
+
+  dans('#wvCarnetOnglets').addEventListener('click', e => {
+    const b = e.target.closest('button[data-o]');
+    if(!b) return;
+    etat.carnetOnglet = b.dataset.o;
+    dessinerCarnet();
+    const corps = dans('#wvCarnetCorps');
+    if(corps) corps.scrollTop = 0;
+  });
+
+  dans('#wvCarnetCorps').addEventListener('click', e => {
+    const b = e.target.closest('button[data-r]');
+    if(!b || b.disabled) return;
+    const cle = b.closest('[data-cle]');
+    reclamerCarnet(b.dataset.r, Number(b.dataset.id), cle ? cle.dataset.cle : null);
+  });
+
+  panneau.focus({ preventScroll: true });
+
+  majCompteARebours.dernier = undefined;
+  majCompteARebours();
+  etat.carnetMinuteur = setInterval(majCompteARebours, 20000);
+
+  // Ce qu'on savait déjà s'affiche tout de suite ; la base corrige ensuite.
+  if(etat.carnet) dessinerCarnet();
+
+  await rafraichirCarnet();
+
+  if(etat.ecran !== 'carnet') return;
+
+  dessinerCarnet();
+}
+
 
 /* ----------------------------------------------------------------------
    Déplacement et collisions
@@ -9515,6 +10386,9 @@ async function tirer(machine){
   if(options.apresTirage) options.apresTirage(res);
 
   majHud();
+
+  // Un défi a pu être accompli par ce tour.
+  rafraichirCarnet(true);
 }
 
 // La salle a été quittée avec les rouleaux en route : ils se posent sur le
@@ -9779,6 +10653,8 @@ function majHud(){
       b.pieces + ' ' + pluriel(b.pieces, 'pièce') +
       (b.boosters ? ', ' + b.boosters + ' ' + pluriel(b.boosters, 'booster') : ''));
   }
+
+  majBoutonCarnet();
 }
 
 function afficherMessage(texte, duree){
@@ -9938,10 +10814,17 @@ function montrerEcran(type, texte){
 
   etat.ecran = type;
 
+  // Le compte à rebours du carnet ne tourne que tant que le carnet est là.
+  if(type !== 'carnet' && etat.carnetMinuteur){
+    clearInterval(etat.carnetMinuteur);
+    etat.carnetMinuteur = 0;
+  }
+
   // La boutique se range à droite sur un grand écran, pour laisser voir le
   // croupier ; les autres écrans restent centrés.
   H.ecran.classList.toggle('wv-ecran-boutique', type === 'boutique');
   H.ecran.classList.toggle('wv-ecran-collection', type === 'collection');
+  H.ecran.classList.toggle('wv-ecran-carnet', type === 'carnet');
 
   // L'ouverture d'un booster a ses propres commandes (voir H.ouv) : aucun
   // panneau, mais le jeu est tout de même « occupé ».
@@ -9970,7 +10853,9 @@ function montrerEcran(type, texte){
       : '<li><span class="wv-touche">Z</span><span class="wv-touche">Q</span><span class="wv-touche">S</span><span class="wv-touche">D</span><span>ou les flèches : se déplacer</span></li>' +
         '<li><span class="wv-touche">Souris</span><span>regarder autour de soi</span></li>' +
         '<li><span class="wv-touche">E</span><span>ou clic : jouer, tirer le levier</span></li>' +
-        '<li><span class="wv-touche">Maj</span><span>courir &nbsp;·&nbsp;</span><span class="wv-touche">M</span><span>son</span></li>';
+        '<li><span class="wv-touche">Maj</span><span>courir &nbsp;·&nbsp;</span><span class="wv-touche">M</span><span>son</span></li>' +
+        (options.carnet && !etat.carnetIndispo && options.connecte && options.connecte()
+          ? '<li><span class="wv-touche">J</span><span>le carnet : défis du jour, série, succès</span></li>' : '');
 
     html = '<div class="wv-panneau">' + enTete +
       '<h2>Pause</h2>' +
@@ -9984,6 +10869,8 @@ function montrerEcran(type, texte){
       '</div></div>' +
       '<div class="wv-actions">' +
       '<button type="button" class="wv-cta" id="wvEntrer">Reprendre</button>' +
+      (options.carnet && !etat.carnetIndispo && options.connecte && options.connecte()
+        ? '<button type="button" class="wv-cta discret" id="wvCarnetPause">Mon carnet</button>' : '') +
       '<button type="button" class="wv-cta discret" id="wvSortir">Quitter la salle</button>' +
       '</div></div>';
 
@@ -10038,6 +10925,7 @@ function montrerEcran(type, texte){
         '<div class="wv-cartes-actions">' +
           '<button type="button" class="wv-cta discret" id="wvOuvrir">Ouvrir un booster</button>' +
           '<button type="button" class="wv-cta discret" id="wvCollection">Ma collection</button>' +
+          (options.carnet && !etat.carnetIndispo ? '<button type="button" class="wv-cta discret" id="wvCarnetBoutique">Mon carnet</button>' : '') +
         '</div>' +
         '<p class="wv-note">Un booster contient cinq cartes. Les pièces se gagnent à la machine : ni elles, ni les cartes ne s’achètent avec de l’argent, ni ne se revendent.</p>';
     }
@@ -10055,7 +10943,10 @@ function montrerEcran(type, texte){
     html = '<div class="wv-panneau wv-collection" role="dialog" aria-label="Ma collection de cartes" tabindex="-1">' +
       '<div class="wv-coll-tete">' +
         '<div><span class="wv-sur">La Wave TCG</span><h2>Ma collection</h2></div>' +
-        '<b class="wv-coll-compte" id="wvCollCompte" aria-label="Cartes possédées">— / —</b>' +
+        '<div class="wv-coll-droite">' +
+          '<button type="button" class="wv-cta discret wv-recycler" id="wvRecycler" hidden>Recycler mes doubles</button>' +
+          '<b class="wv-coll-compte" id="wvCollCompte" aria-label="Cartes possédées">— / —</b>' +
+        '</div>' +
       '</div>' +
       '<div class="wv-coll-filtres" id="wvCollFiltres" role="group" aria-label="Filtrer par rareté">' +
         '<button type="button" data-f="toutes">Toutes</button>' +
@@ -10065,12 +10956,40 @@ function montrerEcran(type, texte){
         '<button type="button" data-f="legendaire">Légendaires</button>' +
       '</div>' +
       '<div class="wv-coll-grille" id="wvCollGrille" data-filtre="toutes"><p class="wv-coll-charge">Chargement de ton album…</p></div>' +
-      '<div class="wv-actions"><button type="button" class="wv-cta" id="wvCollRetour">Retour au croupier</button></div>' +
+      '<div class="wv-actions wv-carnet-pied"><button type="button" class="wv-cta" id="wvCollRetour">Retour au croupier</button>' +
+      '<p class="wv-album-info wv-reussite" hidden></p></div>' +
       '<div class="wv-coll-zoom" id="wvZoom" hidden role="dialog" aria-label="Carte en grand">' +
         '<div class="wv-zoom-scene"></div>' +
         '<p class="wv-zoom-legende"></p>' +
+        '<p class="wv-album-info wv-reussite" id="wvZoomInfo" hidden></p>' +
+        '<button type="button" class="wv-cta wv-zoom-recycler" id="wvZoomRecycler" hidden></button>' +
         '<button type="button" class="wv-cta discret wv-zoom-fermer" id="wvZoomFermer">Fermer</button>' +
       '</div>' +
+      '<div class="wv-coll-recycle" id="wvRecycle" hidden role="dialog" aria-label="Recycler mes doubles">' +
+        '<div class="wv-recycle-boite">' +
+          '<span class="wv-sur">Recyclage</span>' +
+          '<h2>Tes doubles</h2>' +
+          '<p>Un exemplaire de chaque carte reste toujours dans ton album. Le reste se change en pièces, à dépenser chez le croupier. Les légendaires se recyclent une par une, depuis la carte.</p>' +
+          '<div class="wv-recycle-choix" id="wvRecycleChoix"></div>' +
+          '<div class="wv-actions"><button type="button" class="wv-cta discret" id="wvRecycleFermer">Annuler</button></div>' +
+        '</div>' +
+      '</div>' +
+      '</div>';
+
+  } else if(type === 'carnet'){
+
+    html = '<div class="wv-panneau wv-carnet" role="dialog" aria-label="Carnet des waveurs" tabindex="-1">' +
+      '<div class="wv-carnet-tete">' +
+        '<div><span class="wv-sur">Le carnet</span><h2>Défis, série et succès</h2></div>' +
+        '<div class="wv-carnet-reset" id="wvCarnetReset"></div>' +
+      '</div>' +
+      '<div class="wv-coll-filtres" id="wvCarnetOnglets" role="group" aria-label="Rubriques du carnet">' +
+        '<button type="button" data-o="jour">Aujourd’hui<i hidden></i></button>' +
+        '<button type="button" data-o="succes">Succès<i hidden></i></button>' +
+      '</div>' +
+      '<div class="wv-carnet-corps" id="wvCarnetCorps"><p class="wv-coll-charge">Ouverture du carnet…</p></div>' +
+      '<div class="wv-actions wv-carnet-pied"><button type="button" class="wv-cta" id="wvCarnetRetour">Fermer</button>' +
+      '<p id="wvCarnetMessage" class="wv-reussite" hidden></p></div>' +
       '</div>';
 
   } else if(type === 'erreur'){
@@ -10094,7 +11013,7 @@ function montrerEcran(type, texte){
 
   // Un pointeur verrouillé ne peut pas cliquer : les écrans à boutons le
   // libèrent.
-  if((type === 'erreur' || type === 'perdu' || type === 'pause' || type === 'connexion' || type === 'boutique' || type === 'collection') && document.pointerLockElement){
+  if((type === 'erreur' || type === 'perdu' || type === 'pause' || type === 'connexion' || type === 'boutique' || type === 'collection' || type === 'carnet') && document.pointerLockElement){
     document.exitPointerLock();
   }
 
@@ -10111,6 +11030,9 @@ function montrerEcran(type, texte){
     if(options.ouvrirConnexion) options.ouvrirConnexion();
   });
 
+  const carnetPause = H.ecran.querySelector('#wvCarnetPause');
+  if(carnetPause) carnetPause.addEventListener('click', ouvrirCarnet);
+
   if(entrer) entrer.focus({ preventScroll: true });
 
   H.ecran.querySelectorAll('#wvQualite button').forEach(b => {
@@ -10120,6 +11042,7 @@ function montrerEcran(type, texte){
 
   if(type === 'boutique') brancherBoutique();
   if(type === 'collection') brancherCollection();
+  if(type === 'carnet') brancherCarnet();
 }
 
 
@@ -10194,6 +11117,7 @@ function fermerBoutique(){
 function actualiser(){
   if(!actif) return;
   chargerEtat().then(() => { if(etat.ecran === 'boutique') majBoutique(); });
+  rafraichirCarnet();
 }
 
 function changerQuantite(delta){
@@ -10243,6 +11167,8 @@ async function acheterBooster(){
     Son.achat();
     if(croupier) croupier.remercier();
     majHud();
+
+    rafraichirCarnet().then(() => majBoutonCarnet());
 
   }catch(e){
 
@@ -10490,7 +11416,9 @@ function brancherBoutique(){
   par('wvFermer', fermerBoutique);
   par('wvOuvrir', ouvrirBooster);
   par('wvCollection', ouvrirCollection);
+  par('wvCarnetBoutique', ouvrirCarnet);
 
+  majBoutonCarnet();
   majBoutique();
 
   // Le focus va à la fenêtre, pas à « Acheter » : une frappe d'Entrée encore
@@ -10559,7 +11487,7 @@ function surChangementVerrou(){
     // Un verrou accordé alors que la boutique s'est ouverte entre-temps
     // (on reprenait la pause pendant le trajet vers le croupier) la
     // rendrait inutilisable à la souris : on le relâche.
-    if(etat.ecran === 'boutique') document.exitPointerLock();
+    if(etat.ecran === 'boutique' || etat.ecran === 'carnet') document.exitPointerLock();
 
     return;
   }
@@ -10616,11 +11544,20 @@ function surToucheBas(e){
     return;
   }
 
-  // L'album : Échap ferme la carte en grand, puis l'album.
+  // L'album : Échap ferme le recyclage, puis la carte en grand, puis l'album.
   if(etat.ecran === 'collection'){
     if(e.code === 'Escape'){
       e.preventDefault();
-      if(!fermerZoom()) fermerCollection();
+      if(!fermerRecyclage() && !fermerZoom()) fermerCollection();
+    }
+    return;
+  }
+
+  // Le carnet : Échap ou J le referment.
+  if(etat.ecran === 'carnet'){
+    if(e.code === 'Escape' || e.code === 'KeyJ'){
+      e.preventDefault();
+      fermerCarnet();
     }
     return;
   }
@@ -10696,6 +11633,8 @@ function surToucheBas(e){
     basculerSon();
   } else if(code === 'KeyF'){
     basculerPleinEcran();
+  } else if(code === 'KeyJ'){
+    ouvrirCarnet();
   }
 
   // Un pas en arrière (ou n'importe quelle direction) se lève de la machine.
@@ -11408,6 +12347,14 @@ function reinitialiserSession(){
   etat.alerte = null;
   etat.reussite = null;
 
+  etat.carnet = null;
+  etat.carnetAReclamer = 0;
+  etat.carnetCles = null;
+  etat.carnetIndispo = false;
+  etat.carnetDepuis = null;
+  etat.carnetAction = false;
+  etat.recyclage = false;
+
   if(croupier) croupier.accueillir(false);
 
   // Une ouverture de booster restée en plan : ses cartes sont déjà dans la
@@ -11514,6 +12461,7 @@ async function demarrer(opts){
   if(!raf) raf = requestAnimationFrame(boucle);
 
   chargerEtat();
+  rafraichirCarnet();
 
   // Un contexte perdu pendant une visite précédente, et pas encore rendu : la
   // salle n'afficherait rien.
@@ -11592,6 +12540,9 @@ window.Waveurs = {
     reflet: () => REFLET,
     rendre: () => { majReflet(scene, camera); rendre(scene, camera); },
     ouvrirCollection,
+    ouvrirCarnet,
+    fermerCarnet,
+    rafraichirCarnet,
     album: () => album,
     avancerOuverture,
     toutReveler: toutRevelerOuverture,
