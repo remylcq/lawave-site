@@ -5271,6 +5271,14 @@ const APPARENCES = {
     boutons: true, boutonsCouleur: '#2d3038'
   },
 
+  // Derrière le comptoir : un gilet bordeaux sur une chemise claire, le tablier
+  // noué, une barbe soignée.
+  barman: {
+    peau: '#b97d56', cheveux: '#2a1b12', coiffure: 'rejete', yeux: '#2c1d12', barbe: 1,
+    tenue: 'gilet', chemise: '#efece4', veste: '#5a1424', pantalon: '#15151a', chaussures: '#0a0908',
+    manches: '#efece4', poignets: '#efece4', noeud: '#2a0a12', boutons: true, boutonsCouleur: '#c9973a'
+  },
+
   // Au bar, de dos : un costume bleu nuit, la cravate dénouée.
   costume: {
     peau: '#c98f6b', cheveux: '#1d1410', coiffure: 'court', yeux: '#3a2a1c', barbe: 1,
@@ -5899,6 +5907,12 @@ function construireHabitues(){
     habitues.push(h);
   });
 
+  // Le barman, derrière le comptoir (le dessus de marbre est à 1,08 m ; il se
+  // tient à 55 cm de son bord, à portée de bras).
+  const barman = new Barman(-1.3, -7.74);
+  scene.add(barman.groupe);
+  habitues.push(barman);
+
   // Le croupier (construit avant, avec sa boutique) et les habitués sont tous
   // installés : leurs jambes et leurs ombres, qui ne bougent plus, se collent.
   fusionnerPersonnages();
@@ -6031,6 +6045,172 @@ class Habitue extends Humain {
     this.majBras();
   }
 }
+
+/* ---- Le barman ---- */
+
+// Derrière le comptoir, il essuie un verre, secoue un shaker, verse un whisky,
+// puis recommence. Il lève les yeux vers la personne qui passe devant lui.
+class Barman extends Humain {
+
+  constructor(x, z){
+
+    super(APPARENCES.barman);
+
+    this.type = 'barman';
+    this.def = { regard: 0, portee: 6, mains: [[0, 0, 0], [0, 0, 0]], pron: [0, 0] };
+    this.cycle = 15;
+
+    this.installer({
+      x, z, yaw: 0,
+      hanche: [HUMAIN.bassinDebout, 0],
+      penche: 0.04,
+      pieds: { y: 0.085, z: 0.03, ecart: 0.12, ouverture: 0.2 }
+    });
+
+    // Le verre qu'il essuie, tenu de la main droite ; le chiffon, dans la gauche.
+    this.verre = creerVerre('whisky');
+    this.verre.position.set(0, -HUMAIN.avantBras - 0.04, 0.03);
+    this.bras[0].coude.add(this.verre);
+
+    this.chiffon = new THREE.Mesh(
+      new THREE.BoxGeometry(0.11, 0.012, 0.09),
+      new THREE.MeshStandardMaterial({ color: 0xf0ece2, roughness: 0.9 })
+    );
+    this.chiffon.position.set(0, -HUMAIN.avantBras - 0.04, 0.03);
+    this.bras[1].coude.add(this.chiffon);
+
+    // Le shaker, à deux mains : il reste dans la gauche et la droite le rejoint.
+    this.shaker = new THREE.Group();
+    const acier = new THREE.MeshStandardMaterial({ color: 0xc9d1d9, metalness: 1, roughness: 0.18, envMap: R.env, envMapIntensity: 1.6 });
+    const corps = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.030, 0.17, 18), acier);
+    corps.position.y = 0.0;
+    const bouchon = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.034, 0.05, 18), acier);
+    bouchon.position.y = 0.108;
+    this.shaker.add(corps, bouchon);
+    this.shaker.position.set(0, -HUMAIN.avantBras - 0.03, 0.04);
+    this.bras[1].coude.add(this.shaker);
+
+    // La bouteille qu'il tient pour verser.
+    this.bouteille = new THREE.Group();
+    const verreSombre = new THREE.MeshStandardMaterial({ color: 0x1d3a26, roughness: 0.2, metalness: 0.1 });
+    const bBas = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.19, 18), verreSombre);
+    bBas.position.y = 0.075;
+    const bCol = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.034, 0.07, 16), verreSombre);
+    bCol.position.y = 0.205;
+    const bGoulot = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.07, 12), verreSombre);
+    bGoulot.position.y = 0.275;
+    const etiquette = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0368, 0.0368, 0.075, 18, 1, true),
+      new THREE.MeshStandardMaterial({ color: 0xe8dfc8, roughness: 0.7 })
+    );
+    etiquette.position.y = 0.06;
+    this.bouteille.add(bBas, bCol, bGoulot, etiquette);
+    this.bouteille.position.set(0, -HUMAIN.avantBras - 0.02, 0.03);
+    this.bras[0].coude.add(this.bouteille);
+
+    // Le verre qu'il remplit, posé sur le comptoir (1,081 m).
+    this.verreComptoir = creerVerre('whisky');
+    this.verreComptoir.position.set(0.13, 1.081 + 0.046, 0.42);
+    this.groupe.add(this.verreComptoir);
+
+    this.qTravail = new THREE.Quaternion();
+    this.cibles = [new THREE.Vector3(), new THREE.Vector3()];
+    this.tv = Array.from({ length: 8 }, () => new THREE.Vector3());
+  }
+
+  // Ce qu'il fait à l'instant t, en poids de 0 à 1 (la somme vaut 1) : on glisse
+  // de l'un à l'autre sur sept dixièmes de seconde.
+  poids(t){
+
+    const u = (t + this.phase * 2) % this.cycle;
+    const f = 0.7;
+
+    const fen = (a, b) => {
+      const montee = clamp((u - a) / f, 0, 1), descente = clamp((b - u) / f, 0, 1);
+      const k = Math.min(montee, descente);
+      return k * k * (3 - 2 * k);
+    };
+
+    const polit = fen(0, 5.6), secoue = fen(5.6 - f, 9), verse = fen(9 - f, 13);
+
+    return { polit, secoue, verse, repos: Math.max(0, 1 - polit - secoue - verse), u };
+  }
+
+  maj(dt, t, reduit, cible){
+
+    this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
+
+    const w = reduit ? { polit: 0, secoue: 0, verse: 0, repos: 1, u: 0 } : this.poids(t);
+
+    // La tête : sur son ouvrage, ou sur la personne qui passe.
+    this.regarder(dt, t, reduit, cible, 0, 6, 1.2);
+    this.tete.rotation.set(
+      this.cou.pitch + (1 - this.attention) * (0.12 + 0.20 * (w.polit + w.verse)),
+      this.cou.yaw, 0
+    );
+
+    const T = this.cibles, V = this.tv;
+    const o = reduit ? 0 : 1;
+
+    // Au repos : les deux mains sur le comptoir.
+    const repos0 = V[0].set(-0.17, 1.112, 0.36), repos1 = V[1].set(0.17, 1.112, 0.36);
+
+    // Il essuie : le verre au creux de la main droite, le chiffon tourne dedans.
+    const pol0 = V[2].set(-0.09 + Math.sin(t * 2.6) * 0.008 * o, 1.20, 0.30);
+    const pol1 = V[3].set(0.07 + Math.cos(t * 6.0) * 0.022 * o, 1.17 + Math.sin(t * 6.0) * 0.018 * o, 0.30);
+
+    // Il secoue : les deux mains en haut, un va-et-vient vif.
+    const sec = Math.sin(t * 17) * 0.035 * o;
+    const sec0 = V[4].set(-0.06, 1.37 + sec, 0.30 + sec * 0.6);
+    const sec1 = V[5].set(0.06, 1.36 + sec, 0.30 + sec * 0.6);
+
+    // Il verse : la bouteille de la main droite, le verre tenu de la gauche.
+    const ver0 = V[6].set(-0.14, 1.32, 0.32);
+    const ver1 = V[7].set(0.13, 1.115, 0.40);
+
+    T[0].set(0, 0, 0)
+      .addScaledVector(repos0, w.repos).addScaledVector(pol0, w.polit)
+      .addScaledVector(sec0, w.secoue).addScaledVector(ver0, w.verse);
+    T[1].set(0, 0, 0)
+      .addScaledVector(repos1, w.repos).addScaledVector(pol1, w.polit)
+      .addScaledVector(sec1, w.secoue).addScaledVector(ver1, w.verse);
+
+    this.viserBras(0, T[0], 0.4);
+    this.viserBras(1, T[1], 0.4);
+    this.majBras();
+
+    // Les objets : seuls ceux du geste en cours se montrent, et restent
+    // droits, quoi que fasse le bras.
+    this.verre.visible = w.polit > 0.04;
+    this.chiffon.visible = w.polit > 0.04;
+    this.shaker.visible = w.secoue > 0.04;
+    this.bouteille.visible = w.verse > 0.04;
+    this.verreComptoir.visible = w.verse > 0.04;
+
+    const q = this.qTravail;
+
+    const redresser = (objet, bras) => {
+      const b = this.bras[bras];
+      q.copy(this.groupe.quaternion)
+        .multiply(this.bassin.quaternion).multiply(this.taille.quaternion)
+        .multiply(b.epaule.quaternion).multiply(b.coude.quaternion);
+      objet.quaternion.copy(q).invert();
+    };
+
+    if(this.verre.visible) redresser(this.verre, 0);
+    if(this.chiffon.visible){ redresser(this.chiffon, 1); this.chiffon.rotateY(t * 6); }
+    if(this.shaker.visible){ redresser(this.shaker, 1); this.shaker.rotateX(sec * 5); }
+
+    if(this.bouteille.visible){
+      redresser(this.bouteille, 0);
+      // La bouteille se penche à mesure que le verre se remplit.
+      const v = clamp((w.u - 9.4) / 3.0, 0, 1);
+      this.bouteille.rotateX(1.45 * Math.min(1, v * 3.5) * w.verse);
+      this.verreComptoir.children[0].scale.y = 0.15 + 0.85 * clamp(v * 1.2, 0, 1);
+    }
+  }
+}
+
 
 // Des jetons et des cartes sur les tables de jeu : une seule forme pour les
 // jetons, une pour les cartes.
