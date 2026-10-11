@@ -6122,6 +6122,35 @@ const BD = {
       .eq('user_id', currentUser ? currentUser.id : '00000000-0000-0000-0000-000000000000');
   },
 
+  // Le carnet : défis du jour, série, succès. La base calcule la progression
+  // et vérifie chaque récompense avant de la verser ; le navigateur ne fait
+  // que demander (waveurs-carnet.sql).
+  waveursCarnet(){
+    return supabaseClient.rpc('waveurs_carnet');
+  },
+
+  waveursReclamerDefi(id){
+    return supabaseClient.rpc('waveurs_defi_reclamer', { p_defi: id });
+  },
+
+  waveursReclamerSerie(jours){
+    return supabaseClient.rpc('waveurs_serie_reclamer', { p_jours: jours });
+  },
+
+  waveursReclamerSucces(id){
+    return supabaseClient.rpc('waveurs_succes_reclamer', { p_succes: id });
+  },
+
+  // Une carte en double (ou tous les doubles jusqu'à une rareté) contre des
+  // pièces ; un exemplaire de chaque carte reste toujours.
+  waveursRecycler(carte, quantite, jusqua){
+    return supabaseClient.rpc('waveurs_recycler', {
+      p_carte: carte,
+      p_quantite: quantite,
+      p_jusqua: jusqua
+    });
+  },
+
 
   // Les propositions de concerts. La policy ne renvoie à chacun que les
   // siennes, et tout à l'équipe.
@@ -9293,7 +9322,7 @@ async function accredLivrer(evenement, id){
 // Le numéro qui suit l'adresse du fichier force le navigateur à en
 // prendre la dernière version quand on le change. À augmenter chaque fois
 // que waveurs.js est modifié.
-const WAVEURS_FICHIER = 'waveurs.js?v=10';
+const WAVEURS_FICHIER = 'waveurs.js?v=11';
 
 let waveursChargement = null;
 
@@ -9327,12 +9356,27 @@ function chargerWaveurs(){
 }
 
 
+// Le fichier du carnet (waveurs-carnet.sql) n'est pas encore passé : la base ne
+// connaît pas ses fonctions. Le jeu cache alors le carnet au lieu de le montrer cassé.
+function carnetAbsent(erreur){
+
+  const m = String((erreur && erreur.message) || '');
+
+  return !!erreur
+    && (erreur.code === 'PGRST202' || /Could not find the function|schema cache/i.test(m))
+    && /waveurs_(carnet|defi_reclamer|serie_reclamer|succes_reclamer|recycler)/.test(m);
+}
+
 // Traduit une erreur de la base en phrase qu'on peut montrer. Les refus
 // voulus (« Plus de tours aujourd'hui ») sont déjà écrits en français côté
 // SQL et passent tels quels.
 function messageWaveurs(erreur){
 
   const m = String((erreur && erreur.message) || '');
+
+  if(carnetAbsent(erreur)){
+    return "Le carnet n'est pas encore activé : le fichier waveurs-carnet.sql n'a pas été passé dans Supabase.";
+  }
 
   if(erreur && (erreur.code === 'PGRST202' || /Could not find the function|schema cache/i.test(m))){
     return "La salle n'est pas encore activée : le fichier waveurs.sql n'a pas été passé dans Supabase.";
@@ -9431,6 +9475,48 @@ function optionsWaveurs(){
       const { data, error } = await BD.waveursCollection();
       if(error) throw new Error(messageWaveurs(error));
       return data || [];
+    },
+
+    // Le carnet : tout ce qu'on affiche (défis du jour, série, succès,
+    // barème du recyclage) en un appel. Sans le SQL du carnet, l'erreur est
+    // marquée « indisponible » : le jeu cache alors le carnet.
+    carnet: async () => {
+      const { data, error } = await BD.waveursCarnet();
+      if(error){
+        const e = new Error(messageWaveurs(error));
+        e.indisponible = carnetAbsent(error);
+        throw e;
+      }
+      return data;
+    },
+
+    // Récupérer une récompense. L'XP est déjà écrite en base : on aligne le
+    // compte local tout de suite (comme pour un tirage), sinon le prochain
+    // défi du site réécrirait l'ancien total par-dessus.
+    reclamer: async (sorte, id) => {
+
+      const appel = sorte === 'serie' ? BD.waveursReclamerSerie(id)
+        : sorte === 'succes' ? BD.waveursReclamerSucces(id)
+        : BD.waveursReclamerDefi(id);
+
+      const { data, error } = await appel;
+
+      if(error) throw new Error(messageWaveurs(error));
+
+      if(currentUser && data && Number(data.xp) > 0 && Number.isFinite(Number(data.xp_total))){
+        data._niveauAvant = levelForXP(currentUser.xp);
+        data._badgeAvant = badgeForXP(currentUser.xp).name;
+        currentUser.xp = Number(data.xp_total);
+        annoncerNiveauWaveurs(data);
+      }
+
+      return data;
+    },
+
+    recycler: async (carte, quantite, jusqua) => {
+      const { data, error } = await BD.waveursRecycler(carte, quantite, jusqua);
+      if(error) throw new Error(messageWaveurs(error));
+      return data;
     },
 
     ouvrirConnexion: () => openAuthModal('login'),
