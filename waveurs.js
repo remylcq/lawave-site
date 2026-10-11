@@ -239,7 +239,16 @@ function creerCanvas(l, h){
 // ordinateur les dessine deux fois plus fines, un téléphone garde la taille
 // d'origine. Le dessin reste écrit en coordonnées « logiques » : seul le canvas
 // est plus grand, et le contexte déjà mis à l'échelle.
-const QUALITE = { hd: 1 };
+const QUALITE = { hd: 1, niveau: 'auto' };
+
+// Le niveau choisi par la personne, gardé d'une visite à l'autre : « auto » (la
+// salle s'adapte toute seule à la machine), « haute » (tous les effets,
+// toujours), « basse » (une salle plus simple, pour économiser la batterie ou
+// aider une machine modeste).
+try{
+  const q = localStorage.getItem('lawave:waveurs:qualite');
+  if(q === 'haute' || q === 'basse') QUALITE.niveau = q;
+}catch(e){ /* stockage indisponible */ }
 
 function creerCanvasHD(l, h){
   const k = QUALITE.hd;
@@ -3082,6 +3091,11 @@ const CSS = `
 .wv-aide li.wv-texte{display:block;line-height:1.5}
 .wv-aide b{color:#fff;font-weight:600}
 .wv-actions{display:flex;gap:10px;flex-wrap:wrap}
+.wv-reglage{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 20px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);font-size:13px;color:#c4c9d0}
+.wv-seg{display:inline-flex;gap:4px;padding:3px;border-radius:999px;background:rgba(0,0,0,.35)}
+.wv-seg button{padding:6px 13px;border:0;border-radius:999px;background:none;color:#c4c9d0;font:600 12.5px 'Public Sans',system-ui,sans-serif;cursor:pointer;transition:background .2s,color .2s}
+.wv-seg button:hover{color:#fff}
+.wv-seg button.actif{background:#1489de;color:#fff}
 .wv-cta{padding:12px 22px;border-radius:999px;border:1px solid transparent;background:#1489de;color:#fff;font:600 14px 'Public Sans',system-ui,sans-serif;cursor:pointer;transition:background .2s}
 .wv-cta:hover{background:#2597ee}
 .wv-cta.discret{background:transparent;border-color:rgba(255,255,255,.3);color:#dfe7ef}
@@ -3348,6 +3362,10 @@ let actif = false;                // la salle est ouverte
 let raf = 0, dernier = 0, temps = 0;
 let ratioMax = 1.75, ratioActuel = 1, lentes = 0;
 
+// Un éclair de lumière sur l'image quand la machine paie : il gonfle le halo et
+// l'exposition, puis retombe en un instant.
+let eclairEcran = 0;
+
 const R = {};                     // ressources partagées
 const machines = [];
 let croupier = null;
@@ -3533,10 +3551,14 @@ async function construireMonde(){
     powerPreference: 'high-performance'
   });
 
-  // Les grandes textures du décor : deux fois plus fines sur ordinateur.
-  QUALITE.hd = etat.tactile ? 1 : 2;
+  // Les grandes textures du décor : deux fois plus fines sur ordinateur (sauf en
+  // qualité basse). Les images plus nettes aussi : jusqu'à 2 en qualité haute.
+  QUALITE.hd = (etat.tactile || QUALITE.niveau === 'basse') ? 1 : 2;
 
-  ratioMax = Math.min(window.devicePixelRatio || 1, etat.tactile ? 1.5 : 1.75);
+  ratioMax = Math.min(
+    window.devicePixelRatio || 1,
+    QUALITE.niveau === 'basse' ? 1 : QUALITE.niveau === 'haute' && !etat.tactile ? 2 : (etat.tactile ? 1.5 : 1.75)
+  );
   ratioActuel = ratioMax;
   renderer.setPixelRatio(ratioActuel);
 
@@ -3544,7 +3566,8 @@ async function construireMonde(){
   // réservés aux ordinateurs : sur un téléphone, un second rendu de la salle
   // coûterait trop.
   creerPost();
-  if(!etat.tactile) creerReflet();
+  if(!etat.tactile && QUALITE.niveau !== 'basse') creerReflet();
+  appliquerQualite();
 
   // Le navigateur reprend parfois la carte graphique (une autre application,
   // un onglet trop gourmand). Three.js recrée seul ses ressources quand elle
@@ -6907,8 +6930,8 @@ function rendre(sc, cam){
   const g = sc === scene ? GRADE.salle : GRADE.cartes;
   const u = POST.mat.final.uniforms;
 
-  u.uBloom.value = POST.bloom ? g.halo : 0;
-  u.uExposition.value = g.exposition;
+  u.uBloom.value = POST.bloom ? g.halo + (salle ? eclairEcran * 1.1 : 0) : 0;
+  u.uExposition.value = g.exposition + (salle ? eclairEcran * 0.16 : 0);
   u.uGamma.value = g.gamma;
   u.uVignette.value = g.vignette;
   u.uT.value = temps;
@@ -9529,6 +9552,8 @@ function annoncerResultat(machine, res){
 
     machine.gagner(jackpot);
 
+    if(!etat.reduit) eclairEcran = jackpot ? 1 : 0.5;
+
     const mot = pluriel(pieces, 'pièce');
 
     const detail = (xp > 0 ? '+' + xp + ' XP' : '') + (xp > 0 && pieces > 0 ? ' · ' : '') +
@@ -9955,6 +9980,12 @@ function montrerEcran(type, texte){
       '<h2>Pause</h2>' +
       '<p>La salle t’attend. Tes tours et ton XP sont enregistrés à chaque tirage.</p>' +
       '<ul class="wv-aide">' + aide + '</ul>' +
+      '<div class="wv-reglage"><span>Qualité des images</span>' +
+      '<div class="wv-seg" id="wvQualite" role="group" aria-label="Qualité des images">' +
+      '<button type="button" data-q="auto">Auto</button>' +
+      '<button type="button" data-q="haute">Haute</button>' +
+      '<button type="button" data-q="basse">Économie</button>' +
+      '</div></div>' +
       '<div class="wv-actions">' +
       '<button type="button" class="wv-cta" id="wvEntrer">Reprendre</button>' +
       '<button type="button" class="wv-cta discret" id="wvSortir">Quitter la salle</button>' +
@@ -10085,6 +10116,11 @@ function montrerEcran(type, texte){
   });
 
   if(entrer) entrer.focus({ preventScroll: true });
+
+  H.ecran.querySelectorAll('#wvQualite button').forEach(b => {
+    b.addEventListener('click', () => choisirQualite(b.dataset.q));
+  });
+  majBoutonsQualite();
 
   if(type === 'boutique') brancherBoutique();
   if(type === 'collection') brancherCollection();
@@ -10917,6 +10953,54 @@ function redimensionner(){
   redimensionnerOuverture();
 }
 
+// Ce que le niveau de qualité change tout de suite : l'occlusion ambiante, les
+// reflets du sol, la finesse de l'image. (Les textures, elles, se dessinent à
+// l'entrée dans la salle : elles prennent le nouveau niveau à la visite
+// suivante.)
+function appliquerQualite(){
+
+  if(POST.actif){
+    POST.ssao = QUALITE.niveau !== 'basse';
+    POST.bloom = true;
+    POST.fxaa = true;
+  }
+
+  if(QUALITE.niveau === 'basse' && REFLET.actif){
+    REFLET.actif = false;
+    desactiverReflets();
+  }
+
+  if(renderer && camera){
+    ratioMax = Math.min(
+      window.devicePixelRatio || 1,
+      QUALITE.niveau === 'basse' ? 1 : QUALITE.niveau === 'haute' && !etat.tactile ? 2 : (etat.tactile ? 1.5 : 1.75)
+    );
+    ratioActuel = ratioMax;
+    renderer.setPixelRatio(ratioActuel);
+    redimensionner();
+  }
+
+  lentes = 0;
+}
+
+function choisirQualite(niveau){
+
+  QUALITE.niveau = niveau;
+
+  try{ localStorage.setItem('lawave:waveurs:qualite', niveau); }catch(e){ /* sans effet */ }
+
+  appliquerQualite();
+  majBoutonsQualite();
+}
+
+function majBoutonsQualite(){
+  if(!H.ecran) return;
+  H.ecran.querySelectorAll('#wvQualite button').forEach(b => {
+    b.classList.toggle('actif', b.dataset.q === QUALITE.niveau);
+    b.setAttribute('aria-pressed', b.dataset.q === QUALITE.niveau ? 'true' : 'false');
+  });
+}
+
 // Sur une machine modeste, la salle perd en finesse plutôt qu'en fluidité :
 // si les images tardent, on renonce d'abord au halo, puis aux reflets du sol,
 // puis la résolution baisse d'un cran à la fois, et en dernier recours les
@@ -10924,6 +11008,10 @@ function redimensionner(){
 function surveillerPerformance(dt){
 
   if(dt > 1 / 28) lentes++; else lentes = Math.max(0, lentes - 1);
+
+  // En qualité « haute », la personne a demandé tous les effets : on ne les
+  // retire pas (ni en « basse », où il n'y a plus rien à retirer d'utile).
+  if(QUALITE.niveau !== 'auto') return;
 
   if(lentes <= 70) return;
 
@@ -10971,6 +11059,7 @@ function boucle(t){
   const dt = dernier ? Math.min(0.05, (t - dernier) / 1000) : 0.016;
   dernier = t;
   temps += dt;
+  eclairEcran = Math.max(0, eclairEcran - dt * 1.6);
 
   // Pendant l'ouverture d'un booster, la salle est à l'arrêt : on ne montre
   // que la scène des cartes.
@@ -11525,6 +11614,7 @@ window.Waveurs = {
     camera: () => camera,
     renderer: () => renderer,
     reprendre: () => { montrerEcran(null); },
+    ecran: (type, texte) => montrerEcran(type, texte),
     tirer,
     entrerFocus,
     sortirFocus
