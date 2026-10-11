@@ -2476,6 +2476,15 @@
   .artiste-resultat-infos span{display:block; font-size:12px; color:var(--muted); margin-top:2px;}
   .artiste-resultat .btn{padding:8px 14px; font-size:13px; white-space:nowrap;}
   .artiste-deezer{display:block; margin-top:4px;}
+  .artistes-barre-actions{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .artiste-banni-raison{display:block; margin-top:2px; font-style:italic;}
+  .artiste-bannir-form{
+    display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) auto; gap:10px;
+    align-items:end; margin:0 0 14px;
+  }
+  .artiste-bannir-form .field{margin:0;}
+  .artiste-bannir-form .btn{height:46px;}
+  @media (max-width:720px){ .artiste-bannir-form{grid-template-columns:1fr;} }
   .lien-bouton{
     padding:0; border:0; background:none; cursor:pointer;
     font:inherit; color:var(--blue); text-decoration:underline;
@@ -4449,10 +4458,49 @@
 
     <div class="artistes-barre">
       <div class="artistes-filtres" id="artistesFiltres"></div>
-      <button type="button" class="btn btn-primary"
-              onclick="ouvrirAjoutArtiste()">
-        ＋ Ajouter un artiste
-      </button>
+      <div class="artistes-barre-actions">
+        <button type="button" class="btn btn-ghost" id="artistesBannisBtn"
+                onclick="ouvrirBannis()">
+          🚫 Artistes bannis <span id="artistesBannisNb"></span>
+        </button>
+        <button type="button" class="btn btn-primary"
+                onclick="ouvrirAjoutArtiste()">
+          ＋ Ajouter un artiste
+        </button>
+      </div>
+    </div>
+
+    <!-- Les artistes bannis : masqués du site, plus importés, impossibles à
+         ajouter. On les retrouve ici pour les rétablir, ou pour en bannir
+         un qui n'est pas encore sur La Wave. Rempli par renderBannis. -->
+    <div class="artiste-ajout" id="artisteBannis" hidden>
+      <div class="artiste-ajout-tete">
+        <h4>Artistes bannis</h4>
+        <button type="button" class="btn btn-ghost"
+                onclick="fermerBannis()">Fermer</button>
+      </div>
+      <p class="desc" style="margin:0 0 14px;">
+        Un artiste banni disparaît du site pour tout le monde, toi compris :
+        son profil et ses sorties sont masqués, il n'est plus importé depuis
+        Deezer, et personne ne peut le rajouter, sous son nom ou avec sa page
+        Deezer. Rétablir le remet comme avant. Pour en bannir un depuis la
+        liste, utilise « Bannir » sur sa ligne.
+      </p>
+      <form class="artiste-bannir-form" onsubmit="bannirDepuisFormulaire(event)"
+            autocomplete="off" novalidate>
+        <div class="field">
+          <label for="bannirNom">Bannir un artiste</label>
+          <input type="text" id="bannirNom" autocomplete="off"
+                 placeholder="Son nom, ou l'adresse de sa page Deezer">
+        </div>
+        <div class="field">
+          <label for="bannirRaison">Raison (facultatif)</label>
+          <input type="text" id="bannirRaison" autocomplete="off" maxlength="200"
+                 placeholder="Pour t'en souvenir">
+        </div>
+        <button type="submit" class="btn btn-primary" id="bannirBtn">Bannir</button>
+      </form>
+      <div id="artisteBannisListe" class="admin-list"></div>
     </div>
 
     <!-- Chercher un artiste sur Deezer pour l'ajouter, ou pour relier à
@@ -5365,6 +5413,26 @@ const BD = {
       p_photo: photo || null,
       p_retirer: !!retirer
     });
+  },
+
+  // Bannir un artiste : masqué partout, plus importé, impossible à
+  // rajouter ; le rétablir le remet tel quel. sql/artistes-bannis.sql,
+  // réservé à l'équipe.
+  bannirArtiste(nom, handle, idDeezer, raison){
+    return supabaseClient.rpc('bannir_artiste', {
+      p_nom: nom || null,
+      p_handle: handle || null,
+      p_deezer_id: idDeezer || null,
+      p_raison: raison || null
+    });
+  },
+
+  retablirArtiste(id){
+    return supabaseClient.rpc('retablir_artiste', { p_id: id });
+  },
+
+  artistesBannis(){
+    return supabaseClient.rpc('bannis_liste');
   },
 
   // Passe par une fonction de la base : une écriture directe
@@ -21163,6 +21231,11 @@ let artistProfilesEmails = {};
 // Sorties où l'artiste figure en featuring, par pseudo.
 let artistProfilesFeats = {};
 
+// Les artistes bannis (null tant que la base n'a pas le SQL ou qu'on ne les
+// a pas chargés) : masqués du site, on ne les retrouve que par ici.
+let artistesBannis = null;
+let artistesBannisOccupe = false;
+
 // Sorties que l'import Deezer a rangées chez chaque artiste, par pseudo :
 // elles montrent d'un coup d'œil un profil Deezer qui n'est pas le bon.
 let artistProfilesDeezer = {};
@@ -21279,6 +21352,8 @@ async function loadArtistProfiles(){
       }
     });
 
+
+    chargerBannis();
 
     artistProfilesData = [...profils].sort((a, b) =>
       String(a.display_name || a.instagram_handle)
@@ -21515,6 +21590,11 @@ function messageSqlDeezer(error){
 
   const detail = String((error && error.message) || error || '');
 
+  if(/bannir_artiste|retablir_artiste|bannis_liste|artistes_bannis/i.test(detail)){
+    return "La base n'est pas à jour : exécute d'abord " +
+           'sql/artistes-bannis.sql dans Supabase, puis réessaie.';
+  }
+
   if(/relier_artiste_deezer/i.test(detail)){
     return "La base n'est pas à jour : exécute d'abord " +
            'sql/deezer-changer-lien.sql dans Supabase, puis réessaie.';
@@ -21576,6 +21656,296 @@ async function basculerSuiviArtiste(handle, suivre){
       : '✅ ' + nom + " n'est plus suivi : ses sorties déjà au catalogue y " +
         "restent, les prochaines n'arriveront plus."
   );
+}
+
+
+// ---- Artistes bannis ----
+//
+// Un banni est masqué par la base elle-même (sql/artistes-bannis.sql) : il
+// ne figure plus dans aucune liste, celle-ci comprise. On ne le retrouve que
+// par bannis_liste(), d'où le panneau « Artistes bannis ».
+
+function normeArtiste(texte){
+  return String(texte || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+
+// Un résultat de la recherche Deezer qui est un banni : même page Deezer,
+// ou même nom. Sert à ne pas proposer de l'ajouter.
+function artisteResultatBanni(resultat){
+
+  if(!artistesBannis || !resultat) return false;
+
+  const nom = normeArtiste(resultat.nom);
+
+  return artistesBannis.some(b =>
+    (b.deezer_id && Number(b.deezer_id) === Number(resultat.id)) ||
+    (nom && nom === normeArtiste(b.nom))
+  );
+}
+
+
+async function chargerBannis(){
+
+  const { data, error } = await BD.artistesBannis();
+
+  const compte = document.getElementById('artistesBannisNb');
+
+  if(error){
+    // Avant le SQL, la fonction n'existe pas : le bouton reste, et l'ouvrir
+    // explique ce qu'il manque.
+    artistesBannis = null;
+    if(compte) compte.textContent = '';
+    renderBannis();
+    return;
+  }
+
+  artistesBannis = Array.isArray(data) ? data : [];
+
+  if(compte){
+    compte.textContent = artistesBannis.length ? '(' + artistesBannis.length + ')' : '';
+  }
+
+  renderBannis();
+}
+
+
+function renderBannis(){
+
+  const zone = document.getElementById('artisteBannisListe');
+  if(!zone) return;
+
+  if(!artistesBannis){
+    zone.innerHTML = `
+      <div class="form-msg err">
+        ${escapeHtml(messageSqlDeezer({ message: 'bannis_liste' }))}
+      </div>`;
+    return;
+  }
+
+  if(!artistesBannis.length){
+    zone.innerHTML = '<div class="empty-state">Aucun artiste banni.</div>';
+    return;
+  }
+
+  const pluriel = (n, mot) => n + ' ' + mot + (n > 1 ? 's' : '');
+
+  zone.innerHTML = artistesBannis.map((b, i) => {
+
+    const photo = safeUrl(b.photo);
+
+    const date = b.banni_le
+      ? new Date(b.banni_le).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      : '';
+
+    const masques = [];
+    if(b.profils) masques.push(pluriel(b.profils, 'profil'));
+    if(b.sorties) masques.push(pluriel(b.sorties, 'sortie'));
+
+    return `
+      <div class="artiste-resultat">
+        <div class="artiste-resultat-photo">${
+          photo
+            ? `<img src="${escapeAttribute(photo)}" alt="" loading="lazy">`
+            : escapeHtml(artistInitial(b.nom))
+        }</div>
+        <div class="artiste-resultat-infos">
+          <b>${escapeHtml(b.nom || '')}</b>
+          <span>banni le ${escapeHtml(date)}${
+            masques.length ? ' · ' + masques.join(', ') + ' masqué' + (b.profils + b.sorties > 1 ? 's' : '') : ''
+          }${
+            b.deezer_id
+              ? ` · <a href="https://www.deezer.com/artist/${encodeURIComponent(b.deezer_id)}"
+                       target="_blank" rel="noopener noreferrer"
+                       style="color:var(--blue);">Deezer ↗</a>`
+              : ''
+          }</span>
+          ${
+            b.raison
+              ? `<span class="artiste-banni-raison">« ${escapeHtml(b.raison)} »</span>`
+              : ''
+          }
+        </div>
+        <button type="button" class="btn btn-ghost"
+                onclick="retablirBanni(${i})">Rétablir</button>
+      </div>`;
+  }).join('');
+}
+
+
+function ouvrirBannis(){
+
+  const panneau = document.getElementById('artisteBannis');
+  if(!panneau) return;
+
+  panneau.hidden = false;
+  panneau.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  chargerBannis();
+}
+
+
+function fermerBannis(){
+  const panneau = document.getElementById('artisteBannis');
+  if(panneau) panneau.hidden = true;
+}
+
+
+// Bannir depuis la ligne d'un artiste.
+async function bannirDepuisProfil(handle){
+
+  if(!isAdmin || artistesBannisOccupe) return;
+
+  const profil = artistProfilesData.find(p => p.instagram_handle === handle);
+  if(!profil) return;
+
+  const champ = document.getElementById('artist-ban-raison-' + handle);
+
+  await executerBannissement(
+    profil.display_name || handle,
+    handle,
+    profil.deezer_artist_id,
+    champ ? champ.value.trim() : ''
+  );
+}
+
+
+// Bannir un artiste qui n'est pas forcément sur La Wave : son nom, ou
+// l'adresse de sa page Deezer (la base va chercher son nom).
+async function bannirDepuisFormulaire(ev){
+
+  if(ev) ev.preventDefault();
+  if(!isAdmin || artistesBannisOccupe) return;
+
+  const champ = document.getElementById('bannirNom');
+  const raison = document.getElementById('bannirRaison');
+  const texte = champ.value.trim();
+
+  if(!texte){
+    setRowMessage('artistsActionMsg', "Saisis le nom de l'artiste, ou l'adresse de sa page Deezer.", 'err');
+    champ.focus();
+    return;
+  }
+
+  let nom = texte;
+  let idDeezer = null;
+
+  const page = texte.match(/artist\/(\d+)/) || (/^\d+$/.test(texte) ? [null, texte] : null);
+
+  if(page){
+
+    idDeezer = Number(page[1]);
+
+    setRowMessage('artistsActionMsg', 'Recherche de la page Deezer...', 'ok');
+
+    const { data, error } = await BD.chercherArtisteDeezer(texte);
+
+    if(error){
+      setRowMessage('artistsActionMsg', messageSqlDeezer(error), 'err');
+      return;
+    }
+
+    const trouve = Array.isArray(data) ? data[0] : null;
+
+    if(!trouve){
+      setRowMessage('artistsActionMsg', "Aucun artiste sur cette page Deezer : vérifie l'adresse.", 'err');
+      return;
+    }
+
+    nom = trouve.nom;
+    idDeezer = Number(trouve.id);
+  }
+
+  const ok = await executerBannissement(nom, null, idDeezer, raison.value.trim());
+
+  if(ok){
+    champ.value = '';
+    raison.value = '';
+  }
+}
+
+
+async function executerBannissement(nom, handle, idDeezer, raison){
+
+  artistesBannisOccupe = true;
+  setRowMessage('artistsActionMsg', '');
+
+  try{
+
+    const { data, error } = await BD.bannirArtiste(nom, handle, idDeezer, raison);
+
+    if(error){
+      setRowMessage('artistsActionMsg', messageSqlDeezer(error), 'err');
+      return false;
+    }
+
+    // Le profil disparaît de la liste : on la recharge.
+    await loadArtistProfiles();
+
+    const profils = (data && data.profils) || 0;
+    const sorties = (data && data.sorties) || 0;
+    const feats = (data && data.featurings) || 0;
+
+    setRowMessage(
+      'artistsActionMsg',
+      '🚫 ' + (data && data.nom || nom) + ' est banni : ' +
+      profils + ' profil' + (profils > 1 ? 's' : '') + ' et ' +
+      sorties + ' sortie' + (sorties > 1 ? 's' : '') + ' masqué' +
+      ((profils + sorties) > 1 ? 's' : '') + '.' +
+      (feats
+        ? ' Retiré de ' + feats + ' featuring' + (feats > 1 ? 's' : '') +
+          ' sur les sorties des autres.'
+        : '') +
+      ' Il est dans « Artistes bannis » pour le rétablir.',
+      'ok'
+    );
+
+    return true;
+
+  }finally{
+
+    artistesBannisOccupe = false;
+  }
+}
+
+
+async function retablirBanni(i){
+
+  const ban = artistesBannis && artistesBannis[i];
+
+  if(!ban || !isAdmin || artistesBannisOccupe) return;
+
+  artistesBannisOccupe = true;
+  setRowMessage('artistsActionMsg', '');
+
+  try{
+
+    const { data, error } = await BD.retablirArtiste(ban.id);
+
+    if(error){
+      setRowMessage('artistsActionMsg', messageSqlDeezer(error), 'err');
+      return;
+    }
+
+    await loadArtistProfiles();
+
+    const sorties = (data && data.sorties) || 0;
+
+    setRowMessage(
+      'artistsActionMsg',
+      '✅ ' + ban.nom + ' est rétabli : son profil et ' + sorties + ' sortie' +
+      (sorties > 1 ? 's' : '') + ' reviennent. Il n\'est plus suivi sur Deezer : ' +
+      'remets-le en « Suivre ses sorties » si besoin.',
+      'ok'
+    );
+
+  }finally{
+
+    artistesBannisOccupe = false;
+  }
 }
 
 
@@ -21702,7 +22072,11 @@ function resultatArtisteDeezerHtml(resultat, i){
 
   let action;
 
-  if(resultat.deja){
+  if(artisteResultatBanni(resultat)){
+
+    action = '<span class="release-badge">banni</span>';
+
+  } else if(resultat.deja){
 
     if(artisteAjoutLien){
 
@@ -22136,6 +22510,11 @@ function artistProfileRowHtml(profil){
               }
 
               <button class="reject" type="button"
+                      onclick="openConfirmPanel('artist-ban-${h}')">
+                🚫 Bannir
+              </button>
+
+              <button class="reject" type="button"
                       onclick="ouvrirSuppressionArtiste('${h}')">
                 🗑 Supprimer
               </button>
@@ -22234,6 +22613,40 @@ function artistProfileRowHtml(profil){
                </button>
                <button type="button" class="btn btn-ghost"
                        onclick="closeConfirmPanel('artist-edit-${h}')">
+                 Annuler
+               </button>
+             </div>
+
+           </div>
+
+
+           <!-- ---------- BANNISSEMENT ---------- -->
+
+           <div class="confirm-panel danger" id="artist-ban-${h}">
+
+             <p>
+               Bannir <strong>${escapeHtml(profil.display_name || h)}</strong> ?
+               Son profil et ${nombre > 0 ? (nombre > 1 ? 'ses ' + nombre + ' sorties' : 'sa sortie') : 'ses sorties éventuelles'}
+               disparaissent du site pour tout le monde, toi compris ; il n'est
+               plus suivi ni importé ; et personne ne peut le rajouter, sous
+               son nom ou avec sa page Deezer. Ses apparitions en featuring sur
+               les sorties des autres sont retirées. Tu peux le rétablir à tout
+               moment depuis « Artistes bannis ».
+             </p>
+
+             <div class="field">
+               <label for="artist-ban-raison-${h}">Raison (facultatif)</label>
+               <input type="text" id="artist-ban-raison-${h}" maxlength="200"
+                      autocomplete="off" placeholder="Pour t'en souvenir">
+             </div>
+
+             <div class="inline-actions">
+               <button type="button" class="btn btn-primary"
+                       onclick="bannirDepuisProfil('${h}')">
+                 Oui, bannir
+               </button>
+               <button type="button" class="btn btn-ghost"
+                       onclick="closeConfirmPanel('artist-ban-${h}')">
                  Annuler
                </button>
              </div>
