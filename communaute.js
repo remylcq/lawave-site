@@ -180,7 +180,10 @@ const ICONES = {
   verrou:    '<rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   bouclier:  '<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="m9 12 2.2 2.2L15.5 10"/>',
   rouage:    '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
-  jeu:       '<rect x="3" y="7" width="18" height="12" rx="3"/><path d="M8 11v4M6 13h4M16 12h.01M18 14h.01"/>'
+  jeu:       '<rect x="3" y="7" width="18" height="12" rx="3"/><path d="M8 11v4M6 13h4M16 12h.01M18 14h.01"/>',
+  smiley:    '<circle cx="11" cy="12" r="8.5"/><path d="M7.4 14.2a4.2 4.2 0 0 0 7.2 0M8.6 9.8h.01M13.4 9.8h.01"/><path d="M19.5 3.5v5M17 6h5"/>',
+  ondes:     '<path d="M3 12h1.5M7.5 8v8M11.5 4.5v15M15.5 8.5v7M19.5 10.5v3"/>',
+  pastille:  '<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>'
 };
 
 
@@ -1073,12 +1076,17 @@ function ongletsHtml(items, actif, attrs){
 }
 
 // La barre sous l'onglet actif glisse d'un onglet à l'autre.
-function placerBarreOnglets(conteneur, animer){
+function placerBarreOnglets(conteneur, animer, selecteurActif){
 
   const barre = $('.com-onglet-barre', conteneur);
-  const actif = $('.com-onglet.actif', conteneur);
+  const actif = $(selecteurActif || '.com-onglet.actif', conteneur);
 
-  if(!barre || !actif) return;
+  if(!barre) return;
+
+  // Aucune page active (un profil, un message...) : le trait s'efface.
+  barre.style.opacity = actif ? '' : '0';
+
+  if(!actif) return;
 
   const x = actif.offsetLeft;
   const l = actif.offsetWidth;
@@ -1318,6 +1326,18 @@ function lancerEmbed(bouton){
 // Un message
 // ---------------------------------------------------------------------
 
+// Une couleur par sujet : le fil se lit d'un coup d'œil, et rien n'y est gris.
+const COULEURS_SUJETS = {
+  general: '#4fb4ff', feedback: '#a78bfa', prod: '#ff9f43', sorties: '#ff6fa8',
+  concerts: '#2ec4b6', matos: '#7bd88f', off: '#9aa4b2', annonces: '#f5c04a'
+};
+
+function couleurSujet(cle){
+  return COULEURS_SUJETS[cle] || 'hsl(' + teinte(cle) + ' 70% 62%)';
+}
+
+// L'annonce d'une collaboration : un bandeau qui se lit avant tout le reste —
+// qui cherche, qui propose, quel métier, à quelles conditions.
 function collabHtml(c){
 
   if(!c || !c.role) return '';
@@ -1339,56 +1359,57 @@ function collabHtml(c){
           ${remu ? `<span class="com-puce remu" data-r="${attr(c.remuneration)}">${esc(remu.court)}</span>` : ''}
         </div>
       </div>
+      <span class="com-collab-ondes" aria-hidden="true">${icone('ondes', 44)}</span>
     </div>`;
 }
 
-function pileReactions(reactions, sauf){
-
-  const liste = (reactions || []).filter(r => r.emoji !== sauf).slice(0, 3);
-
-  if(!liste.length) return '';
-
-  return `<span class="com-pile" aria-hidden="true">${liste.map(r => {
-    const d = reaction(r.emoji);
-    return d ? `<span>${d.emoji}</span>` : '';
-  }).join('')}</span>`;
-}
-
+// Le bas d'un message : les réactions déjà posées, visibles et cliquables
+// (un clic en pose une ou la retire), le bouton pour en ajouter, puis les
+// commentaires, l'enregistrement et le partage.
 function actionsHtml(p, o){
 
   const mienne = p.moi && p.moi.reaction ? reaction(p.moi.reaction) : null;
   const favori = !!(p.moi && p.moi.favori);
-  const nb = p.nb_reactions || 0;
   const nbc = p.nb_commentaires || 0;
 
+  const vibes = (p.reactions || []).map(r => {
+
+    const d = reaction(r.emoji);
+
+    if(!d) return '';
+
+    const mien = !!(mienne && mienne.cle === r.emoji);
+
+    return `
+      <button type="button" class="com-vibe${mien ? ' mien' : ''}" data-act="reagir-choix" data-emoji="${r.emoji}"
+              aria-pressed="${mien ? 'true' : 'false'}" aria-label="${attr(d.libelle)} : ${r.n}${mien ? ' (la tienne, toucher pour la retirer)' : ''}">
+        <span class="com-vibe-e">${d.emoji}</span><b>${compact(r.n)}</b>
+      </button>`;
+  }).join('');
+
   return `
-    <div class="com-actions">
-      <div class="com-reag-zone">
-        <button type="button" class="com-act com-act-reag${mienne ? ' actif' : ''}" data-act="reagir"
-                aria-pressed="${mienne ? 'true' : 'false'}"
-                aria-label="${mienne ? 'Retirer ta réaction' : 'Réagir'} (${nb})">
-          <span class="com-act-ic">${mienne ? `<span class="com-emoji">${mienne.emoji}</span>` : icone('coeur', 19)}</span>
-          ${pileReactions(p.reactions, mienne && mienne.cle)}
-          <span class="com-act-n">${nb ? compact(nb) : ''}</span>
-        </button>
-        <div class="com-palette" role="group" aria-label="Choisir une réaction">
-          ${REACTIONS.map(r => `
-            <button type="button" class="com-palette-btn${mienne && mienne.cle === r.cle ? ' choisi' : ''}"
-                    data-act="reagir-choix" data-emoji="${r.cle}" aria-label="${attr(r.libelle)}" title="${attr(r.libelle)}">${r.emoji}</button>`).join('')}
+    <div class="com-post-pied">
+      <div class="com-vibes">
+        ${vibes}
+        <div class="com-reag-zone">
+          <button type="button" class="com-vibe ajout${vibes ? '' : ' vide'}" data-act="palette" aria-haspopup="true" aria-label="Réagir">
+            ${icone('smiley', 19)}${vibes ? '' : '<span>Réagir</span>'}
+          </button>
+          <div class="com-palette" role="group" aria-label="Choisir une réaction">
+            ${REACTIONS.map(r => `
+              <button type="button" class="com-palette-btn${mienne && mienne.cle === r.cle ? ' choisi' : ''}"
+                      data-act="reagir-choix" data-emoji="${r.cle}" aria-label="${attr(r.libelle)}" title="${attr(r.libelle)}">${r.emoji}</button>`).join('')}
+          </div>
         </div>
       </div>
-      <button type="button" class="com-act" data-act="${o && o.detail ? 'repondre-focus' : 'ouvrir-post-reponse'}" aria-label="Commentaires (${nbc})">
-        <span class="com-act-ic">${icone('bulle', 19)}</span>
-        <span class="com-act-n">${nbc ? compact(nbc) : ''}</span>
-      </button>
-      <span class="com-act-espace"></span>
-      <button type="button" class="com-act${favori ? ' actif favori' : ''}" data-act="favori" aria-pressed="${favori ? 'true' : 'false'}"
-              aria-label="${favori ? 'Retirer des favoris' : 'Enregistrer'}">
-        <span class="com-act-ic">${icone('signet', 19)}</span>
-      </button>
-      <button type="button" class="com-act" data-act="partager" aria-label="Partager">
-        <span class="com-act-ic">${icone('partager', 19)}</span>
-      </button>
+      <div class="com-post-outils">
+        <button type="button" class="com-outil" data-act="${o && o.detail ? 'repondre-focus' : 'ouvrir-post-reponse'}" aria-label="Commentaires (${nbc})">
+          ${icone('bulle', 18)}<span class="com-outil-n">${nbc ? compact(nbc) : ''}</span><span class="com-outil-lib">${nbc ? (nbc > 1 ? 'commentaires' : 'commentaire') : 'Commenter'}</span>
+        </button>
+        <button type="button" class="com-outil icone${favori ? ' actif favori' : ''}" data-act="favori" aria-pressed="${favori ? 'true' : 'false'}"
+                aria-label="${favori ? 'Retirer des favoris' : 'Enregistrer'}">${icone('signet', 18)}</button>
+        <button type="button" class="com-outil icone" data-act="partager" aria-label="Partager">${icone('partager', 18)}</button>
+      </div>
     </div>`;
 }
 
@@ -1397,8 +1418,8 @@ function postHtml(p, o){
   const opt = o || {};
   const a = p.auteur || {};
   const long = !opt.detail && ((p.contenu || '').length > 380 || (p.contenu || '').split('\n').length > 7);
-  const type = TYPES_POST[p.type] || TYPES_POST.message;
   const sujet = sujetInfo(p.sujet);
+  const couleurRole = roleInfo(a.role || 'Auditeur').color;
 
   const badgeType = p.type === 'question'
     ? `<span class="com-type-badge question">${icone('question', 13)} Question</span>`
@@ -1408,7 +1429,9 @@ function postHtml(p, o){
 
   return `
     <article class="com-carte com-post${p.epingle ? ' epingle' : ''}${opt.detail ? ' detail' : ''}" data-post="${attr(p.id)}" data-type="${attr(p.type)}"
+             style="--sj:${attr(couleurSujet(p.sujet))};--rc:${attr(couleurRole)}"
              ${opt.detail ? '' : 'data-act="ouvrir-post" tabindex="0"'} aria-label="Message de ${attr(a.pseudo || '')}">
+      ${collabHtml(p.collab)}
       ${p.epingle ? `<div class="com-epingle">${icone('epingle', 14)} Épinglé par l'équipe</div>` : ''}
       <header class="com-post-tete">
         <a class="com-av-lien" href="#community/membre/${attr(encodeURIComponent(a.pseudo || ''))}" data-act="membre" data-cle="${attr(a.pseudo)}" aria-label="Profil de ${attr(a.pseudo)}">${avatarHtml(a, 'm')}</a>
@@ -1417,13 +1440,12 @@ function postHtml(p, o){
           <div class="com-post-meta">
             ${tempsHtml(p.cree_le)}${p.modifie_le ? ' <span class="com-modifie" title="Modifié">· modifié</span>' : ''}
             <span class="com-sep">·</span>
-            <a class="com-sujet-lien" href="#community/sujet/${attr(encodeURIComponent(p.sujet))}" data-act="sujet" data-cle="${attr(p.sujet)}">${esc(sujet.icone)} ${esc(sujet.libelle)}</a>
+            <a class="com-sujet-lien" href="#community/sujet/${attr(encodeURIComponent(p.sujet))}" data-act="sujet" data-cle="${attr(p.sujet)}"><i class="com-pt" aria-hidden="true"></i>${esc(sujet.libelle)}</a>
             ${badgeType}
           </div>
         </div>
         <button type="button" class="com-icone-btn" data-act="menu-post" aria-label="Plus d'options" aria-haspopup="menu">${icone('plus3', 20)}</button>
       </header>
-      ${collabHtml(p.collab)}
       ${p.contenu ? `
         <div class="com-post-corps${long ? ' coupe' : ''}" data-corps>
           <div class="com-texte">${enrichir(p.contenu, p.mentions)}</div>
@@ -1464,7 +1486,7 @@ function majPost(id, options){
 
   $$('.com-post[data-post="' + CSS.escape(id) + '"]', S.racine).forEach(carte => {
 
-    const ancien = $('.com-actions', carte);
+    const ancien = $('.com-post-pied', carte);
 
     if(!ancien) return;
 
@@ -1476,7 +1498,7 @@ function majPost(id, options){
     remplacerEnGardantLeFocus(ancien, neuf);
 
     if(options && options.impulsion && !mouvementReduit()){
-      const ic = $(options.impulsion, neuf);
+      const ic = $(options.impulsion, neuf) || $('.com-vibe.mien .com-vibe-e', neuf);
       if(ic && ic.animate){
         ic.animate([
           { transform: 'scale(.6)' }, { transform: 'scale(1.35)', offset: .5 }, { transform: 'scale(1)' }
@@ -1851,14 +1873,17 @@ function composerFermeHtml(){
   const u = moi();
 
   return `
-    <div class="com-comp-ferme" data-act="c-ouvrir">
-      ${avatarHtml({ pseudo: u.pseudo, avatar_url: u.avatar }, 'm')}
-      <button type="button" class="com-comp-invite" data-act="c-ouvrir">Quoi de neuf, ${esc(u.pseudo)} ?</button>
-      <span class="com-comp-raccourcis">
-        <button type="button" class="com-icone-btn" data-act="c-ouvrir" data-type="message" data-image="1" aria-label="Ajouter une image">${icone('image', 20)}</button>
-        <button type="button" class="com-icone-btn" data-act="c-ouvrir" data-type="son" aria-label="Partager un son">${icone('casque', 20)}</button>
-        <button type="button" class="com-icone-btn" data-act="c-ouvrir" data-type="collab" aria-label="Chercher quelqu'un">${icone('collabs', 20)}</button>
-      </span>
+    <div class="com-comp-ferme">
+      <div class="com-comp-haut">
+        ${avatarHtml({ pseudo: u.pseudo, avatar_url: u.avatar }, 'm')}
+        <button type="button" class="com-comp-invite" data-act="c-ouvrir">Quoi de neuf, ${esc(u.pseudo)} ?</button>
+      </div>
+      <div class="com-types-rapides">
+        <button type="button" class="com-type-rapide t-message" data-act="c-ouvrir" data-type="message">${icone('crayon', 17)}<span>Écrire</span></button>
+        <button type="button" class="com-type-rapide t-son" data-act="c-ouvrir" data-type="son">${icone('casque', 17)}<span>Partager un son</span></button>
+        <button type="button" class="com-type-rapide t-question" data-act="c-ouvrir" data-type="question">${icone('question', 17)}<span>Poser une question</span></button>
+        <button type="button" class="com-type-rapide t-collab" data-act="c-ouvrir" data-type="collab">${icone('collabs', 17)}<span>Chercher ou proposer</span></button>
+      </div>
     </div>`;
 }
 
@@ -1873,7 +1898,7 @@ function composerOuvertHtml(inst){
         <div class="com-comp-zone">
           <div class="com-comp-types" role="radiogroup" aria-label="Type de message">
             ${Object.keys(TYPES_POST).map(k => `
-              <button type="button" role="radio" class="com-chip${inst.type === k ? ' actif' : ''}" data-act="c-type" data-type="${k}" aria-checked="${inst.type === k}">
+              <button type="button" role="radio" class="com-chip t-${k}${inst.type === k ? ' actif' : ''}" data-act="c-type" data-type="${k}" aria-checked="${inst.type === k}">
                 ${icone(TYPES_POST[k].icone, 15)}<span>${esc(TYPES_POST[k].libelle)}</span>
               </button>`).join('')}
           </div>
@@ -2361,8 +2386,7 @@ function agirComposer(act, cible, e){
     case 'c-ouvrir':
       e.stopPropagation();
       ouvrirComposer(inst, {
-        type: cible.dataset.type && cible.dataset.type !== 'message' ? cible.dataset.type : null,
-        image: !!cible.dataset.image
+        type: cible.dataset.type || null
       });
       return true;
 
@@ -2655,7 +2679,12 @@ function creerListe(el, o){
       return;
     }
 
-    el.innerHTML = visibles.map(p => o.rendu ? o.rendu(p) : postHtml(p)).join('');
+    const cartes = visibles.map(p => o.rendu ? o.rendu(p) : postHtml(p));
+    const inter = o.intercalaire ? o.intercalaire() : null;
+
+    if(inter && cartes.length > inter.apres) cartes.splice(inter.apres, 0, inter.html);
+
+    el.innerHTML = cartes.join('');
     L.bas();
     L.majBas();
     L.observateurPerdu();
@@ -2891,8 +2920,9 @@ function rangSujets(actif, fixe){
     <div class="com-sujets" role="group" aria-label="Filtrer par sujet">
       <button type="button" class="com-chip${!actif ? ' actif' : ''}" data-act="sujet-filtre" data-cle="">Tout</button>
       ${sujets.map(s => `
-        <button type="button" class="com-chip${actif === s.cle ? ' actif' : ''}" data-act="sujet-filtre" data-cle="${attr(s.cle)}">
-          <span class="com-chip-ic">${esc(s.icone)}</span>${esc(s.libelle)}
+        <button type="button" class="com-chip sujet${actif === s.cle ? ' actif' : ''}" data-act="sujet-filtre" data-cle="${attr(s.cle)}"
+                style="--sj:${attr(couleurSujet(s.cle))}">
+          <i class="com-pt" aria-hidden="true"></i>${esc(s.libelle)}
         </button>`).join('')}
     </div>`;
 }
@@ -2905,6 +2935,52 @@ const ONGLETS_FIL = [
   { cle: 'tendances', libelle: 'Tendances' }
 ];
 
+// Une collab, en petit : ce qu'on cherche ou propose, et qui.
+function collabMiniHtml(p){
+
+  const c = p.collab || {};
+  const m = metierInfo(c.role);
+  const a = p.auteur || {};
+  const cherche = c.mode === 'cherche';
+
+  return `
+    <a class="com-collab-mini" data-mode="${attr(c.mode)}" href="#community/post/${attr(encodeURIComponent(p.id))}"
+       data-act="aller" data-vers="post/${attr(encodeURIComponent(p.id))}">
+      <span class="com-collab-mini-haut">
+        <span class="com-collab-mini-ic">${esc(m.icone)}</span>
+        <span class="com-collab-mini-titre"><small>${cherche ? 'Cherche' : 'Propose'}</small><b>${esc(m.libelle)}</b></span>
+      </span>
+      <span class="com-collab-mini-meta">${c.lieu ? icone('lieu', 12) + ' ' + esc(c.lieu) : '&nbsp;'}</span>
+      <span class="com-collab-mini-qui">${avatarHtml(a, 's')}<span>${esc(a.pseudo || '')}</span></span>
+    </a>`;
+}
+
+function personneMiniHtml(m){
+  return `
+    <div class="com-carte com-ruban-carte" data-membre="${attr(m.id)}">
+      <a class="com-ruban-lien" href="#community/membre/${attr(encodeURIComponent(m.pseudo))}" data-act="membre" data-cle="${attr(m.pseudo)}">
+        ${avatarHtml(m, 'l')}
+        <b>${esc(m.pseudo)}</b>
+        <span>${esc(roleInfo(m.role).icon)} ${esc(roleInfo(m.role).name)}</span>
+        ${m.raisons && m.raisons.length ? `<em>${esc(RAISONS[m.raisons[0]] || '')}</em>` : '<em>&nbsp;</em>'}
+      </a>
+      ${boutonSuivre(m, !!(m.moi && m.moi.suit))}
+    </div>`;
+}
+
+// Les collabs ouvertes, gardées une minute.
+async function collabsDuMoment(){
+
+  if(S.collabsRecentes && Date.now() - S.collabsLe < 60000) return S.collabsRecentes;
+
+  const r = await BD.fil({ p_vue: 'recent', p_type: 'collab', p_limite: 6 });
+
+  S.collabsRecentes = (r.posts || []).map(regPost);
+  S.collabsLe = Date.now();
+
+  return S.collabsRecentes;
+}
+
 VUES.accueil = {
 
   titre: () => 'Communauté',
@@ -2916,17 +2992,20 @@ VUES.accueil = {
     V.el.innerHTML = `
       <div data-hote="onboarding"></div>
       <div data-hote="composer" class="com-hote-composer"></div>
-      <div data-hote="sujets"></div>
-      <div data-hote="onglets"></div>
-      <div data-hote="sugg-mobile" class="com-sugg-mobile"></div>
-      <div class="com-liste" data-liste></div>`;
+      <div class="com-filtres">
+        <div data-hote="onglets"></div>
+        <div data-hote="sujets"></div>
+        <div data-hote="tendances" class="com-tendances-ligne" hidden></div>
+      </div>
+      <div class="com-liste" data-liste></div>
+      <p class="com-regles">Reste bienveillant : pas de spam, pas d'insultes. Un message qui dérape se signale depuis son menu ⋯</p>`;
 
     V.hotes = {
       onboarding: $('[data-hote="onboarding"]', V.el),
       composer: $('[data-hote="composer"]', V.el),
       sujets: $('[data-hote="sujets"]', V.el),
       onglets: $('[data-hote="onglets"]', V.el),
-      sugg: $('[data-hote="sugg-mobile"]', V.el)
+      tendances: $('[data-hote="tendances"]', V.el)
     };
 
     V.composer = monterComposer(V.hotes.composer, {
@@ -2945,11 +3024,10 @@ VUES.accueil = {
       },
       mode: 'cursor',
       squelette: squelettePost(3),
-      vide: () => VUES.accueil.vide(V)
+      vide: () => VUES.accueil.vide(V),
+      // Au bout de trois messages, un bloc pour découvrir collabs et personnes.
+      intercalaire: () => V.interHtml ? { apres: 3, html: V.interHtml } : null
     });
-
-    // Le mode « décalage » est celui de l'onglet Tendances.
-    V.liste.o.mode = 'cursor';
   },
 
   vide(V){
@@ -2989,11 +3067,78 @@ VUES.accueil = {
   montrer(V){
     if(!V.liste.charge && !V.liste.enCours) V.liste.recharger();
     V.liste.demarrer();
-    VUES.accueil.suggestionsMobile(V);
     VUES.accueil.onboarding(V);
+    VUES.accueil.decouvrir(V);
+    VUES.accueil.tendances(V);
     // La barre sous l'onglet actif se cale quand la vue est à l'écran : cachée,
     // elle n'a pas de largeur à mesurer.
     placerBarreOnglets(V.hotes.onglets, false);
+  },
+
+  // Les mots-clics du moment, sous les sujets.
+  async tendances(V){
+
+    try{
+
+      const t = await tendances(false);
+      const tags = ((t && t.tags) || []).slice(0, 6);
+
+      V.hotes.tendances.hidden = !tags.length;
+
+      if(tags.length){
+        V.hotes.tendances.innerHTML = `
+          <span class="com-tendances-lib">${icone('tendance', 15)} En ce moment</span>
+          ${tags.map(x => `<a class="com-tag-lien" href="#community/tag/${attr(encodeURIComponent(x.tag))}" data-act="tag" data-tag="${attr(x.tag)}">#${esc(x.tag)}<small>${x.n}</small></a>`).join('')}`;
+      }
+
+    }catch(e){}
+  },
+
+  // Le bloc « À découvrir » : les collabs ouvertes et des gens à suivre. Il se
+  // glisse dans le fil après le troisième message.
+  async decouvrir(V){
+
+    if(V.decouvertLe && Date.now() - V.decouvertLe < 60000) return;
+
+    try{
+
+      const [collabs, personnes] = await Promise.all([collabsDuMoment().catch(() => []), suggestions(false).catch(() => [])]);
+
+      V.decouvertLe = Date.now();
+
+      if(!collabs.length && !personnes.length){ V.interHtml = null; return; }
+
+      V.interHtml = `
+        <section class="com-inter" aria-label="À découvrir">
+          ${collabs.length ? `
+            <div class="com-inter-bloc">
+              <div class="com-inter-tete"><b>${icone('collabs', 17)} Collabs ouvertes</b><a href="#community/collabs" data-act="aller" data-vers="collabs">Tout voir</a></div>
+              <div class="com-defile">${collabs.map(collabMiniHtml).join('')}</div>
+            </div>` : ''}
+          ${personnes.length ? `
+            <div class="com-inter-bloc">
+              <div class="com-inter-tete"><b>${icone('utilisateurPlus', 17)} ${moi() ? 'Gens à suivre' : 'À découvrir'}</b><a href="#community/explorer" data-act="aller" data-vers="explorer">Explorer</a></div>
+              <div class="com-defile">${personnes.slice(0, 8).map(personneMiniHtml).join('')}</div>
+            </div>` : ''}
+        </section>`;
+
+      // Le fil est déjà dessiné : le bloc y entre sans le redessiner.
+      const liste = V.liste.el;
+      const ancien = $(':scope > .com-inter', liste);
+
+      if(ancien) ancien.remove();
+
+      const cartes = $$(':scope > .com-carte', liste);
+
+      if(cartes.length > 3){
+        const tmp = document.createElement('div');
+        tmp.innerHTML = V.interHtml.trim();
+        const bloc = tmp.firstElementChild;
+        cartes[2].after(bloc);
+        entrerEnCascade([bloc]);
+      }
+
+    }catch(e){}
   },
 
   // « Pour bien démarrer » : les quatre premières étapes d'un compte. L'encart
@@ -3021,11 +3166,10 @@ VUES.accueil = {
           <span class="com-onb-barre" aria-hidden="true">${etapes.map(c => `<i class="${etat[c.key] ? 'fait' : ''}"></i>`).join('')}</span>
         </div>
         <div class="com-onb-liste">
-          ${etapes.map(c => etat[c.key]
-            ? `<div class="com-onb-etape fait"><span class="com-onb-coche">${icone('coche', 13)}</span><span>${esc(c.label)}</span></div>`
-            : `<button type="button" class="com-onb-etape" data-act="${actions[c.key] || 'onb-reglages'}">
-                 <span class="com-onb-coche"></span><span>${esc(c.label)}</span><em>+${c.xp} XP</em>
-               </button>`).join('')}
+          ${etapes.filter(c => !etat[c.key]).map(c => `
+            <button type="button" class="com-onb-etape" data-act="${actions[c.key] || 'onb-reglages'}">
+              <span class="com-onb-coche"></span><span>${esc(c.label)}</span><em>+${c.xp} XP</em>
+            </button>`).join('')}
         </div>
         <input type="file" data-c-avatar accept="image/jpeg,image/png,image/webp" hidden>
       </section>`;
@@ -3078,19 +3222,6 @@ VUES.accueil = {
     V.etat.sujet = sujet;
     $$('.com-chip', V.hotes.sujets).forEach(b => b.classList.toggle('actif', (b.dataset.cle || null) === sujet));
     V.liste.recharger();
-  },
-
-  // Sur téléphone la colonne de droite n'existe pas : quelques membres à
-  // suivre se glissent au-dessus du fil.
-  async suggestionsMobile(V){
-
-    if(V.sugg) return;
-
-    try{
-      const liste = await suggestions(false);
-      V.hotes.sugg.innerHTML = suggestionsRuban(liste);
-      V.sugg = true;
-    }catch(e){}
   }
 };
 
@@ -3250,7 +3381,7 @@ async function reagirPost(id, choix){
   const avant = copieProfonde({ moi: p.moi, nb: p.nb_reactions, reactions: p.reactions });
 
   appliquerReaction(p, emoji);
-  majPost(id, emoji ? { impulsion: '.com-act-reag .com-act-ic' } : null);
+  majPost(id, emoji ? { impulsion: '.com-vibe.mien .com-vibe-e' } : null);
 
   try{
 
@@ -3310,7 +3441,7 @@ async function basculerFavori(id){
   const voulu = !p.moi.favori;
 
   p.moi.favori = voulu;
-  majPost(id, { impulsion: '.com-act.favori .com-act-ic' });
+  majPost(id, { impulsion: '.com-outil.favori svg' });
 
   try{
     await BD.favori(id, voulu);
@@ -4069,46 +4200,6 @@ function membreHtml(m, o){
     </article>`;
 }
 
-// Une carte compacte pour les rubans de suggestions et la colonne de droite.
-function membreMiniHtml(m){
-
-  const suit = !!(m.moi && m.moi.suit);
-  const r = roleInfo(m.role);
-
-  return `
-    <div class="com-mini" data-membre="${attr(m.id)}">
-      <a class="com-mini-lien" href="#community/membre/${attr(encodeURIComponent(m.pseudo))}" data-act="membre" data-cle="${attr(m.pseudo)}">
-        ${avatarHtml(m, 'm')}
-        <span class="com-mini-texte">
-          <span class="com-mini-nom">${nomHtml(m, { sansLien: true })}</span>
-          <span class="com-mini-role">${esc(r.icon)} ${esc(r.name)}${m.ville ? ' · ' + esc(m.ville) : ''}</span>
-        </span>
-      </a>
-      ${boutonSuivre(m, suit)}
-    </div>`;
-}
-
-function suggestionsRuban(liste){
-
-  if(!liste || !liste.length) return '';
-
-  return `
-    <section class="com-ruban" aria-label="Gens à suivre">
-      <div class="com-ruban-tete"><b>Gens à suivre</b><a href="#community/explorer" data-act="aller" data-vers="explorer">Tout voir</a></div>
-      <div class="com-ruban-liste">
-        ${liste.slice(0, 8).map(m => `
-          <div class="com-carte com-ruban-carte" data-membre="${attr(m.id)}">
-            <a class="com-ruban-lien" href="#community/membre/${attr(encodeURIComponent(m.pseudo))}" data-act="membre" data-cle="${attr(m.pseudo)}">
-              ${avatarHtml(m, 'l')}
-              <b>${esc(m.pseudo)}</b>
-              <span>${esc(roleInfo(m.role).icon)} ${esc(roleInfo(m.role).name)}</span>
-            </a>
-            ${boutonSuivre(m, !!(m.moi && m.moi.suit))}
-          </div>`).join('')}
-      </div>
-    </section>`;
-}
-
 // Les suggestions sont gardées une minute : le fil, l'explorateur et la
 // colonne de droite les partagent.
 async function suggestions(forcer){
@@ -4650,45 +4741,57 @@ function profilEnteteHtml(V){
     .join('');
 
   const actions = soi
-    ? `<button type="button" class="com-btn com-btn-fantome" data-act="profil-modifier">${icone('crayon', 15)} Modifier mon profil</button>`
+    ? `<button type="button" class="com-btn com-btn-fantome com-pleine" data-act="profil-modifier">${icone('crayon', 15)} Modifier mon profil</button>`
     : bloque
-      ? `<button type="button" class="com-btn com-btn-fantome" data-act="debloquer" data-id="${attr(p.id)}">Débloquer</button>`
+      ? `<button type="button" class="com-btn com-btn-fantome com-pleine" data-act="debloquer" data-id="${attr(p.id)}">Débloquer</button>`
       : `${boutonSuivre(p, !!rel.suit)}
          <button type="button" class="com-btn com-btn-fantome" data-act="ecrire" data-id="${attr(p.id)}">${icone('messages', 15)} Écrire</button>
          <button type="button" class="com-icone-btn bordure" data-act="menu-membre" aria-label="Plus d'options" aria-haspopup="menu">${icone('plus3', 20)}</button>`;
 
+  const aDuContenu = (p.cherche && p.cherche.length) || (p.propose && p.propose.length);
+
   return `
-    <div class="com-carte com-profil" data-membre="${attr(p.id)}">
-      <div class="com-profil-banniere" style="--h:${h}"></div>
+    <div class="com-carte com-profil" data-membre="${attr(p.id)}" style="--rc:${attr(r.color)}">
+      <div class="com-profil-banniere" style="--h:${h}">
+        <span class="com-profil-ondes" aria-hidden="true">${icone('ondes', 120)}</span>
+      </div>
       <div class="com-profil-corps">
-        <div class="com-profil-ligne">
-          <div class="com-profil-avatar">
-            ${avatarHtml(p, 'xl')}
-            ${soi ? `<button type="button" class="com-avatar-modif" data-act="avatar-modifier" aria-label="Changer ma photo">${icone('image', 16)}</button>
-                     <input type="file" data-c-avatar accept="image/jpeg,image/png,image/webp" hidden>` : ''}
-          </div>
-          <div class="com-profil-actions">${actions}</div>
+        <div class="com-profil-avatar">
+          ${avatarHtml(p, 'xl')}
+          ${soi ? `<button type="button" class="com-avatar-modif" data-act="avatar-modifier" aria-label="Changer ma photo">${icone('image', 16)}</button>
+                   <input type="file" data-c-avatar accept="image/jpeg,image/png,image/webp" hidden>` : ''}
         </div>
 
         <h2 class="com-profil-nom">${nomHtml(p, { sansLien: true })}</h2>
         <div class="com-profil-meta">
           ${roleHtml(p.role)}
           ${p.ville ? `<span class="com-ville">${icone('lieu', 14)} ${esc(p.ville)}</span>` : ''}
-          <span class="com-meta-discret">Membre depuis ${esc(moisAnnee(p.cree_le))}</span>
-          ${badge ? `<span class="com-meta-discret">${esc(badge.icon)} ${esc(badge.name)} · niveau ${niveau}</span>` : ''}
         </div>
+        <div class="com-profil-sous">
+          <span>Membre depuis ${esc(moisAnnee(p.cree_le))}</span>
+          ${badge ? `<span>${esc(badge.icon)} ${esc(badge.name)} · niveau ${niveau}</span>` : ''}
+        </div>
+
+        <div class="com-profil-actions">${actions}</div>
 
         ${bloque ? `<p class="com-profil-note">${icone('interdit', 16)} Tu as bloqué ce membre. Vous ne vous voyez plus.</p>` : ''}
         ${p.bio && !bloque ? `<p class="com-profil-bio">${esc(p.bio)}</p>` : ''}
 
-        ${!bloque && ((p.cherche && p.cherche.length) || (p.propose && p.propose.length) || (p.genres && p.genres.length)) ? `
-          <div class="com-profil-metiers">
-            ${p.cherche && p.cherche.length ? `<div class="com-ligne-metiers"><span class="com-ligne-lib">Cherche</span>${pastilles(p.cherche)}</div>` : ''}
-            ${p.propose && p.propose.length ? `<div class="com-ligne-metiers"><span class="com-ligne-lib">Propose</span>${pastilles(p.propose)}</div>` : ''}
-            ${p.genres && p.genres.length ? `<div class="com-ligne-metiers"><span class="com-ligne-lib">Styles</span>${p.genres.map(g => `<span class="com-puce">${esc(g)}</span>`).join('')}</div>` : ''}
+        ${!bloque && aDuContenu ? `
+          <div class="com-profil-duo">
+            <div class="com-profil-bloc cherche">
+              <span class="com-profil-bloc-titre">${icone('loupe', 15)} Cherche</span>
+              <div class="com-profil-bloc-chips">${p.cherche && p.cherche.length ? pastilles(p.cherche) : '<em>Rien pour le moment</em>'}</div>
+            </div>
+            <div class="com-profil-bloc propose">
+              <span class="com-profil-bloc-titre">${icone('etincelle', 15)} Propose</span>
+              <div class="com-profil-bloc-chips">${p.propose && p.propose.length ? pastilles(p.propose) : '<em>Rien pour le moment</em>'}</div>
+            </div>
           </div>` : ''}
 
-        ${soi && !(p.cherche && p.cherche.length) && !(p.propose && p.propose.length) ? `
+        ${!bloque && p.genres && p.genres.length ? `<div class="com-profil-styles">${p.genres.map(g => `<span class="com-puce">${esc(g)}</span>`).join('')}</div>` : ''}
+
+        ${soi && !aDuContenu ? `
           <button type="button" class="com-invite-profil" data-act="profil-modifier">
             ${icone('etincelle', 18)}
             <span><b>Dis ce que tu cherches</b><small>Un beatmaker, un vidéaste, un mix… ça aide les autres à te trouver.</small></span>
@@ -4697,9 +4800,9 @@ function profilEnteteHtml(V){
         ${liens && !bloque ? `<div class="com-reseaux">${liens}</div>` : ''}
 
         <div class="com-profil-stats">
-          <span><b>${compact(s.posts)}</b> message${s.posts > 1 ? 's' : ''}</span>
-          <span><b data-abonnes data-pour="${attr(p.id)}">${compact(s.abonnes)}</b> abonné${s.abonnes > 1 ? 's' : ''}</span>
-          <span><b>${compact(s.abonnements)}</b> abonnement${s.abonnements > 1 ? 's' : ''}</span>
+          <div><b>${compact(s.posts)}</b><span>message${s.posts > 1 ? 's' : ''}</span></div>
+          <div><b data-abonnes data-pour="${attr(p.id)}">${compact(s.abonnes)}</b><span>abonné${s.abonnes > 1 ? 's' : ''}</span></div>
+          <div><b>${compact(s.abonnements)}</b><span>abonnement${s.abonnements > 1 ? 's' : ''}</span></div>
         </div>
 
         ${p.artiste ? `
@@ -4720,16 +4823,22 @@ VUES.membre = {
     V.cle = route.param;
     V.etat = { onglet: 'messages' };
 
+    // Deux colonnes sur grand écran : la carte du membre reste en vue pendant
+    // qu'on parcourt ses messages.
     V.el.innerHTML = `
-      <div data-hote="entete">
-        <div class="com-carte com-profil"><div class="com-profil-banniere"></div><div class="com-profil-corps">
-          <div class="com-sq com-sq-rond" style="width:92px;height:92px;margin-top:-46px"></div>
-          <span class="com-sq" style="width:40%;margin-top:14px"></span><span class="com-sq" style="width:64%;margin-top:10px"></span>
-        </div></div>
-      </div>
-      <div data-hote="onglets"></div>
-      <div class="com-liste" data-liste></div>
-      <div data-hote="collection" hidden></div>`;
+      <div class="com-profil-grille">
+        <div class="com-profil-gauche" data-hote="entete">
+          <div class="com-carte com-profil"><div class="com-profil-banniere"></div><div class="com-profil-corps">
+            <div class="com-sq com-sq-rond" style="width:92px;height:92px;margin-top:-46px"></div>
+            <span class="com-sq" style="width:40%;margin-top:14px"></span><span class="com-sq" style="width:64%;margin-top:10px"></span>
+          </div></div>
+        </div>
+        <div class="com-profil-droite">
+          <div data-hote="onglets"></div>
+          <div class="com-liste" data-liste></div>
+          <div data-hote="collection" hidden></div>
+        </div>
+      </div>`;
 
     V.hotes = {
       entete: $('[data-hote="entete"]', V.el),
@@ -6205,7 +6314,6 @@ function afficher(){
     ouvrirComposer(V.composer, {});
   }
 
-  remplirCote();
 }
 
 // Titre de la page affichée, qui peut dépendre de ce que la vue a chargé
@@ -6224,7 +6332,7 @@ function majTitreCourant(){
 }
 
 // Ce qui change d'une page à l'autre dans la structure : navigation active,
-// bouton retour, colonne de droite.
+// bouton retour, largeur de la page.
 function majCoque(){
 
   const V = S.courante;
@@ -6235,7 +6343,6 @@ function majCoque(){
   const def = VUES[route.nom];
   const u = moi();
 
-  S.coque.dataset.large = def.large ? '1' : '0';
   S.coque.dataset.vue = route.nom;
 
   const actif = {
@@ -6247,16 +6354,24 @@ function majCoque(){
   const monProfil = route.nom === 'membre' && u && route.param.toLowerCase() === u.pseudo.toLowerCase();
 
   $$('[data-nav]', S.coque).forEach(a => {
-    const est = a.dataset.nav === actif || (a.dataset.nav === 'profil' && monProfil);
+    const est = a.dataset.nav === actif;
     a.classList.toggle('actif', est);
     if(est) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
 
-  const retour = $('.com-entete-retour', S.coque);
-  const avecRetour = !!def.retour && !(route.nom === 'membre' && monProfil);
-  retour.hidden = !avecRetour;
+  const moiLien = $('.com-moi-lien', S.coque);
+  if(moiLien) moiLien.classList.toggle('actif', !!monProfil);
 
-  // Sur la page des messages ouverts, le retour appartient à la discussion.
+  // Le trait qui glisse sous la page active du dock.
+  const dock = $('.com-dock', S.coque);
+  if(dock) placerBarreOnglets(dock, !!S.dockPlace, '.com-dock-item.actif');
+  S.dockPlace = true;
+
+  const retour = $('.com-entete-retour', S.coque);
+  const avecRetour = !!def.retour && !monProfil;
+  retour.hidden = !avecRetour;
+  $('.com-entete', S.coque).classList.toggle('avec-retour', avecRetour);
+
   $('.com-fab', S.coque).hidden = !(route.nom === 'accueil' || route.nom === 'collabs');
 
   majTitreCourant();
@@ -6275,75 +6390,54 @@ function enteteHtml(){
     </header>`;
 }
 
-function navItemHtml(cle, ic, libelle, badge, vers){
+function navItemHtml(cle, ic, libelle, badge, vers, classe){
   return `
-    <a class="com-nav-item" href="#community${vers ? '/' + vers : ''}" data-act="aller" data-vers="${attr(vers || '')}" data-nav="${cle}">
-      <span class="com-nav-ic">${icone(ic, 23)}${badge ? `<span class="com-badge-nb" data-badge="${badge}" hidden></span>` : ''}</span>
+    <a class="${classe || 'com-nav-item'}" href="#community${vers ? '/' + vers : ''}" title="${attr(libelle)}" data-act="aller" data-vers="${attr(vers || '')}" data-nav="${cle}">
+      <span class="com-nav-ic">${icone(ic, 21)}${badge ? `<span class="com-badge-nb" data-badge="${badge}" hidden></span>` : ''}</span>
       <span class="com-nav-lib">${esc(libelle)}</span>
     </a>`;
 }
 
+const ELEMENTS_NAV = [
+  ['accueil', 'accueil', 'Accueil', null, ''],
+  ['explorer', 'explorer', 'Explorer', null, 'explorer'],
+  ['collabs', 'collabs', 'Collabs', null, 'collabs'],
+  ['messages', 'messages', 'Messages', 'messages', 'messages'],
+  ['notifications', 'cloche', 'Alertes', 'notifications', 'notifications'],
+  ['favoris', 'signet', 'Enregistrés', null, 'favoris']
+];
+
 function coqueHtml(){
 
-  const u = moi();
-
   return `
-    <div class="com" data-large="0">
+    <div class="com" data-vue="accueil">
 
-      <nav class="com-rail" aria-label="Navigation de la communauté">
-        <div class="com-rail-haut">
-          ${navItemHtml('accueil', 'accueil', 'Accueil', null, '')}
-          ${navItemHtml('explorer', 'explorer', 'Explorer', null, 'explorer')}
-          ${navItemHtml('collabs', 'collabs', 'Collabs', null, 'collabs')}
-          ${navItemHtml('messages', 'messages', 'Messages', 'messages', 'messages')}
-          ${navItemHtml('notifications', 'cloche', 'Notifications', 'notifications', 'notifications')}
-          ${navItemHtml('favoris', 'signet', 'Enregistrés', null, 'favoris')}
-          ${u ? `<a class="com-nav-item" href="#community/membre/${attr(encodeURIComponent(u.pseudo))}" data-act="membre" data-cle="${attr(u.pseudo)}" data-nav="profil">
-                  <span class="com-nav-ic">${icone('profil', 23)}</span><span class="com-nav-lib">Profil</span></a>` : ''}
-          <button type="button" class="com-btn com-btn-plein com-publier" data-act="publier">${icone('plus', 18)}<span>Publier</span></button>
+      <div class="com-haut">
+        <nav class="com-dock" aria-label="Navigation de la communauté">
+          ${ELEMENTS_NAV.map(i => navItemHtml(i[0], i[1], i[2], i[3], i[4], 'com-dock-item')).join('')}
+          <span class="com-onglet-barre" aria-hidden="true"></span>
+        </nav>
+        <div class="com-haut-droite">
+          <div class="com-rapide">
+            <label class="com-recherche-champ">
+              ${icone('loupe', 17)}
+              <input type="search" data-rapide placeholder="Rechercher" autocomplete="off" aria-label="Rechercher dans la communauté">
+            </label>
+            <div class="com-rapide-res" data-rapide-res hidden></div>
+          </div>
+          <button type="button" class="com-btn com-btn-plein com-publier" data-act="publier">${icone('plus', 16)}<span>Publier</span></button>
+          <button type="button" class="com-icone-btn bordure com-bouton-waveurs" data-act="waveurs" aria-label="L'espace des waveurs" title="L'espace des waveurs">${icone('jeu', 19)}</button>
+          <div data-puce-moi class="com-puce-hote"></div>
         </div>
-        <div class="com-rail-bas">
-          <button type="button" class="com-waveurs" data-act="waveurs">
-            <span class="com-waveurs-ic">${icone('jeu', 22)}</span>
-            <span class="com-waveurs-texte"><b>L'espace des waveurs</b><small>Des tours offerts chaque jour</small></span>
-          </button>
-          <div data-puce-moi></div>
-        </div>
-      </nav>
+      </div>
 
       <div class="com-centre">
         ${enteteHtml()}
         <div class="com-vues" id="com-vues"></div>
       </div>
 
-      <aside class="com-cote" aria-label="Recherche et suggestions">
-        <div class="com-cote-colle">
-          <div class="com-rapide">
-            <label class="com-recherche-champ">
-              ${icone('loupe', 18)}
-              <input type="search" data-rapide placeholder="Rechercher" autocomplete="off" aria-label="Rechercher dans la communauté">
-            </label>
-            <div class="com-rapide-res" data-rapide-res hidden></div>
-          </div>
-          ${u ? '' : `
-            <section class="com-carte com-cote-bloc com-cote-invitation">
-              <h3>Rejoins La Wave</h3>
-              <p>Publie, suis tes artistes préférés, trouve avec qui collaborer.</p>
-              <button type="button" class="com-btn com-btn-plein" data-act="connexion" data-mode="signup">Créer un compte</button>
-              <button type="button" class="com-btn com-btn-fantome" data-act="connexion" data-mode="login">Se connecter</button>
-            </section>`}
-          <section class="com-carte com-cote-bloc" data-cote-sugg hidden></section>
-          <section class="com-carte com-cote-bloc" data-cote-tend hidden></section>
-          <p class="com-cote-pied">Reste bienveillant : pas de spam, pas d'insultes. Un message qui dérape se signale depuis son menu&nbsp;⋯</p>
-        </div>
-      </aside>
-
       <nav class="com-barre" aria-label="Navigation de la communauté">
-        ${navItemHtml('accueil', 'accueil', 'Accueil', null, '')}
-        ${navItemHtml('explorer', 'explorer', 'Explorer', null, 'explorer')}
-        ${navItemHtml('collabs', 'collabs', 'Collabs', null, 'collabs')}
-        ${navItemHtml('messages', 'messages', 'Messages', 'messages', 'messages')}
-        ${navItemHtml('notifications', 'cloche', 'Alertes', 'notifications', 'notifications')}
+        ${ELEMENTS_NAV.slice(0, 5).map(i => navItemHtml(i[0], i[1], i[0] === 'notifications' ? 'Alertes' : i[2], i[3], i[4])).join('')}
       </nav>
 
       <button type="button" class="com-fab" data-act="publier" aria-label="Publier" hidden>${icone('plus', 26)}</button>
@@ -6355,13 +6449,13 @@ function puceMoiHtml(){
   const u = moi();
 
   if(!u){
-    return `<button type="button" class="com-btn com-btn-fantome com-pleine" data-act="connexion" data-mode="login">Se connecter</button>`;
+    return `<button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="connexion" data-mode="login">Se connecter</button>`;
   }
 
   return `
-    <a class="com-puce-moi" href="#community/membre/${attr(encodeURIComponent(u.pseudo))}" data-act="membre" data-cle="${attr(u.pseudo)}">
+    <a class="com-moi-lien" href="#community/membre/${attr(encodeURIComponent(u.pseudo))}" data-act="membre" data-cle="${attr(u.pseudo)}"
+       title="${attr(u.pseudo)}" aria-label="Mon profil">
       ${avatarHtml({ pseudo: u.pseudo, avatar_url: u.avatar }, 'm')}
-      <span class="com-puce-moi-texte"><b>${esc(u.pseudo)}</b><small>${esc(roleInfo(u.role).icon)} ${esc(roleInfo(u.role).name)}</small></span>
     </a>`;
 }
 
@@ -6440,51 +6534,8 @@ async function majCompteurs(){
 
 
 // ---------------------------------------------------------------------
-// La colonne de droite : recherche rapide, suggestions, tendances
+// La recherche rapide du dock
 // ---------------------------------------------------------------------
-
-async function remplirCote(){
-
-  if(!S.coque) return;
-
-  const blocSugg = $('[data-cote-sugg]', S.coque);
-  const blocTend = $('[data-cote-tend]', S.coque);
-
-  try{
-
-    const [liste, tend] = await Promise.all([suggestions(false).catch(() => []), tendances(false).catch(() => null)]);
-
-    if(liste.length){
-      blocSugg.hidden = false;
-      blocSugg.innerHTML = `
-        <h3>${moi() ? 'Qui suivre' : 'À découvrir'}</h3>
-        ${liste.slice(0, 4).map(membreMiniHtml).join('')}
-        <a class="com-cote-lien" href="#community/explorer" data-act="aller" data-vers="explorer">Voir plus</a>`;
-    } else {
-      blocSugg.hidden = true;
-    }
-
-    const tags = (tend && tend.tags) || [];
-    const sujets = ((tend && tend.sujets) || []).slice(0, 3);
-
-    if(tags.length || sujets.length){
-      blocTend.hidden = false;
-      blocTend.innerHTML = `
-        <h3>Tendances</h3>
-        ${tags.slice(0, 5).map(t => `
-          <a class="com-tendance" href="#community/tag/${attr(encodeURIComponent(t.tag))}" data-act="tag" data-tag="${attr(t.tag)}">
-            <b>#${esc(t.tag)}</b><small>${esc(pluriel(t.n, 'message'))}</small>
-          </a>`).join('')}
-        ${sujets.length ? `<div class="com-tendance-sujets">${sujets.map(s => {
-          const info = sujetInfo(s.cle);
-          return `<a class="com-chip" href="#community/sujet/${attr(encodeURIComponent(s.cle))}" data-act="sujet" data-cle="${attr(s.cle)}"><span class="com-chip-ic">${esc(info.icone)}</span>${esc(info.libelle)}</a>`;
-        }).join('')}</div>` : ''}`;
-    } else {
-      blocTend.hidden = true;
-    }
-
-  }catch(e){}
-}
 
 // La recherche rapide : quelques résultats sous le champ, la page complète
 // d'un Entrée.
@@ -6732,6 +6783,23 @@ function agir(act, cible, e){
       const zone = cible.closest('.com-reag-zone');
       if(zone) zone.classList.remove('ouverte');
       reagirCommentaire(cible.closest('[data-com]').dataset.com, cible.dataset.emoji);
+      return;
+    }
+
+    case 'palette': {
+      const zone = cible.closest('.com-reag-zone');
+      fermerPalettes(zone);
+      zone.classList.toggle('ouverte');
+
+      const palette = $('.com-palette', zone);
+      palette.style.left = '';
+
+      if(zone.classList.contains('ouverte')){
+        S.palettePosee = Date.now();
+        // Sur un écran étroit, la palette se décale pour rester entière à l'écran.
+        const depasse = palette.getBoundingClientRect().right - (window.innerWidth - 12);
+        if(depasse > 0) palette.style.left = (-4 - depasse) + 'px';
+      }
       return;
     }
 
@@ -7083,6 +7151,8 @@ function brancherEvenements(){
   // La barre qui glisse sous les onglets suit la largeur de la page.
   window.addEventListener('resize', debounce(() => {
     $$('.com-onglets', racine).forEach(o => { if(o.offsetParent) placerBarreOnglets(o, false); });
+    const dock = $('.com-dock', racine);
+    if(dock && dock.offsetParent) placerBarreOnglets(dock, false, '.com-dock-item.actif');
   }, 150));
 
   // Appui long sur un doigt : la palette de réactions s'ouvre.
@@ -7342,134 +7412,6 @@ const FEUILLE = String.raw`
 #page-community > section{padding:4px 0 0;}
 
 .com-ic{flex:none; display:block;}
-
-/* ---------- LA GRILLE ---------- */
-
-.com{
-  display:grid;
-  grid-template-columns:236px minmax(0,1fr) 312px;
-  gap:22px;
-  align-items:start;
-  padding-bottom:96px;
-  font-weight:400;
-  color:var(--ink);
-}
-.com[data-large="1"]{grid-template-columns:236px minmax(0,1fr);}
-.com[data-large="1"] .com-cote{display:none;}
-.com-centre{min-width:0;}
-.com-vue{padding:0 !important;}
-.com-vue[hidden]{display:none;}
-
-.com-entete{
-  display:flex; align-items:center; gap:10px;
-  min-height:46px; margin-bottom:14px;
-}
-.com-entete-titre{
-  font-size:22px; font-weight:700; letter-spacing:-0.02em; flex:1; min-width:0;
-  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-}
-.com-entete-actions{display:none; gap:4px; align-items:center;}
-
-/* ---------- RAIL (GAUCHE) ---------- */
-
-.com-rail{
-  position:sticky; top:104px;
-  height:calc(100vh - 124px); max-height:760px;
-  display:flex; flex-direction:column; justify-content:space-between;
-  gap:16px; overflow-y:auto; scrollbar-width:none;
-}
-.com-rail::-webkit-scrollbar{display:none;}
-.com-rail-haut{display:flex; flex-direction:column; gap:4px;}
-.com-nav-item{
-  position:relative; display:flex; align-items:center; gap:16px;
-  padding:12px 16px; border-radius:var(--radius-pill);
-  color:var(--ink-soft); font-size:16px; font-weight:500; text-decoration:none;
-  transition:background .25s var(--ease), color .25s var(--ease), transform .25s var(--ease);
-}
-.com-nav-item:hover{background:rgba(255,255,255,0.07); color:var(--ink);}
-.com-nav-item:active{transform:scale(.97);}
-.com-nav-item.actif{color:#fff; font-weight:700; background:rgba(255,255,255,0.09);}
-.com-nav-item.actif .com-ic{color:var(--blue-bright);}
-.com-nav-ic{position:relative; display:inline-flex;}
-.com-badge-nb{
-  position:absolute; top:-6px; right:-8px; min-width:18px; height:18px; padding:0 5px;
-  border-radius:9px; background:var(--com-coeur); color:#fff;
-  font-size:11px; font-weight:700; line-height:18px; text-align:center;
-  box-shadow:0 0 0 2px #090c11;
-  animation:comPop .4s cubic-bezier(.34,1.56,.64,1);
-}
-.com-publier{margin-top:14px; padding:15px 22px; font-size:15px; width:100%;}
-
-.com-rail-bas{display:flex; flex-direction:column; gap:12px;}
-.com-waveurs{
-  display:flex; align-items:center; gap:12px; text-align:left; width:100%;
-  padding:12px 14px; border-radius:var(--radius);
-  background:linear-gradient(135deg, rgba(20,137,222,0.20), rgba(20,137,222,0.04));
-  border:1px solid rgba(79,180,255,0.28); color:var(--ink); cursor:pointer;
-  transition:transform .3s var(--ease), border-color .3s var(--ease), background .3s var(--ease);
-}
-.com-waveurs:hover{transform:translateY(-2px); border-color:rgba(79,180,255,0.6);}
-.com-waveurs-ic{
-  width:40px; height:40px; border-radius:12px; flex:none;
-  display:flex; align-items:center; justify-content:center;
-  background:rgba(20,137,222,0.25); color:var(--blue-bright);
-}
-.com-waveurs-texte{display:flex; flex-direction:column; min-width:0;}
-.com-waveurs-texte b{font-size:13px; font-weight:600;}
-.com-waveurs-texte small{font-size:12px; color:var(--muted); font-weight:300;}
-
-.com-puce-moi{
-  display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:var(--radius-pill);
-  text-decoration:none; transition:background .25s var(--ease);
-}
-.com-puce-moi:hover{background:rgba(255,255,255,0.07);}
-.com-puce-moi-texte{display:flex; flex-direction:column; min-width:0; line-height:1.25;}
-.com-puce-moi-texte b{font-size:14px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.com-puce-moi-texte small{font-size:12px; color:var(--muted); font-weight:300;}
-.com-pleine{width:100%;}
-
-/* ---------- COLONNE DE DROITE ---------- */
-
-.com-cote{align-self:stretch; min-width:0;}
-.com-cote-colle{
-  position:sticky; top:104px; display:flex; flex-direction:column; gap:14px;
-  max-height:calc(100vh - 120px); overflow-y:auto; scrollbar-width:none; padding-bottom:4px;
-}
-.com-cote-colle::-webkit-scrollbar{display:none;}
-.com-cote-bloc{padding:16px 16px 12px;}
-.com-cote-bloc h3{font-size:17px; font-weight:700; margin-bottom:10px; letter-spacing:-0.01em;}
-.com-cote-invitation p{font-size:14px; color:var(--ink-soft); font-weight:300; margin:0 0 14px;}
-.com-cote-invitation .com-btn{width:100%; margin-bottom:8px;}
-.com-cote-lien{
-  display:block; padding:10px 4px 6px; font-size:13px; color:var(--blue-bright); text-decoration:none;
-}
-.com-cote-lien:hover{text-decoration:underline;}
-.com-cote-pied{font-size:12px; color:var(--muted); line-height:1.5; margin:4px 6px 0; font-weight:300;}
-
-.com-rapide{position:relative;}
-.com-rapide-res{
-  position:absolute; left:0; right:0; top:calc(100% + 8px); z-index:40;
-  padding:8px; border-radius:var(--radius); background:rgba(11,15,21,0.97);
-  border:1px solid var(--line-strong); box-shadow:var(--ombre-3);
-  animation:comMenu .28s var(--ease);
-}
-
-.com-tendance{
-  display:flex; flex-direction:column; padding:9px 6px; border-radius:12px; text-decoration:none;
-  transition:background .2s var(--ease);
-}
-.com-tendance:hover{background:rgba(255,255,255,0.06);}
-.com-tendance b{font-size:14px; font-weight:600;}
-.com-tendance small{font-size:12px; color:var(--muted); font-weight:300;}
-.com-tendance-sujets{display:flex; flex-wrap:wrap; gap:6px; padding:8px 0 4px;}
-
-.com-mini{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 0;}
-.com-mini-lien{display:flex; align-items:center; gap:10px; min-width:0; text-decoration:none; flex:1;}
-.com-mini-lien.res{padding:8px; border-radius:12px; flex:none; width:100%;}
-.com-mini-lien.res:hover{background:rgba(255,255,255,0.06);}
-.com-mini-texte{display:flex; flex-direction:column; min-width:0; line-height:1.3;}
-.com-mini-nom{font-size:14px; font-weight:600; display:flex; align-items:center; gap:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.com-mini-role{font-size:12px; color:var(--muted); font-weight:300; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
 /* ---------- BARRE DU BAS (TÉLÉPHONE) ---------- */
 
@@ -7957,8 +7899,7 @@ const FEUILLE = String.raw`
 .com-carte-lien-ic{width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.08); color:var(--ink-soft); flex:none;}
 .com-carte-lien .com-embed-texte{flex:1;}
 
-/* Actions */
-.com-actions{display:flex; align-items:center; gap:2px; margin:8px 0 0 44px; padding:2px 0 6px;}
+/* Boutons (commentaires) */
 .com-act{
   display:inline-flex; align-items:center; gap:6px; padding:8px 11px; border:0; border-radius:var(--radius-pill);
   background:transparent; color:var(--muted); font-size:13px; font-weight:500; cursor:pointer; font-variant-numeric:tabular-nums;
@@ -7968,17 +7909,10 @@ const FEUILLE = String.raw`
 .com-act:active{transform:scale(.92);}
 .com-act-ic{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; transform-origin:center;}
 .com-act-n{min-width:8px;}
-.com-act-espace{flex:1;}
-.com-act-reag.actif{color:var(--com-coeur);}
-.com-act-reag.actif .com-ic{fill:var(--com-coeur);}
-.com-emoji{font-size:19px; line-height:1;}
 .com-act.favori.actif{color:var(--gold-favori);}
 .com-act.favori.actif .com-ic{fill:var(--gold-favori);}
 .com-act.mini{padding:5px 8px; font-size:12px;}
 .com-act.texte{font-weight:600;}
-.com-pile{display:inline-flex; margin-right:-2px;}
-.com-pile span{font-size:13px; line-height:1; margin-left:-4px; filter:drop-shadow(0 0 0 #090c11);}
-.com-pile span:first-child{margin-left:0;}
 
 .com-reag-zone{position:relative; display:inline-flex;}
 .com-palette{
@@ -8088,9 +8022,6 @@ const FEUILLE = String.raw`
 }
 
 .com-ruban{margin:0 0 18px;}
-.com-sugg-mobile{display:none;}
-.com-ruban-tete{display:flex; justify-content:space-between; align-items:baseline; margin:0 4px 10px; font-size:15px;}
-.com-ruban-tete a{font-size:13px; color:var(--blue-bright); text-decoration:none;}
 .com-ruban-liste{display:flex; gap:10px; overflow-x:auto; scrollbar-width:none; padding:2px 2px 6px;}
 .com-ruban-liste::-webkit-scrollbar{display:none;}
 .com-ruban-carte{
@@ -8112,36 +8043,6 @@ const FEUILLE = String.raw`
 .com-bandeau-texte h2{font-size:21px; font-weight:700; letter-spacing:-0.01em;}
 .com-bandeau-texte p{margin:3px 0 0; font-size:14px; color:var(--ink-soft); font-weight:300;}
 
-.com-profil{overflow:hidden; margin-bottom:6px;}
-.com-profil-banniere{
-  height:124px;
-  background:
-    radial-gradient(120% 140% at 85% 0%, hsl(calc(var(--h,210) + 50) 70% 38% / .55), transparent 60%),
-    linear-gradient(135deg, hsl(var(--h,210) 60% 30%), hsl(calc(var(--h,210) + 46) 62% 16%));
-}
-.com-profil-corps{padding:0 22px 22px;}
-.com-profil-ligne{display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin-top:-48px;}
-.com-profil-avatar{position:relative;}
-.com-avatar-modif{
-  position:absolute; right:-2px; bottom:2px; width:34px; height:34px; border-radius:50%; border:2px solid #090c11;
-  display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer;
-  background:var(--blue); color:#fff; transition:transform .3s var(--ease), background .3s var(--ease);
-}
-.com-avatar-modif:hover{background:#1a97ee; transform:scale(1.12);}
-.com-profil-actions{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; padding-bottom:4px;}
-.com-profil-nom{font-size:25px; font-weight:700; letter-spacing:-0.02em; margin-top:12px; display:flex; align-items:center; flex-wrap:wrap;}
-.com-profil-meta{display:flex; align-items:center; flex-wrap:wrap; gap:8px 14px; margin-top:8px;}
-.com-profil-bio{margin:14px 0 0; font-size:15.5px; line-height:1.6; color:var(--ink); white-space:pre-wrap; overflow-wrap:anywhere; font-weight:350;}
-.com-profil-note{display:flex; align-items:center; gap:8px; margin:14px 0 0; color:var(--com-orange); font-size:14px;}
-.com-profil-metiers{display:flex; flex-direction:column; gap:9px; margin-top:16px; padding:14px 16px; border-radius:16px; background:rgba(255,255,255,0.04); border:1px solid var(--com-bord);}
-.com-reseaux{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px;}
-.com-reseau{
-  display:inline-flex; align-items:center; gap:6px; padding:7px 13px; border-radius:99px; font-size:13px; font-weight:500;
-  border:1px solid var(--line-strong); color:var(--ink-soft); text-decoration:none; transition:all .25s var(--ease);
-}
-.com-reseau:hover{border-color:var(--blue-bright); color:var(--blue-bright);}
-.com-profil-stats{display:flex; gap:22px; margin-top:18px; color:var(--muted); font-size:14px; font-weight:300; flex-wrap:wrap;}
-.com-profil-stats b{color:var(--ink); font-weight:700; font-size:16px; margin-right:3px;}
 .com-lien-artiste{
   display:flex; align-items:center; gap:10px; width:100%; margin-top:16px; padding:12px 14px; border-radius:16px; cursor:pointer;
   background:rgba(20,137,222,0.1); border:1px solid rgba(79,180,255,0.28); color:var(--ink); font-size:14px; font-weight:500; text-align:left;
@@ -8408,44 +8309,398 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 .com-vision-nav.suiv{right:18px;}
 .com-vision-compte{position:absolute; bottom:22px; left:50%; transform:translateX(-50%); font-size:13px; color:rgba(255,255,255,0.7); padding:5px 14px; border-radius:99px; background:rgba(255,255,255,0.1);}
 
-/* ---------- TABLETTE ET PETIT PORTABLE ---------- */
+/* Pas de mouvement pour qui n'en veut pas. */
+@media (prefers-reduced-motion: reduce){
+  .com *, .com-calque *, .com-vision, .com-vision *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; transition-delay:0ms !important;}
+  .com-sq{animation:none;}
+  .com-rond{animation-duration:1.6s !important; animation-iteration-count:infinite !important;}
+}
 
-/* Le rail se réduit à ses icônes et la colonne de droite s'amincit. */
-@media (max-width:1180px){
+/* Au clavier : la palette reste visible tant que le focus est dans la zone,
+   y compris sur l'un de ses boutons. */
+.com-reag-zone:focus-within .com-palette{opacity:1; transform:none; pointer-events:auto;}
+.com-msgs:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
+.com-conv-pane{min-width:0;}
 
-  .com{grid-template-columns:80px minmax(0,1fr) 288px; gap:18px;}
-  .com[data-large="1"]{grid-template-columns:80px minmax(0,1fr);}
+/* =====================================================================
+   Deuxième passe : l'identité propre de la communauté.
 
-  .com-nav-item{justify-content:center; padding:14px 0; gap:0;}
-  .com-nav-lib{display:none;}
-  .com-badge-nb{right:-10px;}
-  .com-publier{width:52px; height:52px; padding:0; margin:12px auto 0;}
+   Pas de colonne de navigation à gauche ni de colonne de suggestions à
+   droite : un bandeau de navigation (le « dock ») au-dessus d'une page
+   pensée pour chaque usage — un fil large, des grilles pour les membres
+   et les collabs, une carte de membre qui reste en vue. Chaque sujet a sa
+   couleur, chaque rôle son anneau, chaque annonce son bandeau, et les
+   réactions sont posées à la vue de tous au pied du message.
+   ===================================================================== */
+
+.com{display:block; padding-bottom:96px;}
+.com-centre{min-width:0;}
+.com-vue{max-width:760px; margin-left:auto; margin-right:auto;}
+.com[data-vue="explorer"] .com-vue, .com[data-vue="collabs"] .com-vue,
+.com[data-vue="messages"] .com-vue, .com[data-vue="membre"] .com-vue{max-width:none;}
+
+.com-entete{display:none; align-items:center; gap:10px; max-width:760px; min-height:46px; margin:0 auto 14px;}
+.com-entete.avec-retour{display:flex;}
+.com-entete-titre{
+  font-size:22px; font-weight:700; letter-spacing:-0.02em; line-height:1.2; flex:1; min-width:0;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.com-entete-actions{display:none; gap:4px; align-items:center;}
+.com[data-vue="membre"] .com-entete{max-width:none;}
+
+/* ---------- LE DOCK ---------- */
+
+.com-haut{
+  position:sticky; top:94px; z-index:70;
+  display:flex; align-items:center; gap:14px;
+  margin:0 0 22px; padding:7px 8px 7px 7px;
+  border-radius:var(--radius-pill);
+  background:rgba(9,12,17,0.82);
+  backdrop-filter:blur(26px) saturate(170%); -webkit-backdrop-filter:blur(26px) saturate(170%);
+  border:1px solid var(--line); box-shadow:var(--ombre-2), var(--reflet-int);
+}
+.com-dock{position:relative; display:flex; gap:2px; flex:1; min-width:0;}
+.com-dock .com-onglet-barre{
+  top:0; bottom:0; left:0; height:auto; width:0; border-radius:var(--radius-pill);
+  background:linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.07));
+  border:1px solid rgba(255,255,255,0.14); box-shadow:var(--reflet-int), 0 2px 12px rgba(0,0,0,0.3);
+}
+.com-dock-item{
+  position:relative; z-index:1; display:flex; align-items:center; gap:9px;
+  padding:10px 16px; border-radius:var(--radius-pill);
+  color:var(--ink-soft); font-size:14px; font-weight:600; text-decoration:none; white-space:nowrap;
+  transition:color .3s var(--ease), transform .25s var(--ease);
+}
+.com-dock-item:hover{color:var(--ink);}
+.com-dock-item:active{transform:scale(.96);}
+.com-dock-item.actif{color:#fff;}
+.com-dock-item.actif .com-ic{color:var(--blue-bright);}
+.com-dock-item .com-badge-nb{top:-7px; right:-9px;}
+
+.com-haut-droite{display:flex; align-items:center; gap:10px; flex:none;}
+.com-rapide{position:relative; width:44px; height:44px; flex:none;}
+/* Le champ grandit par-dessus le dock sans le pousser. */
+.com-rapide .com-recherche-champ{position:absolute; right:0; top:0; width:44px; height:44px; z-index:2; transition:width .4s var(--ease);}
+.com-rapide .com-recherche-champ input{height:44px; padding:0 14px 0 44px; font-size:14px; cursor:pointer; background:rgba(255,255,255,0.05);}
+.com-rapide .com-recherche-champ > .com-ic{left:14px; color:var(--ink-soft);}
+.com-rapide:focus-within .com-recherche-champ{width:300px;}
+.com-rapide:focus-within .com-recherche-champ input{cursor:text; background:rgba(15,20,28,0.99); border-color:var(--blue-bright);}
+.com-publier{padding:11px 20px; font-size:14px; width:auto; margin:0;}
+.com-moi-lien{display:inline-flex; border-radius:50%; padding:2px; border:2px solid transparent; transition:border-color .3s var(--ease), transform .3s var(--ease);}
+.com-moi-lien:hover{transform:scale(1.06);}
+.com-moi-lien.actif{border-color:var(--blue-bright);}
+.com-moi-lien .com-av-m{width:36px; height:36px; font-size:15px;}
+.com-puce-hote{display:flex; align-items:center;}
+.com-bouton-waveurs{color:var(--blue-bright);}
+
+.com-rapide-res{
+  position:absolute; right:0; top:calc(100% + 10px); z-index:80; width:330px; padding:8px;
+  border-radius:var(--radius); background:rgba(11,15,21,0.98); border:1px solid var(--line-strong);
+  box-shadow:var(--ombre-3); animation:comMenu .28s var(--ease);
+}
+
+/* ---------- FILTRES DU FIL ---------- */
+
+.com-filtres{margin-bottom:16px;}
+.com-onglets{
+  position:relative; display:inline-flex; margin:0 0 14px; padding:4px;
+  border-radius:var(--radius-pill); background:rgba(255,255,255,0.06); border:1px solid var(--line);
+}
+.com-onglet{
+  position:relative; z-index:1; flex:none; padding:9px 20px; border-radius:var(--radius-pill);
+  font-size:13.5px; font-weight:600; color:var(--ink-soft); background:none;
+}
+.com-onglet:hover{color:var(--ink); background:none;}
+.com-onglet.actif{color:#fff;}
+.com-onglets .com-onglet-barre{
+  top:4px; bottom:4px; left:0; height:auto; width:0; border-radius:var(--radius-pill);
+  background:var(--blue); box-shadow:var(--ombre-1), var(--reflet-int);
+}
+
+.com-pt{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--sj, var(--blue-bright)); flex:none;}
+.com-chip.sujet{gap:8px;}
+.com-chip.sujet.actif{
+  background:color-mix(in srgb, var(--sj) 22%, transparent); border-color:var(--sj); color:#fff;
+}
+
+.com-tendances-ligne{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:2px;}
+.com-tendances-lib{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);}
+.com-tag-lien{
+  display:inline-flex; align-items:center; padding:4px 11px; border-radius:99px; font-size:13px; font-weight:600;
+  background:rgba(79,180,255,0.1); color:var(--blue-bright); text-decoration:none; transition:background .25s var(--ease);
+}
+.com-tag-lien:hover{background:rgba(79,180,255,0.2);}
+.com-tag-lien small{margin-left:6px; color:var(--muted); font-weight:400; font-size:12px;}
+.com-regles{margin:18px 6px 0; text-align:center; font-size:12.5px; color:var(--muted); font-weight:300; line-height:1.5;}
+
+/* ---------- LE COMPOSITEUR ---------- */
+
+.com-comp-ferme{display:flex; flex-direction:column; align-items:stretch; gap:12px; cursor:default;}
+.com-comp-haut{display:flex; align-items:center; gap:12px;}
+.com-comp-invite{flex:1;}
+.com-types-rapides{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px;}
+.com-type-rapide span{overflow:hidden; text-overflow:ellipsis;}
+.com-type-rapide{
+  display:flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 10px;
+  border-radius:14px; border:1px solid var(--line); background:rgba(255,255,255,0.04);
+  color:var(--ink); font-size:13.5px; font-weight:600; cursor:pointer; white-space:nowrap;
+  transition:background .3s var(--ease), border-color .3s var(--ease), transform .25s var(--ease);
+}
+.com-type-rapide svg{color:var(--tc); flex:none;}
+.com-type-rapide:hover{background:color-mix(in srgb, var(--tc) 15%, transparent); border-color:color-mix(in srgb, var(--tc) 50%, transparent);}
+.com-type-rapide:active{transform:scale(.97);}
+.t-message{--tc:#4fb4ff;} .t-son{--tc:#3ecf8e;} .t-question{--tc:#f5a524;} .t-collab{--tc:#b79cff;}
+.com-comp-types .com-chip svg{color:var(--tc);}
+.com-comp-types .com-chip.actif{background:color-mix(in srgb, var(--tc) 24%, transparent); border-color:var(--tc); color:#fff;}
+
+/* ---------- UN MESSAGE ---------- */
+
+.com-post{padding:18px 20px 0; border-radius:20px; overflow:hidden;}
+.com-post::before{
+  content:''; position:absolute; left:0; top:22px; bottom:60px; width:3px; border-radius:0 3px 3px 0;
+  background:var(--sj, var(--blue-bright)); opacity:.9;
+}
+.com-post[data-type="collab"]::before{display:none;}
+.com-post-tete .com-av{box-shadow:0 0 0 2px #0a0d12, 0 0 0 4px var(--rc, rgba(255,255,255,0.2));}
+.com-post-nom{font-size:15.5px;}
+.com-post-meta{margin-top:4px; gap:2px;}
+.com-sujet-lien{
+  display:inline-flex; align-items:center; padding:1px 9px; border-radius:99px; font-size:12px; font-weight:500;
+  background:color-mix(in srgb, var(--sj, #4fb4ff) 14%, transparent); color:var(--ink-soft);
+}
+.com-sujet-lien:hover{background:color-mix(in srgb, var(--sj, #4fb4ff) 26%, transparent); color:var(--ink);}
+.com-sujet-lien .com-pt{margin-right:6px; width:7px; height:7px;}
+.com-post-corps{margin:14px 0 4px 0;}
+.com-texte{font-size:16px; line-height:1.62;}
+.com-epingle{margin:-4px 0 12px 0;}
+
+.com-post > .com-images, .com-post > .com-embed, .com-post > .com-carte-lien,
+.com-post > .com-collab-cta, .com-post > .com-edition{margin-left:0; margin-top:12px; max-width:none;}
+.com-post > .com-images{max-width:none;}
+
+/* Le bandeau d'une annonce de collaboration : il passe avant l'auteur. */
+.com-post > .com-collab{
+  position:relative; overflow:hidden; margin:-18px -20px 16px; padding:18px 22px; border-radius:0; border:0;
+  border-bottom:1px dashed rgba(255,255,255,0.22);
+}
+.com-collab-ic{width:52px; height:52px; border-radius:16px; font-size:27px;}
+.com-collab-metier{font-size:21px;}
+.com-collab-ondes{position:absolute; right:20px; top:50%; transform:translateY(-50%); color:var(--c); opacity:0.16; display:flex; pointer-events:none;}
+
+/* Le bas : réactions visibles, puis commentaires, enregistrer, partager. */
+.com-post-pied{
+  display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+  margin:16px -20px 0; padding:10px 14px 10px 20px;
+  border-top:1px solid var(--com-bord); background:rgba(255,255,255,0.025);
+}
+.com-vibes{display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0;}
+.com-vibe{
+  display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 12px;
+  border-radius:99px; border:1px solid var(--line); background:rgba(255,255,255,0.05);
+  color:var(--ink-soft); font-size:13px; font-weight:500; cursor:pointer;
+  transition:background .25s var(--ease), border-color .25s var(--ease), transform .25s var(--ease);
+}
+.com-vibe b{font-weight:700; font-variant-numeric:tabular-nums;}
+.com-vibe-e{font-size:16px; line-height:1; display:inline-block;}
+.com-vibe:hover{background:rgba(255,255,255,0.11);}
+.com-vibe:active{transform:scale(.94);}
+.com-vibe.mien{background:rgba(79,180,255,0.2); border-color:rgba(79,180,255,0.6); color:#fff;}
+.com-vibe.ajout{padding:0 10px; color:var(--muted);}
+.com-vibe.ajout.vide{padding:0 14px 0 10px;}
+.com-vibe.ajout:hover{color:var(--ink);}
+.com-post-outils{display:flex; align-items:center; gap:2px; flex:none;}
+.com-outil{
+  display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 11px; border:0; border-radius:99px;
+  background:none; color:var(--muted); font-size:13px; font-weight:500; cursor:pointer; font-variant-numeric:tabular-nums;
+  transition:background .25s var(--ease), color .25s var(--ease), transform .25s var(--ease);
+}
+.com-outil:hover{background:rgba(255,255,255,0.08); color:var(--ink);}
+.com-outil:active{transform:scale(.93);}
+.com-outil.icone{padding:0 9px;}
+.com-outil.favori.actif{color:var(--gold-favori);}
+.com-outil.favori.actif svg{fill:var(--gold-favori);}
+
+.com-post.detail .com-texte{font-size:17px;}
+
+/* Zone d'une réaction : la palette s'ouvre au-dessus du bouton « + ». */
+.com-reag-zone{position:relative; display:inline-flex;}
+.com-reag-zone.ouverte .com-palette{opacity:1; transform:none; pointer-events:auto;}
+.com-reag-zone:has(:focus-visible) .com-palette{opacity:1; transform:none; pointer-events:auto;}
+
+/* ---------- À DÉCOUVRIR, DANS LE FIL ---------- */
+
+.com-inter{display:flex; flex-direction:column; gap:18px; padding:6px 0 8px;}
+.com-inter-tete{display:flex; align-items:center; justify-content:space-between; margin:0 4px 10px;}
+.com-inter-tete b{display:inline-flex; align-items:center; gap:8px; font-size:15px; font-weight:700;}
+.com-inter-tete b .com-ic{color:var(--blue-bright);}
+.com-inter-tete a{font-size:13px; font-weight:600; color:var(--blue-bright); text-decoration:none;}
+.com-inter-tete a:hover{text-decoration:underline;}
+.com-inter .com-defile{padding:2px 2px 8px;}
+
+.com-collab-mini{
+  --c:var(--blue-bright);
+  flex:none; width:236px; display:flex; flex-direction:column; gap:9px; padding:14px 15px; border-radius:16px;
+  text-decoration:none; color:var(--ink); border:1px solid rgba(79,180,255,0.3);
+  background:linear-gradient(135deg, rgba(20,137,222,0.2), rgba(20,137,222,0.04));
+  transition:transform .35s var(--ease), border-color .3s var(--ease);
+}
+.com-collab-mini[data-mode="propose"]{
+  --c:var(--com-vert); border-color:rgba(62,207,142,0.32);
+  background:linear-gradient(135deg, rgba(62,207,142,0.18), rgba(62,207,142,0.03));
+}
+.com-collab-mini:hover{transform:translateY(-3px); border-color:var(--c);}
+.com-collab-mini-haut{display:flex; align-items:center; gap:11px;}
+.com-collab-mini-ic{width:40px; height:40px; border-radius:12px; font-size:21px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.09);}
+.com-collab-mini-titre{display:flex; flex-direction:column; min-width:0; line-height:1.25;}
+.com-collab-mini-titre small{font-size:10.5px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--c);}
+.com-collab-mini-titre b{font-size:15.5px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.com-collab-mini-meta{display:flex; align-items:center; gap:5px; font-size:12.5px; color:var(--ink-soft); font-weight:300; min-height:18px;}
+.com-collab-mini-qui{display:flex; align-items:center; gap:8px; padding-top:9px; border-top:1px dashed rgba(255,255,255,0.18); font-size:13px; font-weight:500;}
+.com-collab-mini-qui .com-av-s{width:24px; height:24px; font-size:11px;}
+.com-collab-mini-qui span:last-child{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+/* ---------- LES PAGES LARGES : EXPLORER ET COLLABS ---------- */
+
+.com-liste-membres{display:grid; grid-template-columns:repeat(auto-fill, minmax(340px, 1fr)); gap:14px;}
+.com-liste-membres .com-vide{grid-column:1 / -1;}
+.com-explorer-tete{max-width:none;}
+.com-vue[data-vue="collabs"] .com-liste{display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:16px; align-items:start;}
+.com-vue[data-vue="collabs"] .com-liste > .com-bas, .com-vue[data-vue="collabs"] .com-liste > .com-vide,
+.com-vue[data-vue="collabs"] .com-liste > .com-squelette-post{grid-column:auto;}
+.com-vue[data-vue="collabs"] .com-liste > .com-bas, .com-vue[data-vue="collabs"] .com-liste > .com-vide{grid-column:1 / -1;}
+.com-vue[data-vue="collabs"] .com-post-pied{flex-direction:column; align-items:stretch;}
+
+/* ---------- LE PROFIL : UNE CARTE QUI RESTE EN VUE ---------- */
+
+.com-profil-grille{display:grid; grid-template-columns:350px minmax(0, 1fr); gap:24px; align-items:start;}
+.com-profil-gauche{position:sticky; top:170px;}
+.com-profil-droite{min-width:0;}
+.com-profil{overflow:hidden; margin-bottom:0;}
+.com-profil-banniere{
+  position:relative; overflow:hidden; height:112px;
+  background:
+    radial-gradient(120% 140% at 85% 0%, hsl(calc(var(--h,210) + 50) 70% 38% / .55), transparent 60%),
+    linear-gradient(135deg, hsl(var(--h,210) 60% 30%), hsl(calc(var(--h,210) + 46) 62% 16%));
+}
+.com-profil-ondes{position:absolute; right:-6px; bottom:-14px; color:#fff; opacity:0.2; display:flex;}
+.com-profil-corps{padding:0 22px 22px;}
+.com-profil-avatar{position:relative; width:max-content; margin-top:-50px;}
+.com-profil-avatar .com-av-xl{box-shadow:0 0 0 4px #0b0f15, 0 0 0 7px var(--rc, rgba(255,255,255,0.2));}
+.com-profil-nom{font-size:24px; margin-top:14px;}
+.com-profil-meta{display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; margin-top:8px;}
+.com-profil-sous{display:flex; flex-wrap:wrap; gap:4px 14px; margin-top:8px; font-size:13px; color:var(--muted); font-weight:300;}
+.com-profil-actions{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:16px 0 0;}
+.com-profil-actions .com-pleine{width:100%;}
+.com-profil-bio{margin:16px 0 0; font-size:15.5px; line-height:1.6;}
+.com-profil-duo{display:grid; gap:10px; margin-top:18px;}
+.com-profil-bloc{padding:12px 14px; border-radius:16px; background:rgba(255,255,255,0.04); border:1px solid var(--line); border-left-width:3px;}
+.com-profil-bloc.cherche{border-left-color:var(--blue-bright);}
+.com-profil-bloc.propose{border-left-color:var(--com-vert);}
+.com-profil-bloc-titre{display:flex; align-items:center; gap:7px; margin-bottom:9px; font-size:11.5px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+.com-profil-bloc-chips{display:flex; flex-wrap:wrap; gap:6px;}
+.com-profil-bloc-chips em{font-style:normal; font-size:13px; color:var(--muted); font-weight:300;}
+.com-profil-styles{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
+.com-profil-stats{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:18px;}
+.com-profil-stats > div{text-align:center; padding:11px 6px; border-radius:14px; background:rgba(255,255,255,0.04);}
+.com-profil-stats b{display:block; font-size:19px; font-weight:700; color:var(--ink); margin:0;}
+.com-profil-stats span{font-size:12px; color:var(--muted);}
+
+.com-messages{height:calc(100vh - 236px);}
+
+.com-seg-large{display:inline-flex; width:auto;}
+.com-seg-large .com-seg-btn{flex:none; padding:9px 20px;}
+.com-collabs-filtres{display:flex; flex-direction:column; gap:12px; margin-bottom:16px;}
+
+/* « N nouveaux messages » : sous le dock, pas sous la barre du site. */
+.com-pilule{top:168px;}
+
+/* Le focus au clavier se voit partout dans la communauté. */
+.com a:focus-visible, .com button:focus-visible, .com select:focus-visible, .com input:focus-visible{
+  outline:2px solid var(--blue-bright); outline-offset:2px;
+}
+.com .com-comp-texte:focus-visible, .com .com-msg-champ textarea:focus-visible, .com .com-styles input:focus-visible,
+.com .com-comp-lien input:focus-visible{outline:0;}
+
+/* ---------- PIÈCES REPRISES DE LA PREMIÈRE VERSION ---------- */
+
+.com-pleine{width:100%;}
+
+.com-nav-item{
+  position:relative; display:flex; align-items:center; gap:16px;
+  padding:12px 16px; border-radius:var(--radius-pill);
+  color:var(--ink-soft); font-size:16px; font-weight:500; text-decoration:none;
+  transition:background .25s var(--ease), color .25s var(--ease), transform .25s var(--ease);
+}
+.com-nav-item:active{transform:scale(.97);}
+.com-nav-item.actif{color:#fff; font-weight:700;}
+.com-nav-item.actif .com-ic{color:var(--blue-bright);}
+.com-nav-ic{position:relative; display:inline-flex;}
+.com-badge-nb{
+  position:absolute; top:-6px; right:-8px; min-width:18px; height:18px; padding:0 5px;
+  border-radius:9px; background:var(--com-coeur); color:#fff;
+  font-size:11px; font-weight:700; line-height:18px; text-align:center;
+  box-shadow:0 0 0 2px #090c11;
+  animation:comPop .4s cubic-bezier(.34,1.56,.64,1);
+}
+
+.com-tendance{
+  display:flex; flex-direction:column; padding:9px 6px; border-radius:12px; text-decoration:none;
+  transition:background .2s var(--ease);
+}
+.com-tendance:hover{background:rgba(255,255,255,0.06);}
+.com-tendance b{font-size:14px; font-weight:600;}
+.com-tendance small{font-size:12px; color:var(--muted); font-weight:300;}
+.com-cote-lien{display:block; padding:10px 4px 6px; font-size:13px; color:var(--blue-bright); text-decoration:none;}
+.com-cote-lien:hover{text-decoration:underline;}
+
+.com-mini-lien{display:flex; align-items:center; gap:10px; min-width:0; text-decoration:none; flex:1;}
+.com-mini-lien.res{padding:8px; border-radius:12px; flex:none; width:100%;}
+.com-mini-lien.res:hover{background:rgba(255,255,255,0.06);}
+.com-mini-texte{display:flex; flex-direction:column; min-width:0; line-height:1.3;}
+.com-mini-nom{font-size:14px; font-weight:600; display:flex; align-items:center; gap:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.com-mini-role{font-size:12px; color:var(--muted); font-weight:300; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+.com-avatar-modif{
+  position:absolute; right:-2px; bottom:2px; width:34px; height:34px; border-radius:50%; border:2px solid #0b0f15;
+  display:flex; align-items:center; justify-content:center; padding:0; cursor:pointer;
+  background:var(--blue); color:#fff; transition:transform .3s var(--ease), background .3s var(--ease);
+}
+.com-avatar-modif:hover{background:#1a97ee; transform:scale(1.12);}
+.com-profil-note{display:flex; align-items:center; gap:8px; margin:14px 0 0; color:var(--com-orange); font-size:14px;}
+.com-reseaux{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px;}
+.com-reseau{
+  display:inline-flex; align-items:center; gap:6px; padding:7px 13px; border-radius:99px; font-size:13px; font-weight:500;
+  border:1px solid var(--line-strong); color:var(--ink-soft); text-decoration:none; transition:all .25s var(--ease);
+}
+.com-reseau:hover{border-color:var(--blue-bright); color:var(--blue-bright);}
+
+/* ---------- LARGEURS D'ÉCRAN ---------- */
+
+/* Portable étroit : le dock ne garde que ses icônes. */
+@media (max-width:1060px){
+  .com-dock-item{padding:11px 14px;}
+  .com-dock-item .com-nav-lib{display:none;}
+  .com-profil-grille{grid-template-columns:320px minmax(0, 1fr); gap:18px;}
+}
+
+@media (max-width:900px){
+  .com-vue[data-vue="collabs"] .com-liste{grid-template-columns:1fr;}
+  .com-liste-membres{grid-template-columns:1fr;}
+  .com-profil-grille{grid-template-columns:1fr;}
+  .com-profil-gauche{position:static;}
+  .com-rapide:focus-within .com-recherche-champ{width:240px;}
   .com-publier span{display:none;}
-  .com-waveurs{justify-content:center; padding:10px; width:52px; margin:0 auto;}
-  .com-waveurs-texte{display:none;}
-  .com-puce-moi{justify-content:center; padding:6px;}
-  .com-puce-moi-texte{display:none;}
-  .com-rail-bas .com-btn{font-size:11px; padding:10px 6px;}
+  .com-publier{width:42px; height:42px; padding:0;}
 }
 
-/* Plus étroit : la colonne de droite disparaît (les suggestions passent
-   au-dessus du fil), et le fil ne s'étire pas sur toute la largeur. */
-@media (max-width:1000px){
-
-  .com, .com[data-large="1"]{grid-template-columns:80px minmax(0,1fr);}
-  .com-cote{display:none;}
-  .com-sugg-mobile{display:block;}
-  .com:not([data-large="1"]) .com-centre{max-width:740px;}
-}
-
-/* ---------- TÉLÉPHONE ---------- */
-
+/* Téléphone : la barre du bas remplace le dock. */
 @media (max-width:760px){
 
-  .com, .com[data-large="1"]{grid-template-columns:minmax(0,1fr); gap:0; padding-bottom:130px;}
-  .com-rail{display:none;}
+  .com{padding-bottom:130px;}
+  .com-haut{display:none;}
+  .com-vue, .com-entete{max-width:none;}
 
-  .com-entete{position:relative; margin-bottom:10px; min-height:44px;}
+  .com-entete{display:flex; position:relative; margin-bottom:10px; min-height:44px;}
   .com-entete-titre{font-size:21px;}
   .com-entete-actions{display:flex;}
   .com-entete-moi{padding:0;}
@@ -8471,29 +8726,26 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
     transition:transform .3s var(--ease), background .3s var(--ease);
   }
   .com-fab[hidden]{display:none;}
-  .com[data-comp="1"] .com-fab{display:none;}
   .com-fab:active{transform:scale(.9);}
+  .com[data-comp="1"] .com-fab{display:none;}
 
-  .com-post{padding:14px 14px 6px;}
-  .com-post-corps{margin-left:0;}
-  .com-epingle{margin-left:0;}
-  .com-post > .com-images, .com-post > .com-embed, .com-post > .com-carte-lien,
-  .com-post > .com-collab, .com-post > .com-collab-cta, .com-post > .com-edition{margin-left:0;}
-  .com-actions{margin-left:-8px;}
-  .com-texte{font-size:15px;}
+  .com-post{padding:16px 16px 0; border-radius:18px;}
+  .com-post > .com-collab{margin:-16px -16px 14px; padding:16px 18px;}
+  .com-post-pied{margin:14px -16px 0; padding:8px 10px 8px 14px;}
+  .com-outil-lib{display:none;}
+  .com-texte{font-size:15.5px;}
+  .com-types-rapides{grid-template-columns:repeat(2, minmax(0, 1fr));}
 
   .com-grille-champs{grid-template-columns:1fr;}
   .com-comp-images{grid-template-columns:repeat(4, 1fr); gap:6px;}
   .com-comp-pied{gap:6px;}
-  .com-comp-raccourcis .com-icone-btn:nth-child(3){display:none;}
 
   .com-explorer-tete{padding:18px 16px 14px;}
   .com-collabs-tete{padding:18px 16px;}
   .com-membre{padding:14px;}
   .com-profil-corps{padding:0 16px 18px;}
-  .com-profil-banniere{height:104px;}
+  .com-profil-banniere{height:100px;}
   .com-profil-nom{font-size:22px;}
-  .com-profil-ligne{align-items:flex-end;}
 
   /* Messages : la liste, ou la discussion, jamais les deux. */
   .com-messages{
@@ -8503,6 +8755,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-messages[data-mode="liste"] .com-fil-pane{display:none;}
   .com-messages[data-mode="fil"] .com-conv-pane{display:none;}
   .com-conv-pane{border-right:0;}
+  .com-conv-tete h2{display:none;}
   .com-fil-retour{display:inline-flex;}
   .com-bulle{max-width:86%;}
 
@@ -8523,20 +8776,9 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 @media (max-width:420px){
   .com-profil-actions .com-btn{padding:9px 13px; font-size:13px;}
   .com-ruban-carte{width:148px;}
+  .com-collab-mini{width:210px;}
+  .com-types-rapides .com-type-rapide span{font-size:13px;}
 }
-
-/* Pas de mouvement pour qui n'en veut pas. */
-@media (prefers-reduced-motion: reduce){
-  .com *, .com-calque *, .com-vision, .com-vision *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important; transition-delay:0ms !important;}
-  .com-sq{animation:none;}
-  .com-rond{animation-duration:1.6s !important; animation-iteration-count:infinite !important;}
-}
-
-/* Au clavier : la palette reste visible tant que le focus est dans la zone,
-   y compris sur l'un de ses boutons. */
-.com-reag-zone:focus-within .com-palette{opacity:1; transform:none; pointer-events:auto;}
-.com-msgs:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
-.com-conv-pane{min-width:0;}
 
 `;
 
