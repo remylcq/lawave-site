@@ -5628,6 +5628,10 @@ const BD = {
     // la place du bouton des défis (voir .com-actif dans communaute.js).
     document.body.classList.toggle('com-actif', pageId === 'community');
 
+    // Un menu, une fenêtre ou la visionneuse de la communauté ne restent pas
+    // ouverts par-dessus la page suivante.
+    if(pageId !== 'community' && window.Com) window.Com.quitter();
+
     document.querySelectorAll('.navlink').forEach(b=>b.classList.remove('active'));
   const navBtn = document.querySelector(`.navlink[data-page="${pageId}"]`);
   if(navBtn) navBtn.classList.add('active');
@@ -10211,7 +10215,9 @@ async function awardXP(challengeKey, amount){
 // fichier se charge à la demande (comme waveurs.js) : le reste du site n'en
 // paie pas le poids. Les défis du jour et le suivi du démarrage vivent hors de
 // la page (bouton flottant, volet) : ils sont remis à jour ici.
-const COMMUNAUTE_FICHIER = 'communaute.js?v=1';
+// Le numéro change à chaque transfert de communaute.js : sans cela, un navigateur
+// qui a déjà l'ancien fichier en cache le garderait avec le nouvel index.html.
+const COMMUNAUTE_FICHIER = 'communaute.js?v=2';
 let communauteChargement = null;
 
 function chargerCommunaute(){

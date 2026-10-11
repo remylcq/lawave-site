@@ -324,12 +324,20 @@ function raccourcirUrl(url){
 // citations de membres qui existent et les mots-clics deviennent des liens.
 // On travaille sur le texte brut, découpé en morceaux, pour que rien de ce
 // que l'on échappe ne soit relu comme du balisage.
-function enrichir(texte, mentions){
+//
+// Les citations et les mots-clics se lisent comme le fait la base (voir
+// com_extraire_mentions et com_extraire_tags) : la ponctuation de fin n'est pas
+// un bout de pseudo, et un mot-clic commence par une lettre. Avec
+// options.liensSeuls (messages privés), seules les adresses deviennent des liens.
+function enrichir(texte, mentions, options){
 
   const t = String(texte || '');
   const connus = (mentions || []).map(p => String(p).toLowerCase());
+  const liensSeuls = !!(options && options.liensSeuls);
 
-  const re = /(https?:\/\/[^\s<>"']+)|(^|[\s(])@([\p{L}\p{N}_.-]{2,40})|(^|[\s(])#([\p{L}\p{N}_]{2,30})/gu;
+  const re = liensSeuls
+    ? /(https?:\/\/[^\s<>"']+)/gu
+    : /(https?:\/\/[^\s<>"']+)|(^|[\s(])@([\p{L}\p{N}_.-]{2,40})|(^|[\s(])#(\p{L}[\p{L}\p{N}_]{1,29})/gu;
 
   const morceaux = [];
   let dernier = 0;
@@ -359,12 +367,14 @@ function enrichir(texte, mentions){
 
     } else if(m[3]){
 
-      const pseudo = m[3];
+      const brut = m[3];
+      const pseudo = brut.replace(/[._-]+$/, '');
+      const fin = brut.slice(pseudo.length);
 
       morceaux.push(esc(t.slice(dernier, m.index + m[2].length)));
       morceaux.push(connus.includes(pseudo.toLowerCase())
-        ? `<a class="com-mention" href="#community/membre/${attr(encodeURIComponent(pseudo))}" data-act="membre" data-cle="${attr(pseudo)}">@${esc(pseudo)}</a>`
-        : esc('@' + pseudo));
+        ? `<a class="com-mention" href="#community/membre/${attr(encodeURIComponent(pseudo))}" data-act="membre" data-cle="${attr(pseudo)}">@${esc(pseudo)}</a>${esc(fin)}`
+        : esc('@' + brut));
 
       dernier = m.index + m[0].length;
 
@@ -461,6 +471,10 @@ function traduireErreur(erreur){
   } else if(/permission denied/i.test(m)){
     e.session = true;
     e.message = 'Connecte-toi pour faire ça.';
+  } else if(/invalid input syntax|^22P02$/i.test(m) || (erreur && erreur.code === '22P02')){
+    // Une adresse mal copiée (identifiant tronqué) : rien de ce nom n'existe.
+    e.introuvable = true;
+    e.message = "Cette page n'existe pas (ou plus).";
   }
 
   return e;
@@ -489,7 +503,7 @@ const BD = {
   nbPosts:     (id)  => rpc('com_nb_posts', { p_auteur: id }),
 
   notifications:   (avant)  => rpc('com_notifications', { p_avant: avant || null, p_limite: 30 }),
-  notificationsLues: ()     => rpc('com_notifications_lues'),
+  notificationsLues: (jusqua) => rpc('com_notifications_lues', { p_jusqua: jusqua || null }),
   conversations:   ()       => rpc('com_conversations'),
   messages:        (id, avant) => rpc('com_messages', { p_conversation: id, p_avant: avant || null, p_limite: 40 }),
   ouvrirConversation: (id)  => rpc('com_ouvrir_conversation', { p_avec: id }),
@@ -706,6 +720,9 @@ function ouvrirDialogue(o){
 
   fermerCalque();
 
+  // Le focus revient là où il était (le bouton ⋯, par exemple) à la fermeture.
+  const avantFocus = document.activeElement;
+
   return new Promise(resolve => {
 
     const fond = document.createElement('div');
@@ -745,6 +762,7 @@ function ouvrirDialogue(o){
       document.documentElement.classList.remove('com-fige');
       setTimeout(() => fond.remove(), mouvementReduit() ? 0 : 200);
       calqueCourant = null;
+      if(avantFocus && avantFocus.isConnected && avantFocus.focus) avantFocus.focus({ preventScroll: true });
       resolve(valeur);
     };
 
@@ -1418,6 +1436,25 @@ function postHtml(p, o){
     </article>`;
 }
 
+// Remplacer un bloc d'actions ne doit pas faire perdre le focus au clavier :
+// l'élément qui l'avait (repéré par son data-act et son emoji) le retrouve.
+function remplacerEnGardantLeFocus(ancien, neuf){
+
+  const actif = document.activeElement;
+  let repere = null;
+
+  if(actif && ancien.contains(actif) && actif.dataset && actif.dataset.act){
+    repere = '[data-act="' + actif.dataset.act + '"]' + (actif.dataset.emoji ? '[data-emoji="' + actif.dataset.emoji + '"]' : '');
+  }
+
+  ancien.replaceWith(neuf);
+
+  if(repere){
+    const cible = $(repere, neuf);
+    if(cible) cible.focus({ preventScroll: true });
+  }
+}
+
 // Met à jour la rangée d'actions d'un message partout où il est affiché.
 function majPost(id, options){
 
@@ -1425,7 +1462,7 @@ function majPost(id, options){
 
   if(!p) return;
 
-  $$('[data-post="' + CSS.escape(id) + '"]', S.racine).forEach(carte => {
+  $$('.com-post[data-post="' + CSS.escape(id) + '"]', S.racine).forEach(carte => {
 
     const ancien = $('.com-actions', carte);
 
@@ -1436,7 +1473,7 @@ function majPost(id, options){
     vide.innerHTML = actionsHtml(p, { detail }).trim();
     const neuf = vide.firstElementChild;
 
-    ancien.replaceWith(neuf);
+    remplacerEnGardantLeFocus(ancien, neuf);
 
     if(options && options.impulsion && !mouvementReduit()){
       const ic = $(options.impulsion, neuf);
@@ -1455,7 +1492,7 @@ function majPostComplet(id){
 
   if(!p) return;
 
-  $$('[data-post="' + CSS.escape(id) + '"]', S.racine).forEach(carte => {
+  $$('.com-post[data-post="' + CSS.escape(id) + '"]', S.racine).forEach(carte => {
     const detail = carte.classList.contains('detail');
     const vide = document.createElement('div');
     vide.innerHTML = postHtml(p, { detail }).trim();
@@ -1465,7 +1502,7 @@ function majPostComplet(id){
 
 function retirerPostDuDom(id){
 
-  $$('[data-post="' + CSS.escape(id) + '"]', S.racine).forEach(carte => {
+  $$('.com-post[data-post="' + CSS.escape(id) + '"]', S.racine).forEach(carte => {
 
     if(mouvementReduit() || !carte.animate){ carte.remove(); return; }
 
@@ -1499,7 +1536,7 @@ function commentaireHtml(c, o){
   const reponse = !!c.parent_id;
 
   return `
-    <div class="com-com${reponse ? ' reponse' : ''}" data-com="${attr(c.id)}" data-post="${attr(c.post_id)}" data-parent="${attr(c.parent_id || '')}">
+    <div class="com-com${reponse ? ' reponse' : ''}" data-com="${attr(c.id)}" data-pid="${attr(c.post_id)}" data-parent="${attr(c.parent_id || '')}">
       <a class="com-av-lien" href="#community/membre/${attr(encodeURIComponent(a.pseudo || ''))}" data-act="membre" data-cle="${attr(a.pseudo)}" aria-label="Profil de ${attr(a.pseudo)}">${avatarHtml(a, reponse ? 's' : 'm')}</a>
       <div class="com-com-corps">
         <div class="com-com-bulle">
@@ -1547,7 +1584,7 @@ function majCommentaire(id){
     const neuf = $('.com-com-actions', vide);
 
     // Le champ de réponse éventuellement ouvert ne doit pas bouger.
-    ancien.replaceWith(neuf);
+    remplacerEnGardantLeFocus(ancien, neuf);
   });
 }
 
@@ -1775,9 +1812,15 @@ async function preparerImage(fichier){
 
 const BROUILLON = 'lw-com-brouillon-';
 
+// Un brouillon appartient à un compte : un autre membre qui se connecte sur le
+// même navigateur ne le retrouve pas.
+function cleBrouillon(nom){
+  return BROUILLON + (moi() ? moi().id : 'visiteur') + '-' + nom;
+}
+
 function lireBrouillon(nom){
   try{
-    const b = JSON.parse(localStorage.getItem(BROUILLON + nom) || 'null');
+    const b = JSON.parse(localStorage.getItem(cleBrouillon(nom)) || 'null');
     return b && typeof b === 'object' ? b : null;
   }catch(e){
     return null;
@@ -1787,8 +1830,8 @@ function lireBrouillon(nom){
 function ecrireBrouillon(nom, inst){
   try{
     const vide = !inst.texte.trim() && !inst.lien && inst.type !== 'collab';
-    if(vide){ localStorage.removeItem(BROUILLON + nom); return; }
-    localStorage.setItem(BROUILLON + nom, JSON.stringify({
+    if(vide){ localStorage.removeItem(cleBrouillon(nom)); return; }
+    localStorage.setItem(cleBrouillon(nom), JSON.stringify({
       texte: inst.texte, type: inst.type, sujet: inst.sujet, lien: inst.lien, collab: inst.collab
     }));
   }catch(e){}
@@ -1808,9 +1851,9 @@ function composerFermeHtml(){
   const u = moi();
 
   return `
-    <div class="com-comp-ferme" data-act="c-ouvrir" role="button" tabindex="0" aria-label="Écrire un message">
+    <div class="com-comp-ferme" data-act="c-ouvrir">
       ${avatarHtml({ pseudo: u.pseudo, avatar_url: u.avatar }, 'm')}
-      <span class="com-comp-invite">Quoi de neuf, ${esc(u.pseudo)} ?</span>
+      <button type="button" class="com-comp-invite" data-act="c-ouvrir">Quoi de neuf, ${esc(u.pseudo)} ?</button>
       <span class="com-comp-raccourcis">
         <button type="button" class="com-icone-btn" data-act="c-ouvrir" data-type="message" data-image="1" aria-label="Ajouter une image">${icone('image', 20)}</button>
         <button type="button" class="com-icone-btn" data-act="c-ouvrir" data-type="son" aria-label="Partager un son">${icone('casque', 20)}</button>
@@ -2466,12 +2509,6 @@ function clavierComposer(cible, e){
     return true;
   }
 
-  if(!inst.ouvert && (e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('com-comp-ferme')){
-    e.preventDefault();
-    ouvrirComposer(inst, {});
-    return true;
-  }
-
   return false;
 }
 
@@ -2585,7 +2622,7 @@ function creerListe(el, o){
       L.chargeLe = Date.now();
       L.enCours = false;
 
-      L.dessiner(true);
+      L.dessiner(!opt.silencieux);
       L.observer();
 
       if(o.surCharge) o.surCharge(L);
@@ -2595,6 +2632,10 @@ function creerListe(el, o){
       if(id !== L.gen) return;
 
       L.enCours = false;
+
+      // Une relecture discrète qui échoue ne remplace pas ce qui est affiché.
+      if(opt.silencieux && L.charge) return;
+
       L.erreur = e;
       el.innerHTML = etatErreur(e, true);
       if(e && e.installation) S.installation = true;
@@ -2753,14 +2794,21 @@ function creerListe(el, o){
 
   L.verifierNouveaux = async () => {
 
-    if(!o.pilule || !L.charge || L.enCours || inactif()) return;
+    // Les tendances ne se rangent pas par date : « nouveaux messages » n'y a pas de sens.
+    if(!o.pilule || o.mode === 'decalage' || !L.charge || L.enCours || inactif()) return;
 
     const ref = L.posts.find(p => !p.epingle);
 
     if(!ref) return;
 
+    const g = L.gen;
+
     try{
       const r = await BD.fil(Object.assign({ p_limite: 15 }, o.args(), { p_apres: ref.cree_le }));
+
+      // Le filtre a changé pendant l'attente : cette réponse ne le concerne plus.
+      if(g !== L.gen) return;
+
       const connus = new Set(L.posts.map(p => p.id));
       L.nouveaux = (r.posts || []).filter(p => !connus.has(p.id)).length;
       L.majPilule();
@@ -2768,6 +2816,16 @@ function creerListe(el, o){
   };
 
   L.afficherNouveaux = async () => {
+
+    // Plus de quinze nouveaux messages : un trou se creuserait entre eux et ce
+    // qui est affiché. On repart d'une liste fraîche.
+    if(L.nouveaux >= 15){
+      L.nouveaux = 0;
+      L.majPilule();
+      await L.recharger();
+      window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - 160), behavior: mouvementReduit() ? 'auto' : 'smooth' });
+      return;
+    }
 
     const ref = L.posts.find(p => !p.epingle);
 
@@ -2933,6 +2991,9 @@ VUES.accueil = {
     V.liste.demarrer();
     VUES.accueil.suggestionsMobile(V);
     VUES.accueil.onboarding(V);
+    // La barre sous l'onglet actif se cale quand la vue est à l'écran : cachée,
+    // elle n'a pas de largeur à mesurer.
+    placerBarreOnglets(V.hotes.onglets, false);
   },
 
   // « Pour bien démarrer » : les quatre premières étapes d'un compte. L'encart
@@ -3024,11 +3085,11 @@ VUES.accueil = {
   async suggestionsMobile(V){
 
     if(V.sugg) return;
-    V.sugg = true;
 
     try{
       const liste = await suggestions(false);
       V.hotes.sugg.innerHTML = suggestionsRuban(liste);
+      V.sugg = true;
     }catch(e){}
   }
 };
@@ -3269,7 +3330,7 @@ async function basculerFavori(id){
   if(!voulu && S.route && S.route.nom === 'favoris'){
     const v = S.vues.get('favoris');
     if(v){
-      $$('[data-post="' + CSS.escape(id) + '"]', v.el).forEach(retirerCarteAnimee);
+      $$('.com-post[data-post="' + CSS.escape(id) + '"]', v.el).forEach(retirerCarteAnimee);
       v.liste.retirer(id);
     }
   }
@@ -3328,6 +3389,20 @@ async function supprimerPost(id){
     retirerPostDuDom(id);
     toast('Message supprimé', { icone: '🗑️', duree: 2200 });
 
+    // La page de ce message ne doit pas rester gardée en vie : on la vide, ou
+    // on la retire si on est ailleurs.
+    const pageMessage = S.vues.get('post:' + id);
+
+    if(pageMessage){
+      if(pageMessage === S.courante){
+        pageMessage.charge = false;
+        VUES.post.pause(pageMessage);
+        VUES.post.afficherEtat(pageMessage, etatVide({ icone: 'interdit', titre: "Ce message n'est plus là", texte: "Il vient d'être supprimé." }));
+      } else {
+        detruireVue(pageMessage);
+      }
+    }
+
     // On quitte la page d'un message qui n'existe plus.
     if(S.route && S.route.nom === 'post' && S.route.param === id) retourArriere();
 
@@ -3363,7 +3438,7 @@ function editerPost(id){
 
   if(!p) return;
 
-  $$('[data-post="' + CSS.escape(id) + '"]', S.racine).forEach(carte => {
+  $$('.com-post[data-post="' + CSS.escape(id) + '"]', S.racine).forEach(carte => {
 
     if($('.com-edition', carte)) return;
 
@@ -3519,6 +3594,7 @@ function menuPost(ancre, id){
     { libelle: 'Copier le lien', icone: 'lien', action: async () => {
         if(await copier(lienPost(id))) toast('Lien copié', { icone: '🔗', duree: 2000 });
       } },
+    !mien && u && a.id ? { libelle: 'Écrire à @' + a.pseudo, icone: 'messages', action: () => ecrireA(a.id) } : null,
     mien && minutes < 60 ? { libelle: 'Modifier', icone: 'crayon', action: () => editerPost(id) } : null,
     equipe ? { libelle: p.epingle ? 'Désépingler' : 'Épingler', icone: 'epingle', action: () => epinglerPost(id) } : null,
     !mien && u ? { libelle: 'Signaler', icone: 'drapeau', separe: true, action: () => signalerContenu('post', id) } : null,
@@ -3805,10 +3881,20 @@ VUES.post = {
       <div class="com-commentaires" data-coms></div>`;
   },
 
+  // Un état (erreur, introuvable) s'affiche à la place du message en gardant
+  // la structure de la page : « Réessayer » doit pouvoir la redessiner.
+  afficherEtat(V, html){
+    $('[data-hote="post"]', V.el).innerHTML = html;
+    $('[data-hote="repondre"]', V.el).innerHTML = '';
+    $('.com-commentaires', V.el).innerHTML = '';
+  },
+
   async montrer(V){
 
     if(V.charge){
       VUES.post.demarrer(V);
+      // Revenir sur un message déjà ouvert : la discussion a pu avancer.
+      if(Date.now() - (V.chargeLe || 0) > 15000) VUES.post.rafraichir(V);
       return;
     }
 
@@ -3821,11 +3907,11 @@ VUES.post = {
       const r = await BD.post(V.id);
 
       if(!r){
-        V.el.innerHTML = etatVide({
+        VUES.post.afficherEtat(V, etatVide({
           icone: 'interdit', titre: "Ce message n'est plus là",
           texte: "Il a été supprimé, ou son auteur ne te le montre pas.",
           bouton: { libelle: 'Retour au fil', attrs: 'data-act="aller" data-vers=""' }
-        });
+        }));
         V.enCours = false;
         return;
       }
@@ -3833,12 +3919,16 @@ VUES.post = {
       V.post = regPost(r.post);
       V.coms = (r.commentaires || []).map(regCom);
       V.charge = true;
+      V.chargeLe = Date.now();
 
       VUES.post.dessiner(V);
       VUES.post.demarrer(V);
 
     }catch(e){
-      V.el.innerHTML = etatErreur(e, true);
+      VUES.post.afficherEtat(V, e && e.introuvable
+        ? etatVide({ icone: 'interdit', titre: "Ce message n'est plus là", texte: "Cette adresse ne correspond à aucun message.",
+                     bouton: { libelle: 'Retour au fil', attrs: 'data-act="aller" data-vers=""' } })
+        : etatErreur(e, true));
     }
 
     V.enCours = false;
@@ -3875,39 +3965,48 @@ VUES.post = {
 
     VUES.post.pause(V);
 
-    V.minuteur = setInterval(async () => {
-
-      if(inactif() || !V.charge) return;
-
-      try{
-
-        const r = await BD.post(V.id);
-
-        if(!r) return;
-
-        regPost(r.post);
-
-        const connus = new Set(V.coms.map(c => c.id));
-        const neufs = (r.commentaires || []).map(regCom).filter(c => !connus.has(c.id));
-
-        neufs.forEach(c => { V.coms.push(c); insererCommentaire(V, c); });
-
-        if(neufs.length || V.post.nb_commentaires !== r.post.nb_commentaires){
-          majPost(V.id);
-          const titre = $('.com-coms-titre', V.el);
-          if(titre) titre.textContent = pluriel(V.post.nb_commentaires || 0, 'commentaire');
-        } else {
-          majPost(V.id);
-        }
-
-      }catch(e){}
-
+    V.minuteur = setInterval(() => {
+      if(!inactif() && V.charge) VUES.post.rafraichir(V);
     }, 25000);
 
     if(S.focusReponse && V.charge){
       S.focusReponse = false;
       const t = $('textarea[data-rep]', V.el);
       if(t) setTimeout(() => t.focus(), 250);
+    }
+  },
+
+  // Relit le message : commentaires arrivés, compteurs, réactions. Rien n'est
+  // redessiné s'il n'y a rien de neuf (le focus au clavier ne doit pas sauter).
+  async rafraichir(V){
+
+    if(V.rafraichit) return;
+    V.rafraichit = true;
+
+    try{
+
+      const r = await BD.post(V.id);
+
+      if(!r || !V.charge) return;
+
+      V.chargeLe = Date.now();
+
+      const avant = JSON.stringify([V.post.nb_reactions, V.post.nb_commentaires, V.post.reactions, V.post.contenu]);
+
+      regPost(r.post);
+
+      const connus = new Set(V.coms.map(c => c.id));
+      const neufs = (r.commentaires || []).map(regCom).filter(c => !connus.has(c.id));
+
+      neufs.forEach(c => { V.coms.push(c); insererCommentaire(V, c); });
+
+      const apres = JSON.stringify([V.post.nb_reactions, V.post.nb_commentaires, V.post.reactions, V.post.contenu]);
+
+      if(avant !== apres) majPost(V.id);
+      if(neufs.length || avant !== apres) majTitreCommentaires(V);
+
+    }catch(e){}finally{
+      V.rafraichit = false;
     }
   },
 
@@ -4224,6 +4323,10 @@ VUES.explorer = {
 
     try{
       const liste = await suggestions(false);
+
+      // Un filtre a pu être posé pendant l'attente : les suggestions s'effacent.
+      if(VUES.explorer.aDesFiltres(V)){ V.hotes.sugg.innerHTML = ''; return; }
+
       V.hotes.sugg.innerHTML = liste.length ? `
         <section class="com-sugg-bloc">
           <h3 class="com-sous-titre">${moi() ? 'Pour toi' : 'Des membres à découvrir'}</h3>
@@ -4411,7 +4514,7 @@ function ctaCollabHtml(p){
 
 VUES.collabs = {
 
-  titre: () => 'Annonces',
+  titre: () => 'Collaborations',
 
   creer(V){
 
@@ -4469,6 +4572,7 @@ VUES.collabs = {
 
   montrer(V){
     if(!V.liste.charge && !V.liste.enCours) V.liste.recharger();
+    else if(Date.now() - V.liste.chargeLe > 30000) V.liste.recharger({ silencieux: true });
     V.liste.demarrer();
   },
 
@@ -4653,8 +4757,12 @@ VUES.membre = {
   async montrer(V){
 
     if(V.charge){
-      // Revenir sur un profil déjà vu : l'en-tête se rafraîchit en douce.
-      if(Date.now() - V.chargeLe > 30000) VUES.membre.charger(V, true);
+      placerBarreOnglets(V.hotes.onglets, false);
+      // Revenir sur un profil déjà vu : l'en-tête et les messages se rafraîchissent en douce.
+      if(Date.now() - V.chargeLe > 30000){
+        VUES.membre.charger(V, true);
+        if(V.liste.charge && V.etat.onglet !== 'collection') V.liste.recharger({ silencieux: true });
+      }
       return;
     }
 
@@ -4704,8 +4812,12 @@ VUES.membre = {
         placerBarreOnglets(V.hotes.onglets, false);
         entrerEnCascade($$('.com-carte', V.hotes.entete), 0);
 
-        if(V.rel.bloque) $('[data-liste]', V.el).hidden = true;
-        else V.liste.recharger();
+        // La liste se montre ou se cache selon le blocage (et se relit si besoin).
+        const zoneListe = $('[data-liste]', V.el);
+        const surCollection = V.etat.onglet === 'collection';
+        zoneListe.hidden = !!V.rel.bloque || surCollection;
+        V.hotes.collection.hidden = !surCollection || !!V.rel.bloque;
+        if(!V.rel.bloque && !surCollection) V.liste.recharger();
 
         majTitreCourant();
       }
@@ -4999,17 +5111,21 @@ function bulleHtml(m, o){
 
 // Dans un message privé, les adresses sont cliquables, rien d'autre.
 function enrichirDm(texte){
-  return enrichir(texte, []);
+  return enrichir(texte, [], { liensSeuls: true });
 }
 
 // Le fil d'une discussion : jours, groupes de messages d'une même personne.
 function fenetreMessagesHtml(V){
 
   const c = V.conv;
-  const liste = c.messages;
   const moiId = moi() && moi().id;
   let html = '';
   let jourPrec = null;
+
+  // Un message ne s'affiche qu'une fois, même s'il est arrivé par deux voies
+  // (la réponse à l'envoi et la relecture de la discussion).
+  const vus = new Set();
+  const liste = c.messages.filter(m => m.etat || (!vus.has(m.id) && vus.add(m.id)));
 
   for(let i = 0; i < liste.length; i++){
 
@@ -5205,6 +5321,15 @@ VUES.messages = {
       V.listeChargee = true;
       majCompteursLocal({ messages: V.convs.filter(c => c.non_lus > 0).length });
 
+      // Rien de changé : on ne redessine pas (le focus au clavier resterait en place).
+      const signature = JSON.stringify(V.convs.map(c => [c.id, c.dernier && c.dernier.cree_le, c.non_lus]));
+      const actif = V.id;
+
+      if(!premiere && signature === V.signatureListe && actif === V.signatureActif) return;
+
+      V.signatureListe = signature;
+      V.signatureActif = actif;
+
       V.hotes.liste.innerHTML = V.convs.length
         ? V.convs.map(c => conversationHtml(c, c.id === V.id)).join('')
         : `<div class="com-vide petit"><span class="com-vide-icone">${icone('messages', 26)}</span><h3>Aucune conversation</h3><p>Écris à un membre depuis son profil, ou avec le bouton ci-dessus.</p></div>`;
@@ -5250,7 +5375,10 @@ VUES.messages = {
 
     }catch(e){
       if(V.id !== id) return;
-      V.hotes.msgs.innerHTML = etatErreur(e, false);
+      V.hotes.msgs.innerHTML = e && (e.introuvable || /n'existe pas/.test(e.message || ''))
+        ? etatVide({ icone: 'messages', titre: 'Conversation introuvable', texte: "Cette discussion n'existe pas, ou elle ne t'est pas accessible.",
+                     bouton: { libelle: 'Mes messages', attrs: 'data-act="aller" data-vers="messages"' } })
+        : etatErreur(e, false);
       V.hotes.racine.dataset.mode = 'fil';
     }
   },
@@ -5276,6 +5404,23 @@ VUES.messages = {
     zone.innerHTML = entete + fenetreMessagesHtml(V);
 
     if(enBas) VUES.messages.defilerEnBas(V, false);
+  },
+
+  // Les derniers messages arrivés entrent en glissant, côté de leur auteur.
+  animerDernieres(V, n){
+
+    if(mouvementReduit()) return;
+
+    const bulles = $$('.com-bulle', V.hotes.msgs).slice(-Math.max(1, n));
+
+    bulles.forEach(b => {
+      if(!b.animate) return;
+      const mien = b.classList.contains('mienne');
+      b.animate([
+        { opacity: 0, transform: 'translateY(12px) scale(.94)', transformOrigin: mien ? 'bottom right' : 'bottom left' },
+        { opacity: 1, transform: 'none', transformOrigin: mien ? 'bottom right' : 'bottom left' }
+      ], { duration: 360, easing: 'cubic-bezier(.34,1.3,.64,1)' });
+    });
   },
 
   defilerEnBas(V, doux){
@@ -5336,6 +5481,7 @@ VUES.messages = {
 
       V.conv.messages = confirmes.concat(neufs).sort((a, b) => new Date(a.cree_le) - new Date(b.cree_le)).concat(attente);
       VUES.messages.dessinerFil(V, false);
+      if(neufs.length) VUES.messages.animerDernieres(V, neufs.length);
 
       if(neufs.some(m => m.auteur_id !== (moi() && moi().id))){
         VUES.messages.lire(V);
@@ -5418,6 +5564,7 @@ VUES.messages = {
 
     VUES.messages.dessinerFil(V, false);
     VUES.messages.defilerEnBas(V, true);
+    if(!reprise) VUES.messages.animerDernieres(V, 1);
 
     const id = V.id;
 
@@ -5426,6 +5573,8 @@ VUES.messages = {
       const reel = await BD.envoyer(id, texte);
 
       if(V.conv && V.id === id){
+        // Le sondage a pu déjà rapporter ce message : on garde un seul exemplaire.
+        V.conv.messages = V.conv.messages.filter(m => m === provisoire || m.id !== reel.id);
         const i = V.conv.messages.indexOf(provisoire);
         if(i >= 0) V.conv.messages[i] = reel;
         VUES.messages.dessinerFil(V, false);
@@ -5642,17 +5791,33 @@ VUES.notifications = {
     try{
 
       const r = await BD.notifications();
+      const recues = r.notifications || [];
 
-      const anciennes = new Set(V.liste.filter(n => !n.lu).map(n => n.id));
+      if(silencieux && V.liste.length){
 
-      V.liste = r.notifications || [];
-      V.fin = !!r.fin;
+        // Sondage : on ajoute ce qui est arrivé, sans toucher à la suite déjà
+        // chargée en défilant, et sans rien redessiner s'il n'y a rien de neuf.
+        const connues = new Set(V.liste.map(n => n.id));
+        const neuves = recues.filter(n => !connues.has(n.id));
 
-      // Ce qui était « nouveau » à l'arrivée le reste à l'écran jusqu'à la
-      // prochaine visite, même une fois marqué comme lu en base.
-      V.liste.forEach(n => { if(anciennes.has(n.id)) n.lu = false; });
+        if(!neuves.length){ V.enCours = false; return; }
 
-      VUES.notifications.dessiner(V, !silencieux);
+        V.liste = neuves.concat(V.liste);
+        VUES.notifications.dessiner(V, false);
+
+      } else {
+
+        const anciennes = new Set(V.liste.filter(n => !n.lu).map(n => n.id));
+
+        V.liste = recues;
+        V.fin = !!r.fin;
+
+        // Ce qui était « nouveau » à l'arrivée le reste à l'écran jusqu'à la
+        // prochaine visite, même une fois marqué comme lu en base.
+        V.liste.forEach(n => { if(anciennes.has(n.id)) n.lu = false; });
+
+        VUES.notifications.dessiner(V, !silencieux);
+      }
 
       // Ouvrir la page vaut lecture : après un instant, tout est marqué lu.
       clearTimeout(V.attenteLecture);
@@ -5716,11 +5881,20 @@ VUES.notifications = {
 
     if(!V.liste.some(n => !n.lu)) return;
 
+    await VUES.notifications.envoyerLecture(V);
+  },
+
+  // Marque comme lu tout ce qui est affiché, pas davantage : une notification
+  // arrivée entre-temps reste non lue.
+  async envoyerLecture(V){
+
+    if(!V.liste.length) return;
+
     const recente = V.liste.reduce((m, n) => (n.cree_le > m ? n.cree_le : m), V.liste[0].cree_le);
 
     try{
       await BD.notificationsLues(recente);
-      majCompteursLocal({ notifications: 0 });
+      majCompteurs();
     }catch(e){}
   },
 
@@ -5838,7 +6012,7 @@ VUES.recherche = {
       V.liste.recharger();
 
       if(!depuisRoute){
-        history.replaceState(null, '', '#community/recherche/' + encodeURIComponent(q));
+        history.replaceState(history.state, '', '#community/recherche/' + encodeURIComponent(q));
       }
 
     }catch(e){
@@ -5947,6 +6121,7 @@ function detruireVue(V){
 
   V.el.remove();
   S.vues.delete(V.cle);
+  delete S.scrolls[V.cle];
 }
 
 // Les vues de détail (messages ouverts, profils vus...) ne s'accumulent pas.
@@ -5972,6 +6147,7 @@ function afficher(){
   if(prec && prec.cle === route.cle){
 
     S.route = route;
+    S.versLeHaut = false;
     const def = VUES[route.nom];
 
     if(def.surMemeCle) def.surMemeCle(prec, route);
@@ -6118,7 +6294,7 @@ function coqueHtml(){
         <div class="com-rail-haut">
           ${navItemHtml('accueil', 'accueil', 'Accueil', null, '')}
           ${navItemHtml('explorer', 'explorer', 'Explorer', null, 'explorer')}
-          ${navItemHtml('collabs', 'collabs', 'Annonces', null, 'collabs')}
+          ${navItemHtml('collabs', 'collabs', 'Collabs', null, 'collabs')}
           ${navItemHtml('messages', 'messages', 'Messages', 'messages', 'messages')}
           ${navItemHtml('notifications', 'cloche', 'Notifications', 'notifications', 'notifications')}
           ${navItemHtml('favoris', 'signet', 'Enregistrés', null, 'favoris')}
@@ -6165,7 +6341,7 @@ function coqueHtml(){
       <nav class="com-barre" aria-label="Navigation de la communauté">
         ${navItemHtml('accueil', 'accueil', 'Accueil', null, '')}
         ${navItemHtml('explorer', 'explorer', 'Explorer', null, 'explorer')}
-        ${navItemHtml('collabs', 'collabs', 'Annonces', null, 'collabs')}
+        ${navItemHtml('collabs', 'collabs', 'Collabs', null, 'collabs')}
         ${navItemHtml('messages', 'messages', 'Messages', 'messages', 'messages')}
         ${navItemHtml('notifications', 'cloche', 'Alertes', 'notifications', 'notifications')}
       </nav>
@@ -6614,7 +6790,7 @@ function agir(act, cible, e){
       const zone = cible.closest('.com-repondre');
       const inline = zone.classList.contains('inline');
       const noeud = cible.closest('[data-com]');
-      const postId = noeud ? noeud.dataset.post : (V && V.id);
+      const postId = noeud ? noeud.dataset.pid : (V && V.id);
       envoyerCommentaire(postId, zone, inline && noeud ? noeud.dataset.com : null);
       return;
     }
@@ -6776,11 +6952,9 @@ function agir(act, cible, e){
       return;
 
     case 'notifs-lues':
-      (async () => {
-        V.liste.forEach(n => { n.lu = true; });
-        VUES.notifications.dessiner(V, false);
-        try{ await BD.notificationsLues(); majCompteursLocal({ notifications: 0 }); }catch(x){}
-      })();
+      V.liste.forEach(n => { n.lu = true; });
+      VUES.notifications.dessiner(V, false);
+      VUES.notifications.envoyerLecture(V);
       return;
 
     case 'notifs-plus':
@@ -6853,6 +7027,18 @@ function brancherEvenements(){
 
     if(clavierComposer(e.target, e)) return;
 
+    // Échap annule une correction de message ou une réponse en cours.
+    if(e.key === 'Escape' && !calqueCourant){
+
+      const edition = e.target.closest && e.target.closest('.com-edition');
+
+      if(edition){ e.preventDefault(); annulerEdition(edition.closest('.com-post')); return; }
+
+      const reponse = e.target.closest && e.target.closest('.com-reponse-zone');
+
+      if(reponse){ e.preventDefault(); reponse.innerHTML = ''; return; }
+    }
+
     // Entrée ou Espace sur une carte focalisable : elle s'ouvre.
     if((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('article[data-act]')){
       e.preventDefault();
@@ -6885,6 +7071,19 @@ function brancherEvenements(){
     const fichiers = imagesDuPresse(e);
     if(fichiers.length){ e.preventDefault(); ajouterImages(carte.__inst, fichiers); }
   });
+
+  // Un appui hors de la page (barre du site...) referme aussi la palette ouverte.
+  if(!S.docPalette){
+    S.docPalette = true;
+    document.addEventListener('click', (e) => {
+      if(!e.target.closest('.com-reag-zone')) fermerPalettes(null);
+    });
+  }
+
+  // La barre qui glisse sous les onglets suit la largeur de la page.
+  window.addEventListener('resize', debounce(() => {
+    $$('.com-onglets', racine).forEach(o => { if(o.offsetParent) placerBarreOnglets(o, false); });
+  }, 150));
 
   // Appui long sur un doigt : la palette de réactions s'ouvre.
   racine.addEventListener('pointerdown', (e) => {
@@ -7538,11 +7737,12 @@ const FEUILLE = String.raw`
 
 .com-comp-ferme{display:flex; align-items:center; gap:12px; cursor:text; border-radius:var(--radius-pill);}
 .com-comp-invite{
-  flex:1; min-width:0; padding:12px 16px; border-radius:var(--radius-pill);
-  background:rgba(255,255,255,0.05); color:var(--muted); font-size:15px; font-weight:300;
+  flex:1; min-width:0; padding:12px 16px; border-radius:var(--radius-pill); border:0; text-align:left; cursor:text;
+  background:rgba(255,255,255,0.05); color:var(--muted); font:inherit; font-size:15px; font-weight:300;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   transition:background .25s var(--ease);
 }
+.com-comp-invite:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
 .com-comp-ferme:hover .com-comp-invite{background:rgba(255,255,255,0.09);}
 .com-comp-raccourcis{display:flex; gap:2px; color:var(--blue-bright);}
 .com-comp-raccourcis .com-icone-btn{color:var(--blue-bright);}
@@ -8210,10 +8410,11 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 
 /* ---------- TABLETTE ET PETIT PORTABLE ---------- */
 
-@media (max-width:1100px){
+/* Le rail se réduit à ses icônes et la colonne de droite s'amincit. */
+@media (max-width:1180px){
 
-  .com, .com[data-large="1"]{grid-template-columns:80px minmax(0,1fr); gap:18px;}
-  .com-cote{display:none;}
+  .com{grid-template-columns:80px minmax(0,1fr) 288px; gap:18px;}
+  .com[data-large="1"]{grid-template-columns:80px minmax(0,1fr);}
 
   .com-nav-item{justify-content:center; padding:14px 0; gap:0;}
   .com-nav-lib{display:none;}
@@ -8225,8 +8426,16 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-puce-moi{justify-content:center; padding:6px;}
   .com-puce-moi-texte{display:none;}
   .com-rail-bas .com-btn{font-size:11px; padding:10px 6px;}
+}
 
+/* Plus étroit : la colonne de droite disparaît (les suggestions passent
+   au-dessus du fil), et le fil ne s'étire pas sur toute la largeur. */
+@media (max-width:1000px){
+
+  .com, .com[data-large="1"]{grid-template-columns:80px minmax(0,1fr);}
+  .com-cote{display:none;}
   .com-sugg-mobile{display:block;}
+  .com:not([data-large="1"]) .com-centre{max-width:740px;}
 }
 
 /* ---------- TÉLÉPHONE ---------- */
@@ -8288,7 +8497,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 
   /* Messages : la liste, ou la discussion, jamais les deux. */
   .com-messages{
-    grid-template-columns:1fr; border-radius:var(--radius);
+    grid-template-columns:minmax(0,1fr); border-radius:var(--radius);
     height:calc(100dvh - 232px); min-height:420px; max-height:none;
   }
   .com-messages[data-mode="liste"] .com-fil-pane{display:none;}
@@ -8322,6 +8531,12 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-sq{animation:none;}
   .com-rond{animation-duration:1.6s !important; animation-iteration-count:infinite !important;}
 }
+
+/* Au clavier : la palette reste visible tant que le focus est dans la zone,
+   y compris sur l'un de ses boutons. */
+.com-reag-zone:focus-within .com-palette{opacity:1; transform:none; pointer-events:auto;}
+.com-msgs:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
+.com-conv-pane{min-width:0;}
 
 `;
 

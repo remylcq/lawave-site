@@ -175,7 +175,7 @@ insert into public.com_sujets (cle, libelle, description, icone, ordre, reserve_
   ('concerts', 'Concerts & photos','Lives, accréditations, photos de scène.',           '📷', 50, false),
   ('matos',    'Matos & conseils', 'Studio, mix, logiciels, distribution.',             '🎚️', 60, false),
   ('off',      'Hors sujet',       'Tout ce qui n''a rien à voir, avec le sourire.',    '☕', 70, false),
-  ('annonces', 'Annonces',         'Les nouvelles de l''équipe La Wave.',               '📣', 5,  true)
+  ('annonces', 'Équipe La Wave',   'Les nouvelles de l''équipe La Wave.',               '📣', 5,  true)
 on conflict (cle) do nothing;
 
 
@@ -2739,6 +2739,10 @@ grant execute on function public.com_signaler(text, uuid, text, text)    to auth
 grant execute on function public.com_signalements_liste()                to authenticated;
 grant execute on function public.com_traiter_signalement(uuid, text)     to authenticated;
 
+
+-- Prévient l'API (PostgREST) que de nouvelles fonctions existent : sans cela,
+-- elle peut mettre quelques minutes à les voir.
+notify pgrst, 'reload schema';
 
 commit;
 
