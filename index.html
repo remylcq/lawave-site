@@ -857,13 +857,6 @@
     gap:16px; margin-bottom:14px;
   }
   .contenu-entete .eyebrow{margin-bottom:0;}
-  .contenu-lien{
-    font-size:13px; color:var(--blue); white-space:nowrap;
-    transition:color .25s var(--ease);
-  }
-  .contenu-lien:hover{color:var(--blue-bright);}
-  .contenu-lien[hidden]{display:none;}
-  .contenu-liens{display:flex; flex-wrap:wrap; justify-content:flex-end; gap:4px 20px;}
 
   .scene-colonne{width:100%;}
   /* Hauteur de l'écran : ce que la fenêtre laisse une fois comptés
@@ -4328,13 +4321,6 @@
       <div class="scene-colonne" role="region" aria-label="Dernières vidéos">
         <div class="contenu-entete">
           <span class="eyebrow mono">YouTube</span>
-          <span class="contenu-liens">
-            <!-- Adresse de la vidéo à l'écran, tenue à jour par sceneMontrer. -->
-            <a class="contenu-lien" id="sceneOuvrir" href="#" hidden
-               target="_blank" rel="noopener noreferrer">Ouvrir cette vidéo ↗</a>
-            <a class="contenu-lien" href="https://www.youtube.com/@LaWavefr"
-               target="_blank" rel="noopener noreferrer">Toute la chaîne ↗</a>
-          </span>
         </div>
         <!-- Rempli par renderContentVideos : la vidéo à la une et la bande
              des autres, qui défilent d'elles-mêmes. -->
@@ -4346,8 +4332,6 @@
       <div role="region" aria-label="Derniers posts Instagram" style="margin-top:14px;">
         <div class="contenu-entete">
           <span class="eyebrow mono">Instagram</span>
-          <a class="contenu-lien" href="https://www.instagram.com/lawavefr/"
-             target="_blank" rel="noopener noreferrer">@lawavefr ↗</a>
         </div>
         <!-- Trois publications au plus : la photo et le lien se règlent
              dans l'espace équipe, onglet Contenu. -->
@@ -6736,10 +6720,6 @@ let sceneClavier = false; // le clavier y est
 const SCENE_AUTO_MS = 6000;
 
 
-function lienYouTube(id){
-  return 'https://www.youtube.com/watch?v=' + encodeURIComponent(id);
-}
-
 function miniatureVideo(video){
   return video.miniature ||
     'https://i.ytimg.com/vi/' + encodeURIComponent(video.id) + '/hqdefault.jpg';
@@ -6825,9 +6805,6 @@ function sceneAfficher(videos){
   if(!videos.length){
     sceneAutoArreter();
 
-    const ouvrir = document.getElementById('sceneOuvrir');
-    if(ouvrir) ouvrir.hidden = true;
-
     zone.innerHTML = `
       <div class="empty-state">
         Aucune vidéo pour l'instant.
@@ -6903,13 +6880,6 @@ function sceneMontrer(index, instantane){
               miniaturePetite(video), video.id);
 
   ecran.setAttribute('aria-label', 'Lire la vidéo : ' + titreVideoPropre(video.titre));
-
-  const ouvrir = document.getElementById('sceneOuvrir');
-
-  if(ouvrir){
-    ouvrir.href = lienYouTube(video.id);
-    ouvrir.hidden = false;
-  }
 
   // La bande : la vidéo en cours s'allume et vient au centre.
   zone.querySelectorAll('.scene-vignette').forEach((vignette, i) => {
