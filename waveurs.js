@@ -3595,6 +3595,65 @@ async function assurerThree(){
   throw new Error("La bibliothèque 3D n'a pas pu être chargée. Vérifie ta connexion et réessaie.");
 }
 
+// Les personnages modélisés dans Blender (dossier modeles/, fichiers .glb) : un
+// maillage unique, habillé de textures, lié à un squelette dont les os portent
+// les noms des articulations de la classe Humain. Le chargeur de fichiers glTF
+// n'est pas dans le coeur de Three.js : on le prend au même endroit que lui.
+const SOURCES_GLTF = [
+  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js',
+  'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'
+];
+
+const MODELES = { dossier: 'modeles/', version: '?v=1' };
+
+async function assurerGLTF(){
+
+  if(THREE.GLTFLoader) return;
+
+  for(const url of SOURCES_GLTF){
+    try{
+      await chargerScript(url);
+      if(THREE.GLTFLoader) return;
+    }catch(e){ /* on essaie la source suivante */ }
+  }
+
+  throw new Error('chargeur glTF indisponible');
+}
+
+// Un modèle qui ne se charge pas n'est pas une erreur : le personnage garde alors
+// sa forme dessinée par le code (c'est la salle d'avant, et elle fonctionne).
+async function chargerModelesPersonnages(){
+
+  R.modeles = {};
+
+  const noms = Array.from(new Set(Object.keys(APPARENCES).map(k => APPARENCES[k].modele).filter(Boolean)));
+  if(!noms.length) return;
+
+  try{
+    await assurerGLTF();
+  }catch(e){
+    return;
+  }
+
+  await Promise.all(noms.map(nom => new Promise(ok => {
+
+    try{
+      new THREE.GLTFLoader().load(MODELES.dossier + nom + '.glb' + MODELES.version, gltf => {
+
+        let peau = null;
+        gltf.scene.traverse(o => { if(o.isSkinnedMesh && !peau) peau = o; });
+
+        if(peau) R.modeles[nom] = { mesh: peau, noms: peau.skeleton.bones.map(b => b.name) };
+
+        ok();
+
+      }, undefined, () => ok());
+    }catch(e){
+      ok();
+    }
+  })));
+}
+
 function chargerImage(src){
   return new Promise(ok => {
     if(!src) return ok(null);
@@ -3942,6 +4001,8 @@ async function construireMonde(){
   construireBar();
   construireMobilier();
   construireMachine();
+  await chargerModelesPersonnages();
+
   construireBoutique();
   construireHabitues();
   construireJetons();
@@ -5751,6 +5812,10 @@ const APPARENCES = {
 // pupille ; fermées, elles couvrent tout le globe.
 const PAUPIERE = { ouverte: -0.78, fermee: 0.46 };
 
+// La pose dans laquelle les modèles de Blender sont dessinés : debout, les bras
+// écartés de 0,42 rad (voir outils/personnages/formes.py, TILT).
+const MODELE_A = { bras: 0.42 };
+
 // Un personnage. On le crée, puis on l'installe (où, assis ou debout) ; il
 // s'occupe ensuite de respirer, de regarder et de faire ce qu'on lui a
 // dit de faire.
@@ -5768,50 +5833,83 @@ class Humain {
     this.pronation = [0, 0];
     this.pole = [new THREE.Vector3(-0.55, -0.5, -0.55), new THREE.Vector3(0.55, -0.5, -0.55)];
 
+    // Un modèle de Blender, s'il y en a un pour lui : alors les articulations sont
+    // des os (THREE.Bone) et une seule peau, habillée de textures, les suit. Sinon,
+    // le corps se dessine à la main, pièce par pièce (voir geoTorse, geoTete...).
+    const modele = d.modele && R.modeles && R.modeles[d.modele] ? R.modeles[d.modele] : null;
+    this.modele = modele;
+
     const mat = R.matHumain;
     const mesh = g => new THREE.Mesh(g, mat);
+    const Noeud = modele ? THREE.Bone : THREE.Group;
 
     const racine = this.groupe = new THREE.Group();
-    const bassin = this.bassin = new THREE.Group();
+    const bassin = this.bassin = new Noeud();
     bassin.position.y = HUMAIN.bassinDebout;
     racine.add(bassin);
 
-    const taille = this.taille = new THREE.Group();
+    const taille = this.taille = new Noeud();
     taille.position.y = HUMAIN.pivot;
     bassin.add(taille);
 
-    taille.add(mesh(geoTorse(d)));
+    if(!modele) taille.add(mesh(geoTorse(d)));
 
-    const cou = this.tete = new THREE.Group();
+    const cou = this.tete = new Noeud();
     cou.rotation.order = 'YXZ';
     cou.position.y = HUMAIN.hCou;
-    cou.add(mesh(geoTete(d)));
+    if(!modele) cou.add(mesh(geoTete(d)));
     taille.add(cou);
 
-    // Les paupières, à part : elles bougent (voir cligner).
-    this.paupieres = positionsYeux(d).map(e => {
-      const m = mesh(geoPaupiere(d));
-      m.position.set(e.x, e.y, e.z);
-      m.scale.setScalar(TETE.k);
-      m.rotation.x = PAUPIERE.ouverte;
-      cou.add(m);
-      return m;
-    });
+    // Les paupières, à part : elles bougent (voir cligner). Un modèle de Blender
+    // porte ses yeux peints, et son clignement se fait dans le matériau.
+    if(!modele){
+      this.paupieres = positionsYeux(d).map(e => {
+        const m = mesh(geoPaupiere(d));
+        m.position.set(e.x, e.y, e.z);
+        m.scale.setScalar(TETE.k);
+        m.rotation.x = PAUPIERE.ouverte;
+        cou.add(m);
+        return m;
+      });
+    }
     this.clin = { attente: hasard(1.2, 4.5), t: -1, double: false };
 
     // Les bras : à droite du personnage (x < 0), puis à gauche.
     this.bras = [-1, 1].map(s => {
-      const epaule = new THREE.Group();
+      const epaule = new Noeud();
       epaule.position.set(s * HUMAIN.epaule, HUMAIN.hEpaule, 0);
-      epaule.add(mesh(geoBrasHaut(d)));
-      const coude = new THREE.Group();
+      if(!modele) epaule.add(mesh(geoBrasHaut(d)));
+      const coude = new Noeud();
       coude.position.y = -HUMAIN.bras;
-      const avantBras = mesh(geoAvantBras(d, s));
-      coude.add(avantBras);
+      let avantBras = null, poignet = null;
+      if(modele){
+        poignet = new THREE.Bone();
+        poignet.position.y = -HUMAIN.avantBras;
+        coude.add(poignet);
+      } else {
+        avantBras = mesh(geoAvantBras(d, s));
+        coude.add(avantBras);
+      }
       epaule.add(coude);
       taille.add(epaule);
-      return { epaule, coude, s, avantBras, poignet: null };
+      return { epaule, coude, s, avantBras, poignet };
     });
+
+    // Les jambes d'un modèle de Blender sont des os, posés à l'installation.
+    if(modele){
+      this.jambes = [-1, 1].map(s => {
+        const hanche = new THREE.Bone();
+        hanche.position.set(s * HUMAIN.hanche, -0.03, 0);
+        const genou = new THREE.Bone();
+        genou.position.y = -HUMAIN.cuisse;
+        const cheville = new THREE.Bone();
+        cheville.position.y = -HUMAIN.tibia;
+        hanche.add(genou);
+        genou.add(cheville);
+        bassin.add(hanche);
+        return { s, hanche, genou, cheville };
+      });
+    }
 
     // L'ombre au sol et les jambes ne bougent plus une fois le personnage
     // installé : leurs formes se posent dans le repère de la salle et sont
@@ -5840,6 +5938,11 @@ class Humain {
     this.bassin.position.set(0, p.hanche[0], p.hanche[1]);
     this.penche = p.penche || 0;
     this.taille.rotation.x = this.penche;
+
+    if(this.modele){
+      this.installerOs(p);
+      return;
+    }
 
     // Les jambes : posées une fois pour toutes, puis collées en une seule
     // forme (elles ne bougeront plus).
@@ -5892,6 +5995,113 @@ class Humain {
     PERSONNAGES.ombres.push(ombre);
 
     this.majBras(true);
+  }
+
+  // Un modèle de Blender : les jambes se posent (les chevilles vont où on le dit),
+  // l'ombre se pose au sol, et la peau se lie aux os.
+  installerOs(p){
+
+    const racine = this.groupe;
+
+    this.jambes.forEach(j => {
+
+      const s = j.s;
+
+      const cible = new THREE.Vector3(
+        s * (p.pieds.ecart || 0.10), p.pieds.y, p.pieds.z
+      ).sub(this.bassin.position);
+
+      ik2(j.hanche, j.genou, j.hanche.position, cible, HUMAIN.cuisse, HUMAIN.tibia,
+        new THREE.Vector3(s * 0.12, 0, 1), 0);
+
+      // Le pied à plat, tourné un peu vers l'extérieur.
+      const total = j.hanche.quaternion.clone().multiply(j.genou.quaternion);
+      j.cheville.quaternion.copy(total).invert()
+        .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), s * (p.pieds.ouverture || 0.14)));
+    });
+
+    racine.updateMatrixWorld(true);
+
+    const ombre = new THREE.PlaneGeometry(0.95, 0.95);
+    ombre.rotateX(-Math.PI / 2);
+    ombre.translate(p.x, (p.sol || 0) + 0.012, p.z);
+    PERSONNAGES.ombres.push(ombre);
+
+    this.lierPeau();
+    this.majBras(true);
+  }
+
+  // La peau du modèle suit les os. Le modèle a été dessiné debout, les bras un peu
+  // écartés (la « pose en A », voir MODELE_A) : on dit à chaque os où il se trouvait
+  // à ce moment-là, et la peau s'en déduit pour toute autre pose.
+  lierPeau(){
+
+    const m = this.modele;
+    const racine = this.groupe;
+    const Z = new THREE.Vector3(0, 0, 1);
+
+    const T = v => new THREE.Matrix4().makeTranslation(v.x, v.y, v.z);
+    const repos = {};
+
+    const y0 = HUMAIN.bassinDebout;
+    repos.bassin = T(new THREE.Vector3(0, y0, 0));
+    repos.taille = T(new THREE.Vector3(0, y0 + HUMAIN.pivot, 0));
+    repos.tete = T(new THREE.Vector3(0, y0 + HUMAIN.pivot + HUMAIN.hCou, 0));
+
+    const os = { bassin: this.bassin, taille: this.taille, tete: this.tete };
+
+    this.bras.forEach(b => {
+      const n = b.s < 0 ? 'd' : 'g';
+      const a = b.s * MODELE_A.bras;
+      const epaule = new THREE.Vector3(b.s * HUMAIN.epaule, y0 + HUMAIN.pivot + HUMAIN.hEpaule, 0);
+      const coude = epaule.clone().add(new THREE.Vector3(0, -HUMAIN.bras, 0).applyAxisAngle(Z, a));
+      const poignet = coude.clone().add(new THREE.Vector3(0, -HUMAIN.avantBras, 0).applyAxisAngle(Z, a));
+      const R = new THREE.Matrix4().makeRotationZ(a);
+      repos['epaule_' + n] = T(epaule).multiply(R);
+      repos['coude_' + n] = T(coude).multiply(R);
+      repos['poignet_' + n] = T(poignet).multiply(R);
+      os['epaule_' + n] = b.epaule;
+      os['coude_' + n] = b.coude;
+      os['poignet_' + n] = b.poignet;
+    });
+
+    this.jambes.forEach(j => {
+      const n = j.s < 0 ? 'd' : 'g';
+      const x = j.s * HUMAIN.hanche;
+      repos['hanche_' + n] = T(new THREE.Vector3(x, y0 - 0.03, 0));
+      repos['genou_' + n] = T(new THREE.Vector3(x, y0 - 0.03 - HUMAIN.cuisse, 0));
+      repos['cheville_' + n] = T(new THREE.Vector3(x, y0 - 0.03 - HUMAIN.cuisse - HUMAIN.tibia, 0));
+      os['hanche_' + n] = j.hanche;
+      os['genou_' + n] = j.genou;
+      os['cheville_' + n] = j.cheville;
+    });
+
+    const monde = racine.matrixWorld;
+    const os_ordre = m.noms.map(nom => os[nom]);
+    const inverses = m.noms.map(nom => new THREE.Matrix4().multiplyMatrices(monde, repos[nom]).invert());
+
+    const materiau = this.preparerMateriau(m.mesh.material);
+
+    const peau = new THREE.SkinnedMesh(m.mesh.geometry, materiau);
+    peau.frustumCulled = false;
+    racine.add(peau);
+    peau.bind(new THREE.Skeleton(os_ordre, inverses), monde.clone());
+
+    this.peau = peau;
+  }
+
+  // Le matériau d'un modèle : celui du fichier, un peu d'environnement, et le
+  // clignement des yeux (peints sur la texture) fait dans le shader.
+  preparerMateriau(mat){
+
+    mat.skinning = true;
+    if(R.env) mat.envMap = R.env;
+    mat.envMapIntensity = 0.55;
+    mat.needsUpdate = true;
+
+    this.clignement = { value: 0 };
+
+    return mat;
   }
 
   // Un bras vers une cible donnée dans le repère de la racine.
@@ -5947,6 +6157,15 @@ class Humain {
   // `plats` : pour chaque bras, de 0 (rien) à 1 (à plat).
   cuireMains(plats){
 
+    // Un modèle de Blender garde ses mains : c'est le poignet qui plie, à chaque
+    // image (voir majBras).
+    if(this.modele){
+      this.plats = plats;
+      this.sale = true;
+      this.majBras(true);
+      return;
+    }
+
     this.groupe.updateMatrixWorld(true);
 
     this.bras.forEach((b, i) => {
@@ -5990,6 +6209,14 @@ class Humain {
       const T = this.cible[i].clone().applyMatrix4(m);
       ik2(b.epaule, b.coude, b.epaule.position, T, HUMAIN.bras, HUMAIN.avantBras, this.pole[i], this.pronation[i]);
     });
+
+    // Un modèle de Blender : les mains qui se posent à plat plient le poignet à chaque
+    // pose du bras (les mains du croupier, elles, sont gérées dans sa propre mise à jour).
+    if(this.modele && this.plats){
+      this.bras.forEach((b, i) => {
+        if(this.plats[i] > 0 && this.pose[i]) this.flexionPoignet(i, this.plats[i], b.poignet.quaternion);
+      });
+    }
   }
 
   // La tête suit `cible` ({x, z} dans le monde) si elle est assez proche et
@@ -6057,7 +6284,7 @@ class Humain {
   cligner(dt, reduit){
 
     const c = this.clin;
-    if(!c || !this.paupieres) return;
+    if(!c || !(this.paupieres || this.clignement)) return;
 
     let u = 0;
 
@@ -6085,6 +6312,12 @@ class Humain {
     }
 
     const baisse = clamp(this.cou.pitch * 1.4, 0, 0.35);
+
+    if(this.clignement){
+      this.clignement.value = clamp(u + baisse * 0.8, 0, 1);
+      return;
+    }
+
     const a = lerp(PAUPIERE.ouverte + baisse, PAUPIERE.fermee, u);
 
     this.paupieres.forEach(m => { m.rotation.x = a; });
@@ -6133,14 +6366,16 @@ class Croupier extends Humain {
     // Ses deux mains sont à part, au bout d'un poignet qui plie à chaque image :
     // il se penche, bat les cartes, tend un booster, et la main doit rester à
     // plat sur le feutre dans tous ces gestes (voir flexionPoignet).
-    this.bras.forEach(b => {
-      b.avantBras.geometry.dispose();
-      b.avantBras.geometry = geoAvantBras(APPARENCES.croupier, b.s, null);
-      b.poignet = new THREE.Group();
-      b.poignet.position.y = -HUMAIN.avantBras;
-      b.poignet.add(new THREE.Mesh(geoMain(APPARENCES.croupier, b.s), R.matHumain));
-      b.coude.add(b.poignet);
-    });
+    if(!this.modele){
+      this.bras.forEach(b => {
+        b.avantBras.geometry.dispose();
+        b.avantBras.geometry = geoAvantBras(APPARENCES.croupier, b.s, null);
+        b.poignet = new THREE.Group();
+        b.poignet.position.y = -HUMAIN.avantBras;
+        b.poignet.add(new THREE.Mesh(geoMain(APPARENCES.croupier, b.s), R.matHumain));
+        b.coude.add(b.poignet);
+      });
+    }
 
     // Le booster qu'il tend, dans la main droite. Sa place et son inclinaison
     // sont données dans le repère du personnage (voir majPaquet) : il reste
