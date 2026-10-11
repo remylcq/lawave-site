@@ -4,6 +4,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>La Wave — média musical</title>
+
+<!-- ACCÈS TESTEURS (TEMPORAIRE) — début.
+     Pendant la phase de test privée, le site est caché derrière l'écran
+     d'identification de portail.js. Si ce fichier ne se charge pas, le site
+     reste fermé (un message l'indique).
+     RETRAIT : supprimer tout ce bloc jusqu'à « fin », le fichier portail.js
+     et l'onglet « Accès » de l'espace équipe (repérable par « ACCÈS
+     TESTEURS »), puis passer sql/acces-testeurs-retrait.sql dans Supabase. -->
+<meta name="robots" content="noindex, nofollow">
+<style id="portail-garde">
+  html.portail-actif, html.portail-actif body{overflow:hidden !important;}
+  html.portail-actif body > *:not(#portail){opacity:0 !important; pointer-events:none !important; user-select:none !important;}
+</style>
+<script>document.documentElement.classList.add('portail-actif');</script>
+<script src="portail.js?v=1" defer onerror="var d=document.createElement('div');d.id='portail';d.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#05070a;color:#F4F5F6;font:16px sans-serif;text-align:center';d.textContent='Accès momentanément indisponible. Recharge la page dans un instant.';document.body.appendChild(d)"></script>
+<!-- ACCÈS TESTEURS (TEMPORAIRE) — fin. -->
+
 <!-- Rempli au chargement à partir du logo de l'en-tête, pour ne pas
      dupliquer son image dans le fichier. -->
 <link rel="icon" id="faviconLaWave" href="data:,">
@@ -4245,6 +4262,13 @@
       <span class="admin-tab-count" id="adminCount-support"></span>
     </button>
 
+    <!-- ACCÈS TESTEURS (TEMPORAIRE) — onglet -->
+    <button type="button" class="admin-tab" id="adminTab-acces"
+      onclick="switchAdminTab('acces')" title="Accès testeurs (temporaire)">
+      <span class="admin-tab-icon">🔑</span>
+      <span class="admin-tab-label">Accès</span>
+    </button>
+
   </div>
 
 
@@ -4734,6 +4758,90 @@
     ></div>
 
   </div>
+
+
+  <!-- ACCÈS TESTEURS (TEMPORAIRE) — section. RETRAIT : supprimer jusqu'à « fin ». -->
+
+  <div class="admin-section" id="adminSection-acces">
+
+    <style>
+      #adminSection-acces .acces-creer{display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr) auto; gap:12px; align-items:end; margin-top:20px;}
+      #adminSection-acces .acces-creer .btn{height:46px;}
+      #adminSection-acces .acces-puce{display:inline-block; margin-left:8px; padding:2px 9px; border-radius:99px; font-size:11px; font-weight:600; letter-spacing:.03em; vertical-align:middle;}
+      #adminSection-acces .acces-puce.on{color:#8fe3ab; background:rgba(46,160,90,0.14); border:1px solid rgba(46,160,90,0.35);}
+      #adminSection-acces .acces-puce.off{color:var(--danger); background:rgba(229,105,92,0.12); border:1px solid rgba(229,105,92,0.35);}
+      #adminSection-acces .acces-resultat{margin-top:20px; padding:20px; border:1px solid rgba(79,180,255,0.35); border-radius:var(--radius); background:rgba(20,137,222,0.08); animation:accesApparait .5s var(--ease);}
+      #adminSection-acces .acces-resultat[hidden]{display:none;}
+      #adminSection-acces .acces-res-titre{margin:0 0 14px; font-size:15px; font-weight:600; color:var(--ink);}
+      #adminSection-acces .acces-res-mdp{display:flex; gap:10px; align-items:stretch; flex-wrap:wrap; margin-bottom:18px;}
+      #adminSection-acces .acces-res-mdp input{flex:1; min-width:200px; height:50px; padding:0 16px; border-radius:var(--radius-sm); border:1px solid var(--line-strong); background:rgba(0,0,0,0.34); color:#fff; font-size:21px; font-weight:600; letter-spacing:.14em; text-align:center; font-variant-numeric:tabular-nums;}
+      #adminSection-acces .acces-resultat label{display:block; margin:0 0 8px; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft);}
+      #adminSection-acces .acces-resultat textarea{width:100%; padding:12px 14px; border-radius:var(--radius-sm); border:1px solid var(--line); background:rgba(0,0,0,0.26); color:var(--ink-soft); font:inherit; font-size:13px; line-height:1.55; resize:vertical;}
+      #adminSection-acces .acces-res-note{margin:14px 0 0; font-size:12px; color:var(--muted);}
+      @keyframes accesApparait{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+      @media (max-width:720px){ #adminSection-acces .acces-creer{grid-template-columns:1fr;} }
+    </style>
+
+    <div class="section-head">
+      <div>
+        <span class="eyebrow mono">Accès testeurs · temporaire</span>
+        <h3 style="font-size:18px; margin-bottom:6px;">
+          Inviter des testeurs
+        </h3>
+        <p class="desc">
+          Le site est fermé au public : chaque testeur entre avec son adresse e-mail et un mot de passe généré ici. C'est toi qui lui envoies ses identifiants.
+        </p>
+      </div>
+
+      <button type="button" class="btn btn-ghost" onclick="renderAdminAcces()">
+        Actualiser
+      </button>
+    </div>
+
+    <form class="acces-creer" onsubmit="creerAcces(event)" autocomplete="off" novalidate>
+      <div class="field" style="margin:0;">
+        <label for="accesEmail">Adresse e-mail du testeur</label>
+        <input type="email" id="accesEmail" name="testeur-email" placeholder="prenom@exemple.fr"
+               autocomplete="off" autocapitalize="none" spellcheck="false">
+      </div>
+      <div class="field" style="margin:0;">
+        <label for="accesNom">Prénom ou nom <span style="text-transform:none; font-weight:400; letter-spacing:0;">(facultatif)</span></label>
+        <input type="text" id="accesNom" name="testeur-nom" placeholder="Pour le repérer dans la liste"
+               autocomplete="off" maxlength="80">
+      </div>
+      <button type="submit" class="btn btn-primary" id="accesCreerBtn">Créer l'accès</button>
+    </form>
+
+    <div class="form-msg" id="accesMsg" style="margin-top:16px;"></div>
+
+    <div class="acces-resultat" id="accesResultat" hidden>
+      <p class="acces-res-titre" id="accesResTitre"></p>
+
+      <label for="accesMdp">Mot de passe</label>
+      <div class="acces-res-mdp">
+        <input type="text" id="accesMdp" readonly onclick="this.select()" aria-label="Mot de passe généré">
+        <button type="button" class="btn btn-primary" onclick="accesCopier('mdp')">Copier le mot de passe</button>
+      </div>
+
+      <label for="accesMessage">Message d'invitation, prêt à envoyer</label>
+      <textarea id="accesMessage" rows="12" readonly></textarea>
+
+      <div class="inline-actions" style="margin-top:12px;">
+        <button type="button" class="btn btn-ghost" onclick="accesCopier('message')">Copier le message</button>
+        <button type="button" class="btn btn-ghost" onclick="accesFermerResultat()">Fermer</button>
+      </div>
+
+      <p class="acces-res-note">
+        Ce mot de passe n'est affiché qu'une seule fois : seul son empreinte est gardée. Si tu le perds, génère-en un nouveau depuis la liste.
+      </p>
+    </div>
+
+    <div id="accesListe" class="admin-list" style="margin-top:20px;">
+      <div class="empty-state">Chargement des accès...</div>
+    </div>
+
+  </div>
+  <!-- ACCÈS TESTEURS (TEMPORAIRE) — fin (section) -->
 
 
   <!-- ================= SUPPORT ================= -->
@@ -18220,7 +18328,8 @@ const ADMIN_TABS = [
   'settings',
   'community',
   'accreditations',
-  'support'
+  'support',
+  'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
 
 function switchAdminTab(nom){
@@ -18250,6 +18359,327 @@ function switchAdminTab(nom){
 
   if(nom === 'accreditations'){
     renderAdminAccreditations();
+  }
+
+  // ACCÈS TESTEURS (TEMPORAIRE)
+  if(nom === 'acces'){
+    renderAdminAcces();
+  }
+}
+
+
+// =========================================================
+// ACCÈS TESTEURS (TEMPORAIRE) — ESPACE ÉQUIPE
+// =========================================================
+//
+// Pendant la phase de test privée, le site est fermé derrière l'écran
+// de portail.js. Cet onglet crée les accès : on saisit l'adresse du
+// testeur, la base génère un mot de passe aléatoire (seule son empreinte
+// est gardée), et c'est à l'équipe de le lui envoyer — d'où le message
+// d'invitation prêt à copier.
+//
+// RETRAIT : supprimer ce bloc, l'onglet et la section « ACCÈS TESTEURS »,
+// 'acces' dans ADMIN_TABS et le test « nom === 'acces' » de
+// switchAdminTab, puis passer sql/acces-testeurs-retrait.sql.
+
+let accesListe = [];
+let accesAgissant = false;
+
+
+function accesAdresseSite(){
+
+  const local = /^(localhost|127\.|\[::1\])/.test(location.hostname);
+
+  return (/^https?:$/.test(location.protocol) && !local)
+    ? location.origin + '/'
+    : 'https://lawave.fr/';
+}
+
+
+async function accesAppel(nom, args){
+
+  const { data, error } = await supabaseClient.rpc(nom, args || {});
+
+  if(error) throw error;
+
+  return data;
+}
+
+
+function accesErreurTexte(e){
+
+  if(e && (e.code === 'PGRST202' || /Could not find the function/i.test(e.message || ''))){
+    return "Le SQL des accès n'a pas encore été passé dans Supabase (fichier sql/acces-testeurs.sql).";
+  }
+
+  return (e && e.message) || 'Une erreur est survenue.';
+}
+
+
+function accesDate(valeur){
+
+  if(!valeur) return '';
+
+  return new Date(valeur).toLocaleString('fr-FR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  }).replace(',', ' à');
+}
+
+
+function accesMessageInvitation(nom, email, motDePasse){
+
+  const prenom = (nom || '').trim();
+
+  return (prenom ? 'Salut ' + prenom + ',' : 'Salut,') + '\n\n' +
+    'Voici ton accès au site de test de La Wave (privé, sur invitation) :\n\n' +
+    'Site : ' + accesAdresseSite() + '\n' +
+    'Adresse e-mail : ' + email + '\n' +
+    'Mot de passe : ' + motDePasse + '\n\n' +
+    'Il suffit de saisir ces deux informations sur la première page. ' +
+    'Tes identifiants sont personnels : merci de ne pas les partager.\n\n' +
+    "N'hésite pas à me dire tout ce qui te paraît bizarre ou pas clair, c'est tout l'intérêt du test !";
+}
+
+
+function accesMontrerResultat(titre, acces, nom){
+
+  const bloc = document.getElementById('accesResultat');
+  if(!bloc) return;
+
+  document.getElementById('accesResTitre').textContent = titre;
+  document.getElementById('accesMdp').value = acces.mot_de_passe;
+  document.getElementById('accesMessage').value =
+    accesMessageInvitation(nom || acces.nom, acces.email, acces.mot_de_passe);
+
+  // Rejoue l'animation si un résultat précédent était encore à l'écran.
+  bloc.hidden = true;
+  void bloc.offsetWidth;
+  bloc.hidden = false;
+
+  bloc.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+
+function accesFermerResultat(){
+
+  const bloc = document.getElementById('accesResultat');
+  if(!bloc) return;
+
+  bloc.hidden = true;
+
+  // Le mot de passe ne doit pas rester dans la page une fois masqué.
+  document.getElementById('accesMdp').value = '';
+  document.getElementById('accesMessage').value = '';
+}
+
+
+async function accesCopier(quoi){
+
+  const champ = document.getElementById(quoi === 'mdp' ? 'accesMdp' : 'accesMessage');
+  if(!champ || !champ.value) return;
+
+  try{
+    await navigator.clipboard.writeText(champ.value);
+    setRowMessage('accesMsg',
+      quoi === 'mdp' ? '✅ Mot de passe copié.' : "✅ Message d'invitation copié.", 'ok');
+  }catch(e){
+    // Le navigateur peut refuser l'accès au presse-papiers : le texte est
+    // alors sélectionné, il ne reste qu'à faire Ctrl+C.
+    champ.focus();
+    champ.select();
+    setRowMessage('accesMsg',
+      'Copie bloquée par le navigateur : le texte est sélectionné, fais Ctrl+C.', 'err');
+  }
+}
+
+
+async function renderAdminAcces(){
+
+  const liste = document.getElementById('accesListe');
+  if(!liste) return;
+
+  try{
+
+    accesListe = (await accesAppel('acces_liste')) || [];
+
+    if(accesListe.length === 0){
+      liste.innerHTML = `
+        <div class="empty-state">Aucun accès pour l'instant. Crée le premier ci-dessus.</div>
+      `;
+      return;
+    }
+
+    liste.innerHTML = accesListe.map((a, i) => {
+
+      const revoque = !!a.revoque_le;
+
+      const connexions =
+        a.derniere_connexion
+          ? 'Dernière connexion le ' + accesDate(a.derniere_connexion) +
+            ' · ' + a.nb_connexions + ' connexion' + (a.nb_connexions > 1 ? 's' : '')
+          : 'Jamais connecté';
+
+      const navigateurs =
+        (!revoque && a.navigateurs > 0)
+          ? ' · ' + a.navigateurs + ' navigateur' + (a.navigateurs > 1 ? 's' : '') + ' connecté' + (a.navigateurs > 1 ? 's' : '')
+          : '';
+
+      const qui = escapeHtml(a.nom || a.email);
+
+      return `
+        <div class="admin-row stacked" style="${revoque ? 'opacity:.62;' : ''}">
+
+          <div class="admin-row-main">
+
+            <div class="meta">
+              <h4>
+                ${qui}
+                <span class="acces-puce ${revoque ? 'off' : 'on'}">${revoque ? 'Révoqué' : 'Actif'}</span>
+              </h4>
+              ${a.nom ? `<span style="display:block;">${escapeHtml(a.email)}</span>` : ''}
+              <span style="display:block; margin-top:4px;">
+                📅 Créé le ${accesDate(a.cree_le)} · ${connexions}${navigateurs}
+                ${revoque ? ' · révoqué le ' + accesDate(a.revoque_le) : ''}
+              </span>
+            </div>
+
+            <div class="admin-actions" style="flex-direction:column; align-items:stretch;">
+              <button type="button" onclick="openConfirmPanel('acces-nmdp-${i}')">
+                🔑 ${revoque ? 'Rétablir avec un mot de passe' : 'Nouveau mot de passe'}
+              </button>
+              ${revoque ? '' : `
+              <button class="reject" type="button" onclick="openConfirmPanel('acces-rev-${i}')">
+                ⛔ Révoquer
+              </button>`}
+              <button class="reject" type="button" onclick="openConfirmPanel('acces-suppr-${i}')">
+                🗑 Supprimer
+              </button>
+            </div>
+
+          </div>
+
+          <div class="confirm-panel" id="acces-nmdp-${i}">
+            <p>Générer un nouveau mot de passe pour ${qui} ? L'ancien ne fonctionnera plus et ses navigateurs seront déconnectés.</p>
+            <div class="inline-actions">
+              <button type="button" class="btn btn-primary" onclick="accesAgir('nouveau', ${i})">Oui, générer</button>
+              <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('acces-nmdp-${i}')">Annuler</button>
+            </div>
+          </div>
+
+          <div class="confirm-panel danger" id="acces-rev-${i}">
+            <p>Révoquer l'accès de ${qui} ? Il reviendra à l'écran d'identification, au plus tard dans les 5 minutes.</p>
+            <div class="inline-actions">
+              <button type="button" class="btn btn-ghost" onclick="accesAgir('revoquer', ${i})">Oui, révoquer</button>
+              <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('acces-rev-${i}')">Annuler</button>
+            </div>
+          </div>
+
+          <div class="confirm-panel danger" id="acces-suppr-${i}">
+            <p>Supprimer définitivement l'accès de ${qui} ? Il n'apparaîtra plus dans la liste.</p>
+            <div class="inline-actions">
+              <button type="button" class="btn btn-ghost" onclick="accesAgir('supprimer', ${i})">Oui, supprimer</button>
+              <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('acces-suppr-${i}')">Annuler</button>
+            </div>
+          </div>
+
+        </div>
+      `;
+    }).join('');
+
+  }catch(e){
+
+    console.error('❌ Accès illisibles :', e);
+
+    liste.innerHTML = `
+      <div class="form-msg err">
+        Impossible de charger les accès : ${escapeHtml(accesErreurTexte(e))}
+      </div>
+    `;
+  }
+}
+
+
+async function creerAcces(ev){
+
+  if(ev) ev.preventDefault();
+  if(accesAgissant) return;
+
+  const champEmail = document.getElementById('accesEmail');
+  const champNom = document.getElementById('accesNom');
+  const bouton = document.getElementById('accesCreerBtn');
+
+  const email = champEmail.value.trim();
+  const nom = champNom.value.trim();
+
+  setRowMessage('accesMsg', '');
+
+  if(!email){
+    setRowMessage('accesMsg', "Saisis l'adresse e-mail du testeur.", 'err');
+    champEmail.focus();
+    return;
+  }
+
+  accesAgissant = true;
+  bouton.disabled = true;
+
+  try{
+
+    const acces = await accesAppel('acces_creer', { p_email: email, p_nom: nom });
+
+    accesMontrerResultat('✅ Accès créé pour ' + acces.email, acces, nom);
+
+    champEmail.value = '';
+    champNom.value = '';
+
+    await renderAdminAcces();
+
+  }catch(e){
+
+    setRowMessage('accesMsg', accesErreurTexte(e), 'err');
+
+  }finally{
+
+    accesAgissant = false;
+    bouton.disabled = false;
+  }
+}
+
+
+async function accesAgir(action, i){
+
+  const a = accesListe[i];
+  if(!a || accesAgissant) return;
+
+  accesAgissant = true;
+  setRowMessage('accesMsg', '');
+
+  try{
+
+    if(action === 'nouveau'){
+      const acces = await accesAppel('acces_nouveau_mot_de_passe', { p_email: a.email });
+      accesMontrerResultat('🔑 Nouveau mot de passe pour ' + a.email, acces, a.nom);
+    }
+
+    if(action === 'revoquer'){
+      await accesAppel('acces_revoquer', { p_email: a.email });
+      setRowMessage('accesMsg', '✅ Accès de ' + a.email + ' révoqué.', 'ok');
+    }
+
+    if(action === 'supprimer'){
+      await accesAppel('acces_supprimer', { p_email: a.email });
+      setRowMessage('accesMsg', '✅ Accès de ' + a.email + ' supprimé.', 'ok');
+    }
+
+    await renderAdminAcces();
+
+  }catch(e){
+
+    setRowMessage('accesMsg', accesErreurTexte(e), 'err');
+
+  }finally{
+
+    accesAgissant = false;
   }
 }
 
