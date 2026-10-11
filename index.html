@@ -5293,7 +5293,7 @@ const BD = {
   // artiste dans l'onglet Artistes.
   sortiesParArtiste(){
     return toutesLesPages(() => supabaseClient.from('submissions')
-      .select('artist_handle, status, contact_email, featuring')
+      .select('artist_handle, status, contact_email, featuring, source')
       .order('catalog_number', { ascending: true, nullsFirst: false }));
   },
 
@@ -5352,6 +5352,18 @@ const BD = {
       p_nom: nom,
       p_photo: photo || null,
       p_handle: handle || null
+    });
+  },
+
+  // Remplace le profil Deezer d'un artiste (un homonyme pris pour un
+  // autre) et, si on le demande, retire les sorties venues de l'ancien.
+  // sql/deezer-changer-lien.sql.
+  relierArtisteDeezer(handle, idDeezer, photo, retirer){
+    return supabaseClient.rpc('relier_artiste_deezer', {
+      p_handle: handle,
+      p_deezer_id: idDeezer,
+      p_photo: photo || null,
+      p_retirer: !!retirer
     });
   },
 
@@ -21151,6 +21163,10 @@ let artistProfilesEmails = {};
 // Sorties où l'artiste figure en featuring, par pseudo.
 let artistProfilesFeats = {};
 
+// Sorties que l'import Deezer a rangées chez chaque artiste, par pseudo :
+// elles montrent d'un coup d'œil un profil Deezer qui n'est pas le bon.
+let artistProfilesDeezer = {};
+
 // Le filtre de la liste (voir ARTISTES_FILTRES) et la recherche d'un
 // artiste sur Deezer : le profil à relier (null pour un simple ajout), les
 // résultats affichés, le délai de frappe et un jeton qui écarte la réponse
@@ -21229,6 +21245,7 @@ async function loadArtistProfiles(){
     artistProfilesComptes = {};
     artistProfilesEmails = {};
     artistProfilesFeats = {};
+    artistProfilesDeezer = {};
 
     (sorties || []).forEach(sortie => {
 
@@ -21244,6 +21261,11 @@ async function loadArtistProfiles(){
 
       artistProfilesComptes[sortie.artist_handle] =
         (artistProfilesComptes[sortie.artist_handle] || 0) + 1;
+
+      if(sortie.source === 'deezer'){
+        artistProfilesDeezer[sortie.artist_handle] =
+          (artistProfilesDeezer[sortie.artist_handle] || 0) + 1;
+      }
 
       const email = String(sortie.contact_email || '').trim();
 
@@ -21459,6 +21481,8 @@ function artisteDeezerHtml(profil, h){
     ? 'vérifié ' + ilYaTexte(profil.deezer_verifie_le)
     : 'pas encore vérifié';
 
+  const importees = artistProfilesDeezer[profil.instagram_handle] || 0;
+
   return `
     <span class="artiste-deezer">
       <a href="${escapeAttribute(lien)}" target="_blank"
@@ -21468,10 +21492,18 @@ function artisteDeezerHtml(profil, h){
           ? 'suivi (' + verifie + ')'
           : 'non suivi : ses sorties ne sont pas importées'
       }
+      · ${
+        importees
+          ? importees + ' sortie' + (importees > 1 ? 's' : '') +
+            ' importée' + (importees > 1 ? 's' : '')
+          : 'aucune sortie importée'
+      }
       · <button type="button" class="lien-bouton"
                 onclick="basculerSuiviArtiste('${h}', ${suivi ? 'false' : 'true'})">${
         suivi ? 'Ne plus suivre' : 'Suivre ses sorties'
       }</button>
+      · <button type="button" class="lien-bouton"
+                onclick="ouvrirAjoutArtiste('${h}')">Changer de profil</button>
     </span>`;
 }
 
@@ -21482,6 +21514,11 @@ function artisteDeezerHtml(profil, h){
 function messageSqlDeezer(error){
 
   const detail = String((error && error.message) || error || '');
+
+  if(/relier_artiste_deezer/i.test(detail)){
+    return "La base n'est pas à jour : exécute d'abord " +
+           'sql/deezer-changer-lien.sql dans Supabase, puis réessaie.';
+  }
 
   if(/deezer_suivi|schema cache|could not find the function|does not exist/i.test(detail)){
     return "La base n'est pas à jour : exécute d'abord " +
@@ -21559,11 +21596,20 @@ function ouvrirAjoutArtiste(handleALier){
   artisteAjoutResultats = [];
   artisteAjoutJeton++;
 
+  const aChanger = !!(profil && profil.deezer_artist_id);
+
   document.getElementById('artisteAjoutTitre').textContent = profil
-    ? 'Relier « ' + (profil.display_name || handleALier) + ' » à Deezer'
+    ? (aChanger ? 'Changer le profil Deezer de « ' : 'Relier « ') +
+      (profil.display_name || handleALier) +
+      (aChanger ? ' »' : ' » à Deezer')
     : 'Ajouter un artiste';
 
-  document.getElementById('artisteAjoutAide').textContent = profil
+  document.getElementById('artisteAjoutAide').textContent = aChanger
+    ? "Cherche son nom, ou colle l'adresse de sa vraie page Deezer " +
+      '(deezer.com/…/artist/…). La photo et le nombre de fans aident à ' +
+      "ne pas le confondre avec un homonyme. Rien ne change avant que " +
+      'tu confirmes.'
+    : profil
     ? 'Choisis son vrai profil Deezer — la photo et le nombre de fans ' +
       "aident à ne pas le confondre avec un homonyme. Il est suivi dès " +
       "qu'il est relié."
@@ -21659,9 +21705,19 @@ function resultatArtisteDeezerHtml(resultat, i){
   if(resultat.deja){
 
     if(artisteAjoutLien){
-      action = resultat.deja === artisteAjoutLien
-        ? '<span class="release-badge">déjà relié</span>'
-        : '<span class="release-badge">déjà sur La Wave</span>';
+
+      if(resultat.deja === artisteAjoutLien){
+        action = '<span class="release-badge">profil actuel</span>';
+      } else if(profilDeezerFusionnable(resultat.deja)){
+        // Un profil que l'import avait créé tout seul pour cet artiste
+        // Deezer : on peut le fusionner dans celui qu'on corrige.
+        action = `
+          <button type="button" class="btn btn-primary"
+                  onclick="choisirArtisteDeezer(${i})">Relier et fusionner</button>`;
+      } else {
+        action = '<span class="release-badge">déjà sur La Wave</span>';
+      }
+
     } else if(resultat.deja_suivi === false){
       action = `
         <button type="button" class="btn btn-primary"
@@ -21704,11 +21760,169 @@ function resultatArtisteDeezerHtml(resultat, i){
 }
 
 
+// Un profil créé automatiquement par l'import, que personne n'a revendiqué :
+// le fusionner dans un autre ne fait perdre rien d'important.
+function profilDeezerFusionnable(handle){
+
+  const profil = artistProfilesData.find(p => p.instagram_handle === handle);
+
+  return !!(profil && profil.source === 'deezer-auto' && !profil.verifie_par);
+}
+
+
+// Remplacer le profil Deezer d'un artiste, ou fusionner un doublon, a des
+// suites : on les montre avant, avec le nombre de sorties concernées.
+function confirmerChangementDeezer(i){
+
+  const resultat = artisteAjoutResultats[i];
+  const profil = artistProfilesData.find(p => p.instagram_handle === artisteAjoutLien);
+  const zone = document.getElementById('artisteAjoutResultats');
+
+  if(!resultat || !profil || !zone) return;
+
+  const nom = escapeHtml(profil.display_name || profil.instagram_handle);
+  const fans = Number(resultat.fans || 0).toLocaleString('fr-FR');
+  const nouveau = escapeHtml(resultat.nom || '');
+  const importees = artistProfilesDeezer[profil.instagram_handle] || 0;
+  const remplace = !!profil.deezer_artist_id;
+
+  const doublon =
+    resultat.deja && resultat.deja !== profil.instagram_handle
+      ? artistProfilesData.find(p => p.instagram_handle === resultat.deja)
+      : null;
+
+  const pluriel = (n, mot) => n + ' ' + mot + (n > 1 ? 's' : '');
+
+  zone.innerHTML = `
+    <div class="confirm-panel open">
+      <p>
+        <b>${remplace ? 'Remplacer' : 'Relier'} le profil Deezer de « ${nom} »
+        par « ${nouveau} » (${fans} fans) ?</b>
+      </p>
+      ${
+        remplace
+          ? `<p>${
+              importees
+                ? pluriel(importees, 'sortie') + ' importée' + (importees > 1 ? 's' : '') +
+                  " depuis l'ancien profil " + (importees > 1 ? 'figurent' : 'figure') +
+                  " au catalogue : si c'était le mauvais artiste, " +
+                  (importees > 1 ? 'elles ne sont pas les siennes' : "elle n'est pas la sienne") +
+                  '. Les sorties ajoutées à la main ne sont jamais touchées.'
+                : "Aucune sortie n'a été importée depuis l'ancien profil."
+            }</p>`
+          : ''
+      }
+      ${
+        doublon
+          ? `<p>Le profil « ${escapeHtml(doublon.display_name || doublon.instagram_handle)} »,
+             ajouté automatiquement pour ce même artiste Deezer, est fusionné dans
+             « ${nom} » : ses sorties lui passent, puis il disparaît.</p>`
+          : ''
+      }
+      <p>Les sorties du nouveau profil arrivent au prochain passage de l'import
+         (toutes les 20 minutes).</p>
+      <div class="inline-actions">
+        <button type="button" class="btn btn-primary"
+                onclick="appliquerChangementDeezer(${i}, ${remplace})">${
+          remplace && importees
+            ? 'Remplacer et retirer ' + (importees > 1 ? 'ses ' + importees + ' sorties importées' : 'sa sortie importée')
+            : (remplace ? 'Remplacer' : 'Relier')
+        }</button>
+        ${
+          remplace && importees
+            ? `<button type="button" class="btn btn-ghost"
+                       onclick="appliquerChangementDeezer(${i}, false)">Remplacer, garder ses sorties</button>`
+            : ''
+        }
+        <button type="button" class="btn btn-ghost"
+                onclick="retourResultatsDeezer()">Annuler</button>
+      </div>
+    </div>`;
+}
+
+
+function retourResultatsDeezer(){
+
+  const zone = document.getElementById('artisteAjoutResultats');
+  if(!zone) return;
+
+  zone.innerHTML =
+    artisteAjoutResultats.map(resultatArtisteDeezerHtml).join('');
+}
+
+
+async function appliquerChangementDeezer(i, retirer){
+
+  const resultat = artisteAjoutResultats[i];
+  const handle = artisteAjoutLien;
+
+  if(!resultat || !handle || !isAdmin) return;
+
+  setRowMessage('artistsActionMsg', '');
+
+  const { data, error } = await BD.relierArtisteDeezer(
+    handle,
+    resultat.id,
+    resultat.photo,
+    retirer
+  );
+
+  if(error){
+    setRowMessage('artistsActionMsg', messageSqlDeezer(error), 'err');
+    return;
+  }
+
+  fermerAjoutArtiste();
+
+  await loadArtistProfiles();
+
+  const nom = (data && data.nom) || handle;
+
+  artistesFiltre = 'tous';
+
+  const recherche = document.getElementById('rechercheArtistesEquipe');
+  if(recherche) recherche.value = nom;
+
+  renderArtistProfilesList();
+
+  const retires = (data && data.retires) || 0;
+  const fusion = data && data.fusion_avec;
+
+  setRowMessage(
+    'artistsActionMsg',
+    '✅ ' + nom + ' est relié à « ' + (resultat.nom || 'Deezer') + ' ».' +
+    (retires
+      ? ' ' + retires + ' sortie' + (retires > 1 ? 's' : '') +
+        ' importée' + (retires > 1 ? 's' : '') + " de l'ancien profil " +
+        (retires > 1 ? 'ont été retirées' : 'a été retirée') + '.'
+      : '') +
+    (fusion ? ' Le profil « ' + fusion + ' » est fusionné avec lui.' : '') +
+    " Ses sorties arriveront au prochain passage de l'import (toutes les 20 " +
+    'minutes). La liste est réduite à son nom : vide la recherche pour tout revoir.'
+  );
+}
+
+
 async function choisirArtisteDeezer(i){
 
   const resultat = artisteAjoutResultats[i];
 
   if(!resultat || !isAdmin) return;
+
+  // Remplacer un profil Deezer, ou fusionner un doublon : on confirme
+  // d'abord, ce n'est pas anodin pour les sorties déjà au catalogue.
+  if(artisteAjoutLien){
+
+    const profil = artistProfilesData.find(p => p.instagram_handle === artisteAjoutLien);
+
+    if(profil && (
+         profil.deezer_artist_id ||
+         (resultat.deja && resultat.deja !== artisteAjoutLien)
+       )){
+      confirmerChangementDeezer(i);
+      return;
+    }
+  }
 
   setRowMessage('artistsActionMsg', '');
 
