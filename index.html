@@ -1556,32 +1556,8 @@
     box-shadow:inset 0 1px 3px rgba(0,0,0,0.34), inset 0 -1px 0 rgba(255,255,255,0.05);
   }
   .admin-gate input::placeholder{color:var(--muted);}
-  .admin-tabs{
-    display:flex; gap:6px; flex-wrap:wrap; margin:24px 0 0;
-    padding:6px; background:rgba(255,255,255,0.05); border-radius:var(--radius);
-  }
-  .admin-tab{
-    display:inline-flex; align-items:center; gap:8px; white-space:nowrap;
-    padding:10px 16px; font-size:13px; font-weight:600;
-    color:var(--muted); background:transparent; border:none;
-    border-radius:var(--radius-pill); transition:color .15s, background .15s;
-  }
-  .admin-tab:hover{color:var(--ink);}
-  .admin-tab.active{color:var(--ink); background:rgba(255,255,255,0.12);}
-  .admin-tab-icon{font-size:15px; line-height:1;}
-  .admin-tab-count{
-    display:inline-flex; align-items:center; justify-content:center;
-    min-width:19px; height:19px; padding:0 6px; font-size:11px; font-weight:700;
-    border-radius:var(--radius-pill); background:var(--blue); color:#fff;
-  }
-  .admin-tab-count:empty{display:none;}
-  .admin-section{display:none; margin-top:32px;}
-  .admin-section.active{display:block;}
-  @media (max-width:620px){
-    /* Onglets réduits à leur icône : la barre tient sur une ligne. */
-    .admin-tab-label{display:none;}
-    .admin-tab{padding:10px 14px;}
-  }
+  /* Lignes d'administration : aussi utilisées hors de l'espace équipe
+     (la page des photographes). Dans l'espace équipe, #page-admin les redessine. */
   .admin-list{display:flex; flex-direction:column; gap:10px;}
   .admin-row{
     background:var(--bg-alt); display:flex; gap:16px; padding:16px; align-items:center;
@@ -2483,6 +2459,24 @@
     align-items:end; margin:0 0 14px;
   }
   .artiste-bannir-form .field{margin:0;}
+  .bannir-suggestions{margin:-4px 0 16px;}
+  .bannir-suggestions[hidden], .bannir-choix[hidden]{display:none;}
+  .bannir-groupe{
+    margin:14px 0 8px; font-size:11px; font-weight:600; letter-spacing:.07em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .bannir-groupe:first-child{margin-top:0;}
+  .bannir-suggestions .artiste-resultat{cursor:pointer; transition:border-color .2s var(--ease), background .2s var(--ease), transform .2s var(--ease);}
+  .bannir-suggestions .artiste-resultat:hover{border-color:var(--line-strong); background:rgba(255,255,255,0.06); transform:translateY(-1px);}
+  .bannir-suggestions .artiste-resultat{animation:fondu .3s var(--ease) both;}
+  .bannir-choix{
+    display:flex; align-items:center; gap:12px; margin:0 0 14px; padding:10px 14px;
+    border-radius:var(--radius-sm); border:1px solid rgba(229,105,92,0.45);
+    background:rgba(229,105,92,0.1); animation:fondu .3s var(--ease);
+  }
+  .bannir-choix .artiste-resultat-photo{width:36px; height:36px; font-size:13px;}
+  .bannir-choix-texte{flex:1; min-width:0; font-size:13px; color:var(--ink-soft);}
+  .bannir-choix-texte b{display:block; font-size:14px; color:var(--ink);}
   .artiste-bannir-form .btn{height:46px;}
   @media (max-width:720px){ .artiste-bannir-form{grid-template-columns:1fr;} }
   .lien-bouton{
@@ -3335,6 +3329,488 @@
     /* Zone de clic confortable au doigt sans changer l'aspect. */
     display:inline-block; padding:8px 0;
   }
+
+  /* =====================================================================
+     ESPACE ÉQUIPE — REFONTE
+
+     Une navigation latérale (une barre horizontale sur petit écran), des
+     sections qui entrent en douceur, des cartes sobres au lieu du verre
+     partout, des boutons de même taille, des champs qui s'éclairent au
+     focus. Tout est cadré sous #page-admin : rien ne déborde sur le site
+     public, qui réutilise certaines de ces classes (.btn, .field…).
+     ===================================================================== */
+
+  #page-admin{
+    --eq-fond:    rgba(255,255,255,0.035);
+    --eq-fond-2:  rgba(255,255,255,0.06);
+    --eq-trait:   rgba(255,255,255,0.085);
+    --eq-trait-2: rgba(255,255,255,0.16);
+    --eq-r:       16px;
+    --eq-r-sm:    11px;
+    --eq-danger:  #E5695C;
+    --eq-ok:      #6fdc9a;
+  }
+  #page-admin > section{padding:28px 0 80px;}
+
+  /* ---------- Coque : navigation + contenu ---------- */
+  .eq-coque{
+    display:grid; grid-template-columns:248px minmax(0,1fr);
+    column-gap:36px; align-items:start;
+  }
+  .eq-coque > .eq-nav{grid-column:1; grid-row:1 / span 60;}
+  .eq-coque > *:not(.eq-nav):not(svg){grid-column:2; min-width:0;}
+
+  .eq-nav{
+    position:sticky; top:104px; display:flex; flex-direction:column; gap:14px;
+    max-height:calc(100vh - 124px); overflow-y:auto;
+    scrollbar-width:thin; scrollbar-color:rgba(255,255,255,0.18) transparent;
+    padding:14px; border-radius:20px;
+    background:linear-gradient(180deg, rgba(255,255,255,0.065), rgba(255,255,255,0.03));
+    border:1px solid var(--eq-trait);
+    box-shadow:var(--ombre-2), var(--reflet-int);
+    animation:eqEntree .6s var(--ease) both;
+  }
+  .eq-profil{display:flex; align-items:center; gap:12px; padding:6px 6px 14px; border-bottom:1px solid var(--eq-trait);}
+  .eq-avatar{
+    flex:none; width:40px; height:40px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:16px; font-weight:700; color:#fff; letter-spacing:0;
+    background:linear-gradient(145deg, var(--blue-bright), var(--blue-deep));
+    box-shadow:0 6px 16px rgba(20,137,222,0.35), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .eq-profil-texte{min-width:0; line-height:1.25;}
+  .eq-profil-texte b{display:block; font-size:14px; font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .eq-profil-texte small{font-size:12px; color:var(--muted);}
+
+  .eq-liste{position:relative; display:flex; flex-direction:column; gap:2px;}
+  .eq-groupe{
+    margin:14px 10px 6px; font-size:10.5px; font-weight:600; letter-spacing:.09em;
+    text-transform:uppercase; color:var(--muted); opacity:.8;
+  }
+  .eq-groupe:first-of-type{margin-top:4px;}
+
+  /* La pastille qui glisse d'un onglet à l'autre. */
+  .eq-pastille{
+    position:absolute; left:0; right:0; top:0; height:0; border-radius:12px;
+    background:rgba(79,180,255,0.14); border:1px solid rgba(79,180,255,0.28);
+    box-shadow:0 8px 22px rgba(20,137,222,0.16);
+    opacity:0; pointer-events:none;
+    transition:transform .5s var(--ease), height .5s var(--ease), opacity .3s var(--ease);
+  }
+  .eq-pastille.prete{opacity:1;}
+
+  #page-admin .admin-tab{
+    position:relative; z-index:1; display:flex; align-items:center; gap:12px;
+    width:100%; padding:10px 12px; border-radius:12px; border:0; background:none;
+    font-size:14px; font-weight:500; color:var(--ink-soft); text-align:left; white-space:nowrap;
+    transition:color .25s var(--ease), background .25s var(--ease), transform .25s var(--ease);
+  }
+  #page-admin .admin-tab:hover{color:var(--ink); background:rgba(255,255,255,0.045);}
+  #page-admin .admin-tab:active{transform:scale(.98);}
+  #page-admin .admin-tab.active{color:#fff; background:none;}
+  #page-admin .admin-tab.active .eq-ic{color:var(--blue-bright);}
+  #page-admin .admin-tab:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
+  .eq-ic{
+    flex:none; width:19px; height:19px; fill:none; stroke:currentColor;
+    stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;
+    transition:color .25s var(--ease), transform .35s var(--ease);
+  }
+  #page-admin .admin-tab:hover .eq-ic{transform:scale(1.08);}
+  #page-admin .admin-tab-label{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis;}
+  #page-admin .admin-tab-count{
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:21px; height:21px; padding:0 7px; border-radius:99px;
+    font-size:11.5px; font-weight:700; font-variant-numeric:tabular-nums;
+    color:#fff; background:var(--blue); box-shadow:0 4px 12px rgba(20,137,222,0.35);
+    animation:eqPop .45s cubic-bezier(.34,1.56,.64,1) both;
+  }
+  #page-admin .admin-tab-count:empty{display:none;}
+  #page-admin .admin-tab:not(.active) .admin-tab-count{background:rgba(255,255,255,0.12); color:var(--ink-soft); box-shadow:none;}
+
+  .eq-deconnexion{
+    display:flex; align-items:center; gap:12px; width:100%; padding:10px 12px;
+    border:0; border-top:1px solid var(--eq-trait); border-radius:0 0 12px 12px;
+    background:none; font-size:13px; font-weight:500; color:var(--muted);
+    margin-top:2px; padding-top:14px;
+    transition:color .25s var(--ease);
+  }
+  .eq-deconnexion:hover{color:var(--eq-danger);}
+
+  /* ---------- En-tête ---------- */
+  .eq-entete{margin:0 0 28px; animation:eqRise .6s var(--ease) both;}
+  .eq-entete h2{font-size:clamp(26px,3vw,34px); line-height:1.1; letter-spacing:-0.025em;}
+  .eq-entete .desc{margin:8px 0 0; font-size:15px; color:var(--ink-soft); max-width:60ch;}
+
+  /* ---------- Sections ---------- */
+  #page-admin .admin-section{display:none; margin-top:0;}
+  #page-admin .admin-section.active{display:block; animation:eqSection .55s var(--ease) both;}
+
+  #page-admin .section-head{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:16px 24px;
+    flex-wrap:wrap; margin:0 0 22px; padding-bottom:20px;
+    border-bottom:1px solid var(--eq-trait);
+  }
+  #page-admin .section-head > div:first-child{flex:1 1 380px;}
+  #page-admin .eyebrow{
+    display:inline-block; margin:0 0 8px; padding:3px 9px; border-radius:99px;
+    font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
+    color:var(--blue-bright); background:rgba(79,180,255,0.1); border:1px solid rgba(79,180,255,0.2);
+  }
+  #page-admin .admin-section h3{
+    margin:0 0 6px !important; font-size:22px !important; font-weight:700;
+    letter-spacing:-0.02em; line-height:1.2; color:var(--ink);
+  }
+  #page-admin .admin-section h4{font-size:15px; font-weight:600; letter-spacing:-0.01em; color:var(--ink);}
+  #page-admin .admin-section .desc{margin:0; font-size:14px; line-height:1.55; color:var(--ink-soft); max-width:72ch;}
+  #page-admin .admin-section > .eyebrow + h3{margin-top:0;}
+  #page-admin .hairline{height:1px; background:var(--eq-trait); border:0;}
+
+  /* ---------- Listes et cartes ---------- */
+  #page-admin .admin-list{display:flex; flex-direction:column; gap:12px; margin-top:20px !important;}
+
+  #page-admin .admin-row{
+    position:relative; display:flex; gap:18px; align-items:center; padding:18px 20px;
+    border-radius:var(--eq-r); border:1px solid var(--eq-trait);
+    background:var(--eq-fond); box-shadow:none; overflow:visible;
+    transition:border-color .3s var(--ease), background .3s var(--ease), transform .3s var(--ease), box-shadow .3s var(--ease);
+  }
+  #page-admin .admin-row::before, #page-admin .admin-row::after{display:none;}
+  #page-admin .admin-row:hover{
+    border-color:var(--eq-trait-2); background:var(--eq-fond-2);
+    box-shadow:0 14px 34px rgba(0,0,0,0.28); transform:translateY(-1px);
+  }
+  #page-admin .admin-row.stacked{flex-direction:column; align-items:stretch; gap:14px;}
+  #page-admin .admin-row-main{display:flex; flex-wrap:wrap; gap:16px 18px; align-items:flex-start;}
+  #page-admin .admin-row img{
+    width:64px; height:64px; object-fit:cover; flex:none;
+    border:1px solid var(--eq-trait); border-radius:12px; background:rgba(255,255,255,0.05);
+  }
+  #page-admin .admin-row .meta{flex:1 1 280px; min-width:0; line-height:1.5;}
+  #page-admin .admin-row .meta h4{margin:0 0 3px; font-size:16px; font-weight:600; letter-spacing:-0.01em; color:var(--ink);}
+  #page-admin .admin-row .meta span{font-size:13px; color:var(--muted);}
+  #page-admin .admin-row .meta a{color:var(--blue-bright);}
+  #page-admin .admin-row .meta a:hover{text-decoration:underline; text-underline-offset:3px;}
+
+  /* Les actions passent sous la fiche, sur toute la largeur. */
+  #page-admin .admin-actions{
+    flex:1 0 100%; display:flex !important; flex-direction:row !important; flex-wrap:wrap;
+    align-items:center !important; gap:8px; padding-top:14px; margin-top:2px;
+    border-top:1px solid var(--eq-trait);
+  }
+  #page-admin .admin-row:not(.stacked) > .admin-actions{flex:none; border:0; padding:0; margin:0;}
+  #page-admin .admin-actions button{
+    display:inline-flex; align-items:center; gap:7px; height:36px; padding:0 14px;
+    border-radius:10px; border:1px solid var(--eq-trait-2); background:rgba(255,255,255,0.04);
+    font-size:13px; font-weight:600; color:var(--ink-soft); white-space:nowrap;
+    transition:color .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease), transform .2s var(--ease), box-shadow .2s var(--ease);
+  }
+  #page-admin .admin-actions button:hover{color:var(--ink); border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.09); transform:translateY(-1px);}
+  #page-admin .admin-actions button:active{transform:scale(.97);}
+  #page-admin .admin-actions .approve, #page-admin .admin-actions .btn-primary{color:#fff; border-color:transparent; background:var(--blue); box-shadow:0 6px 16px rgba(20,137,222,0.3);}
+  #page-admin .admin-actions .approve:hover, #page-admin .admin-actions .btn-primary:hover{color:#fff; background:#1a97ee; border-color:transparent; box-shadow:0 10px 22px rgba(20,137,222,0.4);}
+  #page-admin .admin-actions .reject{color:var(--eq-danger); border-color:rgba(229,105,92,0.4); background:rgba(229,105,92,0.06);}
+  #page-admin .admin-actions .reject:hover{color:#fff; background:var(--eq-danger); border-color:transparent;}
+
+  /* ---------- Boutons ---------- */
+  #page-admin .btn{
+    height:42px; padding:0 20px; gap:8px; justify-content:center;
+    border-radius:12px; font-size:14px; font-weight:600; letter-spacing:-0.005em;
+  }
+  #page-admin .btn-primary{
+    background:linear-gradient(180deg, #2a9bf0, var(--blue) 60%, #1178c4);
+    box-shadow:0 8px 20px rgba(20,137,222,0.32), inset 0 1px 0 rgba(255,255,255,0.22);
+  }
+  #page-admin .btn-primary:hover{background:linear-gradient(180deg, #3aa6f6, #1a8ee6 60%, #1383d1); box-shadow:0 12px 26px rgba(20,137,222,0.42), inset 0 1px 0 rgba(255,255,255,0.25); transform:translateY(-1px);}
+  #page-admin .btn-ghost{
+    background:rgba(255,255,255,0.045); border:1px solid var(--eq-trait-2); color:var(--ink);
+    box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none;
+  }
+  #page-admin .btn-ghost:hover{background:rgba(255,255,255,0.1); color:#fff; border-color:rgba(255,255,255,0.3); transform:translateY(-1px);}
+  #page-admin .btn:active{transform:scale(.98);}
+  #page-admin .btn:disabled{opacity:.55; cursor:default; transform:none;}
+  #page-admin .btn:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+
+  /* ---------- Champs ---------- */
+  #page-admin .field{margin-bottom:18px;}
+  #page-admin .field label{
+    display:block; margin-bottom:8px; font-size:11.5px; font-weight:600;
+    letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft);
+  }
+  #page-admin input[type=text], #page-admin input[type=url], #page-admin input[type=email],
+  #page-admin input[type=password], #page-admin input[type=date], #page-admin input[type=tel],
+  #page-admin input[type=number], #page-admin input[type=datetime-local], #page-admin select, #page-admin textarea{
+    width:100%; min-height:46px; padding:12px 15px; border-radius:12px;
+    border:1px solid var(--eq-trait-2); background:rgba(0,0,0,0.3);
+    font:inherit; font-size:14.5px; font-weight:400; color:var(--ink);
+    box-shadow:inset 0 1px 2px rgba(0,0,0,0.3);
+    transition:border-color .25s var(--ease), box-shadow .25s var(--ease), background .25s var(--ease);
+  }
+  #page-admin textarea{min-height:96px; line-height:1.55;}
+  #page-admin input:hover, #page-admin select:hover, #page-admin textarea:hover{border-color:rgba(255,255,255,0.26);}
+  #page-admin input:focus, #page-admin select:focus, #page-admin textarea:focus{
+    outline:none; border-color:var(--blue-bright); background:rgba(0,0,0,0.42);
+    box-shadow:0 0 0 4px rgba(79,180,255,0.16), inset 0 1px 2px rgba(0,0,0,0.3);
+  }
+  #page-admin input::placeholder, #page-admin textarea::placeholder{color:rgba(196,201,208,0.42);}
+
+  /* Les champs de recherche portent leur loupe. */
+  #page-admin #rechercheCatalogue, #page-admin #rechercheArtistesEquipe, #page-admin #artisteAjoutRecherche{
+    padding-left:44px;
+    background:rgba(0,0,0,0.3) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23838A92' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7.5'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") no-repeat 15px center / 18px;
+  }
+  #page-admin .form-wrap{max-width:none;}
+
+  /* ---------- Messages ---------- */
+  #page-admin .form-msg{
+    display:none; align-items:center; gap:10px; margin:0 0 16px; padding:12px 16px;
+    border-radius:12px; font-size:13.5px; line-height:1.5;
+  }
+  #page-admin .form-msg.ok, #page-admin .form-msg.err{display:flex; animation:eqMsg .45s var(--ease) both;}
+  #page-admin .form-msg.ok{color:#9be8b7; background:rgba(46,160,90,0.12); border:1px solid rgba(46,160,90,0.32);}
+  #page-admin .form-msg.err{color:#ff9a8f; background:rgba(229,105,92,0.12); border:1px solid rgba(229,105,92,0.34);}
+  #page-admin .form-msg.ok::before, #page-admin .form-msg.err::before{
+    content:''; flex:none; width:8px; height:8px; border-radius:50%; background:currentColor;
+    box-shadow:0 0 0 4px color-mix(in srgb, currentColor 22%, transparent);
+  }
+
+  /* ---------- États vides et chargement ---------- */
+  #page-admin .empty-state{
+    padding:44px 24px; text-align:center; font-size:14px; color:var(--muted);
+    border:1px dashed var(--eq-trait-2); border-radius:var(--eq-r); background:transparent;
+    backdrop-filter:none; -webkit-backdrop-filter:none; box-shadow:none;
+  }
+  #page-admin .empty-state.chargement{
+    position:relative; overflow:hidden; border-style:solid; border-color:var(--eq-trait);
+    background:var(--eq-fond);
+  }
+  #page-admin .empty-state.chargement::after{
+    content:''; position:absolute; inset:0; transform:translateX(-100%);
+    background:linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.07) 50%, transparent 80%);
+    animation:eqBrille 1.4s ease-in-out infinite;
+  }
+
+  /* ---------- Confirmations, pastilles ---------- */
+  #page-admin .confirm-panel{
+    display:none; margin:0; padding:16px 18px; border-radius:12px;
+    border:1px solid var(--eq-trait-2); background:rgba(255,255,255,0.04);
+  }
+  #page-admin .confirm-panel.open{display:block; animation:eqPanneau .4s var(--ease) both;}
+  #page-admin .confirm-panel.danger{border-color:rgba(229,105,92,0.45); background:rgba(229,105,92,0.08);}
+  #page-admin .confirm-panel p{margin:0 0 12px; font-size:13.5px; line-height:1.55; color:var(--ink-soft);}
+  #page-admin .confirm-panel strong{color:var(--ink);}
+  #page-admin .inline-actions{display:flex; flex-wrap:wrap; gap:10px; margin-top:6px;}
+  #page-admin .inline-actions .btn{height:38px; padding:0 16px; font-size:13px;}
+
+  #page-admin .release-badge{
+    display:inline-flex; align-items:center; margin-left:6px; padding:2px 9px; border-radius:99px;
+    font-size:11px; font-weight:600; letter-spacing:.03em; text-transform:none;
+    color:var(--ink-soft); background:rgba(255,255,255,0.07); border:1px solid var(--eq-trait-2);
+  }
+  #page-admin .release-badge.live{color:#9be8b7; background:rgba(46,160,90,0.12); border-color:rgba(46,160,90,0.35);}
+  #page-admin .release-badge.scheduled{color:#ffc27d; background:rgba(255,170,70,0.1); border-color:rgba(255,170,70,0.35);}
+  #page-admin .lien-bouton{color:var(--blue-bright);}
+
+  /* ---------- Onglet Artistes ---------- */
+  .eq-outils{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:20px;}
+  .eq-outils > input{flex:1 1 260px; width:auto !important;}
+  .eq-outils > .btn{flex:none;}
+  #page-admin .artistes-filtres{display:flex; flex-wrap:wrap; gap:6px; margin:14px 0 6px;}
+  #page-admin .artistes-filtre{
+    padding:7px 14px; border-radius:99px; font-size:13px; font-weight:500;
+    border:1px solid var(--eq-trait-2); background:rgba(255,255,255,0.03); color:var(--ink-soft);
+    transition:background .25s var(--ease), color .25s var(--ease), border-color .25s var(--ease), transform .2s var(--ease);
+  }
+  #page-admin .artistes-filtre:hover{color:var(--ink); background:rgba(255,255,255,0.08);}
+  #page-admin .artistes-filtre:active{transform:scale(.96);}
+  #page-admin .artistes-filtre.actif{background:var(--blue); border-color:transparent; color:#fff; box-shadow:0 6px 16px rgba(20,137,222,0.3);}
+  #page-admin .artiste-ajout{
+    margin-top:16px; padding:20px 22px; border-radius:var(--eq-r);
+    background:rgba(255,255,255,0.04); border:1px solid var(--eq-trait-2);
+    box-shadow:none; backdrop-filter:none; -webkit-backdrop-filter:none;
+    animation:eqPanneau .45s var(--ease) both;
+  }
+  #page-admin .artiste-ajout[hidden]{display:none;}
+  #page-admin .artiste-resultat{
+    border-radius:12px; border:1px solid var(--eq-trait); background:rgba(0,0,0,0.2);
+    transition:border-color .25s var(--ease), background .25s var(--ease);
+  }
+  #page-admin .artiste-resultat .btn{height:36px; padding:0 14px; font-size:13px;}
+  #page-admin .artiste-resultat-photo{border:1px solid var(--eq-trait-2);}
+
+  /* ---------- Formulaires en cartes ---------- */
+  .eq-formulaire{display:flex; flex-direction:column; gap:18px;}
+  .eq-carte{
+    padding:22px 24px; border-radius:var(--eq-r);
+    background:var(--eq-fond); border:1px solid var(--eq-trait);
+    animation:eqRise .6s var(--ease) both;
+  }
+  .eq-carte-etroite{max-width:720px;}
+  .eq-carte-titre{
+    display:flex; align-items:center; gap:12px; margin:0 0 18px !important;
+    font-size:15px !important; font-weight:600; letter-spacing:-0.01em;
+  }
+  .eq-etape{
+    display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px;
+    border-radius:50%; font-size:12px; font-weight:700; color:var(--blue-bright);
+    background:rgba(79,180,255,0.12); border:1px solid rgba(79,180,255,0.3);
+  }
+  .eq-grille{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0 20px;}
+  .eq-grille-3{grid-template-columns:repeat(3, minmax(0,1fr));}
+  .eq-grille > .eq-large{grid-column:1 / -1;}
+  .eq-note{margin:8px 0 12px; font-size:12.5px; line-height:1.55; color:var(--muted);}
+  .eq-facultatif{text-transform:none; letter-spacing:normal; font-weight:400; color:var(--muted);}
+  .eq-pied-formulaire{display:flex; align-items:center; gap:12px;}
+  .eq-pied-formulaire .btn{min-width:220px;}
+  #page-admin .encadre-nouvel-artiste{
+    margin:0 0 18px; padding:18px; border-radius:12px;
+    border:1px dashed var(--eq-trait-2); background:rgba(0,0,0,0.18);
+  }
+  #page-admin .encadre-nouvel-artiste input[type=text]{margin-bottom:10px;}
+  #page-admin .cover-drop{
+    padding:26px 18px; border-radius:12px; text-align:center; font-size:14px; color:var(--muted);
+    border:1px dashed var(--eq-trait-2); background:rgba(0,0,0,0.2);
+    transition:border-color .25s var(--ease), background .25s var(--ease), color .25s var(--ease);
+  }
+  #page-admin .cover-drop:hover{border-color:var(--blue-bright); color:var(--ink); background:rgba(79,180,255,0.06);}
+  #page-admin .recherche-resultats{margin-top:8px;}
+  #page-admin .recherche-ajout{
+    height:34px; padding:0 14px; border-radius:9px; font-size:12.5px;
+    border:1px solid rgba(79,180,255,0.4); background:rgba(79,180,255,0.12); color:var(--blue-bright);
+  }
+  #page-admin .recherche-ajout:hover{background:var(--blue); color:#fff; border-color:transparent;}
+  @media (max-width:720px){
+    .eq-grille, .eq-grille-3{grid-template-columns:1fr;}
+    .eq-carte{padding:18px;}
+    .eq-pied-formulaire .btn{width:100%;}
+  }
+
+  /* ---------- Accréditations ---------- */
+  #page-admin .accred-infos{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px; margin:0;
+  }
+  #page-admin .accred-infos > div{
+    padding:12px 14px; border-radius:12px; background:rgba(0,0,0,0.2);
+    border:1px solid var(--eq-trait);
+  }
+  #page-admin .accred-infos dt{margin:0 0 4px; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted);}
+  #page-admin .accred-infos dd{margin:0; font-size:20px; font-weight:700; letter-spacing:-0.02em; color:var(--ink); font-variant-numeric:tabular-nums;}
+  #page-admin .accred-etat{
+    display:inline-flex; align-items:center; gap:7px; height:28px; padding:0 12px; border-radius:99px;
+    font-size:12px; font-weight:600; color:var(--ink-soft);
+    background:rgba(255,255,255,0.06); border:1px solid var(--eq-trait-2);
+  }
+  #page-admin .accred-etat.attente{color:#9be8b7; background:rgba(46,160,90,0.12); border-color:rgba(46,160,90,0.35);}
+  #page-admin .accred-etat.attente::before{content:''; width:7px; height:7px; border-radius:50%; background:currentColor; animation:eqPouls 2s ease-out infinite;}
+  @keyframes eqPouls{0%{box-shadow:0 0 0 0 rgba(155,232,183,0.55);} 70%,100%{box-shadow:0 0 0 8px rgba(155,232,183,0);}}
+  #page-admin .accred-lieu{font-size:13px; color:var(--muted);}
+  #page-admin .accred-aide{font-size:13px; color:var(--muted);}
+
+  /* ---------- Contenu : vidéos et publications ---------- */
+  #page-admin .pick-bascule{border-radius:10px;}
+  #page-admin .insta-admin{max-width:none; display:flex; flex-direction:column; gap:12px; margin-bottom:22px;}
+  #page-admin .insta-slot{
+    max-width:780px; padding:18px; border-radius:var(--eq-r);
+    background:var(--eq-fond); border:1px solid var(--eq-trait); box-shadow:none;
+  }
+
+  /* ---------- Retouches d'onglets existants ---------- */
+  #page-admin #adminSection-acces .acces-creer{margin-top:0;}
+
+  /* Les intertitres d'une liste (modération) ne s'étirent pas sur toute la ligne. */
+  #page-admin .admin-list > .eyebrow{align-self:flex-start; margin:0 0 -2px;}
+  #page-admin .admin-list > .eyebrow:not(:first-child){margin-top:20px;}
+
+  /* Une sortie en cours de modification : la fiche cède la place au formulaire. */
+  #page-admin .admin-row.editing .admin-row-main{display:none;}
+  #page-admin .release-edit{display:none; margin:0;}
+  #page-admin .admin-row.editing .release-edit{display:block; animation:eqPanneau .45s var(--ease) both;}
+  #page-admin .release-edit .field{margin-bottom:16px;}
+
+  /* ---------- Connexion à l'espace équipe ---------- */
+  #page-admin .admin-gate{
+    max-width:420px; margin:40px auto 0; padding:34px 30px 28px; text-align:left;
+    border-radius:24px; border:1px solid var(--eq-trait-2);
+    background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+    box-shadow:var(--ombre-3), var(--reflet-int);
+    animation:eqSection .6s var(--ease) both;
+  }
+  #page-admin .admin-gate h2{margin:4px 0 8px; font-size:28px; letter-spacing:-0.025em;}
+  #page-admin .admin-gate p{line-height:1.55;}
+  #page-admin .admin-gate input{display:block; margin:0 0 12px;}
+  #page-admin .admin-gate .btn{width:100%; height:48px; margin-top:6px;}
+
+  /* ---------- Entrées en scène ---------- */
+  @keyframes eqEntree{from{opacity:0; transform:translateX(-14px);} to{opacity:1; transform:none;}}
+  @keyframes eqSection{from{opacity:0; transform:translateY(16px);} to{opacity:1; transform:none;}}
+  @keyframes eqRise{from{opacity:0; transform:translateY(12px);} to{opacity:1; transform:none;}}
+  @keyframes eqMsg{from{opacity:0; transform:translateY(-8px) scale(.98);} to{opacity:1; transform:none;}}
+  @keyframes eqPanneau{from{opacity:0; transform:translateY(-8px);} to{opacity:1; transform:none;}}
+  @keyframes eqPop{from{opacity:0; transform:scale(.5);} to{opacity:1; transform:none;}}
+  @keyframes eqBrille{to{transform:translateX(100%);}}
+
+  /* Les cartes d'une liste montent l'une après l'autre quand on arrive sur
+     un onglet (la classe .eq-entree est posée un instant par le script). */
+  #page-admin .admin-section.eq-entree .admin-list > *{animation:eqRise .6s var(--ease) both;}
+  #page-admin .admin-section.eq-entree .admin-list > :nth-child(1){animation-delay:.05s;}
+  #page-admin .admin-section.eq-entree .admin-list > :nth-child(2){animation-delay:.1s;}
+  #page-admin .admin-section.eq-entree .admin-list > :nth-child(3){animation-delay:.15s;}
+  #page-admin .admin-section.eq-entree .admin-list > :nth-child(4){animation-delay:.2s;}
+  #page-admin .admin-section.eq-entree .admin-list > :nth-child(5){animation-delay:.25s;}
+  #page-admin .admin-section.eq-entree .admin-list > :nth-child(6){animation-delay:.3s;}
+  #page-admin .admin-section.eq-entree .admin-list > :nth-child(n+7){animation-delay:.35s;}
+
+  /* ---------- Petits écrans : la navigation passe en bandeau ---------- */
+  @media (max-width:1000px){
+    .eq-coque{display:block;}
+    .eq-nav{
+      position:sticky; top:78px; z-index:30; flex-direction:row; align-items:center; gap:6px;
+      margin:0 -24px 22px; padding:8px 24px; border-radius:0; border-width:1px 0;
+      background:rgba(8,11,16,0.86);
+      -webkit-backdrop-filter:blur(22px) saturate(160%); backdrop-filter:blur(22px) saturate(160%);
+      box-shadow:none; animation:none; overflow-x:auto; scrollbar-width:none;
+    }
+    .eq-nav::-webkit-scrollbar{display:none;}
+    .eq-profil, .eq-groupe, .eq-pastille{display:none;}
+    .eq-liste{flex-direction:row; gap:4px;}
+    #page-admin .admin-tab{width:auto; flex:none; padding:9px 14px; border-radius:99px; font-size:13px;}
+    #page-admin .admin-tab.active{background:rgba(79,180,255,0.16); box-shadow:inset 0 0 0 1px rgba(79,180,255,0.3);}
+    .eq-deconnexion{flex:none; width:auto; margin:0 0 0 auto; padding:9px 12px; border:0; border-radius:99px;}
+    .eq-deconnexion span{display:none;}
+    #page-admin{padding-top:0;}
+    #page-admin > section{padding-top:10px;}
+  }
+  @media (max-width:760px){
+    .eq-nav{top:73px; margin:0 -16px 18px; padding:8px 16px;}
+  }
+  @media (max-width:620px){
+    #page-admin .admin-row{padding:16px; gap:14px;}
+    #page-admin .admin-row img{width:56px; height:56px;}
+    #page-admin .admin-section h3{font-size:20px !important;}
+    #page-admin .admin-actions button{height:38px;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    #page-admin *, #page-admin *::before, #page-admin *::after{
+      animation-duration:.01ms !important; animation-delay:0s !important;
+      transition-duration:.01ms !important;
+    }
+  }
+
+
+  /* Petites icônes tracées, à la place des emojis en couleur des fiches. */
+  .eq-i{
+    display:inline-block; width:14px; height:14px; margin-right:8px; vertical-align:-2px;
+    background:currentColor; opacity:.7;
+    -webkit-mask:var(--eq-ic) center / contain no-repeat; mask:var(--eq-ic) center / contain no-repeat;
+  }
+  .eq-i-mail{--eq-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='2' y='4' width='20' height='16' rx='2'/%3E%3Cpath d='m22 7-10 6L2 7'/%3E%3C/svg%3E");}
+  .eq-i-cal{--eq-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18'/%3E%3C/svg%3E");}
+  .eq-i-go{--eq-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cpath d='M16 2v4M8 2v4M3 10h18m-11 5 2 2 4-4'/%3E%3C/svg%3E");}
+  .eq-i-clock{--eq-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 6v6l4 2'/%3E%3C/svg%3E");}
+  .eq-i-pin{--eq-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3C/svg%3E");}
+  .eq-i-alert{--eq-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z'/%3E%3Cpath d='M12 9v4M12 17h.01'/%3E%3C/svg%3E");}
+  .eq-i-check{--eq-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");}
+  .eq-i-epingle{--eq-ic:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 17v5M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z'/%3E%3C/svg%3E");}
 </style>
 </head>
 <body>
@@ -3824,7 +4300,7 @@
       <div class="section-head" style="margin-top:32px;">
         <div>
           <span class="eyebrow">Vos envies</span>
-          <h3 style="font-size:18px; margin-bottom:6px;">Proposer un concert</h3>
+          <h3>Proposer un concert</h3>
           <p class="desc">
             Un concert, un festival, une salle où tu aimerais shooter : dis-le-nous,
             on ira demander l'accréditation.
@@ -4181,103 +4657,135 @@
 
 <div id="adminPanel" style="display:none;">
 
-  <!-- ================= ADMIN HEADER ================= -->
+<div class="eq-coque">
 
-  <div class="section-head">
-    <div>
-      <h2 id="adminGreeting">Espace équipe</h2>
-      <p class="desc" id="adminGreetingSub">
-        Gérez les sorties envoyées par les artistes et publiez celles qui sont validées.
-      </p>
+  <!-- ================= ESPACE ÉQUIPE : ICÔNES ================= -->
+
+  <svg width="0" height="0" style="position:absolute;" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="eq-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+      <symbol id="eq-disque" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 8.66 5"/></symbol>
+      <symbol id="eq-artistes" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+      <symbol id="eq-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></symbol>
+      <symbol id="eq-film" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="3"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5"/></symbol>
+      <symbol id="eq-reglages" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+      <symbol id="eq-bulle" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+      <symbol id="eq-photo" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+      <symbol id="eq-bouee" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></symbol>
+      <symbol id="eq-cle" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M16 7l3 3M14 9l2 2"/></symbol>
+      <symbol id="eq-sortie" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+      <symbol id="eq-actualiser" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+    </defs>
+  </svg>
+
+
+  <!-- ================= ESPACE ÉQUIPE : NAVIGATION ================= -->
+
+  <nav class="eq-nav" aria-label="Espace équipe">
+
+    <div class="eq-profil">
+      <span class="eq-avatar" id="adminAvatar" aria-hidden="true">É</span>
+      <div class="eq-profil-texte">
+        <b id="adminCurrentUser"></b>
+        <small>Équipe La Wave</small>
+      </div>
     </div>
-  </div>
 
-  <div style="display:flex; align-items:center; gap:10px; margin-bottom:24px; flex-wrap:wrap;">
-    <span style="font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft);">
-      Connecté en tant que
-    </span>
+    <div class="eq-liste" role="tablist">
 
-    <span class="mono" id="adminCurrentUser" style="color:var(--blue); font-weight:600;"></span>
+      <span class="eq-pastille" aria-hidden="true"></span>
 
-    <button
-      onclick="adminLogout()"
-      style="background:none; border:none; font-size:13px; color:var(--muted); border-bottom:1px solid var(--muted); padding:0; margin-left:auto;"
-    >
-      Se déconnecter
-    </button>
-  </div>
+      <p class="eq-groupe">Catalogue</p>
 
+      <button type="button" class="admin-tab active" id="adminTab-submissions"
+        role="tab" onclick="switchAdminTab('submissions')" title="Sorties reçues">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-inbox"/></svg>
+        <span class="admin-tab-label">Soumissions</span>
+        <span class="admin-tab-count" id="adminCount-submissions"></span>
+      </button>
 
-  <!-- ================= ONGLETS ================= -->
+      <button type="button" class="admin-tab" id="adminTab-catalogue"
+        role="tab" onclick="switchAdminTab('catalogue')" title="Sorties validées">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-disque"/></svg>
+        <span class="admin-tab-label">Catalogue</span>
+        <span class="admin-tab-count" id="adminCount-catalogue"></span>
+      </button>
 
-  <div class="admin-tabs" role="tablist">
+      <button type="button" class="admin-tab" id="adminTab-artists"
+        role="tab" onclick="switchAdminTab('artists')" title="Profils artistes">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-artistes"/></svg>
+        <span class="admin-tab-label">Artistes</span>
+        <span class="admin-tab-count" id="adminCount-artists"></span>
+      </button>
 
-    <button type="button" class="admin-tab active" id="adminTab-submissions"
-      onclick="switchAdminTab('submissions')" title="Sorties reçues">
-      <span class="admin-tab-icon">📥</span>
-      <span class="admin-tab-label">Soumissions</span>
-      <span class="admin-tab-count" id="adminCount-submissions"></span>
-    </button>
+      <button type="button" class="admin-tab" id="adminTab-add"
+        role="tab" onclick="switchAdminTab('add')" title="Ajout manuel">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-plus"/></svg>
+        <span class="admin-tab-label">Ajout manuel</span>
+      </button>
 
-    <button type="button" class="admin-tab" id="adminTab-catalogue"
-      onclick="switchAdminTab('catalogue')" title="Sorties validées">
-      <span class="admin-tab-icon">💿</span>
-      <span class="admin-tab-label">Catalogue</span>
-      <span class="admin-tab-count" id="adminCount-catalogue"></span>
-    </button>
+      <p class="eq-groupe">Éditorial</p>
 
-    <button type="button" class="admin-tab" id="adminTab-artists"
-      onclick="switchAdminTab('artists')" title="Profils artistes">
-      <span class="admin-tab-icon">🧑‍🎤</span>
-      <span class="admin-tab-label">Artistes</span>
-      <span class="admin-tab-count" id="adminCount-artists"></span>
-    </button>
+      <button type="button" class="admin-tab" id="adminTab-content"
+        role="tab" onclick="switchAdminTab('content')" title="Vidéos et publications affichées">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-film"/></svg>
+        <span class="admin-tab-label">Contenu</span>
+      </button>
 
-    <button type="button" class="admin-tab" id="adminTab-add"
-      onclick="switchAdminTab('add')" title="Ajout manuel">
-      <span class="admin-tab-icon">➕</span>
-      <span class="admin-tab-label">Ajout manuel</span>
-    </button>
+      <button type="button" class="admin-tab" id="adminTab-accreditations"
+        role="tab" onclick="switchAdminTab('accreditations')" title="Accréditations photo">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-photo"/></svg>
+        <span class="admin-tab-label">Accréditations</span>
+        <span class="admin-tab-count" id="adminCount-accreditations"></span>
+      </button>
 
-    <button type="button" class="admin-tab" id="adminTab-content"
-      onclick="switchAdminTab('content')" title="Vidéos et publications affichées">
-      <span class="admin-tab-icon">🎬</span>
-      <span class="admin-tab-label">Contenu</span>
-    </button>
+      <p class="eq-groupe">Communauté</p>
 
-    <button type="button" class="admin-tab" id="adminTab-settings"
-      onclick="switchAdminTab('settings')" title="Chiffres réseaux">
-      <span class="admin-tab-icon">⚙️</span>
-      <span class="admin-tab-label">Réglages</span>
-    </button>
+      <button type="button" class="admin-tab" id="adminTab-community"
+        role="tab" onclick="switchAdminTab('community')" title="Modération du forum">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-bulle"/></svg>
+        <span class="admin-tab-label">Modération</span>
+      </button>
 
-    <button type="button" class="admin-tab" id="adminTab-community"
-      onclick="switchAdminTab('community')" title="Modération du forum">
-      <span class="admin-tab-icon">💬</span>
-      <span class="admin-tab-label">Communauté</span>
-    </button>
+      <button type="button" class="admin-tab" id="adminTab-support"
+        role="tab" onclick="switchAdminTab('support')" title="Bugs signalés">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-bouee"/></svg>
+        <span class="admin-tab-label">Support</span>
+        <span class="admin-tab-count" id="adminCount-support"></span>
+      </button>
 
-    <button type="button" class="admin-tab" id="adminTab-accreditations"
-      onclick="switchAdminTab('accreditations')" title="Accréditations photo">
-      <span class="admin-tab-icon">📷</span>
-      <span class="admin-tab-label">Accréditations</span>
-      <span class="admin-tab-count" id="adminCount-accreditations"></span>
-    </button>
+      <p class="eq-groupe">Site</p>
 
-    <button type="button" class="admin-tab" id="adminTab-support"
-      onclick="switchAdminTab('support')" title="Bugs signalés">
-      <span class="admin-tab-icon">🛟</span>
-      <span class="admin-tab-label">Support</span>
-      <span class="admin-tab-count" id="adminCount-support"></span>
-    </button>
+      <button type="button" class="admin-tab" id="adminTab-settings"
+        role="tab" onclick="switchAdminTab('settings')" title="Chiffres réseaux">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-reglages"/></svg>
+        <span class="admin-tab-label">Réglages</span>
+      </button>
 
-    <!-- ACCÈS TESTEURS (TEMPORAIRE) — onglet -->
-    <button type="button" class="admin-tab" id="adminTab-acces"
-      onclick="switchAdminTab('acces')" title="Accès testeurs (temporaire)">
-      <span class="admin-tab-icon">🔑</span>
-      <span class="admin-tab-label">Accès</span>
+      <!-- ACCÈS TESTEURS (TEMPORAIRE) — onglet -->
+      <button type="button" class="admin-tab" id="adminTab-acces"
+        role="tab" onclick="switchAdminTab('acces')" title="Accès testeurs (temporaire)">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-cle"/></svg>
+        <span class="admin-tab-label">Accès testeurs</span>
+      </button>
+
+    </div>
+
+    <button type="button" class="eq-deconnexion" onclick="adminLogout()">
+      <svg class="eq-ic" aria-hidden="true"><use href="#eq-sortie"/></svg>
+      <span>Se déconnecter</span>
     </button>
 
+  </nav>
+
+
+  <!-- ================= ESPACE ÉQUIPE : EN-TÊTE ================= -->
+
+  <div class="eq-entete">
+    <h2 id="adminGreeting">Espace équipe</h2>
+    <p class="desc" id="adminGreetingSub">
+      Gérez les sorties envoyées par les artistes et publiez celles qui sont validées.
+    </p>
   </div>
 
 
@@ -4288,7 +4796,7 @@
     <div class="section-head">
       <div>
         <span class="eyebrow">Accréditations</span>
-        <h3 style="font-size:18px; margin-bottom:6px;">
+        <h3>
           Places photo et tirages au sort
         </h3>
         <p class="desc">
@@ -4311,7 +4819,7 @@
     <div class="section-head" style="margin-top:28px;">
       <div>
         <span class="eyebrow">Vos envies</span>
-        <h3 style="font-size:18px; margin-bottom:6px;">
+        <h3>
           Concerts proposés par les photographes
         </h3>
         <p class="desc">
@@ -4332,7 +4840,7 @@
     <div class="section-head">
       <div>
         <span class="eyebrow mono">Soumissions</span>
-        <h3 style="font-size:18px; margin-bottom:6px;">
+        <h3>
           Sorties reçues
         </h3>
         <p class="desc">
@@ -4360,7 +4868,7 @@
       class="admin-list"
       style="margin-top:20px;"
     >
-      <div class="empty-state">
+      <div class="empty-state chargement">
         Chargement des soumissions...
       </div>
     </div>
@@ -4375,7 +4883,7 @@
     <div class="section-head">
       <div>
         <span class="eyebrow mono">Catalogue</span>
-        <h3 style="font-size:18px; margin-bottom:6px;">
+        <h3>
           Sorties validées
         </h3>
         <p class="desc">
@@ -4410,7 +4918,7 @@
       class="admin-list"
       style="margin-top:20px;"
     >
-      <div class="empty-state">
+      <div class="empty-state chargement">
         Chargement des sorties...
       </div>
     </div>
@@ -4425,19 +4933,14 @@
     <div class="section-head">
       <div>
         <span class="eyebrow mono">Artistes</span>
-        <h3 style="font-size:18px; margin-bottom:6px;">
+        <h3>
           Profils artistes
         </h3>
         <p class="desc">
-          Un profil par compte Instagram. La photo réglée ici s'applique
-          à toutes les sorties de l'artiste, passées et à venir.
-        </p>
-        <p class="desc" style="margin-top:8px;">
-          L'import suit sur Deezer les artistes marqués « suivis » : leurs
-          nouvelles sorties arrivent seules au catalogue, avec leurs
-          invités. Les artistes que l'import ajoute lui-même (invités,
-          artistes principaux d'une sortie) ne sont pas suivis tant que tu
-          ne le décides pas.
+          Un profil par compte Instagram : sa photo vaut pour toutes ses sorties.
+          L'import suit sur Deezer les artistes « suivis » — leurs nouvelles
+          sorties arrivent seules, avec leurs invités. Ceux que l'import ajoute
+          lui-même ne sont pas suivis tant que tu ne le décides pas.
         </p>
       </div>
 
@@ -4456,19 +4959,21 @@
       style="margin-top:16px;"
     ></div>
 
-    <div class="artistes-barre">
-      <div class="artistes-filtres" id="artistesFiltres"></div>
-      <div class="artistes-barre-actions">
-        <button type="button" class="btn btn-ghost" id="artistesBannisBtn"
-                onclick="ouvrirBannis()">
-          🚫 Artistes bannis <span id="artistesBannisNb"></span>
-        </button>
-        <button type="button" class="btn btn-primary"
-                onclick="ouvrirAjoutArtiste()">
-          ＋ Ajouter un artiste
-        </button>
-      </div>
+    <div class="eq-outils">
+      <input type="text" id="rechercheArtistesEquipe" autocomplete="off"
+             placeholder="Chercher un artiste, un pseudo, une ville"
+             oninput="renderArtistProfilesList()">
+      <button type="button" class="btn btn-ghost" id="artistesBannisBtn"
+              onclick="ouvrirBannis()">
+        Artistes bannis <span id="artistesBannisNb"></span>
+      </button>
+      <button type="button" class="btn btn-primary"
+              onclick="ouvrirAjoutArtiste()">
+        Ajouter un artiste
+      </button>
     </div>
+
+    <div class="artistes-filtres" id="artistesFiltres"></div>
 
     <!-- Les artistes bannis : masqués du site, plus importés, impossibles à
          ajouter. On les retrouve ici pour les rétablir, ou pour en bannir
@@ -4491,6 +4996,7 @@
         <div class="field">
           <label for="bannirNom">Bannir un artiste</label>
           <input type="text" id="bannirNom" autocomplete="off"
+                 oninput="bannirSaisie()"
                  placeholder="Son nom, ou l'adresse de sa page Deezer">
         </div>
         <div class="field">
@@ -4500,6 +5006,13 @@
         </div>
         <button type="submit" class="btn btn-primary" id="bannirBtn">Bannir</button>
       </form>
+
+      <!-- Ce qu'on a choisi dans les suggestions, puis les suggestions :
+           les artistes déjà sur La Wave d'abord, ceux de Deezer ensuite.
+           Rempli par bannirSaisie. -->
+      <div class="bannir-choix" id="bannirChoix" hidden></div>
+      <div class="bannir-suggestions" id="bannirSuggestions" hidden></div>
+
       <div id="artisteBannisListe" class="admin-list"></div>
     </div>
 
@@ -4521,18 +5034,12 @@
       <div id="artisteAjoutResultats" class="admin-list"></div>
     </div>
 
-    <div class="field" style="margin-top:20px; margin-bottom:0;">
-      <input type="text" id="rechercheArtistesEquipe" autocomplete="off"
-             placeholder="Chercher un artiste, un pseudo, une ville"
-             oninput="renderArtistProfilesList()">
-    </div>
-
     <div
       id="artistProfilesList"
       class="admin-list"
       style="margin-top:20px;"
     >
-      <div class="empty-state">
+      <div class="empty-state chargement">
         Chargement des profils...
       </div>
     </div>
@@ -4544,34 +5051,38 @@
 
   <div class="admin-section" id="adminSection-settings">
 
-    <span class="eyebrow mono">Réglages</span>
-
-    <h3 style="font-size:18px; margin-bottom:6px;">
-      Chiffres réseaux
-    </h3>
-
-    <p class="desc" style="margin-bottom:20px;">
-      Ces trois nombres s'affichent sur la page « À propos ».
-      Saisis-les comme tu veux les voir : « 12,4K », « 3 200 »...
-    </p>
-
-    <div class="form-wrap" style="margin-bottom:8px;">
-      <div class="field">
-        <label for="stat-ig">Instagram</label>
-        <input type="text" id="stat-ig" placeholder="ex : 12,4K">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow mono">Réglages</span>
+        <h3>Chiffres réseaux</h3>
+        <p class="desc">
+          Ces trois nombres s'affichent sur la page « À propos ».
+          Saisis-les comme tu veux les voir : « 12,4K », « 3 200 »...
+        </p>
       </div>
-      <div class="field">
-        <label for="stat-tiktok">TikTok</label>
-        <input type="text" id="stat-tiktok" placeholder="ex : 45,1K">
+    </div>
+
+    <div class="eq-carte eq-carte-etroite">
+      <div class="eq-grille eq-grille-3">
+        <div class="field">
+          <label for="stat-ig">Instagram</label>
+          <input type="text" id="stat-ig" placeholder="ex : 12,4K">
+        </div>
+        <div class="field">
+          <label for="stat-tiktok">TikTok</label>
+          <input type="text" id="stat-tiktok" placeholder="ex : 45,1K">
+        </div>
+        <div class="field">
+          <label for="stat-twitter">X / Twitter</label>
+          <input type="text" id="stat-twitter" placeholder="ex : 3 200">
+        </div>
       </div>
-      <div class="field">
-        <label for="stat-twitter">X / Twitter</label>
-        <input type="text" id="stat-twitter" placeholder="ex : 3 200">
+      <div class="eq-pied-formulaire" style="margin-top:4px;">
+        <button class="btn btn-primary" type="button" onclick="saveStats()">
+          Enregistrer les chiffres
+        </button>
       </div>
-      <button class="btn btn-primary" type="button" onclick="saveStats()">
-        Enregistrer les chiffres
-      </button>
-      <div class="form-msg" id="statsMsg" style="display:none;"></div>
+      <div class="form-msg" id="statsMsg" style="display:none; margin:16px 0 0;"></div>
     </div>
 
   </div>
@@ -4584,7 +5095,7 @@
     <div class="section-head">
       <div>
         <span class="eyebrow mono">Contenu</span>
-        <h3 style="font-size:18px; margin-bottom:6px;">
+        <h3>
           Vidéos et publications affichées
         </h3>
         <p class="desc">
@@ -4632,148 +5143,184 @@
 
   <div class="admin-section" id="adminSection-add">
 
-    <span class="eyebrow mono">Ajout manuel</span>
+    <div class="section-head">
+      <div>
+        <span class="eyebrow mono">Ajout manuel</span>
+        <h3>Ajouter directement au catalogue</h3>
+        <p class="desc">
+          Publie directement au catalogue, sans passer par la file des
+          soumissions. Mêmes champs que le formulaire public : la fiche
+          obtenue est identique à celle d'une sortie validée à la main.
+        </p>
+      </div>
+    </div>
 
-    <h3 style="font-size:18px; margin-bottom:6px;">
-      Ajouter directement au catalogue
-    </h3>
+    <div class="form-wrap">
 
-    <p class="desc" style="margin-bottom:20px;">
-      Publie directement au catalogue, sans passer par la file des
-      soumissions. Mêmes champs que le formulaire public : la fiche
-      obtenue est identique à celle d'une sortie validée à la main.
-    </p>
+      <form id="adminAddForm" class="eq-formulaire" novalidate>
 
-    <div class="form-wrap" style="margin-bottom:8px;">
+        <!-- ---------- 1. La sortie ---------- -->
 
-      <form id="adminAddForm" novalidate>
+        <div class="eq-carte">
 
-        <div class="field">
-          <label for="admin-title">Titre single / projet</label>
-          <input type="text" id="admin-title" maxlength="120">
+          <h4 class="eq-carte-titre"><span class="eq-etape">1</span> La sortie</h4>
+
+          <div class="eq-grille">
+
+            <div class="field eq-large">
+              <label for="admin-title">Titre single / projet</label>
+              <input type="text" id="admin-title" maxlength="120">
+            </div>
+
+            <div class="field eq-large">
+              <label for="admin-artist-recherche">Artiste</label>
+              <div class="recherche-barre">
+                <input
+                  type="text"
+                  id="admin-artist-recherche"
+                  placeholder="Tape un nom d'artiste"
+                  autocomplete="off"
+                  oninput="onRechercheArtisteInput('admin')">
+                <button
+                  type="button"
+                  class="recherche-ajout"
+                  onclick="choisirNouvelArtiste('admin')">
+                  ＋ Nouvel artiste
+                </button>
+              </div>
+              <div id="admin-artist-resultats" class="recherche-resultats"></div>
+            </div>
+
+            <div class="field eq-large" id="admin-artiste-connu" style="display:none;"></div>
+
+            <div id="admin-artiste-nouveau" class="encadre-nouvel-artiste eq-large" style="display:none;">
+              <input type="text" id="admin-artist" maxlength="120"
+                     placeholder="Nom de l'artiste">
+              <input type="text" id="admin-instagram"
+                     placeholder="@pseudo ou lien Instagram complet">
+              <p class="eq-note">
+                Le pseudo Instagram sert de clé au profil : c'est lui qui
+                rattache cette sortie aux autres du même artiste, et qui
+                réutilise la photo déjà réglée par l'équipe.
+              </p>
+              <div class="cover-drop" id="admin-artiste-photo-drop"
+                   onclick="ouvrirChoixPhotoArtiste('admin')">
+                <span>Photo de l'artiste — facultatif</span>
+              </div>
+              <p class="eq-note">
+                Appliquée directement au profil créé.
+              </p>
+              <div class="inline-actions">
+                <button type="button" class="btn btn-primary"
+                        onclick="validerNouvelArtiste('admin')">Ajouter</button>
+                <button type="button" class="btn btn-ghost"
+                        onclick="reinitialiserChoixArtiste('admin')">Annuler</button>
+              </div>
+              <div class="form-msg" id="admin-artiste-nouveau-msg"></div>
+            </div>
+
+            <div class="field eq-large" id="admin-feat-bloc"></div>
+
+            <div class="field eq-large">
+              <label>Type de sortie</label>
+              <div class="type-choice">
+                <label>
+                  <input type="radio" name="admin-release-type" value="Single" checked>
+                  Single
+                </label>
+                <label>
+                  <input type="radio" name="admin-release-type" value="Projet">
+                  Projet
+                </label>
+              </div>
+            </div>
+
+          </div>
+
         </div>
 
-        <div class="field">
-          <label for="admin-artist-recherche">Artiste</label>
-          <div class="recherche-barre">
-            <input
-              type="text"
-              id="admin-artist-recherche"
-              placeholder="Tape un nom d'artiste"
-              autocomplete="off"
-              oninput="onRechercheArtisteInput('admin')">
-            <button
-              type="button"
-              class="recherche-ajout"
-              onclick="choisirNouvelArtiste('admin')">
-              ＋ Nouvel artiste
-            </button>
+        <!-- ---------- 2. La pochette ---------- -->
+
+        <div class="eq-carte">
+
+          <h4 class="eq-carte-titre"><span class="eq-etape">2</span> La pochette</h4>
+
+          <div class="field" style="margin-bottom:0;">
+            <label>Cover (recadrée automatiquement en carré)</label>
+            <div class="cover-drop" id="adminCoverDrop">
+              <span id="adminCoverDropText">Cliquer pour choisir un fichier</span>
+            </div>
+            <input type="file" id="admin-cover-input" accept="image/png,image/jpeg,image/webp" style="display:none;">
           </div>
-          <div id="admin-artist-resultats" class="recherche-resultats"></div>
+
         </div>
 
-        <div class="field" id="admin-artiste-connu" style="display:none;"></div>
+        <!-- ---------- 3. L'écoute et les dates ---------- -->
 
-        <div id="admin-artiste-nouveau" class="encadre-nouvel-artiste" style="display:none;">
-          <input type="text" id="admin-artist" maxlength="120"
-                 placeholder="Nom de l'artiste">
-          <input type="text" id="admin-instagram"
-                 placeholder="@pseudo ou lien Instagram complet">
-          <p style="font-size:12px; color:var(--muted); margin:-2px 0 12px;">
-            Le pseudo Instagram sert de clé au profil : c'est lui qui
-            rattache cette sortie aux autres du même artiste, et qui
-            réutilise la photo déjà réglée par l'équipe.
-          </p>
-          <div class="cover-drop" id="admin-artiste-photo-drop"
-               onclick="ouvrirChoixPhotoArtiste('admin')">
-            <span>Photo de l'artiste — facultatif</span>
-          </div>
-          <p style="font-size:12px; color:var(--muted); margin:8px 0 12px;">
-            Appliquée directement au profil créé.
-          </p>
-          <div class="inline-actions">
-            <button type="button" class="btn btn-primary"
-                    style="padding:9px 16px; font-size:13px;"
-                    onclick="validerNouvelArtiste('admin')">Ajouter</button>
-            <button type="button" class="btn btn-ghost"
-                    style="padding:9px 16px; font-size:13px;"
-                    onclick="reinitialiserChoixArtiste('admin')">Annuler</button>
-          </div>
-          <div class="form-msg" id="admin-artiste-nouveau-msg"></div>
-        </div>
+        <div class="eq-carte">
 
-        <div class="field" id="admin-feat-bloc"></div>
+          <h4 class="eq-carte-titre"><span class="eq-etape">3</span> Écoute, clip et date</h4>
 
-        <div class="field">
-          <label>Cover (recadrée automatiquement en carré)</label>
-          <div class="cover-drop" id="adminCoverDrop">
-            <span id="adminCoverDropText">Cliquer pour choisir un fichier</span>
-          </div>
-          <input type="file" id="admin-cover-input" accept="image/png,image/jpeg,image/webp" style="display:none;">
-        </div>
-
-        <div class="field">
-          <label>Type de sortie</label>
-          <div class="type-choice">
-            <label>
-              <input type="radio" name="admin-release-type" value="Single" checked>
-              Single
-            </label>
-            <label>
-              <input type="radio" name="admin-release-type" value="Projet">
-              Projet
-            </label>
-          </div>
-        </div>
-
-        <div class="field">
-          <label>Liens d'écoute</label>
-          <p style="font-size:12px; color:var(--muted); margin:-2px 0 12px;">
+          <p class="eq-note" style="margin:-4px 0 16px;">
             Seules les plateformes renseignées apparaîtront sur la fiche.
           </p>
-          <input type="text" id="admin-spotify" placeholder="Spotify" style="margin-bottom:10px;">
-          <input type="text" id="admin-deezer" placeholder="Deezer" style="margin-bottom:10px;">
-          <input type="text" id="admin-apple" placeholder="Apple Music" style="margin-bottom:10px;">
-          <input type="text" id="admin-youtube" placeholder="YouTube">
+
+          <div class="eq-grille">
+
+            <div class="field">
+              <label for="admin-spotify">Spotify</label>
+              <input type="text" id="admin-spotify" placeholder="Lien Spotify">
+            </div>
+
+            <div class="field">
+              <label for="admin-deezer">Deezer</label>
+              <input type="text" id="admin-deezer" placeholder="Lien Deezer">
+            </div>
+
+            <div class="field">
+              <label for="admin-apple">Apple Music</label>
+              <input type="text" id="admin-apple" placeholder="Lien Apple Music">
+            </div>
+
+            <div class="field">
+              <label for="admin-youtube">YouTube</label>
+              <input type="text" id="admin-youtube" placeholder="Lien YouTube">
+            </div>
+
+            <div class="field eq-large">
+              <label for="admin-clip">
+                Clip <span class="eq-facultatif">— facultatif</span>
+              </label>
+              <input type="text" id="admin-clip" placeholder="Lien YouTube du clip">
+            </div>
+
+            <div class="field">
+              <label for="admin-release-date">Date de sortie</label>
+              <input type="date" id="admin-release-date">
+              <p class="eq-note" style="margin:8px 0 0;">
+                Une date à venir programme la sortie : elle apparaîtra
+                d'elle-même dans le catalogue ce jour-là.
+              </p>
+            </div>
+
+            <div class="field">
+              <label for="admin-email">
+                Email de contact <span class="eq-facultatif">— facultatif</span>
+              </label>
+              <input type="text" id="admin-email" placeholder="Laisser vide si l'équipe ajoute la sortie">
+            </div>
+
+          </div>
+
         </div>
 
-        <div class="field">
-          <label for="admin-clip">
-            Clip
-            <span style="text-transform:none; letter-spacing:normal; font-weight:400; color:var(--muted);">— facultatif</span>
-          </label>
-          <input type="text" id="admin-clip" placeholder="Lien YouTube du clip">
+        <div class="eq-pied-formulaire">
+          <button class="btn btn-primary" type="submit">
+            Publier au catalogue
+          </button>
         </div>
 
-        <div class="field">
-          <label for="admin-release-date">Date de sortie</label>
-          <input type="date" id="admin-release-date">
-          <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
-            Une date à venir programme la sortie : elle apparaîtra
-            d'elle-même dans le catalogue ce jour-là.
-          </p>
-        </div>
-
-        <div class="field">
-          <label for="admin-email">
-            Email de contact
-            <span style="text-transform:none; letter-spacing:normal; font-weight:400; color:var(--muted);">— facultatif</span>
-          </label>
-          <input type="text" id="admin-email" placeholder="Laisser vide si l'équipe ajoute la sortie elle-même">
-        </div>
-
-
-        <button
-          class="btn btn-primary"
-          type="submit"
-        >
-          Publier au catalogue
-        </button>
-
-        <div
-          class="form-msg"
-          id="adminAddMsg"
-        ></div>
+        <div class="form-msg" id="adminAddMsg"></div>
 
         <div id="postVisualWrap"></div>
 
@@ -4788,17 +5335,16 @@
 
   <div class="admin-section" id="adminSection-community">
 
-    <span class="eyebrow mono">
-      Communauté
-    </span>
-
-    <h3 style="font-size:18px; margin-bottom:6px;">
-      Modération de la communauté
-    </h3>
-    <p class="desc" style="margin-bottom:16px;">
-      Les signalements des membres, puis les derniers messages. Les messages privés
-      ne sont lisibles par personne, équipe comprise.
-    </p>
+    <div class="section-head">
+      <div>
+        <span class="eyebrow mono">Modération</span>
+        <h3>Modération de la communauté</h3>
+        <p class="desc">
+          Les signalements des membres, puis les derniers messages. Les messages privés
+          ne sont lisibles par personne, équipe comprise.
+        </p>
+      </div>
+    </div>
 
     <div
       class="admin-list"
@@ -4833,7 +5379,7 @@
     <div class="section-head">
       <div>
         <span class="eyebrow mono">Accès testeurs · temporaire</span>
-        <h3 style="font-size:18px; margin-bottom:6px;">
+        <h3>
           Inviter des testeurs
         </h3>
         <p class="desc">
@@ -4885,7 +5431,7 @@
     </div>
 
     <div id="accesListe" class="admin-list" style="margin-top:20px;">
-      <div class="empty-state">Chargement des accès...</div>
+      <div class="empty-state chargement">Chargement des accès...</div>
     </div>
 
   </div>
@@ -4899,7 +5445,7 @@
     <div class="section-head">
       <div>
         <span class="eyebrow mono">Support</span>
-        <h3 style="font-size:18px; margin-bottom:6px;">
+        <h3>
           Bugs signalés
         </h3>
         <p class="desc">
@@ -4927,13 +5473,14 @@
       class="admin-list"
       style="margin-top:20px;"
     >
-      <div class="empty-state">
+      <div class="empty-state chargement">
         Chargement des signalements...
       </div>
     </div>
 
   </div>
 
+</div><!-- /eq-coque -->
 </div>
     </section>
   </section>
@@ -7110,7 +7657,7 @@ async function loadContentPicker(){
 
   if(!liste) return;
 
-  liste.innerHTML = `<div class="empty-state">Chargement des vidéos...</div>`;
+  liste.innerHTML = `<div class="empty-state chargement">Chargement des vidéos...</div>`;
 
   await loadContentPicks(true);
 
@@ -7569,7 +8116,7 @@ async function renderAccreditations(){
   // ou un retrait. La remplacer par un message la faisait disparaître,
   // sautait la page, et perdait la ville choisie sous les yeux.
   if(liste.dataset.pret !== '1'){
-    liste.innerHTML = `<div class="empty-state">Chargement...</div>`;
+    liste.innerHTML = `<div class="empty-state chargement">Chargement...</div>`;
   }
 
   const erreur = await chargerAccreditations(false);
@@ -16234,7 +16781,7 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
   artisteAffiche = handle;
 
   const corps = document.getElementById('artistePageBody');
-  corps.innerHTML = `<div class="empty-state">Chargement...</div>`;
+  corps.innerHTML = `<div class="empty-state chargement">Chargement...</div>`;
 
   if(currentUser) awardXP('visiterArtiste', 5);
 
@@ -18267,6 +18814,14 @@ async function openAdminPanel(){
   document.getElementById('adminPanel').style.display = 'block';
   document.getElementById('adminCurrentUser').textContent = currentAdminName;
 
+  const avatar = document.getElementById('adminAvatar');
+  if(avatar){
+    avatar.textContent = (String(currentAdminName || 'É').trim().charAt(0) || 'É').toUpperCase();
+  }
+
+  // Le panneau vient d'apparaître : la pastille se place après la mise en page.
+  requestAnimationFrame(() => requestAnimationFrame(eqPlacerPastille));
+
   renderAdminGreeting(currentAdminName);
   showAdminError('');
 
@@ -18412,6 +18967,57 @@ const ADMIN_TABS = [
   'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
 
+// La pastille bleue glisse sous l'onglet actif ; les cartes de la section
+// montent l'une après l'autre le temps de l'arrivée ; sur petit écran,
+// l'onglet actif reste visible dans le bandeau.
+let eqMinuteurEntree = null;
+
+function eqPlacerPastille(){
+
+  const pastille = document.querySelector('.eq-pastille');
+  const actif = document.querySelector('#page-admin .admin-tab.active');
+
+  if(!pastille || !actif || !actif.offsetParent) return;
+
+  // Bandeau horizontal : pas de pastille, l'onglet actif se suffit.
+  if(getComputedStyle(pastille).display === 'none') return;
+
+  pastille.style.height = actif.offsetHeight + 'px';
+  pastille.style.transform = 'translateY(' + actif.offsetTop + 'px)';
+  pastille.classList.add('prete');
+}
+
+
+function eqApresChangement(nom){
+
+  const section = document.getElementById('adminSection-' + nom);
+
+  document.querySelectorAll('.admin-section.eq-entree').forEach(autre => {
+    if(autre !== section) autre.classList.remove('eq-entree');
+  });
+
+  if(section){
+    section.classList.add('eq-entree');
+    clearTimeout(eqMinuteurEntree);
+    eqMinuteurEntree = setTimeout(() => section.classList.remove('eq-entree'), 1400);
+  }
+
+  const onglet = document.getElementById('adminTab-' + nom);
+
+  document.querySelectorAll('#page-admin .admin-tab').forEach(t => {
+    t.setAttribute('aria-selected', t === onglet ? 'true' : 'false');
+  });
+
+  eqPlacerPastille();
+
+  if(onglet && onglet.scrollIntoView){
+    onglet.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  }
+}
+
+window.addEventListener('resize', () => eqPlacerPastille());
+
+
 function switchAdminTab(nom){
 
   ADMIN_TABS.forEach(id => {
@@ -18430,6 +19036,8 @@ function switchAdminTab(nom){
       section.classList.toggle('active', id === nom);
     }
   });
+
+  eqApresChangement(nom);
 
   // L'onglet Contenu interroge YouTube : on ne le fait qu'à son
   // ouverture, pas à chaque affichage de l'espace équipe.
@@ -18619,21 +19227,21 @@ async function renderAdminAcces(){
               </h4>
               ${a.nom ? `<span style="display:block;">${escapeHtml(a.email)}</span>` : ''}
               <span style="display:block; margin-top:4px;">
-                📅 Créé le ${accesDate(a.cree_le)} · ${connexions}${navigateurs}
+                <i class="eq-i eq-i-cal"></i>Créé le ${accesDate(a.cree_le)} · ${connexions}${navigateurs}
                 ${revoque ? ' · révoqué le ' + accesDate(a.revoque_le) : ''}
               </span>
             </div>
 
             <div class="admin-actions" style="flex-direction:column; align-items:stretch;">
               <button type="button" onclick="openConfirmPanel('acces-nmdp-${i}')">
-                🔑 ${revoque ? 'Rétablir avec un mot de passe' : 'Nouveau mot de passe'}
+                ${revoque ? 'Rétablir avec un mot de passe' : 'Nouveau mot de passe'}
               </button>
               ${revoque ? '' : `
               <button class="reject" type="button" onclick="openConfirmPanel('acces-rev-${i}')">
-                ⛔ Révoquer
+                Révoquer
               </button>`}
               <button class="reject" type="button" onclick="openConfirmPanel('acces-suppr-${i}')">
-                🗑 Supprimer
+                Supprimer
               </button>
             </div>
 
@@ -18707,7 +19315,7 @@ async function creerAcces(ev){
 
     const acces = await accesAppel('acces_creer', { p_email: email, p_nom: nom });
 
-    accesMontrerResultat('✅ Accès créé pour ' + acces.email, acces, nom);
+    accesMontrerResultat('Accès créé pour ' + acces.email, acces, nom);
 
     champEmail.value = '';
     champNom.value = '';
@@ -18738,7 +19346,7 @@ async function accesAgir(action, i){
 
     if(action === 'nouveau'){
       const acces = await accesAppel('acces_nouveau_mot_de_passe', { p_email: a.email });
-      accesMontrerResultat('🔑 Nouveau mot de passe pour ' + a.email, acces, a.nom);
+      accesMontrerResultat('Nouveau mot de passe pour ' + a.email, acces, a.nom);
     }
 
     if(action === 'revoquer'){
@@ -18795,7 +19403,7 @@ async function renderAdminAccreditations(){
   const zone = document.getElementById('adminEvenementsListe');
   if(!zone) return;
 
-  zone.innerHTML = `<div class="empty-state">Chargement...</div>`;
+  zone.innerHTML = `<div class="empty-state chargement">Chargement...</div>`;
 
   // Les propositions ne dépendent pas des événements : elles se
   // chargent à part, sinon un onglet sans événement les escamotait.
@@ -19554,7 +20162,10 @@ function setRowMessage(messageId, texte, type){
 
   if(!msg) return;
 
-  msg.textContent = texte || '';
+  // Le point coloré du message est dessiné par la feuille de style : le
+  // symbole écrit au début du texte ferait double emploi.
+  msg.textContent = String(texte || '')
+    .replace(/^(?:✅|❌|⚠️?|🚫|🔑|⛔|✓|✕)\s*/u, '');
 
   msg.className =
     texte
@@ -19581,7 +20192,7 @@ async function loadArtistSubmissions(){
   setRowMessage('adminActionMsg', '');
 
   list.innerHTML = `
-    <div class="empty-state">
+    <div class="empty-state chargement">
       Chargement des soumissions...
     </div>
   `;
@@ -19733,15 +20344,15 @@ async function loadArtistSubmissions(){
               }
 
               <span style="display:block; margin-top:5px;">
-                📧 ${escapeHtml(submission.contact_email)}
+                <i class="eq-i eq-i-mail"></i>${escapeHtml(submission.contact_email)}
               </span>
 
               <span style="display:block; margin-top:3px;">
-                📅 Reçue le ${date}
+                <i class="eq-i eq-i-cal"></i>Reçue le ${date}
               </span>
 
               <span style="display:block; margin-top:3px;">
-                🚀 ${
+                <i class="eq-i eq-i-go"></i>${
                   releaseDate
                     ? 'Sortie le ' + releaseDate
                     : 'Aucune date de sortie renseignée'
@@ -19756,7 +20367,7 @@ async function loadArtistSubmissions(){
                         font-size:12px;
                         color:var(--muted);
                       ">
-                      ⏳ Programmée : restera invisible sur le site
+                      <i class="eq-i eq-i-clock"></i>Programmée : restera invisible sur le site
                       jusqu'à cette date, même une fois validée.
                     </span>`
                   : ''
@@ -19789,7 +20400,7 @@ async function loadArtistSubmissions(){
                 type="button"
                 onclick="askApproveSubmission('${submission.id}')"
               >
-                ✓ Valider
+                Valider
               </button>
 
 
@@ -19798,7 +20409,7 @@ async function loadArtistSubmissions(){
                 type="button"
                 onclick="askRejectSubmission('${submission.id}')"
               >
-                ✕ Refuser
+                Refuser
               </button>
 
             </div>
@@ -20476,7 +21087,7 @@ function releaseRowHtml(submission){
           </span>
 
           <span style="display:block; margin-top:5px;">
-            🚀 ${
+            <i class="eq-i eq-i-go"></i>${
               releaseLabel
                 ? 'Sortie le ' + releaseLabel
                 : 'Aucune date de sortie renseignée'
@@ -20486,16 +21097,16 @@ function releaseRowHtml(submission){
           <span style="display:block; margin-top:3px;">
             ${
               submission.contact_email
-                ? `📧 <a href="mailto:${escapeAttribute(submission.contact_email)}"
+                ? `<i class="eq-i eq-i-mail"></i><a href="mailto:${escapeAttribute(submission.contact_email)}"
                         style="color:var(--blue);">${escapeHtml(submission.contact_email)}</a>`
-                : '📧 Aucun email renseigné'
+                : '<i class="eq-i eq-i-mail"></i>Aucun email renseigné'
             }
           </span>
 
           ${
             isScheduled
               ? `<span style="display:block; margin-top:3px;">
-                   ⏳ Pas encore visible sur le site.
+                   <i class="eq-i eq-i-clock"></i>Pas encore visible sur le site.
                  </span>`
               : ''
           }
@@ -20515,7 +21126,7 @@ function releaseRowHtml(submission){
             type="button"
             onclick="startEditRelease('${id}')"
           >
-            ✎ Modifier
+            Modifier
           </button>
 
           <button
@@ -20523,7 +21134,7 @@ function releaseRowHtml(submission){
             type="button"
             onclick="askDeleteRelease('${id}')"
           >
-            🗑 Supprimer
+            Supprimer
           </button>
 
         </div>
@@ -20832,7 +21443,7 @@ async function loadApprovedReleases(){
   setRowMessage('releasesActionMsg', '');
 
   list.innerHTML = `
-    <div class="empty-state">
+    <div class="empty-state chargement">
       Chargement des sorties...
     </div>
   `;
@@ -21303,7 +21914,7 @@ async function loadArtistProfiles(){
   setRowMessage('artistsActionMsg', '');
 
   list.innerHTML = `
-    <div class="empty-state">
+    <div class="empty-state chargement">
       Chargement des profils...
     </div>
   `;
@@ -21815,6 +22426,248 @@ async function bannirDepuisProfil(handle){
 
 // Bannir un artiste qui n'est pas forcément sur La Wave : son nom, ou
 // l'adresse de sa page Deezer (la base va chercher son nom).
+// Ce que la saisie du champ « Bannir un artiste » propose : les artistes déjà
+// sur La Wave (instantané, depuis la liste chargée), puis ceux de Deezer.
+// Choisir une suggestion la retient ; le bouton « Bannir » fait le reste.
+let bannirChoix = null;
+let bannirMinuteur = null;
+let bannirJeton = 0;
+let bannirDeezer = [];
+
+
+function bannirTexteLibre(texte){
+  return /artist\/\d+/.test(texte) || /^\d+$/.test(texte);
+}
+
+
+function bannirSaisie(){
+
+  const champ = document.getElementById('bannirNom');
+  const zone = document.getElementById('bannirSuggestions');
+  if(!champ || !zone) return;
+
+  // Retaper dans le champ annule le choix précédent.
+  if(bannirChoix) retirerChoixBannir(true);
+
+  clearTimeout(bannirMinuteur);
+
+  const texte = champ.value.trim();
+  const jeton = ++bannirJeton;
+
+  bannirDeezer = [];
+
+  if(texte.length < 2 || bannirTexteLibre(texte)){
+    zone.hidden = true;
+    zone.innerHTML = '';
+    return;
+  }
+
+  dessinerSuggestionsBannir(texte, 'recherche');
+
+  bannirMinuteur = setTimeout(async () => {
+
+    const { data, error } = await BD.chercherArtisteDeezer(texte);
+
+    if(jeton !== bannirJeton) return;
+
+    bannirDeezer = (!error && Array.isArray(data)) ? data : [];
+
+    dessinerSuggestionsBannir(texte, 'fini');
+
+  }, 450);
+}
+
+
+function suggestionsLocalesBannir(texte){
+
+  const q = normeArtiste(texte);
+  if(!q) return [];
+
+  const note = p => {
+    const nom = normeArtiste(p.display_name);
+    const pseudo = normeArtiste(String(p.instagram_handle || '').replace(/\.\d+$/, ''));
+    if(nom === q || pseudo === q) return 0;
+    if(nom.startsWith(q) || pseudo.startsWith(q)) return 1;
+    if(nom.includes(q) || pseudo.includes(q)) return 2;
+    return 9;
+  };
+
+  return artistProfilesData
+    .map(p => ({ p, n: note(p) }))
+    .filter(x => x.n < 9)
+    .sort((a, b) => a.n - b.n ||
+      (artistProfilesComptes[b.p.instagram_handle] || 0) - (artistProfilesComptes[a.p.instagram_handle] || 0) ||
+      String(a.p.display_name || '').localeCompare(String(b.p.display_name || ''), 'fr'))
+    .slice(0, 6)
+    .map(x => x.p);
+}
+
+
+function dessinerSuggestionsBannir(texte, etat){
+
+  const zone = document.getElementById('bannirSuggestions');
+  if(!zone) return;
+
+  const locaux = suggestionsLocalesBannir(texte);
+  const nombre = n => Number(n || 0).toLocaleString('fr-FR');
+
+  const ligneLocale = p => {
+    const h = p.instagram_handle;
+    const n = artistProfilesComptes[h] || 0;
+    const photo = safeUrl(p.photo_url);
+    return `
+      <div class="artiste-resultat" onclick="choisirBannir('profil', '${escapeAttribute(h)}')">
+        <div class="artiste-resultat-photo">${
+          photo
+            ? `<img src="${escapeAttribute(photo)}" alt="" loading="lazy">`
+            : escapeHtml(artistInitial(p.display_name || h))
+        }</div>
+        <div class="artiste-resultat-infos">
+          <b>${escapeHtml(p.display_name || h)}</b>
+          <span>@${escapeHtml(h)} · ${n} sortie${n > 1 ? 's' : ''}${
+            p.source === 'deezer-auto' ? ' · ajouté automatiquement' : ''
+          }</span>
+        </div>
+        <button type="button" class="btn btn-ghost">Choisir</button>
+      </div>`;
+  };
+
+  const dejaLocaux = new Set(locaux.map(p => p.instagram_handle));
+
+  const deezer = bannirDeezer.filter(r =>
+    (!r.deja || !dejaLocaux.has(r.deja)) && !artisteResultatBanni(r)
+  );
+
+  const ligneDeezer = (r, i) => {
+    const photo = safeUrl(r.photo);
+    const profil = r.deja
+      ? artistProfilesData.find(p => p.instagram_handle === r.deja)
+      : null;
+    return `
+      <div class="artiste-resultat" onclick="choisirBannir('deezer', ${i})">
+        <div class="artiste-resultat-photo">${
+          photo
+            ? `<img src="${escapeAttribute(photo)}" alt="" loading="lazy">`
+            : escapeHtml(artistInitial(r.nom))
+        }</div>
+        <div class="artiste-resultat-infos">
+          <b>${escapeHtml(r.nom || '')}</b>
+          <span>${nombre(r.fans)} fans · ${nombre(r.albums)} album${r.albums > 1 ? 's' : ''}${
+            profil ? ' · sur La Wave : ' + escapeHtml(profil.display_name || profil.instagram_handle) : ''
+          }</span>
+        </div>
+        <button type="button" class="btn btn-ghost">Choisir</button>
+      </div>`;
+  };
+
+  let html = '';
+
+  if(locaux.length){
+    html += '<div class="bannir-groupe">Sur La Wave</div>' + locaux.map(ligneLocale).join('');
+  }
+
+  if(deezer.length){
+    html += '<div class="bannir-groupe">Sur Deezer</div>' +
+      bannirDeezer.map((r, i) => deezer.includes(r) ? ligneDeezer(r, i) : '').join('');
+  } else if(etat === 'recherche'){
+    html += '<div class="bannir-groupe">Recherche sur Deezer...</div>';
+  }
+
+  if(!html){
+    html = `<div class="empty-state">Aucun artiste trouvé : « Bannir » le bannira sous ce nom.</div>`;
+  }
+
+  zone.innerHTML = html;
+  zone.hidden = false;
+}
+
+
+function choisirBannir(type, cle){
+
+  let choix = null;
+
+  if(type === 'profil'){
+
+    const p = artistProfilesData.find(x => x.instagram_handle === cle);
+    if(!p) return;
+
+    choix = {
+      nom: p.display_name || p.instagram_handle,
+      handle: p.instagram_handle,
+      deezer: p.deezer_artist_id || null,
+      photo: safeUrl(p.photo_url),
+      detail: '@' + p.instagram_handle + ' · ' + (
+        artistProfilesComptes[p.instagram_handle]
+          ? artistProfilesComptes[p.instagram_handle] + ' sortie' +
+            (artistProfilesComptes[p.instagram_handle] > 1 ? 's' : '') + ' masquée' +
+            (artistProfilesComptes[p.instagram_handle] > 1 ? 's' : '')
+          : 'aucune sortie'
+      )
+    };
+
+  } else {
+
+    const r = bannirDeezer[cle];
+    if(!r) return;
+
+    const profil = r.deja ? artistProfilesData.find(x => x.instagram_handle === r.deja) : null;
+
+    choix = {
+      nom: r.nom,
+      handle: profil ? profil.instagram_handle : null,
+      deezer: r.id,
+      photo: safeUrl(r.photo),
+      detail: 'page Deezer' + (profil ? ' · déjà sur La Wave' : '')
+    };
+  }
+
+  bannirChoix = choix;
+  bannirJeton++;
+  clearTimeout(bannirMinuteur);
+
+  const champ = document.getElementById('bannirNom');
+  const zone = document.getElementById('bannirSuggestions');
+  const chip = document.getElementById('bannirChoix');
+  const bouton = document.getElementById('bannirBtn');
+
+  champ.value = choix.nom;
+  zone.hidden = true;
+  zone.innerHTML = '';
+
+  chip.innerHTML = `
+    <div class="artiste-resultat-photo">${
+      choix.photo
+        ? `<img src="${escapeAttribute(choix.photo)}" alt="" loading="lazy">`
+        : escapeHtml(artistInitial(choix.nom))
+    }</div>
+    <div class="bannir-choix-texte">
+      <b>${escapeHtml(choix.nom)}</b>
+      ${escapeHtml(choix.detail)}
+    </div>
+    <button type="button" class="btn btn-ghost" onclick="retirerChoixBannir()">Changer</button>`;
+  chip.hidden = false;
+
+  bouton.textContent = 'Bannir ' + choix.nom;
+}
+
+
+function retirerChoixBannir(silencieux){
+
+  bannirChoix = null;
+
+  const chip = document.getElementById('bannirChoix');
+  const bouton = document.getElementById('bannirBtn');
+
+  if(chip){ chip.hidden = true; chip.innerHTML = ''; }
+  if(bouton) bouton.textContent = 'Bannir';
+
+  if(!silencieux){
+    const champ = document.getElementById('bannirNom');
+    if(champ){ champ.focus(); champ.select(); }
+  }
+}
+
+
 async function bannirDepuisFormulaire(ev){
 
   if(ev) ev.preventDefault();
@@ -21822,6 +22675,25 @@ async function bannirDepuisFormulaire(ev){
 
   const champ = document.getElementById('bannirNom');
   const raison = document.getElementById('bannirRaison');
+
+  // Un artiste choisi dans les suggestions : on le bannit tel quel.
+  if(bannirChoix){
+
+    const choix = bannirChoix;
+
+    const ok = await executerBannissement(
+      choix.nom, choix.handle, choix.deezer, raison.value.trim()
+    );
+
+    if(ok){
+      champ.value = '';
+      raison.value = '';
+      retirerChoixBannir(true);
+    }
+
+    return;
+  }
+
   const texte = champ.value.trim();
 
   if(!texte){
@@ -21864,6 +22736,8 @@ async function bannirDepuisFormulaire(ev){
   if(ok){
     champ.value = '';
     raison.value = '';
+    const zone = document.getElementById('bannirSuggestions');
+    if(zone){ zone.hidden = true; zone.innerHTML = ''; }
   }
 }
 
@@ -22425,31 +23299,31 @@ function artistProfileRowHtml(profil){
               <span style="display:block; margin-top:4px;">
                 ${
                   profil.ville
-                    ? '📍 ' + escapeHtml(profil.ville) +
+                    ? '<i class="eq-i eq-i-pin"></i>' + escapeHtml(profil.ville) +
                       (profil.latitude ? '' : ' — sans coordonnées, absent de la carte')
-                    : '📍 Aucune ville — absent de la carte'
+                    : '<i class="eq-i eq-i-pin"></i>Aucune ville — absent de la carte'
                 }
               </span>
 
               <span style="display:block; margin-top:4px;">
                 ${
                   (emails[h] || []).length
-                    ? '📧 ' + emails[h].map(email => `
+                    ? '<i class="eq-i eq-i-mail"></i>' + emails[h].map(email => `
                         <a href="mailto:${escapeAttribute(email)}"
                            style="color:var(--blue);">${escapeHtml(email)}</a>`
                       ).join(', ')
-                    : '📧 Aucun email laissé dans ses soumissions'
+                    : '<i class="eq-i eq-i-mail"></i>Aucun email laissé dans ses soumissions'
                 }
               </span>
 
               ${
                 profil.demande_par && !profil.verifie_par
                   ? `<span style="display:block; margin-top:6px; color:var(--blue-bright);">
-                       ⏳ Demande de gestion en attente
+                       <i class="eq-i eq-i-clock"></i>Demande de gestion en attente
                      </span>`
                   : profil.verifie_par
                     ? `<span style="display:block; margin-top:6px;">
-                         ✓ Page gérée par l'artiste
+                         <i class="eq-i eq-i-check"></i>Page gérée par l'artiste
                        </span>`
                     : ''
               }
@@ -22460,7 +23334,7 @@ function artistProfileRowHtml(profil){
                 profil.photo_url
                   ? ''
                   : `<span style="display:block; margin-top:4px;">
-                       ⚠️ Pas encore de photo — l'initiale s'affiche
+                       <i class="eq-i eq-i-alert"></i>Pas encore de photo — l'initiale s'affiche
                        sur ses fiches.
                      </span>`
               }
@@ -22473,7 +23347,7 @@ function artistProfileRowHtml(profil){
             >
 
               <button type="button" onclick="ouvrirEditionArtiste('${h}')">
-                ✎ Modifier
+                Modifier
               </button>
 
               <button type="button" onclick="voirPageArtiste('${h}')">
@@ -22484,11 +23358,11 @@ function artistProfileRowHtml(profil){
                 profil.demande_par && !profil.verifie_par
                   ? `<button class="approve" type="button"
                              onclick="validerDemandeArtiste('${h}')">
-                       ✓ Valider la demande
+                       Valider la demande
                      </button>
                      <button class="reject" type="button"
                              onclick="refuserDemandeArtiste('${h}')">
-                       ✕ Refuser
+                       Refuser
                      </button>`
                   : ''
               }
@@ -22497,26 +23371,26 @@ function artistProfileRowHtml(profil){
                 type="button"
                 onclick="openArtistPhotoPicker('${h}')"
               >
-                ${profil.photo_url ? '🖼 Changer la photo' : '＋ Ajouter une photo'}
+                ${profil.photo_url ? 'Changer la photo' : '＋ Ajouter une photo'}
               </button>
 
               ${
                 profil.photo_url
                   ? `<button class="reject" type="button"
                              onclick="clearArtistPhoto('${h}')">
-                       ✕ Retirer la photo
+                       Retirer la photo
                      </button>`
                   : ''
               }
 
               <button class="reject" type="button"
                       onclick="openConfirmPanel('artist-ban-${h}')">
-                🚫 Bannir
+                Bannir
               </button>
 
               <button class="reject" type="button"
                       onclick="ouvrirSuppressionArtiste('${h}')">
-                🗑 Supprimer
+                Supprimer
               </button>
 
             </div>
@@ -23307,7 +24181,7 @@ async function loadBugReports(){
   setRowMessage('bugsActionMsg', '');
 
   list.innerHTML = `
-    <div class="empty-state">Chargement des signalements...</div>
+    <div class="empty-state chargement">Chargement des signalements...</div>
   `;
 
   try{
@@ -23367,8 +24241,8 @@ async function loadBugReports(){
               </span>
 
               <span style="display:block; margin-top:6px;">
-                📅 ${date}
-                ${bug.contact_email ? ' · 📧 ' + escapeHtml(bug.contact_email) : ' · aucun contact'}
+                <i class="eq-i eq-i-cal"></i>${date}
+                ${bug.contact_email ? ' · ' + '<i class="eq-i eq-i-mail"></i>' + escapeHtml(bug.contact_email) : ' · aucun contact'}
               </span>
 
             </div>
@@ -23378,12 +24252,12 @@ async function loadBugReports(){
 
               <button type="button"
                 onclick="toggleBugStatus('${bug.id}', '${traite ? 'open' : 'resolved'}')">
-                ${traite ? '↺ Rouvrir' : '✓ Traité'}
+                ${traite ? 'Rouvrir' : 'Marquer traité'}
               </button>
 
               <button class="reject" type="button"
                 onclick="deleteBugReport('${bug.id}')">
-                🗑 Supprimer
+                Supprimer
               </button>
 
             </div>
@@ -23809,7 +24683,7 @@ async function renderForumModeration(){
 
   if(!list) return;
 
-  list.innerHTML = `<div class="empty-state">Chargement…</div>`;
+  list.innerHTML = `<div class="empty-state chargement">Chargement…</div>`;
 
   const [signalements, fil] = await Promise.all([
     supabaseClient.rpc('com_signalements_liste'),
@@ -23854,7 +24728,7 @@ async function renderForumModeration(){
     ${posts.length ? posts.map(p => `
       <div class="admin-row">
         <div class="meta">
-          <h4>${escapeHtml(p.auteur ? p.auteur.pseudo : '?')}${p.epingle ? ' · 📌 épinglé' : ''}</h4>
+          <h4>${escapeHtml(p.auteur ? p.auteur.pseudo : '?')}${p.epingle ? ' · ' + '<i class="eq-i eq-i-epingle"></i>' + 'épinglé' : ''}</h4>
           <span>${escapeHtml(String(p.contenu || '(image ou lien)').slice(0, 120))}${(p.contenu || '').length > 120 ? '…' : ''} · ${p.nb_commentaires} commentaire(s)</span>
         </div>
         <div class="admin-actions">
