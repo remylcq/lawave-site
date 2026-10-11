@@ -1392,7 +1392,7 @@ function actionsHtml(p, o){
       <div class="com-vibes">
         ${vibes}
         <div class="com-reag-zone">
-          <button type="button" class="com-vibe ajout${vibes ? '' : ' vide'}" data-act="palette" aria-haspopup="true" aria-label="Réagir">
+          <button type="button" class="com-vibe ajout${vibes ? '' : ' vide'}" data-act="palette" aria-haspopup="true" aria-label="Réagir" title="Réagir">
             ${icone('smiley', 19)}${vibes ? '' : '<span>Réagir</span>'}
           </button>
           <div class="com-palette" role="group" aria-label="Choisir une réaction">
@@ -4614,8 +4614,8 @@ VUES.collabs = {
     V.el.innerHTML = `
       <div class="com-carte com-collabs-tete">
         <div>
-          <h2 class="com-explorer-titre">Collaborations</h2>
-          <p class="com-explorer-sous">Qui cherche un beatmaker ? Qui propose ses services ? Trouve ton prochain projet, ou lance le tien.</p>
+          <h2 class="com-explorer-titre">Trouve ton prochain projet</h2>
+          <p class="com-explorer-sous">Qui cherche un beatmaker ? Qui propose ses services ? Réponds à une annonce, ou lance la tienne.</p>
         </div>
         <button type="button" class="com-btn com-btn-plein" data-act="collab-publier">${icone('plus', 16)} Publier une annonce</button>
       </div>
