@@ -3875,12 +3875,9 @@ function construireSalle(){
   // ---- Murs : marbre sombre, soubassement de lattes, garnitures ----
   const marbre = creerMarbre('#2e2d35', '#9d9aa8', '#d6b06a', 16);
   const lattes = creerLattes();
-  // Un marbre poli n'a pas de relief : seulement un grain fin, qui accroche
-  // un peu de lumière. Les veines restent dessinées dans la couleur.
-  const grain = creerCanvas(512, 512);
-  grain.x.fillStyle = '#808080';
-  grain.x.fillRect(0, 0, 512, 512);
-  const bumpMarbre = creerBump(grain.c, { bruit: 110 });
+  // Un marbre poli n'a pas de relief : un grain, même fin, y scintillait. Ses
+  // veines restent dessinées dans la couleur, et le poli vient de la lumière
+  // (un reflet par pixel, voir le matériau des murs).
   const bumpLattes = creerBump(lattes, { contraste: 1.6, bruit: 14 });
 
   const bois = [], laiton = [], led = [];
@@ -3905,7 +3902,6 @@ function construireSalle(){
       new THREE.PlaneGeometry(m.l, Ht),
       new THREE.MeshPhongMaterial({
         map: R.texture(marbre, { repete: true, rx: m.l / 1.8, ry: Ht / 1.8 }),
-        bumpMap: R.texture(bumpMarbre, { repete: true, rx: m.l / 1.8, ry: Ht / 1.8 }), bumpScale: 0.12,
         color: 0x5c5c5c, specular: 0x1c1c22, shininess: 38
       })
     ), Ht / 2, 0);
@@ -6900,7 +6896,7 @@ function rendre(sc, cam){
   }
 
   // Le lissage des bords, avant le halo et l'étalonnage.
-  const aa = POST.fxaa;
+  const aa = POST.fxaa && salle;
 
   if(aa) passe(POST.mat.fxaa, POST.rtAA);
 
@@ -10960,7 +10956,9 @@ function redimensionner(){
 function appliquerQualite(){
 
   if(POST.actif){
-    POST.ssao = QUALITE.niveau !== 'basse';
+    // L'occlusion ambiante est réservée aux ordinateurs, sauf si la personne
+    // demande la qualité haute ; en économie, elle s'éteint.
+    POST.ssao = QUALITE.niveau !== 'basse' && (!etat.tactile || QUALITE.niveau === 'haute');
     POST.bloom = true;
     POST.fxaa = true;
   }
