@@ -61,6 +61,7 @@ const TAU = Math.PI * 2;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const sortieCubique = t => 1 - Math.pow(1 - t, 3);
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 const entreeSortie = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 const hasard = (a, b) => a + Math.random() * (b - a);
 const attendre = ms => new Promise(ok => setTimeout(ok, ms));
@@ -1862,7 +1863,7 @@ function geoBooster(largeur, hauteur, epaisseur){
   return g;
 }
 
-function colorer(g, hex){
+function colorer(g, hex, mat){
   const n = g.attributes.position.count;
   const col = new Float32Array(n * 3);
   const c = new THREE.Color(hex);
@@ -1872,6 +1873,26 @@ function colorer(g, hex){
     col[i * 3 + 2] = c.b;
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  if(mat !== undefined) marquer(g, mat);
+  return g;
+}
+
+// La matière des personnages, sommet par sommet : le matériau commun des
+// humains s'en sert pour savoir comment la lumière doit s'y poser.
+//   0 tissu (mat)      1 peau (douce, un peu rosée au bord)   2 cheveux (reflet en bande)
+//   3 cuir, verre, dents (brillant)   4 métal (boutons, bijoux, boucle)   5 yeux (humides)   6 lèvres
+const MATIERE = { tissu: 0, peau: 1, cheveux: 2, brillant: 3, metal: 4, humide: 5, levres: 6 };
+
+function marquer(g, valeur){
+  const n = g.attributes.position.count;
+  const a = new Float32Array(n);
+  if(typeof valeur === 'function'){
+    const p = g.attributes.position;
+    for(let i = 0; i < n; i++) a[i] = valeur(p.getX(i), p.getY(i), p.getZ(i));
+  } else {
+    a.fill(valeur);
+  }
+  g.setAttribute('matiere', new THREE.BufferAttribute(a, 1));
   return g;
 }
 
@@ -1890,6 +1911,11 @@ function fusionner(liste){
   const uv = new Float32Array(n * 2);
   const col = new Float32Array(n * 3).fill(1);
 
+  // La matière n'existe que pour les personnages : on ne la porte que si une
+  // des formes en a une.
+  const avecMatiere = plates.some(g => g.attributes.matiere);
+  const mat = avecMatiere ? new Float32Array(n) : null;
+
   let o = 0;
 
   plates.forEach(g => {
@@ -1898,6 +1924,7 @@ function fusionner(liste){
     nor.set(g.attributes.normal.array, o * 3);
     if(g.attributes.uv) uv.set(g.attributes.uv.array, o * 2);
     if(g.attributes.color) col.set(g.attributes.color.array, o * 3);
+    if(mat && g.attributes.matiere) mat.set(g.attributes.matiere.array, o);
     o += k;
   });
 
@@ -1906,6 +1933,7 @@ function fusionner(liste){
   res.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
   res.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   res.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  if(mat) res.setAttribute('matiere', new THREE.BufferAttribute(mat, 1));
 
   return res;
 }
@@ -1936,11 +1964,11 @@ function boiteBiseau(l, h, p, x, y, z, couleur, b, rx){
   return g;
 }
 
-function boite(l, h, p, x, y, z, couleur, rx){
+function boite(l, h, p, x, y, z, couleur, rx, mat){
   const g = new THREE.BoxGeometry(l, h, p);
   if(rx) g.rotateX(rx);
   g.translate(x, y, z);
-  if(couleur) colorer(g, couleur);
+  if(couleur) colorer(g, couleur, mat);
   return g;
 }
 
@@ -2431,11 +2459,17 @@ class Machine {
 
     this.rouleaux.forEach((r, i) => {
 
+      // La vitesse réelle du rouleau à cet instant, pour le flou : pendant le
+      // freinage, r.vitesse garde la vitesse de croisière (la courbe en dépend),
+      // alors que le rouleau, lui, ralentit.
+      let reelle = r.vitesse;
+
       if(r.etat === 'tourne'){
 
         toutArrete = false;
         r.vitesse += (r.omega - r.vitesse) * Math.min(1, dt * 6);
         r.angle += r.vitesse * dt;
+        reelle = r.vitesse;
 
       } else if(r.etat === 'approche'){
 
@@ -2464,9 +2498,13 @@ class Machine {
 
         r.angle = r.a0 + r.delta * sortieCubique(u);
 
+        // La dérivée de la courbe de freinage : (1 - u)² fois la vitesse de départ.
+        reelle = r.vitesse * (1 - u) * (1 - u);
+
         if(u >= 1){
           r.etat = 'repos';
           r.vitesse = 0;
+          reelle = 0;
           // On se cale exactement sur la tuile : les flottants ont pu
           // s'écarter de quelques millièmes de radian en chemin.
           r.angle = r.cibleFinale;
@@ -2476,9 +2514,14 @@ class Machine {
 
       r.mesh.rotation.x = r.angle;
 
-      // Le flou suit la vitesse du rouleau.
+      // Le flou suit la vitesse réelle du rouleau, et disparaît dès que les
+      // symboles redeviennent lisibles (sous 2,5 rad/s) : un rouleau qui finit
+      // de s'arrêter est net, pas flou jusqu'au dernier instant.
       const flou = r.mesh.material.userData.flou;
-      if(flou) flou.value = r.etat === 'repos' ? 0 : clamp(r.vitesse / 14, 0, 1);
+      if(flou){
+        const s = r.etat === 'repos' ? 0 : clamp((reelle - 2.5) / 11.5, 0, 1);
+        flou.value = s * s * (3 - 2 * s);
+      }
     });
 
     if(this.tourne && toutArrete) this.tourne = false;
@@ -3811,15 +3854,79 @@ async function construireMonde(){
   R.matBois = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.05 });
   R.matTissu = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
   R.matLed = new THREE.MeshBasicMaterial({ vertexColors: true });
-  R.matHumain = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.68, metalness: 0 });
+  R.matHumain = new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.7, metalness: 0, envMap: R.env, envMapIntensity: 0.55
+  });
 
-  // Un liseré chaud sur le contour des personnages : c'est ce qui les détache
-  // d'un mur sombre, et donne à la peau un peu de la lumière de la salle.
+  // Chaque sommet dit de quoi il est fait (voir MATIERE) : le tissu est mat, la
+  // peau douce avec un bord rosé, les cheveux ont un reflet en bande, le cuir et
+  // le métal brillent. Un liseré chaud sur le contour détache les personnages
+  // d'un mur sombre, sans brûler les tissus clairs (il s'éteint avec la
+  // luminosité de la couleur).
   R.matHumain.onBeforeCompile = (shader) => {
-    shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', `
-      float lisere = pow(1.0 - clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0), 2.6);
-      gl_FragColor.rgb += lisere * vec3(0.30, 0.22, 0.15) * 0.36;
-      #include <dithering_fragment>`);
+
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', `#include <common>
+        attribute float matiere;
+        varying float vMatiere;
+        varying vec3 vAxeCheveu;
+        varying vec3 vPosObj;`)
+      .replace('#include <begin_vertex>', `#include <begin_vertex>
+        vMatiere = matiere;
+        vPosObj = position;
+        vAxeCheveu = normalMatrix * vec3(0.0, 1.0, 0.0);`);
+
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        varying float vMatiere;
+        varying vec3 vAxeCheveu;
+        varying vec3 vPosObj;`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        // Les mèches : de fines stries qui partent du sommet de la tête.
+        float stries = 0.5 + 0.5 * sin(atan(vPosObj.x, vPosObj.z + 0.01) * 58.0 + vPosObj.y * 36.0 + sin(vPosObj.x * 90.0) * 1.4);
+        if(vMatiere > 1.5 && vMatiere < 2.5) diffuseColor.rgb *= mix(0.74, 1.10, stries);
+        // Les blancs sont ramenés vers un blanc cassé : sous les spots de la salle,
+        // une chemise à 90 % de blanc brûle et perd tout son relief.
+        float lumA = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+        float compresse = vMatiere < 0.5 ? 0.40 : (vMatiere < 1.5 ? 0.10 : 0.0);
+        diffuseColor.rgb *= 1.0 - compresse * smoothstep(0.45, 0.90, lumA);`)
+      .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
+        float mt = vMatiere;
+        roughnessFactor = mt < 0.5 ? 0.88 : mt < 1.5 ? 0.58 : mt < 2.5 ? 0.46 : mt < 3.5 ? 0.24 : mt < 4.5 ? 0.30 : mt < 5.5 ? 0.12 : 0.44;`)
+      .replace('#include <metalnessmap_fragment>', `#include <metalnessmap_fragment>
+        metalnessFactor = (mt > 3.5 && mt < 4.5) ? 1.0 : 0.0;`)
+      .replace('#include <dithering_fragment>', `
+        vec3 nv = normalize(vNormal);
+        vec3 vv = normalize(vViewPosition);
+        float ndv = clamp(dot(nv, vv), 0.0, 1.0);
+        float bord = pow(1.0 - ndv, 2.6);
+        float lum = dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114));
+
+        // Le liseré : plus fort sur la peau et les cheveux, éteint sur le clair.
+        float k = mt < 0.5 ? 0.20 : mt < 1.5 ? 0.30 : mt < 2.5 ? 0.30 : 0.14;
+        gl_FragColor.rgb += bord * vec3(0.30, 0.22, 0.15) * k * (1.0 - 0.85 * lum);
+
+        // Un ombrage de forme : les bords qui fuient s'assombrissent un peu, pour que
+        // les volumes se lisent même sous une lumière franche et de face.
+        gl_FragColor.rgb *= mix(0.80, 1.0, smoothstep(0.05, 0.62, ndv));
+
+        // La peau : les ombres ne sont jamais grises, elles virent au rose, et le
+        // bord laisse passer un peu de rouge (la lumière qui traverse la chair).
+        if(mt > 0.5 && mt < 1.5){
+          gl_FragColor.rgb += diffuseColor.rgb * vec3(0.060, 0.026, 0.018);
+          gl_FragColor.rgb += diffuseColor.rgb * vec3(0.55, 0.18, 0.10) * pow(1.0 - ndv, 3.2) * 0.30;
+        }
+
+        // Les cheveux : un reflet en bande (Kajiya-Kay), perpendiculaire à la mèche.
+        if(mt > 1.5 && mt < 2.5){
+          vec3 T = normalize(vAxeCheveu);
+          vec3 H = normalize(normalize(vec3(0.25, 0.85, 0.45)) + vv);
+          float th = dot(T, H);
+          float bande = pow(sqrt(max(0.0, 1.0 - th * th)), 46.0);
+          gl_FragColor.rgb += vec3(0.95, 0.80, 0.62) * bande * 0.22 * (0.45 + 0.9 * stries);
+        }
+
+        #include <dithering_fragment>`);
   };
 
   R.modele = construireModeleMachine();
@@ -3892,7 +3999,7 @@ function construireSalle(){
     [0, 4.2, 0.6, 0xffe2bc, 1.2, 14],           // le lustre, sur la machine et le podium
     [-2.4, 2.7, -5.2, 0xffbd75, 0.8, 8.5],      // le bar, côté gauche
     [2.4, 2.7, -5.2, 0xffbd75, 0.8, 8.5],       // le bar, côté droit
-    [-5.4, 3.1, 2.6, 0xffcf9a, 0.9, 8.5],       // le blackjack et son croupier
+    [-5.7, 2.55, 2.4, 0xffcf9a, 0.9, 8.5],      // le blackjack : plus bas, de face, pour que le visage du croupier reçoive la lumière
     [5.4, 3.2, 4.4, 0xffd7a8, 0.9, 8.5],        // le poker
     [5.6, 3.0, -2.4, 0xffc58e, 0.85, 8],        // la banquette
     [0, 3.4, 7.2, 0xffe9d2, 0.76, 11],          // l'entrée
@@ -4289,12 +4396,12 @@ function construireBar(){
   // Huit tabourets, en cuir lie-de-vin, laiton et rondeur.
   for(let i = 0; i < 8; i++){
     const x = -3.15 + i * 0.9;
-    poser({ tissu, laiton, bois }, geoTabouret('#6b1a2b', 0.74), x, -6.0, 0);
-    colliders.push({ x0: x - 0.26, x1: x + 0.26, z0: -6.26, z1: -5.74 });
+    poser({ tissu, laiton, bois }, geoTabouret('#6b1a2b', 0.74), x, -6.12, 0);
+    colliders.push({ x0: x - 0.26, x1: x + 0.26, z0: -6.38, z1: -5.86 });
     // On s'y assoit face au comptoir, les pieds sur le repose-pieds de laiton.
     SIEGES.push({
-      id: 'bar' + i, genre: 'tabouret', x, z: -6.0, yaw: Math.PI, haut: 0.74,
-      pieds: { y: 0.31, z: 0.30, ecart: 0.11, ouverture: 0.10 }
+      id: 'bar' + i, genre: 'tabouret', x, z: -6.12, yaw: Math.PI, haut: 0.74,
+      pieds: { y: 0.31, z: 0.22, ecart: 0.11, ouverture: 0.10 }
     });
   }
 
@@ -4495,7 +4602,7 @@ function construireMobilier(){
     // Les tabourets, sur la courbe.
     for(let i = 0; i < 4; i++){
       const a = Math.PI / 2 + Math.PI * (i + 0.5) / 4;
-      const lx = 1.85 * Math.sin(a), lz = 1.85 * Math.cos(a);
+      const lx = 1.72 * Math.sin(a), lz = 1.72 * Math.cos(a);
       // Rotation de la table : (lx, lz) → monde.
       const wx = cx + lx * Math.cos(rot) + lz * Math.sin(rot);
       const wz = cz - lx * Math.sin(rot) + lz * Math.cos(rot);
@@ -4558,7 +4665,7 @@ function construireMobilier(){
       // Départ à 0,94 rad : avec moins, deux fauteuils passeraient dans le
       // mur de droite.
       const a = 0.94 + i * TAU / 5;
-      const x = cx + Math.sin(a) * 1.85, z = cz + Math.cos(a) * 1.85;
+      const x = cx + Math.sin(a) * 1.72, z = cz + Math.cos(a) * 1.72;
       poser(liste, geoFauteuil(VELOURS2), x, z, a + Math.PI);
       boiteCollision(x - 0.36, x + 0.36, z - 0.36, z + 0.36);
       SIEGES.push({
@@ -4604,7 +4711,7 @@ function construireMachine(){
 
 // Où se tient le croupier : derrière la table de blackjack, le dos au mur de
 // gauche, face à la salle. Sa table lui sert de comptoir.
-const CROUPIER = { x: -6.95, z: 2.4, rot: Math.PI / 2 };
+const CROUPIER = { x: -6.76, z: 2.4, rot: Math.PI / 2 };
 
 // Un booster : un sachet de foil de largeur l, hauteur h et épaisseur e,
 // avec son reflet arc-en-ciel en surimpression. Le devant fait face à +z.
@@ -4648,7 +4755,7 @@ const HUMAIN = {
   bras: 0.29,
   avantBras: 0.26,
   hanche: 0.093,        // écart de chaque hanche à l'axe
-  epaule: 0.205,        // idem, pour les épaules
+  epaule: 0.196,        // idem, pour les épaules
   pivot: 0.04,          // le pivot de la taille, au-dessus du centre du bassin
   hEpaule: 0.47,        // les épaules, au-dessus du pivot
   hCou: 0.54,           // la base du cou, au-dessus du pivot
@@ -4660,12 +4767,13 @@ const HUMAIN = {
 // le haut. Chaque anneau a sa hauteur y, ses demi-axes (rx, rz) et, s'il le
 // faut, un centre (cx, cz). `couleur` est une couleur ou une fonction
 // (angle, y, x, z) qui en rend une : l'angle vaut 0 devant (+z).
-function lofter(sections, couleur, segments){
+function lofter(sections, couleur, segments, matiere){
 
   const n = segments || 20;
   const m = sections.length;
-  const pos = [], col = [], idx = [];
+  const pos = [], col = [], idx = [], mat = [];
   const c = new THREE.Color();
+  const matiereDe = (a, y, x, z) => typeof matiere === 'function' ? matiere(a, y, x, z) : (matiere || 0);
 
   const teinte = (a, y, x, z) => typeof couleur === 'function' ? couleur(a, y, x, z) : couleur;
 
@@ -4677,6 +4785,7 @@ function lofter(sections, couleur, segments){
       pos.push(x, s.y, z);
       c.set(teinte(a, s.y, x, z));
       col.push(c.r, c.g, c.b);
+      mat.push(matiereDe(a, s.y, x, z));
     }
   });
 
@@ -4695,6 +4804,7 @@ function lofter(sections, couleur, segments){
     pos.push(s.cx || 0, s.y, s.cz || 0);
     c.set(teinte(0, s.y, s.cx || 0, s.cz || 0));
     col.push(c.r, c.g, c.b);
+    mat.push(matiereDe(0, s.y, s.cx || 0, s.cz || 0));
     for(let j = 0; j < n; j++){
       const a = i * n + j, b = i * n + (j + 1) % n;
       if(haut) idx.push(k, a, b); else idx.push(k, b, a);
@@ -4704,6 +4814,7 @@ function lofter(sections, couleur, segments){
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setAttribute('matiere', new THREE.Float32BufferAttribute(mat, 1));
   g.setIndex(idx);
   g.computeVertexNormals();
 
@@ -4713,7 +4824,7 @@ function lofter(sections, couleur, segments){
 // Un membre : de y = 0 (l'articulation) à y = -L, renflé au milieu, les deux
 // bouts arrondis. La couleur est donnée selon la hauteur (un manche qui
 // s'arrête, une peau qui commence).
-function membre(L, r0, r1, couleur, bombe){
+function membre(L, r0, r1, couleur, bombe, matiere){
 
   const b = bombe || 1.06;
   const rond = (r, sens) => [90, 60, 30].map(deg => {
@@ -4730,15 +4841,32 @@ function membre(L, r0, r1, couleur, bombe){
   s.push({ y: 0, rx: r0, rz: r0 });
   rond(r0).reverse().forEach(k => s.push({ y: r0 * k.sin, rx: r0 * k.cos, rz: r0 * k.cos }));
 
-  return lofter(s, (a, y) => typeof couleur === 'function' ? couleur(y) : couleur, 14);
+  return lofter(s, (a, y) => typeof couleur === 'function' ? couleur(y) : couleur, 14,
+    typeof matiere === 'function' ? (a, y) => matiere(y) : matiere);
 }
 
 // Une ellipsoïde posée : de quoi faire une main, un nez, un chignon.
-function ellipsoide(rx, ry, rz, x, y, z, hex, seg){
+function ellipsoide(rx, ry, rz, x, y, z, hex, seg, mat){
   const g = new THREE.SphereGeometry(1, seg || 12, Math.max(6, (seg || 12) - 4));
   g.scale(rx, ry, rz);
   g.translate(x, y, z);
-  return colorer(g, hex);
+  return colorer(g, hex, mat);
+}
+
+// Les reliefs du visage, en mètres vers l'avant, pour un point (ux, uy) de la
+// sphère unité : l'arcade sourcilière, l'orbite creusée sous elle, les
+// pommettes, le menton. Un visage lisse comme un œuf ne prend pas la lumière ;
+// ces quelques millimètres lui donnent des plans.
+function reliefVisage(ux, uy){
+
+  const g = (x, w) => Math.exp(-(x * x) / (w * w));
+  const ax = Math.abs(ux);
+
+  return 0.0048 * g(uy - 0.40, 0.15) * g(ux, 0.70)                    // l'arcade
+       - 0.0034 * g(uy - 0.16, 0.14) * g(ax - 0.42, 0.20)             // l'orbite
+       + 0.0036 * g(uy + 0.06, 0.26) * g(ax - 0.64, 0.20)             // la pommette
+       - 0.0022 * g(uy + 0.34, 0.20) * g(ax - 0.52, 0.18)             // le creux de la joue
+       + 0.0060 * g(uy + 0.82, 0.13) * g(ux, 0.34);                   // le menton
 }
 
 // La surface du visage : où se trouve le devant de la tête à la hauteur y,
@@ -4756,7 +4884,9 @@ function surfaceVisage(x, y, menton){
   if(t <= 0) return 0;
 
   const sz = 0.092 * (1 - 0.10 * Math.pow(bas, 1.3)) * (1 - 0.05 * haut);
-  return Math.sqrt(t) * sz;
+  const front = Math.sqrt(t);
+
+  return front * sz + reliefVisage(ux, uy) * smooth(0.12, 0.45, front);
 }
 
 // Un point de la sphère unité, amené sur la forme de la tête : un menton
@@ -4829,19 +4959,33 @@ function geoCoiffure(d){
   switch(d.coiffure){
 
     case 'rejete': {
-      liste.push(calotte(0.086, 0.114, 0.100, 0.305, 0.50, 0.72, teinte, 0, -0.003));
-      const houppe = new THREE.SphereGeometry(1, 16, 10);
-      houppe.scale(0.070, 0.030, 0.088);
-      houppe.rotateX(-0.22);
-      houppe.translate(0, 0.104, 0.018);
+
+      // Les cheveux rejetés en arrière : une calotte, une houppe qui monte au-dessus
+      // du front et se couche vers la nuque, des pattes courtes.
+      liste.push(calotte(0.088, 0.117, 0.103, 0.300, 0.50, 0.74, teinte, 0, -0.003));
+
+      const houppe = new THREE.SphereGeometry(1, 20, 12);
+      houppe.scale(0.076, 0.026, 0.096);
+      houppe.rotateX(-0.26);
+      houppe.translate(0, 0.099, 0.020);
       liste.push(colorer(houppe, clair));
-      [-1, 1].forEach(s => liste.push(boite(0.010, 0.05, 0.034, s * 0.0815, 0.004, 0.012, sombre)));
+
+      [-1, 1].forEach(s => liste.push(ellipsoide(0.0068, 0.030, 0.019, s * 0.0770, -0.002, 0.010, sombre, 10)));
       break;
     }
 
     case 'court':
-      liste.push(calotte(0.085, 0.112, 0.098, 0.34, 0.52, 0.68, teinte, 0, -0.002));
-      [-1, 1].forEach(s => liste.push(boite(0.009, 0.04, 0.03, s * 0.0805, 0.002, 0.012, sombre)));
+
+      // Courts : une calotte, une frange qui retombe à peine, des pattes.
+      liste.push(calotte(0.087, 0.114, 0.100, 0.335, 0.52, 0.68, teinte, 0, -0.002));
+
+      const toupet = new THREE.SphereGeometry(1, 18, 10);
+      toupet.scale(0.066, 0.020, 0.080);
+      toupet.rotateX(-0.18);
+      toupet.translate(0, 0.100, 0.008);
+      liste.push(colorer(toupet, clair));
+
+      [-1, 1].forEach(s => liste.push(ellipsoide(0.0064, 0.026, 0.017, s * 0.0770, 0.000, 0.010, sombre, 10)));
       break;
 
     case 'long': {
@@ -4854,7 +4998,7 @@ function geoCoiffure(d){
         { y: -0.14, rx: 0.100, rz: 0.048, cz: -0.082 },
         { y: 0.00, rx: 0.095, rz: 0.050, cz: -0.070 },
         { y: 0.05, rx: 0.088, rz: 0.040, cz: -0.050 }
-      ], y => melange(sombre, clair, clamp((y + 0.4) / 0.6, 0, 1) * 0.6), 16);
+      ], y => melange(sombre, clair, clamp((y + 0.4) / 0.6, 0, 1) * 0.6), 16, MATIERE.cheveux);
       liste.push(nappe);
 
       // Deux mèches le long du visage.
@@ -4863,7 +5007,7 @@ function geoCoiffure(d){
           { y: -0.16, rx: 0.011, rz: 0.020, cx: s * 0.086, cz: -0.004 },
           { y: -0.05, rx: 0.014, rz: 0.028, cx: s * 0.086, cz: 0.006 },
           { y: 0.04, rx: 0.014, rz: 0.030, cx: s * 0.084, cz: 0.012 }
-        ], sombre, 10));
+        ], sombre, 10, MATIERE.cheveux));
       });
       break;
     }
@@ -4880,10 +5024,11 @@ function geoCoiffure(d){
       const cap = calotte(0.092, 0.118, 0.105, 0.365, 0.44, 0.47, y => melange(d.casquette, '#000000', 0.25 * clamp((0.06 - y) / 0.16, 0, 1)), 0.004, -0.002);
       liste.push(cap);
       const bec = new THREE.CylinderGeometry(0.098, 0.098, 0.005, 26, 1, false, -Math.PI / 2, Math.PI);
-      bec.scale(1, 1, 1.75);
-      bec.rotateX(0.14);
-      bec.translate(0, 0.036, 0.022);
-      liste.push(colorer(bec, melange(d.casquette, '#000000', 0.15)));
+      bec.scale(1, 1, 1.0);
+      bec.rotateX(0.12);
+      bec.translate(0, 0.060, 0.030);
+      liste.push(colorer(bec, melange(d.casquette, '#000000', 0.15), MATIERE.tissu));
+      marquer(cap, MATIERE.tissu);
       break;
     }
 
@@ -4910,28 +5055,72 @@ function geoCoiffure(d){
       const z = surfaceVisage(s * 0.034, 0.014, d.menton) + 0.004;
       const cercle = new THREE.TorusGeometry(0.0225, 0.0024, 6, 22);
       cercle.translate(s * 0.034, 0.014, z);
-      liste.push(colorer(cercle, '#1a1a1c'));
+      liste.push(colorer(cercle, '#1a1a1c', MATIERE.brillant));
       // La branche, de la monture à l'oreille.
-      liste.push(boite(0.003, 0.003, 0.075, s * 0.0765, 0.018, 0.040, '#1a1a1c'));
+      liste.push(boite(0.003, 0.003, 0.075, s * 0.0765, 0.018, 0.040, '#1a1a1c', 0, MATIERE.brillant));
     });
-    liste.push(boite(0.022, 0.0028, 0.0028, 0, 0.018, surfaceVisage(0, 0.018, d.menton) + 0.004, '#1a1a1c'));
+    liste.push(boite(0.022, 0.0028, 0.0028, 0, 0.018, surfaceVisage(0, 0.018, d.menton) + 0.004, '#1a1a1c', 0, MATIERE.brillant));
   }
+
+  // Tout le reste (calottes, houppes, barbe) est du poil.
+  liste.forEach(g => { if(!g.attributes.matiere) marquer(g, MATIERE.cheveux); });
 
   return liste;
 }
 
-// La tête : le crâne aux joues légèrement colorées, le nez, les yeux, les
-// sourcils, les lèvres, les oreilles, le cou, puis les cheveux. Tout dans une
-// seule forme, centrée sur la tête.
+// La taille de la tête, un peu forcée (le visage se lit mieux, de loin comme
+// de près), et la hauteur de son centre au-dessus de la base du cou.
+const TETE = { k: 1.15, haut: 0.158 };
+
+// Où sont les yeux, dans le repère du cou : de quoi poser les paupières.
+function positionsYeux(d){
+  return [-1, 1].map(s => {
+    const x = s * 0.033;
+    const z = surfaceVisage(x, 0.016, d.menton) - 0.0036;
+    return { s, x: x * TETE.k, y: 0.016 * TETE.k + TETE.haut, z: z * TETE.k };
+  });
+}
+
+// Une paupière : une calotte qui coiffe le globe de l'œil. Ouverte, son bord
+// est au-dessus de la pupille ; elle pivote vers l'avant pour se fermer (voir
+// Humain.cligner). Le bord est foncé : c'est la ligne des cils.
+function geoPaupiere(d){
+
+  const g = new THREE.SphereGeometry(1, 14, 8, 0, TAU, 0, 1.75);
+  const p = g.attributes.position;
+  const col = new Float32Array(p.count * 3);
+  const peau = new THREE.Color(melange(d.peau, '#7a4a3c', 0.16));
+  const cil = new THREE.Color(d.femme ? '#120a08' : melange(d.cheveux, '#000000', 0.55));
+  const c = new THREE.Color();
+
+  for(let i = 0; i < p.count; i++){
+    const th = Math.acos(clamp(p.getY(i) / Math.max(1e-6, Math.hypot(p.getX(i), p.getY(i), p.getZ(i))), -1, 1));
+    c.copy(peau).lerp(cil, smooth(1.52, 1.72, th));
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+
+  g.scale(0.0176, 0.0146, 0.0108);
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  marquer(g, MATIERE.peau);
+
+  return g;
+}
+
+// La tête : le crâne aux joues légèrement colorées et aux reliefs doux, le
+// nez, les yeux, les sourcils, les lèvres, les oreilles, le cou, puis les
+// cheveux. Tout dans une seule forme (hors paupières, qui bougent), centrée
+// sur la tête.
 function geoTete(d){
 
-  const g = new THREE.SphereGeometry(1, 28, 20);
+  const g = new THREE.SphereGeometry(1, 34, 24);
   const p = g.attributes.position, nr = g.attributes.normal;
   const col = new Float32Array(p.count * 3);
 
   const peau = new THREE.Color(d.peau);
   const joue = new THREE.Color(melange(d.peau, d.femme ? '#e06a70' : '#d8604e', 0.30));
   const barbe = new THREE.Color(melange(d.peau, d.cheveux, 0.30));
+  const ombre = new THREE.Color(melange(d.peau, '#5a2a22', 0.40));
+  const front = new THREE.Color(melange(d.peau, '#ffffff', 0.07));
   const tmp = new THREE.Color();
 
   for(let i = 0; i < p.count; i++){
@@ -4939,14 +5128,26 @@ function geoTete(d){
     const ux = p.getX(i), uy = p.getY(i), uz = p.getZ(i);
     const q = pointCrane(ux, uy, uz, 0, d.menton);
 
-    p.setXYZ(i, q.x, q.y, q.z);
+    // Le relief, devant seulement : il s'efface sur les côtés et derrière.
+    const f = smooth(0.12, 0.45, uz);
+    const dz = f * reliefVisage(ux, uy);
 
-    const nx = ux / q.sx, ny = uy / q.sy, nz = uz / q.sz;
+    p.setXYZ(i, q.x, q.y, q.z + dz);
+
+    // La normale : celle de l'ellipsoïde, penchée par la pente du relief.
+    const e = 0.02;
+    const gx = (reliefVisage(ux + e, uy) - reliefVisage(ux - e, uy)) / (2 * e * q.sx) * f;
+    const gy = (reliefVisage(ux, uy + e) - reliefVisage(ux, uy - e)) / (2 * e * q.sy) * f;
+
+    const nx = ux / q.sx - gx, ny = uy / q.sy - gy, nz = uz / q.sz;
     const l = Math.hypot(nx, ny, nz) || 1;
     nr.setXYZ(i, nx / l, ny / l, nz / l);
 
     tmp.copy(peau);
-    if(uz > 0.2 && Math.abs(ux) > 0.22 && uy > -0.5 && uy < 0.12) tmp.lerp(joue, 0.6);
+    if(uy > 0.55 && uz > 0.1) tmp.lerp(front, 0.8 * smooth(0.55, 0.9, uy));
+    if(uz > 0.2 && Math.abs(ux) > 0.22 && uy > -0.5 && uy < 0.12) tmp.lerp(joue, 0.55 * smooth(0.22, 0.6, Math.abs(ux)));
+    if(uy > 0.02 && uy < 0.30 && uz > 0.45 && Math.abs(ux) > 0.18 && Math.abs(ux) < 0.62) tmp.lerp(ombre, 0.16);   // les orbites
+    if(uy < -0.52 && uz < 0.62) tmp.lerp(ombre, 0.55 * smooth(-0.52, -0.9, uy));                                     // sous le menton
     if(d.barbe === 1 && uy < -0.15 && uz > -0.2) tmp.lerp(barbe, 0.85);
 
     col[i * 3] = tmp.r;
@@ -4955,51 +5156,83 @@ function geoTete(d){
   }
 
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  marquer(g, MATIERE.peau);
 
   const liste = [g];
   const ombrePeau = melange(d.peau, '#2a1a12', 0.42);
   const sourcil = melange(d.cheveux, '#000000', 0.15);
+  const rougeLevres = d.femme ? '#b23a4a' : melange(d.peau, '#9a3a34', 0.58);
+  const sourire = d.sourire === undefined ? 0.85 : d.sourire;
 
   [-1, 1].forEach(s => {
 
-    const x = s * 0.032;
-    const z = surfaceVisage(x, 0.014, d.menton);
+    // L'œil : le globe un peu enfoncé, l'iris et son anneau sombre, la pupille,
+    // le reflet de la lumière. Les paupières sont à part (voir geoPaupiere).
+    const x = s * 0.033;
+    const z = surfaceVisage(x, 0.016, d.menton) - 0.0036;
 
-    liste.push(ellipsoide(0.0128, 0.0102, 0.0056, x, 0.014, z - 0.0005, '#f6f3ec', 12));
-    liste.push(ellipsoide(0.0072, 0.0072, 0.0036, x, 0.013, z + 0.0040, d.yeux, 12));
-    liste.push(ellipsoide(0.0036, 0.0036, 0.0024, x, 0.013, z + 0.0068, '#0b0908', 8));
-    liste.push(boite(0.030, 0.0040, 0.0045, x, 0.0280, z + 0.0012, ombrePeau));
-    liste.push(boite(0.026, 0.0030, 0.0040, x, 0.0002, z - 0.0005, melange(d.peau, '#2a1a12', 0.22)));
+    liste.push(ellipsoide(0.0166, 0.0138, 0.0100, x, 0.016, z, '#f0ece4', 14, MATIERE.humide));
+    liste.push(ellipsoide(0.0100, 0.0100, 0.0036, x, 0.0155, z + 0.0070, melange(d.yeux, '#000000', 0.55), 12, MATIERE.humide));
+    liste.push(ellipsoide(0.0086, 0.0086, 0.0036, x, 0.0155, z + 0.0073, d.yeux, 12, MATIERE.humide));
+    liste.push(ellipsoide(0.0042, 0.0042, 0.0036, x, 0.0155, z + 0.0079, '#070606', 8, MATIERE.humide));
+    liste.push(ellipsoide(0.0022, 0.0022, 0.0018, x - s * 0.0028, 0.0188, z + 0.0099, '#ffffff', 6, MATIERE.humide));
+    liste.push(ellipsoide(0.0012, 0.0012, 0.0010, x + s * 0.0034, 0.0118, z + 0.0094, '#f0f4ff', 6, MATIERE.humide));
 
-    const zb = surfaceVisage(s * 0.034, 0.043, d.menton);
-    liste.push(boite(0.033, d.femme ? 0.0045 : 0.0068, 0.0075, s * 0.034, 0.043, zb + 0.0012, sourcil));
+    // Le sourcil : un arc, plus épais près du nez.
+    const pt = (ax, y, dz) => new THREE.Vector3(s * ax, y, surfaceVisage(s * ax, y, d.menton) + dz);
+    const arc = new THREE.CatmullRomCurve3([
+      pt(0.0100, 0.0505, 0.0026),
+      pt(0.0240, 0.0545, 0.0030),
+      pt(0.0405, 0.0552, 0.0026),
+      pt(0.0575, 0.0478, 0.0010)
+    ]);
+    const sourcilGeo = new THREE.TubeGeometry(arc, 12, d.femme ? 0.0021 : 0.0031, 6, false);
+    liste.push(colorer(sourcilGeo, sourcil, MATIERE.cheveux));
 
-    // L'oreille.
-    liste.push(ellipsoide(0.0115, 0.0205, 0.0145, s * 0.0795, -0.006, -0.004, d.peau, 10));
+    // L'oreille : le pavillon, et le creux plus sombre au milieu.
+    liste.push(ellipsoide(0.0120, 0.0215, 0.0150, s * 0.0795, -0.006, -0.004, d.peau, 10, MATIERE.peau));
+    liste.push(ellipsoide(0.0062, 0.0135, 0.0075, s * 0.0765, -0.005, 0.0000, melange(d.peau, '#6a2e22', 0.45), 8, MATIERE.peau));
   });
 
-  // Le nez : un arrondi au bout, une arête fine.
-  const zn = surfaceVisage(0, -0.016, d.menton);
-  liste.push(ellipsoide(0.0115, 0.0145, 0.0135, 0, -0.016, zn + 0.0035, melange(d.peau, '#e08070', 0.10), 12));
-  liste.push(boite(0.0115, 0.040, 0.0085, 0, 0.004, surfaceVisage(0, 0.004, d.menton) + 0.0008, d.peau));
+  // Le nez : l'arête, le bout, les ailes, les narines.
+  const zn = y => surfaceVisage(0, y, d.menton);
+  const peauNez = melange(d.peau, '#e08070', 0.10);
 
-  // La bouche.
-  const couleurLevres = d.femme ? '#b23a4a' : melange(d.peau, '#8a3a36', 0.55);
-  const zl = surfaceVisage(0, -0.052, d.menton);
-  liste.push(boite(0.033, 0.0042, 0.0055, 0, -0.0515, zl + 0.0012, couleurLevres));
-  liste.push(boite(0.023, 0.0040, 0.0055, 0, -0.0575, surfaceVisage(0, -0.0575, d.menton) + 0.0012, melange(couleurLevres, '#ffffff', 0.12)));
+  liste.push(ellipsoide(0.0034, 0.0125, 0.0040, 0, -0.0050, zn(-0.0050) + 0.0004, d.peau, 8, MATIERE.peau));
+  liste.push(ellipsoide(0.0080, 0.0072, 0.0085, 0, -0.0170, zn(-0.0170) + 0.0034, peauNez, 12, MATIERE.peau));
+  [-1, 1].forEach(s => {
+    liste.push(ellipsoide(0.0046, 0.0056, 0.0050, s * 0.0076, -0.0204, zn(-0.0204) + 0.0008, peauNez, 8, MATIERE.peau));
+    liste.push(ellipsoide(0.0026, 0.0016, 0.0022, s * 0.0042, -0.0252, zn(-0.0252) + 0.0034, '#2a1410', 6, MATIERE.peau));
+  });
+
+  // La bouche, un sourire plus ou moins large : la ligne, la lèvre du haut
+  // (en deux lobes), la lèvre du bas, les commissures.
+  const yb = -0.0522;
+  const courbe = x => sourire * 0.0036 * Math.pow(Math.abs(x) / 0.0185, 2);
+  const zl = (x, y) => surfaceVisage(x, y, d.menton);
+
+  [-0.0125, -0.0062, 0, 0.0062, 0.0125].forEach(x => {
+    liste.push(boite(0.0075, 0.0017, 0.0032, x, yb + courbe(x), zl(x, yb + courbe(x)) + 0.0006, melange(rougeLevres, '#1a0a08', 0.55), 0, MATIERE.levres));
+  });
+
+  liste.push(ellipsoide(0.0095, 0.0036, 0.0054, -0.0085, yb + 0.0040 + courbe(-0.0085), zl(-0.0085, yb + 0.0040) + 0.0006, rougeLevres, 10, MATIERE.levres));
+  liste.push(ellipsoide(0.0095, 0.0036, 0.0054, 0.0085, yb + 0.0040 + courbe(0.0085), zl(0.0085, yb + 0.0040) + 0.0006, rougeLevres, 10, MATIERE.levres));
+  liste.push(ellipsoide(0.0170, 0.0056, 0.0062, 0, yb - 0.0058 + courbe(0.006), zl(0, yb - 0.0058) + 0.0008, melange(rougeLevres, '#ffffff', 0.06), 12, MATIERE.levres));
+
+  [-1, 1].forEach(s => {
+    const x = s * 0.0190;
+    liste.push(ellipsoide(0.0016, 0.0030, 0.0020, x, yb + courbe(x) + 0.0004, zl(x, yb) + 0.0004, melange(d.peau, '#3a1a14', 0.45), 8, MATIERE.peau));
+  });
 
   // Le cou : il s'enfonce dans le col.
-  liste.push(membre(0.10, 0.048, 0.050, d.peau, 1).translate(0, -0.06, 0));
+  liste.push(membre(0.11, 0.050, 0.054, d.peau, 1, MATIERE.peau).translate(0, -0.06, 0));
 
   liste.push(...geoCoiffure(d));
 
   const tete = fusionner(liste);
 
-  // Une tête un peu plus grande que le calcul brut : c'est ce qui rend
-  // les proportions naturelles, vues d'un mètre.
-  tete.scale(1.07, 1.07, 1.07);
-  tete.translate(0, HUMAIN.hTete, 0);
+  tete.scale(TETE.k, TETE.k, TETE.k);
+  tete.translate(0, TETE.haut, 0);
 
   return tete;
 }
@@ -5057,6 +5290,61 @@ function plastronChemise(C, couleur, bas, haut, largeur, yLarge){
   return g;
 }
 
+// Les revers d'une veste (ou le passepoil d'un gilet) : deux rubans qui
+// longent le bord de l'ouverture, de plus en plus larges vers les épaules, un
+// peu soulevés au bord intérieur. Ils épousent la forme du torse.
+//   bas, haut : où ils commencent et finissent ; largeur, yLarge : l'ouverture
+//   (comme plastronChemise) ; l0, l1 : leur largeur en bas et en haut.
+function revers(C, couleur, bas, haut, largeur, yLarge, l0, l1, bord){
+
+  const rangs = 10, cols = 3;
+  const pos = [], col = [], idx = [];
+  const c = new THREE.Color(couleur), c2 = new THREE.Color(melange(couleur, '#ffffff', bord === undefined ? 0.16 : bord));
+
+  const surface = (x, y) => {
+    const rx = interpAnneau(C, y, 'rx'), rz = interpAnneau(C, y, 'rz');
+    return rz * Math.sqrt(Math.max(0, 1 - (x / rx) * (x / rx)));
+  };
+
+  [-1, 1].forEach(sg => {
+
+    const base = pos.length / 3;
+
+    for(let j = 0; j <= rangs; j++){
+
+      const u = j / rangs;
+      const y = lerp(bas, haut, u);
+      const w = largeur * clamp((y - bas) / (yLarge - bas), 0, 1);
+      const l = lerp(l0, l1, u);
+
+      for(let i = 0; i <= cols; i++){
+        const x = sg * (w + l * i / cols);
+        // Le bord intérieur est le plus haut : le revers se creuse vers l'extérieur.
+        pos.push(x, y, surface(x, y) + 0.0075 - 0.0042 * (i / cols));
+        const k = i === 0 ? c2 : c;
+        col.push(k.r, k.g, k.b);
+      }
+    }
+
+    for(let j = 0; j < rangs; j++){
+      for(let i = 0; i < cols; i++){
+        const a = base + j * (cols + 1) + i, b = a + 1, e = a + cols + 1, f = e + 1;
+        if(sg > 0) idx.push(a, e, b, b, e, f); else idx.push(a, b, e, b, f, e);
+      }
+    }
+  });
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+
+  return g;
+}
+
+const SEGMENTS_TORSE = 44;
+
 // Le torse, avec ce qui le recouvre : chemise, gilet, veste, robe ou sweat,
 // le col, le nœud papillon ou la cravate, les boutons. Dans le repère du
 // pivot de la taille.
@@ -5084,7 +5372,7 @@ function geoTorse(d){
   // triangle de chemise) sont des formes à part, plus besoin de mailles très
   // fines pour qu'ils restent nets.
   const S = [];
-  for(let y = -0.13; y < 0.55; y += 0.021){
+  for(let y = -0.13; y < 0.55; y += (y > 0.28 ? 0.0125 : 0.032)){
     S.push({ y, rx: interpAnneau(C, y, 'rx'), rz: interpAnneau(C, y, 'rz') });
   }
   S.push(C[C.length - 1]);
@@ -5098,11 +5386,15 @@ function geoTorse(d){
     // Chemise blanche, gilet noir ouvert en V très haut (le triangle de chemise
     // est une forme à part : voir plastronChemise), échancré aux emmanchures :
     // les épaules et les côtés restent en chemise.
+    // Les emmanchures sont coupées le long des méridiens du maillage (et non selon x) :
+    // un bord qui suit les arêtes ne se dentelle pas.
+    const pas = TAU / SEGMENTS_TORSE;
     couleur = (a, y, x, z) => {
       if(y < -0.02) return d.pantalon;
       if(y > 0.50) return d.chemise;
-      if(z >= 0) return (y < 0.30 || Math.abs(x) < 0.150) ? d.veste : d.chemise;
-      return (y < 0.44 || Math.abs(x) < 0.12) ? d.veste : d.chemise;
+      const fa = Math.abs(a > Math.PI ? a - TAU : a);
+      if(fa < 1.5707) return (y < 0.30 || fa < 6.5 * pas) ? d.veste : d.chemise;
+      return (y < 0.44 || fa > 17.5 * pas) ? d.veste : d.chemise;
     };
 
   } else if(d.tenue === 'veste'){
@@ -5115,10 +5407,16 @@ function geoTorse(d){
 
     // Une robe à bretelles : le décolleté et le dos sont en peau.
     couleur = (a, y, x, z) => {
-      if(y < 0.42) return d.veste;
-      if(z > 0 && Math.abs(x) < 0.05 && y < 0.54) return d.veste;
-      if(z > 0 && y < 0.47 && Math.abs(x) < 0.10) return d.veste;
-      return d.peau;
+      if(y < 0.40) return d.veste;
+      const ax = Math.abs(x);
+      if(z > 0){
+        // Devant : un décolleté en U, et deux bretelles.
+        const yc = 0.50 - 0.060 * Math.sqrt(Math.max(0, 1 - (ax / 0.105) * (ax / 0.105)));
+        if(ax > 0.090 && ax < 0.128 && y < 0.548) return d.veste;
+        return y < yc ? d.veste : d.peau;
+      }
+      // Dans le dos : un décolleté plus bas.
+      return y < 0.43 ? d.veste : d.peau;
     };
 
   } else {
@@ -5126,13 +5424,18 @@ function geoTorse(d){
     couleur = (a, y) => y < -0.02 ? d.pantalon : d.veste;
   }
 
-  const liste = [lofter(S, couleur, 36)];
+  // La peau d'une robe à bretelles est de la peau, le reste est du tissu.
+  const liste = [lofter(S, couleur, SEGMENTS_TORSE, (a, y, x, z) => couleur(a, y, x, z) === d.peau ? MATIERE.peau : MATIERE.tissu)];
 
-  // Le triangle de chemise sous le gilet ou la veste ouverte.
+  // Le triangle de chemise sous le gilet ou la veste ouverte, et le bord qui
+  // l'encadre : un passepoil satiné au gilet, de vrais revers à la veste.
   if(d.tenue === 'gilet'){
     liste.push(plastronChemise(C, d.chemise, 0.30, 0.505, 0.088, 0.47));
+    liste.push(marquer(revers(C, melange(d.veste, '#ffffff', 0.05), 0.30, 0.505, 0.088, 0.47, 0.010, 0.016, 0.22), MATIERE.brillant));
   } else if(d.tenue === 'veste'){
-    liste.push(plastronChemise(C, d.chemise, d.fermeture || 0.14, 0.505, d.ouverture || 0.10, 0.48));
+    const fe = d.fermeture || 0.14, ou = d.ouverture || 0.10;
+    liste.push(plastronChemise(C, d.chemise, fe, 0.505, ou, 0.48));
+    liste.push(marquer(revers(C, d.veste, fe + 0.03, 0.512, ou, 0.48, 0.014, 0.040, 0.12), MATIERE.tissu));
   }
 
   // Le col de chemise.
@@ -5142,17 +5445,28 @@ function geoTorse(d){
       { y: 0.545, rx: 0.068, rz: 0.064 },
       { y: 0.580, rx: 0.062, rz: 0.058 }
     ], d.chemise, 16));
-    [-1, 1].forEach(s => liste.push(boite(0.030, 0.026, 0.006, s * 0.028, 0.538, 0.070, d.chemise)));
+    // Les deux pointes du col, inclinées vers l'extérieur et enroulées autour du cou.
+    [-1, 1].forEach(s => {
+      const pointe = new THREE.BoxGeometry(0.040, 0.034, 0.005);
+      pointe.rotateY(s * 0.62);
+      pointe.rotateZ(s * -0.40);
+      pointe.translate(s * 0.033, 0.536, 0.064);
+      liste.push(colorer(pointe, d.chemise, MATIERE.tissu));
+    });
   }
 
   // Le nœud papillon.
   if(d.noeud){
     const z = 0.078;
-    liste.push(
-      boite(0.028, 0.030, 0.026, 0, 0.515, z, d.noeud),
-      boite(0.052, 0.046, 0.016, -0.042, 0.515, z - 0.004, d.noeud),
-      boite(0.052, 0.046, 0.016, 0.042, 0.515, z - 0.004, d.noeud)
-    );
+    // Le nœud : deux ailes en lentille, légèrement inclinées, et le nœud au milieu.
+    liste.push(ellipsoide(0.0135, 0.0150, 0.0130, 0, 0.515, z, d.noeud, 10, MATIERE.brillant));
+    [-1, 1].forEach(sg => {
+      const aile = new THREE.SphereGeometry(1, 12, 8);
+      aile.scale(0.034, 0.0215, 0.0085);
+      aile.rotateZ(sg * -0.20);
+      aile.translate(sg * 0.036, 0.515, z - 0.003);
+      liste.push(colorer(aile, d.noeud, MATIERE.brillant));
+    });
   }
 
   // La cravate.
@@ -5169,7 +5483,7 @@ function geoTorse(d){
     const n = d.tenue === 'gilet' ? 5 : 3;
     for(let i = 0; i < n; i++){
       const y = y0 + i * (d.tenue === 'gilet' ? 0.062 : 0.07);
-      liste.push(ellipsoide(0.0075, 0.0075, 0.0045, 0, y, rzA(y) + 0.0012, d.boutonsCouleur || '#2b2d33', 8));
+      liste.push(ellipsoide(0.0075, 0.0075, 0.0045, 0, y, rzA(y) + 0.0012, d.boutonsCouleur || '#2b2d33', 8, MATIERE.metal));
     }
   }
 
@@ -5188,7 +5502,7 @@ function geoTorse(d){
     const t = new THREE.TorusGeometry(0.058, 0.0028, 6, 22);
     t.rotateX(Math.PI / 2 - 0.25);
     t.translate(0, 0.5, 0.012);
-    liste.push(colorer(t, d.collier));
+    liste.push(colorer(t, d.collier, MATIERE.metal));
   }
 
   // Une ceinture, sous le gilet ou la veste.
@@ -5196,7 +5510,7 @@ function geoTorse(d){
     liste.push(lofter([
       { y: -0.035, rx: 0.1545 * k, rz: 0.1035 * k * v },
       { y: -0.012, rx: 0.1545 * k, rz: 0.1035 * k * v }
-    ].map(s => ({ y: s.y, rx: interpAnneau(C, s.y, 'rx') * 1.01, rz: interpAnneau(C, s.y, 'rz') * 1.01 })), '#0c0c0d', 24));
+    ].map(s => ({ y: s.y, rx: interpAnneau(C, s.y, 'rx') * 1.01, rz: interpAnneau(C, s.y, 'rz') * 1.01 })), '#0c0c0d', 24, MATIERE.brillant));
   }
 
   return fusionner(liste);
@@ -5207,12 +5521,12 @@ function geoBrasHaut(d){
 
   const L = HUMAIN.bras;
   const c = d.manches || d.peau;
-  const liste = [membre(L, 0.048, 0.040, c, 1.05)];
+  const liste = [membre(L, 0.044, 0.037, c, 1.04, d.manches ? MATIERE.tissu : MATIERE.peau)];
 
   if(d.brassard){
     liste.push(lofter([
-      { y: -0.100, rx: 0.053, rz: 0.053 },
-      { y: -0.138, rx: 0.053, rz: 0.053 }
+      { y: -0.100, rx: 0.046, rz: 0.046 },
+      { y: -0.138, rx: 0.046, rz: 0.046 }
     ], d.brassard, 16));
   }
 
@@ -5232,7 +5546,7 @@ function doigt(L, r, couleur, sens, courbe){
     { y: -L * 0.62, rx: r * 0.93, rz: r * 0.98, cx: dx(0.62) },
     { y: -L * 0.92, rx: r * 0.78, rz: r * 0.82, cx: dx(0.92) },
     { y: -L, rx: r * 0.40, rz: r * 0.42, cx: dx(1) }
-  ], couleur, 8);
+  ], couleur, 8, MATIERE.peau);
 }
 
 // Une main : la paume, quatre doigts un peu écartés et le pouce, posés au
@@ -5244,13 +5558,13 @@ function geoMain(d, cote){
   const dedans = -cote;
   const peau = d.peau;
 
-  const liste = [ellipsoide(0.0185, 0.050, 0.039, 0, -0.050, 0.002, peau, 12)];
+  const liste = [ellipsoide(0.0185, 0.050, 0.039, 0, -0.050, 0.002, peau, 12, MATIERE.peau)];
 
   // Chacun : sa place en z à la base, sa longueur, son écart (radians, vers le
   // pouce en positif).
-  [[0.027, 0.066, 0.10], [0.009, 0.074, 0.02], [-0.009, 0.068, -0.05], [-0.026, 0.054, -0.13]]
+  [[0.025, 0.064, 0.05], [0.0085, 0.072, 0.01], [-0.0085, 0.066, -0.03], [-0.024, 0.052, -0.08]]
     .forEach(([z, longueur, ecart]) => {
-      const f = doigt(longueur, 0.0085, peau, dedans, 0.010);
+      const f = doigt(longueur, 0.0092, peau, dedans, 0.022);
       f.rotateX(-ecart);
       f.translate(0, -0.092, z);
       liste.push(f);
@@ -5275,19 +5589,20 @@ function geoAvantBras(d, cote, flexion){
   const manche = d.manches || null;
   const coupe = manche ? (d.rouleaux ? 0.42 : 1.0) : 0;
 
-  const liste = [membre(L, 0.038, 0.030, y => (manche && -y <= coupe * L + 0.0001) ? manche : d.peau, 1.05)];
+  const liste = [membre(L, 0.036, 0.027, y => (manche && -y <= coupe * L + 0.0001) ? manche : d.peau, 1.06,
+    y => (manche && -y <= coupe * L + 0.0001) ? MATIERE.tissu : MATIERE.peau)];
 
   if(manche && !d.rouleaux){
     liste.push(lofter([
-      { y: -L + 0.032, rx: 0.038, rz: 0.038 },
-      { y: -L + 0.002, rx: 0.038, rz: 0.038 }
+      { y: -L + 0.032, rx: 0.0325, rz: 0.0325 },
+      { y: -L + 0.002, rx: 0.0325, rz: 0.0325 }
     ], d.poignets || manche, 14));
   }
 
   if(manche && d.rouleaux){
     liste.push(lofter([
-      { y: -coupe * L + 0.02, rx: 0.047, rz: 0.047 },
-      { y: -coupe * L - 0.01, rx: 0.047, rz: 0.047 }
+      { y: -coupe * L + 0.02, rx: 0.040, rz: 0.040 },
+      { y: -coupe * L - 0.01, rx: 0.040, rz: 0.040 }
     ], melange(manche, '#000000', 0.06), 14));
   }
 
@@ -5304,8 +5619,8 @@ function geoAvantBras(d, cote, flexion){
 // Un pied chaussé : la forme, une semelle plus sombre.
 function geoPied(d, cote){
   return fusionner([
-    ellipsoide(0.050, 0.040, 0.118, 0, -0.045, 0.040, d.chaussures, 12),
-    boite(0.090, 0.012, 0.225, 0, -0.078, 0.042, melange(d.chaussures, '#000000', 0.5))
+    ellipsoide(0.050, 0.040, 0.118, 0, -0.045, 0.040, d.chaussures, 12, MATIERE.brillant),
+    boite(0.090, 0.012, 0.225, 0, -0.078, 0.042, melange(d.chaussures, '#000000', 0.5), 0, MATIERE.tissu)
   ]);
 }
 
@@ -5383,8 +5698,8 @@ const APPARENCES = {
 
   croupier: {
     peau: '#dba883', cheveux: '#4b3523', coiffure: 'rejete', yeux: '#4a3a2a', barbe: 1,
-    tenue: 'gilet', chemise: '#e8e5dd', veste: '#15171d', pantalon: '#101116', chaussures: '#060606',
-    noeud: '#0d0e12', manches: '#e8e5dd', poignets: '#e8e5dd', brassard: '#7a1526',
+    tenue: 'gilet', chemise: '#eef1f6', veste: '#15171d', pantalon: '#101116', chaussures: '#060606',
+    noeud: '#0d0e12', manches: '#eef1f6', poignets: '#eef1f6', brassard: '#7a1526',
     boutons: true, boutonsCouleur: '#2d3038'
   },
 
@@ -5392,8 +5707,8 @@ const APPARENCES = {
   // noué, une barbe soignée.
   barman: {
     peau: '#b97d56', cheveux: '#2a1b12', coiffure: 'rejete', yeux: '#2c1d12', barbe: 1,
-    tenue: 'gilet', chemise: '#efece4', veste: '#5a1424', pantalon: '#15151a', chaussures: '#0a0908',
-    manches: '#efece4', poignets: '#efece4', noeud: '#2a0a12', boutons: true, boutonsCouleur: '#c9973a'
+    tenue: 'gilet', chemise: '#f2f3f6', veste: '#5a1424', pantalon: '#15151a', chaussures: '#0a0908',
+    manches: '#f2f3f6', poignets: '#f2f3f6', noeud: '#2a0a12', boutons: true, boutonsCouleur: '#c9973a'
   },
 
   // Au bar, de dos : un costume bleu nuit, la cravate dénouée.
@@ -5432,6 +5747,10 @@ const APPARENCES = {
   }
 };
 
+// L'angle des paupières (autour de x) : ouvertes, leur bord est au-dessus de la
+// pupille ; fermées, elles couvrent tout le globe.
+const PAUPIERE = { ouverte: -0.78, fermee: 0.46 };
+
 // Un personnage. On le crée, puis on l'installe (où, assis ou debout) ; il
 // s'occupe ensuite de respirer, de regarder et de faire ce qu'on lui a
 // dit de faire.
@@ -5447,7 +5766,7 @@ class Humain {
     this.cible = [new THREE.Vector3(), new THREE.Vector3()];   // droite, gauche
     this.pose = [false, false];
     this.pronation = [0, 0];
-    this.pole = [new THREE.Vector3(-0.35, -0.5, -0.6), new THREE.Vector3(0.35, -0.5, -0.6)];
+    this.pole = [new THREE.Vector3(-0.55, -0.5, -0.55), new THREE.Vector3(0.55, -0.5, -0.55)];
 
     const mat = R.matHumain;
     const mesh = g => new THREE.Mesh(g, mat);
@@ -5468,6 +5787,17 @@ class Humain {
     cou.position.y = HUMAIN.hCou;
     cou.add(mesh(geoTete(d)));
     taille.add(cou);
+
+    // Les paupières, à part : elles bougent (voir cligner).
+    this.paupieres = positionsYeux(d).map(e => {
+      const m = mesh(geoPaupiere(d));
+      m.position.set(e.x, e.y, e.z);
+      m.scale.setScalar(TETE.k);
+      m.rotation.x = PAUPIERE.ouverte;
+      cou.add(m);
+      return m;
+    });
+    this.clin = { attente: hasard(1.2, 4.5), t: -1, double: false };
 
     // Les bras : à droite du personnage (x < 0), puis à gauche.
     this.bras = [-1, 1].map(s => {
@@ -5514,7 +5844,8 @@ class Humain {
     // Les jambes : posées une fois pour toutes, puis collées en une seule
     // forme (elles ne bougeront plus).
     const cuisse = membre(HUMAIN.cuisse, 0.090, 0.064, d.jambes === 'nues' ? d.veste : d.pantalon, 1.04);
-    const tibia = membre(HUMAIN.tibia, 0.060, 0.042, d.jambes === 'nues' ? d.peau : d.pantalon, 1.05);
+    const tibia = membre(HUMAIN.tibia, 0.060, 0.042, d.jambes === 'nues' ? d.peau : d.pantalon, 1.05,
+      d.jambes === 'nues' ? MATIERE.peau : MATIERE.tissu);
 
     const morceaux = [];
 
@@ -5631,7 +5962,7 @@ class Humain {
     this.bassin.updateMatrix();
     this.taille.updateMatrix();
     this.tete.updateMatrix();
-    return sortie.set(0, HUMAIN.hTete - 0.052, 0.094)
+    return sortie.set(0, TETE.haut - 0.052 * TETE.k, 0.094 * TETE.k)
       .applyMatrix4(this.tete.matrix)
       .applyMatrix4(this.taille.matrix)
       .applyMatrix4(this.bassin.matrix);
@@ -5697,12 +6028,73 @@ class Humain {
     this.cou.yaw += (yaw - this.cou.yaw) * k;
     this.cou.pitch += (pitch - this.cou.pitch) * k;
     this.attention += (suit - this.attention) * k;
+
+    this.cligner(dt, reduit);
+  }
+
+  // Le buste vit : il se soulève à chaque souffle, se balance d'un pied sur
+  // l'autre, tourne à peine. Les bras se replacent à chaque image (leurs mains
+  // restent sur leur cible, le buste bouge sous elles).
+  souffle(t, reduit){
+
+    if(reduit){
+      this.taille.rotation.set(this.penche, 0, 0);
+      return;
+    }
+
+    this.taille.rotation.set(
+      this.penche + Math.sin(t * 1.7 + this.phase) * 0.010,
+      Math.sin(t * 0.23 + this.phase * 1.7) * 0.035,
+      Math.sin(t * 0.31 + this.phase) * 0.014
+    );
+
+    this.sale = true;
+  }
+
+  // Un clignement toutes les trois à six secondes, parfois deux de suite. La
+  // paupière descend vite et remonte plus doucement ; quand la tête se penche
+  // (sur ses cartes, sur son verre), elle retombe un peu.
+  cligner(dt, reduit){
+
+    const c = this.clin;
+    if(!c || !this.paupieres) return;
+
+    let u = 0;
+
+    if(!reduit){
+
+      if(c.t < 0){
+        c.attente -= dt;
+        if(c.attente <= 0){
+          c.t = 0;
+          c.double = Math.random() < 0.18;
+        }
+      } else {
+        c.t += dt;
+        const duree = 0.20;
+        const x = c.t / duree;
+        if(x >= 1){
+          c.t = -1;
+          c.attente = c.double ? 0.16 : hasard(2.6, 6);
+          c.double = false;
+        } else {
+          u = x < 0.38 ? x / 0.38 : 1 - (x - 0.38) / 0.62;
+          u = u * u * (3 - 2 * u);
+        }
+      }
+    }
+
+    const baisse = clamp(this.cou.pitch * 1.4, 0, 0.35);
+    const a = lerp(PAUPIERE.ouverte + baisse, PAUPIERE.fermee, u);
+
+    this.paupieres.forEach(m => { m.rotation.x = a; });
   }
 
   maj(dt, t, reduit, cible){
 
     // Il respire, à peine.
     this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
+    this.souffle(t, reduit);
 
     this.regarder(dt, t, reduit, cible);
     this.tete.rotation.set(this.cou.pitch, this.cou.yaw, 0);
@@ -5760,7 +6152,7 @@ class Croupier extends Humain {
 
     this.reposDroit = new THREE.Vector3();
     this.offre = new THREE.Vector3(-0.13, 1.13, 0.70);
-    this.reposGauche = new THREE.Vector3(0.17, 0.975, 0.43);
+    this.reposGauche = new THREE.Vector3(0.20, 0.975, 0.34);
   }
 
   // Ce que voit la caméra quand on lui parle : lui, de face, à deux mètres et
@@ -5804,8 +6196,8 @@ class Croupier extends Humain {
     const r = this.accueil;
 
     // Il se penche vers la personne quand il lui tend un booster.
-    this.penche = 0.05 + 0.20 * r + this.remerciement * 0.10;
-    this.taille.rotation.x = this.penche;
+    this.penche = 0.28 + 0.10 * r + this.remerciement * 0.10;
+    this.souffle(t, reduit);
     this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
 
     // La tête suit la personne quand elle est proche ; sinon son regard
@@ -5815,8 +6207,9 @@ class Croupier extends Humain {
 
     this.regarder(dt, t, reduit, cible, defaut, 9, 3.2);
 
+    // Penché sur la table, il garde pourtant la tête haute.
     this.tete.rotation.set(
-      this.cou.pitch + (reduit ? 0 : Math.sin(t * 0.9 + this.phase) * 0.02) + this.remerciement * 0.22,
+      this.cou.pitch + (reduit ? 0 : Math.sin(t * 0.9 + this.phase) * 0.02) + this.remerciement * 0.22 - this.penche * 0.55,
       this.cou.yaw,
       0
     );
@@ -5828,9 +6221,9 @@ class Croupier extends Humain {
 
     // Le poignet est à 2 cm au-dessus du feutre (0,954 m) : l'épaisseur de la paume.
     this.reposDroit.set(
-      -0.17 + Math.sin(t * 3.4 + this.phase) * 0.030 * frotte,
+      -0.19 + Math.sin(t * 3.4 + this.phase) * 0.030 * frotte,
       0.975,
-      0.45 + Math.cos(t * 2.3 + this.phase) * 0.020 * frotte
+      0.35 + Math.cos(t * 2.3 + this.phase) * 0.020 * frotte
     );
 
     const cibleDroite = this.reposDroit.clone().lerp(this.offre, r);
@@ -5908,21 +6301,21 @@ const HABITUES = [
   // marbre du comptoir (1,081 m).
   { look: 'costume', siege: 'bar4', activite: 'discute', verre: 'whisky', mainVerre: 0,
     penche: 0.30, regard: -0.6,
-    mains: [[-0.17, 1.13, 0.56], [0.15, 1.103, 0.50]], pron: [0.9, -1.2], plat: [0, 1] },
+    mains: [[-0.17, 1.13, 0.47], [0.15, 1.103, 0.44]], pron: [0.9, -1.2], plat: [0, 1] },
 
   { look: 'robe', siege: 'bar5', activite: 'discute', verre: 'vin', mainVerre: 0,
     penche: 0.25, regard: 0.6,
-    mains: [[-0.16, 1.13, 0.54], [0.18, 1.103, 0.50]], pron: [0.9, -1.2], plat: [0, 1] },
+    mains: [[-0.16, 1.13, 0.45], [0.18, 1.103, 0.43]], pron: [0.9, -1.2], plat: [0, 1] },
 
   // À la table de blackjack, face au croupier.
   { look: 'sweat', siege: 'bj0', activite: 'cartes',
     penche: 0.28, regard: 0, portee: 3.5,
-    mains: [[-0.16, 0.975, 0.56], [0.16, 0.975, 0.56]], pron: [-1.25, 1.25], plat: [1, 1] },
+    mains: [[-0.16, 0.975, 0.43], [0.16, 0.975, 0.43]], pron: [-1.25, 1.25], plat: [1, 1] },
 
   // À la table de poker.
   { look: 'blazer', siege: 'pok3', activite: 'cartes',
     penche: 0.22, regard: 0, portee: 3.5,
-    mains: [[-0.13, 0.975, 0.52], [0.13, 0.975, 0.52]], pron: [-1.25, 1.25], plat: [1, 1] },
+    mains: [[-0.13, 0.975, 0.39], [0.13, 0.975, 0.39]], pron: [-1.25, 1.25], plat: [1, 1] },
 
   // Sur la banquette de velours, devant un verre.
   { look: 'cardigan', siege: 'banq1', activite: 'verre', verre: 'biere', mainVerre: 0,
@@ -6088,6 +6481,7 @@ class Habitue extends Humain {
     const def = this.def;
 
     this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.6 + this.phase) * 0.0035);
+    this.souffle(t, reduit);
 
     let defaut = def.regard || 0;
     let baisse = 0;
@@ -6256,6 +6650,7 @@ class Barman extends Humain {
   maj(dt, t, reduit, cible){
 
     this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
+    this.souffle(t, reduit);
 
     const w = reduit ? { polit: 0, secoue: 0, verse: 0, repos: 1, u: 0 } : this.poids(t);
 
