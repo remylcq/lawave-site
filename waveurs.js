@@ -141,6 +141,61 @@ const BANDES = [
   ['main', 'capybara', 'waveur', 'logo', 'main', 'capybara', 'waveur']
 ];
 
+// La salle, vue de l'intérieur d'un métal : ce que le laiton et le chrome
+// reflètent. Une petite scène (un fond qui va du plafond brun au sol lie-de-vin,
+// quelques lampes chaudes et un fil bleu) rendue une fois dans une carte
+// d'environnement floutée par niveaux de rugosité. Sans elle, un métal n'aurait
+// rien à refléter et paraîtrait un plastique jaune.
+function creerEnvironnement(){
+
+  const sc = new THREE.Scene();
+
+  const g = new THREE.SphereGeometry(20, 28, 18);
+  const p = g.attributes.position;
+  const col = new Float32Array(p.count * 3);
+  const haut = new THREE.Color('#4a2c17'), horizon = new THREE.Color('#1b0f08'), bas = new THREE.Color('#2b0a12');
+  const c = new THREE.Color();
+
+  for(let i = 0; i < p.count; i++){
+    const y = p.getY(i) / 20;
+    if(y >= 0) c.copy(horizon).lerp(haut, Math.pow(y, 0.7)); else c.copy(horizon).lerp(bas, Math.pow(-y, 0.6));
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  sc.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+
+  const lampe = (x, y, z, couleur, r) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 8), new THREE.MeshBasicMaterial({ color: couleur }));
+    m.position.set(x, y, z);
+    sc.add(m);
+  };
+
+  // Le lustre, juste au-dessus, puis les lampes du bar, du blackjack, du poker.
+  for(let i = 0; i < 8; i++){
+    const a = i * TAU / 8;
+    lampe(Math.sin(a) * 4, 14, Math.cos(a) * 4, '#ffe6bf', 1.5);
+  }
+  lampe(0, 18, 0, '#fff0d8', 3);
+  lampe(-14, 8, -12, '#ffc27a', 2.2);
+  lampe(14, 8, -12, '#ffc27a', 2.2);
+  lampe(-16, 7, 6, '#ffd2a0', 2.2);
+  lampe(16, 7, 8, '#ffd8aa', 2.2);
+  lampe(0, 7, 17, '#ffe9d2', 2.4);
+
+  // Le fil bleu des néons.
+  const fil = new THREE.Mesh(new THREE.BoxGeometry(34, 0.7, 0.7), new THREE.MeshBasicMaterial({ color: '#39b8ff' }));
+  fil.position.set(0, 5, -17);
+  sc.add(fil);
+
+  const pm = new THREE.PMREMGenerator(renderer);
+  const carte = pm.fromScene(sc, 0.02).texture;
+  pm.dispose();
+
+  g.dispose();
+  return carte;
+}
+
 // La machine, seule au milieu de la salle. Son identifiant est celui que la
 // base enregistre avec chaque tour.
 const MACHINE = { id: 'vague', nom: 'LA VAGUE', couleur: '#4FB4FF', sombre: '#0a2b4d' };
@@ -178,6 +233,62 @@ function creerCanvas(l, h){
   c.width = l;
   c.height = h;
   return { c, x: c.getContext('2d') };
+}
+
+// La finesse des grandes textures de décor (sol, tapis, murs, plafond) : un
+// ordinateur les dessine deux fois plus fines, un téléphone garde la taille
+// d'origine. Le dessin reste écrit en coordonnées « logiques » : seul le canvas
+// est plus grand, et le contexte déjà mis à l'échelle.
+const QUALITE = { hd: 1, niveau: 'auto' };
+
+// Le niveau choisi par la personne, gardé d'une visite à l'autre : « auto » (la
+// salle s'adapte toute seule à la machine), « haute » (tous les effets,
+// toujours), « basse » (une salle plus simple, pour économiser la batterie ou
+// aider une machine modeste).
+try{
+  const q = localStorage.getItem('lawave:waveurs:qualite');
+  if(q === 'haute' || q === 'basse') QUALITE.niveau = q;
+}catch(e){ /* stockage indisponible */ }
+
+function creerCanvasHD(l, h){
+  const k = QUALITE.hd;
+  const c = document.createElement('canvas');
+  c.width = Math.round(l * k);
+  c.height = Math.round(h * k);
+  const x = c.getContext('2d');
+  x.scale(k, k);
+  return { c, x };
+}
+
+// Une carte de relief tirée d'une texture : sa luminance, avec du contraste,
+// et un grain fin qui donne de la matière (poil du tapis, pores du bois). Les
+// lampes de la salle y accrochent des reflets : un mur lisse devient du marbre
+// poli, un parquet se creuse entre ses lames.
+function creerBump(source, o){
+
+  o = o || {};
+  const l = source.width, h = source.height;
+  const { c, x: g } = creerCanvas(l, h);
+
+  g.drawImage(source, 0, 0);
+
+  const img = g.getImageData(0, 0, l, h);
+  const d = img.data;
+  const k = o.contraste || 1;
+  const bruit = o.bruit || 0;
+  const sens = o.inverse ? -1 : 1;
+
+  for(let i = 0; i < d.length; i += 4){
+    let v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    v = 128 + (v - 128) * k * sens;
+    if(bruit) v += (Math.random() - 0.5) * bruit;
+    v = v < 0 ? 0 : v > 255 ? 255 : v;
+    d[i] = d[i + 1] = d[i + 2] = v;
+    d[i + 3] = 255;
+  }
+
+  g.putImageData(img, 0, 0);
+  return c;
 }
 
 // Le logo occupe le centre d'un carré presque vide : on le recadre au plus
@@ -539,6 +650,152 @@ function creerVitre(avecLigne){
 }
 
 
+// La face basse de la caisse : un acier brossé sombre, deux haut-parleurs
+// perforés, une plaque au nom de la machine et trois voyants. Elle se pose sur
+// un plan devant la caisse.
+function creerFaceBasse(def, logo){
+
+  const L = 940, H = 200;
+  const { c, x: g } = creerCanvas(L, H);
+
+  const fond = g.createLinearGradient(0, 0, 0, H);
+  fond.addColorStop(0, '#16222f');
+  fond.addColorStop(1, '#0b121b');
+  g.fillStyle = fond;
+  g.fillRect(0, 0, L, H);
+
+  // L'acier brossé : de fines lignes horizontales, plus ou moins claires.
+  for(let y = 0; y < H; y += 2){
+    g.fillStyle = 'rgba(' + (Math.random() < 0.5 ? '255,255,255' : '0,0,0') + ',' + hasard(0.012, 0.045) + ')';
+    g.fillRect(0, y, L, 1);
+  }
+
+  // Les deux haut-parleurs : un disque de petits trous.
+  const hp = (cx) => {
+    g.fillStyle = '#05090e';
+    g.beginPath(); g.arc(cx, 100, 74, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(170,200,230,.5)';
+    g.lineWidth = 3;
+    g.beginPath(); g.arc(cx, 100, 76, 0, TAU); g.stroke();
+    g.fillStyle = 'rgba(120,150,180,.55)';
+    for(let r = 7; r < 68; r += 8){
+      const n = Math.max(6, Math.round(TAU * r / 9));
+      for(let k = 0; k < n; k++){
+        const a = k / n * TAU + r;
+        g.beginPath();
+        g.arc(cx + Math.cos(a) * r, 100 + Math.sin(a) * r, 1.9, 0, TAU);
+        g.fill();
+      }
+    }
+  };
+  hp(112);
+  hp(L - 112);
+
+  // La plaque centrale.
+  const px = 236, pl = L - 2 * px;
+  g.fillStyle = 'rgba(2,6,12,.72)';
+  rectArrondi(g, px, 28, pl, 144, 18);
+  g.fill();
+  g.strokeStyle = def.couleur;
+  g.lineWidth = 3;
+  g.stroke();
+
+  if(logo){
+    ajuster(g, logoTeinte(logo, '#ffffff'), L / 2, 78, 220, 70);
+  }
+
+  g.font = '600 22px ' + POLICE;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillStyle = eclaircir(def.couleur, 0.4);
+  texteEspace(g, def.nom, L / 2, 126, 6);
+
+  // Trois voyants.
+  [-1, 0, 1].forEach(k => {
+    const x = L / 2 + k * 38, y = 152;
+    const rg = g.createRadialGradient(x, y, 1, x, y, 9);
+    rg.addColorStop(0, '#ffffff');
+    rg.addColorStop(0.35, def.couleur);
+    rg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = rg;
+    g.beginPath(); g.arc(x, y, 9, 0, TAU); g.fill();
+  });
+
+  return c;
+}
+
+// Un flanc de la machine : le fond sombre, des vagues de néon qui montent, et
+// le nom en filigrane.
+function creerFlanc(def){
+
+  const L = 512, H = 512;
+  const { c, x: g } = creerCanvas(L, H);
+
+  const fond = g.createLinearGradient(0, 0, L, 0);
+  fond.addColorStop(0, '#0a1624');
+  fond.addColorStop(1, '#10243b');
+  g.fillStyle = fond;
+  g.fillRect(0, 0, L, H);
+
+  g.lineWidth = 5;
+  for(let k = 0; k < 8; k++){
+    const y0 = 70 + k * 52;
+    g.strokeStyle = def.couleur;
+    g.globalAlpha = 0.18 + 0.7 * (1 - k / 8);
+    g.shadowColor = def.couleur;
+    g.shadowBlur = 14;
+    g.beginPath();
+    for(let x = 0; x <= L; x += 6){
+      const y = y0 + Math.sin(x / 40 + k * 0.9) * 14;
+      if(x === 0) g.moveTo(x, y); else g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+
+  g.shadowBlur = 0;
+  g.globalAlpha = 1;
+
+  return c;
+}
+
+// L'ombre que la fenêtre jette sur les rouleaux : sombre en haut et en bas,
+// transparente au milieu. Elle donne de la profondeur au puits.
+function creerOmbrePuits(){
+
+  const { c, x: g } = creerCanvas(8, 128);
+
+  const d = g.createLinearGradient(0, 0, 0, 128);
+  d.addColorStop(0, 'rgba(0,0,0,.78)');
+  d.addColorStop(0.2, 'rgba(0,0,0,.28)');
+  d.addColorStop(0.42, 'rgba(0,0,0,0)');
+  d.addColorStop(0.58, 'rgba(0,0,0,0)');
+  d.addColorStop(0.8, 'rgba(0,0,0,.28)');
+  d.addColorStop(1, 'rgba(0,0,0,.78)');
+  g.fillStyle = d;
+  g.fillRect(0, 0, 8, 128);
+
+  return c;
+}
+
+// Un reflet qui balaie la vitre : une bande claire en diagonale, que l'on fait
+// glisser en déplaçant la texture.
+function creerBalayage(){
+
+  const { c, x: g } = creerCanvas(256, 64);
+
+  const d = g.createLinearGradient(0, 0, 256, 0);
+  d.addColorStop(0, 'rgba(255,255,255,0)');
+  d.addColorStop(0.40, 'rgba(255,255,255,0)');
+  d.addColorStop(0.5, 'rgba(255,255,255,.55)');
+  d.addColorStop(0.6, 'rgba(255,255,255,0)');
+  d.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = d;
+  g.fillRect(0, 0, 256, 64);
+
+  return c;
+}
+
+
 /* ---- Textures de la salle : marbre, bois, tapis, bar ---- */
 
 // Un motif qui se répète doit se raccorder sur ses bords : ce qui déborde
@@ -550,7 +807,7 @@ const DECALAGES = [-1, 0, 1];
 function creerMarbre(fond, veine, doree, nombre){
 
   const T = 512;
-  const { c, x: g } = creerCanvas(T, T);
+  const { c, x: g } = creerCanvasHD(T, T);
 
   g.fillStyle = fond;
   g.fillRect(0, 0, T, T);
@@ -614,7 +871,7 @@ function creerMarbre(fond, veine, doree, nombre){
 function creerParquet(){
 
   const T = 512;
-  const { c, x: g } = creerCanvas(T, T);
+  const { c, x: g } = creerCanvasHD(T, T);
 
   // On dessine des lames horizontales, puis on tourne le tout : elles
   // courent ainsi dans la longueur de la salle.
@@ -666,7 +923,7 @@ function creerParquet(){
 // façade du comptoir.
 function creerLattes(){
 
-  const { c, x: g } = creerCanvas(256, 256);
+  const { c, x: g } = creerCanvasHD(256, 256);
   const n = 10, l = 256 / n;
 
   for(let i = 0; i < n; i++){
@@ -696,7 +953,7 @@ function creerLattes(){
 // Un plafond à caissons : du noyer sombre, cerclé de cuivre.
 function creerPlafond(){
 
-  const { c, x: g } = creerCanvas(256, 256);
+  const { c, x: g } = creerCanvasHD(256, 256);
 
   g.fillStyle = '#21140b';
   g.fillRect(0, 0, 256, 256);
@@ -726,7 +983,7 @@ function creerPlafond(){
 function creerTapis(logo){
 
   const L = 1024, H = 1280;
-  const { c, x: g } = creerCanvas(L, H);
+  const { c, x: g } = creerCanvasHD(L, H);
 
   g.fillStyle = '#3f0c18';
   g.fillRect(0, 0, L, H);
@@ -803,15 +1060,20 @@ function creerTapis(logo){
   g.lineWidth = 2;
   g.strokeRect(100, 100, L - 200, H - 200);
 
-  // Un peu de grain, pour que le tapis ne paraisse pas plastifié.
-  const img = g.getImageData(0, 0, L, H);
+  // Du grain, pour que le tapis ne paraisse pas plastifié : un voile fin, et de
+  // loin en loin un poil plus clair ou plus sombre, comme un velours brossé.
+  g.save();
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  const img = g.getImageData(0, 0, c.width, c.height);
   for(let i = 0; i < img.data.length; i += 4){
-    const v = (Math.random() - 0.5) * 9;
+    let v = (Math.random() - 0.5) * 11;
+    if(Math.random() < 0.012) v += Math.random() < 0.5 ? -26 : 20;
     img.data[i] += v;
-    img.data[i + 1] += v;
-    img.data[i + 2] += v;
+    img.data[i + 1] += v * 0.9;
+    img.data[i + 2] += v * 0.9;
   }
   g.putImageData(img, 0, 0);
+  g.restore();
 
   return c;
 }
@@ -820,7 +1082,7 @@ function creerTapis(logo){
 function creerEstrade(){
 
   const T = 512;
-  const { c, x: g } = creerCanvas(T, T);
+  const { c, x: g } = creerCanvasHD(T, T);
 
   const fond = g.createRadialGradient(T / 2, T / 2, 20, T / 2, T / 2, T / 2);
   fond.addColorStop(0, '#4d1020');
@@ -1648,6 +1910,32 @@ function fusionner(liste){
   return res;
 }
 
+// Une boîte dont les arêtes sont biseautées (de `b` mètres) : elle accroche
+// la lumière sur ses chanfreins, là où une boîte à angles vifs reste plate.
+function boiteBiseau(l, h, p, x, y, z, couleur, b, rx){
+
+  b = Math.min(b || 0.012, l / 2 - 0.001, h / 2 - 0.001, p / 2 - 0.001);
+
+  const w = l / 2 - b, hh = h / 2 - b;
+  const forme = new THREE.Shape();
+  forme.moveTo(-w, -hh);
+  forme.lineTo(w, -hh);
+  forme.lineTo(w, hh);
+  forme.lineTo(-w, hh);
+  forme.closePath();
+
+  const g = new THREE.ExtrudeGeometry(forme, {
+    depth: Math.max(0.0005, p - 2 * b), bevelEnabled: true, bevelSize: b, bevelThickness: b,
+    bevelSegments: 2, curveSegments: 1
+  });
+
+  g.translate(0, 0, -(p - 2 * b) / 2);
+  if(rx) g.rotateX(rx);
+  g.translate(x, y, z);
+  if(couleur) colorer(g, couleur);
+  return g;
+}
+
 function boite(l, h, p, x, y, z, couleur, rx){
   const g = new THREE.BoxGeometry(l, h, p);
   if(rx) g.rotateX(rx);
@@ -1692,49 +1980,74 @@ function positionsLampes(){
 function construireModeleMachine(){
 
   const W = 1.0, D = 0.9;
-  const cab = '#14314f', cab2 = '#0d2136', noir = '#04080f';
+  const cab = '#15324f', cab2 = '#0d2136', noir = '#04080f';
   const acier = '#a9bccd', corail = '#ff6b81';
 
+  // La carrosserie : tout est biseauté, pour que les arêtes brillent.
   const corps = [
-    boite(W + 0.05, 0.10, D + 0.05, 0, 0.05, 0, cab2),            // socle
-    boite(W, 0.76, D, 0, 0.48, 0, cab),                           // caisse
-    boite(0.17, 0.56, D, -0.415, 1.34, 0, cab),                   // joue gauche
-    boite(0.17, 0.56, D, 0.415, 1.34, 0, cab),                    // joue droite
-    boite(W, 0.06, D, 0, 1.59, 0, cab),                           // linteau
-    boite(W, 0.06, D, 0, 1.09, 0, cab),                           // appui
-    boite(0.68, 0.46, 0.04, 0, 1.34, -0.10, noir),                // fond du puits
-    boite(W - 0.08, 0.20, D - 0.10, 0, 1.72, 0, cab2),            // boîtier de l'écran
-    boite(W + 0.04, 0.34, 0.55, 0, 1.99, 0.12, cab2),             // boîtier du fronton
-    boite(W - 0.04, 0.09, 0.42, 0, 0.96, 0.27, cab2, 0.28),       // pupitre incliné
-    boite(0.56, 0.13, 0.12, 0, 0.36, 0.435, noir),                // bac à pièces
+    boiteBiseau(W + 0.07, 0.10, D + 0.05, 0, 0.05, 0, cab2, 0.02),         // socle
+    boiteBiseau(W, 0.76, D, 0, 0.48, 0, cab, 0.022),                       // caisse
+    boiteBiseau(0.17, 0.56, D, -0.415, 1.34, 0, cab, 0.016),               // joue gauche
+    boiteBiseau(0.17, 0.56, D, 0.415, 1.34, 0, cab, 0.016),                // joue droite
+    boiteBiseau(W, 0.06, D, 0, 1.59, 0, cab, 0.014),                       // linteau
+    boiteBiseau(W, 0.06, D, 0, 1.09, 0, cab, 0.014),                       // appui
+    boite(0.68, 0.46, 0.04, 0, 1.34, -0.10, noir),                         // fond du puits
+    boiteBiseau(W - 0.08, 0.20, D - 0.10, 0, 1.72, 0, cab2, 0.016),        // boîtier de l'écran
+    boiteBiseau(W + 0.04, 0.34, 0.55, 0, 1.99, 0.12, cab2, 0.02),          // boîtier du fronton
+    boiteBiseau(W - 0.04, 0.09, 0.42, 0, 0.96, 0.27, cab2, 0.014, 0.28),   // pupitre incliné
+    boite(0.56, 0.13, 0.12, 0, 0.36, 0.435, noir),                         // bac à pièces
     // Le dos : la machine se tient au milieu de la salle, on en fait le
     // tour. Sans cette plaque, le puits des rouleaux serait ouvert derrière.
-    boite(W + 0.05, 1.78, 0.03, 0, 0.99, -0.465, cab2),
-    boite(0.5, 0.02, 0.02, 0, 0.3, -0.485, noir),                 // grille d'aération
+    boiteBiseau(W + 0.05, 1.78, 0.03, 0, 0.99, -0.465, cab2, 0.01),
+    boite(0.5, 0.02, 0.02, 0, 0.3, -0.485, noir),                          // grille d'aération
     boite(0.5, 0.02, 0.02, 0, 0.35, -0.485, noir),
     boite(0.5, 0.02, 0.02, 0, 0.4, -0.485, noir)
   ];
 
+  // Les pièces de la couleur de la machine, métal anodisé.
   const accent = [
     // Cadre de la fenêtre des rouleaux
-    boite(0.76, 0.045, 0.05, 0, 1.575, 0.445),
-    boite(0.76, 0.045, 0.05, 0, 1.105, 0.445),
-    boite(0.045, 0.53, 0.05, -0.36, 1.34, 0.445),
-    boite(0.045, 0.53, 0.05, 0.36, 1.34, 0.445),
+    boiteBiseau(0.78, 0.05, 0.055, 0, 1.575, 0.445, null, 0.008),
+    boiteBiseau(0.78, 0.05, 0.055, 0, 1.105, 0.445, null, 0.008),
+    boiteBiseau(0.05, 0.53, 0.055, -0.365, 1.34, 0.445, null, 0.008),
+    boiteBiseau(0.05, 0.53, 0.055, 0.365, 1.34, 0.445, null, 0.008),
     // Liseré du bas de caisse
-    boite(W + 0.01, 0.05, 0.02, 0, 0.62, 0.455),
+    boiteBiseau(W + 0.01, 0.05, 0.025, 0, 0.62, 0.457, null, 0.008),
     // Cadre du fronton
-    boite(W + 0.09, 0.035, 0.05, 0, 2.17, 0.385),
-    boite(W + 0.09, 0.035, 0.05, 0, 1.815, 0.385),
-    boite(0.035, 0.36, 0.05, -0.545, 1.995, 0.385),
-    boite(0.035, 0.36, 0.05, 0.545, 1.995, 0.385),
+    boiteBiseau(W + 0.09, 0.04, 0.055, 0, 2.17, 0.385, null, 0.01),
+    boiteBiseau(W + 0.09, 0.04, 0.055, 0, 1.815, 0.385, null, 0.01),
+    boiteBiseau(0.04, 0.36, 0.055, -0.545, 1.995, 0.385, null, 0.01),
+    boiteBiseau(0.04, 0.36, 0.055, 0.545, 1.995, 0.385, null, 0.01),
     // Plaque du levier
-    boite(0.05, 0.18, 0.18, 0.525, 1.02, 0.06),
+    boiteBiseau(0.05, 0.18, 0.18, 0.525, 1.02, 0.06, null, 0.01),
     // Liserés du dos
     boite(W + 0.01, 0.05, 0.02, 0, 0.62, -0.485),
     boite(W + 0.01, 0.04, 0.02, 0, 1.55, -0.485),
     boite(0.035, 1.3, 0.02, -0.44, 0.9, -0.485),
     boite(0.035, 1.3, 0.02, 0.44, 0.9, -0.485)
+  ];
+
+  // Du chrome : les chants des cadres et le bac à pièces, qui reflètent la salle.
+  const chrome = [
+    boiteBiseau(W + 0.02, 0.035, 0.02, 0, 0.135, 0.458, '#ffffff', 0.006),     // plinthe
+    boiteBiseau(0.60, 0.02, 0.05, 0, 0.435, 0.468, '#ffffff', 0.006),           // bac : bord haut
+    boiteBiseau(0.60, 0.02, 0.05, 0, 0.285, 0.468, '#ffffff', 0.006),           // bac : bord bas
+    boiteBiseau(0.02, 0.17, 0.05, -0.29, 0.36, 0.468, '#ffffff', 0.006),
+    boiteBiseau(0.02, 0.17, 0.05, 0.29, 0.36, 0.468, '#ffffff', 0.006),
+    boiteBiseau(0.82, 0.022, 0.03, 0, 1.601, 0.46, '#ffffff', 0.006),           // fenêtre : liserés
+    boiteBiseau(0.82, 0.022, 0.03, 0, 1.079, 0.46, '#ffffff', 0.006),
+    boiteBiseau(W + 0.13, 0.025, 0.04, 0, 2.2, 0.385, '#ffffff', 0.006),       // fronton : liserés
+    boiteBiseau(W + 0.13, 0.025, 0.04, 0, 1.79, 0.385, '#ffffff', 0.006)
+  ];
+
+  // Des fils de néon : l'éclairage direct de la couleur de la machine, qui
+  // part en halo avec le reste.
+  const neon = [
+    boite(W - 0.06, 0.012, 0.012, 0, 0.1, 0.474),                              // sous la caisse
+    boite(0.012, 0.64, 0.012, -0.5, 0.48, 0.474),                              // arêtes avant
+    boite(0.012, 0.64, 0.012, 0.5, 0.48, 0.474),
+    boite(0.7, 0.01, 0.01, 0, 1.64, 0.47),                                      // au-dessus des rouleaux
+    boite(0.7, 0.01, 0.01, 0, 1.04, 0.5)
   ];
 
   // Deux ailerons en forme de crête de vague, de part et d'autre du
@@ -1749,7 +2062,9 @@ function construireModeleMachine(){
   s.lineTo(-0.29, 0.10);
   s.closePath();
 
-  const aileron = new THREE.ExtrudeGeometry(s, { depth: 0.03, bevelEnabled: false, curveSegments: 10 });
+  const aileron = new THREE.ExtrudeGeometry(s, {
+    depth: 0.03, bevelEnabled: true, bevelSize: 0.008, bevelThickness: 0.008, bevelSegments: 1, curveSegments: 12
+  });
   aileron.rotateY(-Math.PI / 2);
 
   const aG = aileron.clone();
@@ -1757,6 +2072,20 @@ function construireModeleMachine(){
   const aD = aileron.clone();
   aD.translate(0.53, 0, 0);
   accent.push(aG, aD);
+
+  // Un filet de néon le long de la crête de chaque aileron. Le contour de
+  // l'aileron est dessiné en (x, y) puis tourné d'un quart de tour : sa
+  // longueur court le long de z du modèle. On suit ses deux courbes du haut.
+  const V = (xs, y) => new THREE.Vector3(0, y, xs);
+  const crete = new THREE.CurvePath();
+  crete.add(new THREE.CubicBezierCurve3(V(-0.45, 2.05), V(-0.45, 2.38), V(-0.12, 2.48), V(0.10, 2.32)));
+  crete.add(new THREE.CubicBezierCurve3(V(0.10, 2.32), V(0.26, 2.20), V(0.22, 2.05), V(0.12, 2.02)));
+
+  [-0.545, 0.545].forEach(x => {
+    const t = new THREE.TubeGeometry(crete, 48, 0.009, 6, false);
+    t.translate(x, 0, 0);
+    neon.push(t);
+  });
 
   // Les quatre petits boutons du pupitre.
   const a = 0.28, ph = 0.96, pz = 0.27;
@@ -1775,6 +2104,23 @@ function construireModeleMachine(){
     return g;
   });
 
+  // Une collerette de chrome autour de chaque bouton, du gros bouton aussi.
+  [-0.34, -0.2, 0.2, 0.34].forEach(x => {
+    const g = new THREE.TorusGeometry(0.04, 0.006, 6, 24);
+    g.rotateX(Math.PI / 2 + a);
+    const p = surPupitre(x, 0.02, 0.003);
+    g.translate(p[0], p[1], p[2]);
+    colorer(g, '#ffffff');
+    chrome.push(g);
+  });
+
+  const collierTirer = new THREE.TorusGeometry(0.068, 0.008, 6, 32);
+  collierTirer.rotateX(Math.PI / 2 + a);
+  const pc = surPupitre(0, 0.02, 0.004);
+  collierTirer.translate(pc[0], pc[1], pc[2]);
+  colorer(collierTirer, '#ffffff');
+  chrome.push(collierTirer);
+
   // Le gros bouton du milieu, qui s'enfonce : c'est un objet à part.
   const bouton = surPupitre(0, 0.02, 0.015);
 
@@ -1782,7 +2128,7 @@ function construireModeleMachine(){
   const bras = new THREE.CylinderGeometry(0.014, 0.014, 0.38, 12);
   bras.translate(0, 0.19, 0);
   colorer(bras, acier);
-  const bille = new THREE.SphereGeometry(0.045, 18, 14);
+  const bille = new THREE.SphereGeometry(0.045, 20, 16);
   bille.translate(0, 0.40, 0);
   colorer(bille, corail);
   const pivot = new THREE.SphereGeometry(0.03, 12, 10);
@@ -1791,13 +2137,15 @@ function construireModeleMachine(){
   return {
     corps: fusionner(corps),
     accent: fusionner(accent),
+    chrome: fusionner(chrome),
+    neon: fusionner(neon),
     boutons: fusionner(boutons),
     levier: fusionner([bras, bille, pivot]),
     tirer: new THREE.CylinderGeometry(0.058, 0.058, 0.03, 28),
     positionTirer: bouton,
     inclinaison: a,
     rouleau: (() => {
-      const g = new THREE.CylinderGeometry(0.17, 0.17, 0.17, 32, 1, true);
+      const g = new THREE.CylinderGeometry(0.17, 0.17, 0.17, 40, 1, true);
       g.rotateZ(Math.PI / 2);
       return g;
     })(),
@@ -1838,10 +2186,47 @@ class Machine {
 
     g.add(new THREE.Mesh(M.corps, R.matCorps));
 
-    this.matAccent = new THREE.MeshPhongMaterial({
-      color: def.couleur, shininess: 80, specular: 0x666666
+    // Du métal anodisé, de la couleur de la machine : il reflète la salle.
+    this.matAccent = new THREE.MeshStandardMaterial({
+      color: def.couleur, metalness: 0.85, roughness: 0.26, envMap: R.env, envMapIntensity: 1.7
     });
     g.add(new THREE.Mesh(M.accent, this.matAccent));
+
+    g.add(new THREE.Mesh(M.chrome, R.matChrome));
+
+    // Les fils de néon : la couleur de la machine, à plein.
+    this.matNeon = new THREE.MeshBasicMaterial({ color: new THREE.Color(def.couleur).multiplyScalar(1.15) });
+    g.add(new THREE.Mesh(M.neon, this.matNeon));
+
+    // La face basse (haut-parleurs, plaque) et les flancs (vagues de néon).
+    const faceBasse = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.94, 0.20),
+      new THREE.MeshBasicMaterial({ map: R.texture(creerFaceBasse(def, R.logo)), color: 0xbdbdbd })
+    );
+    faceBasse.position.set(0, 0.75, 0.4535);
+    g.add(faceBasse);
+
+    const texFlanc = R.texture(creerFlanc(def));
+    [-1, 1].forEach(sens => {
+      const flanc = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.74, 0.72),
+        new THREE.MeshBasicMaterial({ map: texFlanc, color: 0xbdbdbd })
+      );
+      flanc.position.set(sens * 0.5025, 0.49, 0.06);
+      flanc.rotation.y = sens * Math.PI / 2;
+      g.add(flanc);
+    });
+
+    // La lueur sur l'estrade, de la couleur de la machine (elle bat avec les gains).
+    this.matSol = new THREE.MeshBasicMaterial({
+      map: R.halo, color: def.couleur, transparent: true, opacity: 0.5,
+      depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    const lueurSol = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.3), this.matSol);
+    lueurSol.rotation.x = -Math.PI / 2;
+    lueurSol.position.set(0, 0.006, 0.05);
+    lueurSol.renderOrder = 1;
+    g.add(lueurSol);
 
     // Les boutons brillent de la couleur de la machine.
     const clair = eclaircir(def.couleur, 0.35);
@@ -1868,10 +2253,32 @@ class Machine {
       };
     });
 
+    // L'ombre du cadre sur les rouleaux : du relief dans le puits.
+    const ombrePuits = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.64, 0.42),
+      new THREE.MeshBasicMaterial({ map: R.texOmbrePuits, transparent: true, depthWrite: false })
+    );
+    ombrePuits.position.set(0, 1.34, 0.31);
+    ombrePuits.renderOrder = 2;
+    g.add(ombrePuits);
+
     const vitre = new THREE.Mesh(M.vitre, R.matVitre);
     vitre.position.set(0, 1.34, 0.452);
     vitre.renderOrder = 3;
     g.add(vitre);
+
+    // Un reflet qui balaie la vitre de temps en temps.
+    this.texBalayage = R.texture(creerBalayage(), { repete: true });
+    const balayage = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.66, 0.44),
+      new THREE.MeshBasicMaterial({
+        map: this.texBalayage, transparent: true, opacity: 0.55, depthWrite: false,
+        blending: THREE.AdditiveBlending
+      })
+    );
+    balayage.position.set(0, 1.34, 0.4535);
+    balayage.renderOrder = 4;
+    g.add(balayage);
 
     // Fronton lumineux.
     this.matFronton = new THREE.MeshBasicMaterial({
@@ -2068,6 +2475,10 @@ class Machine {
       }
 
       r.mesh.rotation.x = r.angle;
+
+      // Le flou suit la vitesse du rouleau.
+      const flou = r.mesh.material.userData.flou;
+      if(flou) flou.value = r.etat === 'repos' ? 0 : clamp(r.vitesse / 14, 0, 1);
     });
 
     if(this.tourne && toutArrete) this.tourne = false;
@@ -2088,6 +2499,18 @@ class Machine {
     const pulse = reduit ? 0.95 : 0.9 + 0.1 * Math.sin(t * 2 + this.phase);
     const v = eclat ? 1.15 : pulse;
     this.matFronton.color.setRGB(v, v, v);
+
+    // Les fils de néon et la lueur sur l'estrade battent avec le fronton ; un
+    // gain les fait flamboyer.
+    const nv = eclat ? 1.5 + 0.4 * Math.sin(t * 14) : 1.0 + (reduit ? 0 : 0.12 * Math.sin(t * 2.4 + this.phase));
+    this.matNeon.color.set(this.cLampeOn).multiplyScalar(nv);
+    this.matSol.opacity = eclat ? 0.85 : 0.48 + (reduit ? 0 : 0.08 * Math.sin(t * 1.6 + this.phase));
+
+    // Le reflet qui balaie la vitre : un passage toutes les six secondes.
+    if(!reduit){
+      const u = ((t + this.phase) % 6) / 6;
+      this.texBalayage.offset.x = 1.4 - u * 2.8;
+    }
 
     this.majLampes(t, eclat, reduit);
   }
@@ -2668,6 +3091,11 @@ const CSS = `
 .wv-aide li.wv-texte{display:block;line-height:1.5}
 .wv-aide b{color:#fff;font-weight:600}
 .wv-actions{display:flex;gap:10px;flex-wrap:wrap}
+.wv-reglage{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 20px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);font-size:13px;color:#c4c9d0}
+.wv-seg{display:inline-flex;gap:4px;padding:3px;border-radius:999px;background:rgba(0,0,0,.35)}
+.wv-seg button{padding:6px 13px;border:0;border-radius:999px;background:none;color:#c4c9d0;font:600 12.5px 'Public Sans',system-ui,sans-serif;cursor:pointer;transition:background .2s,color .2s}
+.wv-seg button:hover{color:#fff}
+.wv-seg button.actif{background:#1489de;color:#fff}
 .wv-cta{padding:12px 22px;border-radius:999px;border:1px solid transparent;background:#1489de;color:#fff;font:600 14px 'Public Sans',system-ui,sans-serif;cursor:pointer;transition:background .2s}
 .wv-cta:hover{background:#2597ee}
 .wv-cta.discret{background:transparent;border-color:rgba(255,255,255,.3);color:#dfe7ef}
@@ -2934,6 +3362,10 @@ let actif = false;                // la salle est ouverte
 let raf = 0, dernier = 0, temps = 0;
 let ratioMax = 1.75, ratioActuel = 1, lentes = 0;
 
+// Un éclair de lumière sur l'image quand la machine paie : il gonfle le halo et
+// l'exposition, puis retombe en un instant.
+let eclairEcran = 0;
+
 const R = {};                     // ressources partagées
 const machines = [];
 let croupier = null;
@@ -3119,7 +3551,14 @@ async function construireMonde(){
     powerPreference: 'high-performance'
   });
 
-  ratioMax = Math.min(window.devicePixelRatio || 1, etat.tactile ? 1.5 : 1.75);
+  // Les grandes textures du décor : deux fois plus fines sur ordinateur (sauf en
+  // qualité basse). Les images plus nettes aussi : jusqu'à 2 en qualité haute.
+  QUALITE.hd = (etat.tactile || QUALITE.niveau === 'basse') ? 1 : 2;
+
+  ratioMax = Math.min(
+    window.devicePixelRatio || 1,
+    QUALITE.niveau === 'basse' ? 1 : QUALITE.niveau === 'haute' && !etat.tactile ? 2 : (etat.tactile ? 1.5 : 1.75)
+  );
   ratioActuel = ratioMax;
   renderer.setPixelRatio(ratioActuel);
 
@@ -3127,7 +3566,8 @@ async function construireMonde(){
   // réservés aux ordinateurs : sur un téléphone, un second rendu de la salle
   // coûterait trop.
   creerPost();
-  if(!etat.tactile) creerReflet();
+  if(!etat.tactile && QUALITE.niveau !== 'basse') creerReflet();
+  appliquerQualite();
 
   // Le navigateur reprend parfois la carte graphique (une autre application,
   // un onglet trop gourmand). Three.js recrée seul ses ressources quand elle
@@ -3190,17 +3630,66 @@ async function construireMonde(){
   R.matRouleaux = BANDES.map(ordre => {
     const t = R.texture(creerBande(ordre, tuiles));
     t.wrapS = THREE.RepeatWrapping;
-    return new THREE.MeshStandardMaterial({
+    const m = new THREE.MeshStandardMaterial({
       map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: 0.62,
       roughness: 0.4, metalness: 0
     });
+
+    // Un rouleau qui tourne vite se floute dans le sens du mouvement, et le
+    // cylindre s'assombrit vers le haut et le bas : il paraît bombé, et non
+    // plus une affiche collée derrière la vitre.
+    const flou = { value: 0 };
+    m.userData.flou = flou;
+    m.onBeforeCompile = (shader) => {
+      shader.uniforms.uFlou = flou;
+      shader.fragmentShader = 'uniform float uFlou;\n' + shader.fragmentShader
+        .replace('#include <map_fragment>', `
+          vec4 texelColor = vec4(0.0);
+          for(int i = 0; i < 5; i++){
+            texelColor += texture2D(map, vUv + vec2((float(i) - 2.0) * uFlou * 0.011, 0.0));
+          }
+          texelColor *= 0.2;
+          texelColor = mapTexelToLinear(texelColor);
+          diffuseColor *= texelColor;`)
+        .replace('#include <emissivemap_fragment>', `
+          vec4 emissiveColor = vec4(0.0);
+          for(int i = 0; i < 5; i++){
+            emissiveColor += texture2D(emissiveMap, vUv + vec2((float(i) - 2.0) * uFlou * 0.011, 0.0));
+          }
+          emissiveColor *= 0.2;
+          emissiveColor.rgb = emissiveMapTexelToLinear(emissiveColor).rgb;
+          totalEmissiveRadiance *= emissiveColor.rgb;`)
+        .replace('#include <dithering_fragment>', `
+          float bombe = clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0);
+          gl_FragColor.rgb *= mix(0.34, 1.0, pow(bombe, 0.55));
+          #include <dithering_fragment>`);
+    };
+
+    return m;
   });
 
-  R.matCorps = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0.25 });
+  // Ce que les métaux reflètent : la salle, en miniature (voir creerEnvironnement).
+  R.env = null;
+
+  try{
+    R.env = creerEnvironnement();
+  }catch(e){
+    R.env = null;
+  }
+
+  R.matCorps = new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.4, metalness: 0.5, envMap: R.env, envMapIntensity: 1.3
+  });
+
+  R.matChrome = new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 0.14, metalness: 1, envMap: R.env, envMapIntensity: 2.2
+  });
 
   R.matVitre = new THREE.MeshBasicMaterial({
     map: R.texture(creerVitre(true)), transparent: true, depthWrite: false
   });
+
+  R.texOmbrePuits = R.texture(creerOmbrePuits());
 
   R.matLevier = new THREE.MeshPhongMaterial({ vertexColors: true, shininess: 90, specular: 0x888888 });
 
@@ -3212,10 +3701,15 @@ async function construireMonde(){
 
   // Les matériaux de la salle. Le laiton et le cuivre n'ont rien à refléter
   // (pas d'environnement) : leur éclat vient des reflets des lampes.
-  R.matLaiton = new THREE.MeshPhongMaterial({
-    vertexColors: true, specular: 0xb8a070, shininess: 45, side: THREE.DoubleSide
+  // Le laiton reflète la salle (R.env) : un vrai métal, dont l'éclat change
+  // avec l'angle, et non plus un aplat jaune.
+  R.matLaiton = new THREE.MeshStandardMaterial({
+    vertexColors: true, metalness: 0.88, roughness: 0.28, side: THREE.DoubleSide,
+    envMap: R.env, envMapIntensity: 2.6
   });
-  R.matLaitonUni = new THREE.MeshPhongMaterial({ color: OR, specular: 0xb8a070, shininess: 45 });
+  R.matLaitonUni = new THREE.MeshStandardMaterial({
+    color: OR, metalness: 0.88, roughness: 0.28, envMap: R.env, envMapIntensity: 2.6
+  });
   R.matBois = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, metalness: 0.05 });
   R.matTissu = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
   R.matLed = new THREE.MeshBasicMaterial({ vertexColors: true });
@@ -3315,20 +3809,25 @@ function construireSalle(){
   // Le parquet et le podium reflètent ce qui est au-dessus d'eux (voir
   // refleter) ; le tapis, velours mat, n'en garde qu'un voile aux angles
   // rasants.
+  const canvasParquet = creerParquet();
   const sol = new THREE.Mesh(
     new THREE.PlaneGeometry(L * 2, P * 2),
     refleter(new THREE.MeshPhongMaterial({
-      map: R.texture(creerParquet(), { repete: true, rx: L, ry: P }),
+      map: R.texture(canvasParquet, { repete: true, rx: L, ry: P }),
+      bumpMap: R.texture(creerBump(canvasParquet, { contraste: 1.5, bruit: 26 }), { repete: true, rx: L, ry: P }),
+      bumpScale: 1.0,
       specular: 0x6a5238, shininess: 46
     }), 0.34, 0.010)
   );
   sol.rotation.x = -Math.PI / 2;
   scene.add(sol);
 
+  const canvasTapis = creerTapis(R.logo);
   const tapis = new THREE.Mesh(
     new THREE.PlaneGeometry(11, 13.75),
     refleter(new THREE.MeshPhongMaterial({
-      map: R.texture(creerTapis(R.logo)), color: 0xbca8aa, specular: 0x1a0a0c, shininess: 6
+      map: R.texture(canvasTapis), color: 0xbca8aa, specular: 0x1a0a0c, shininess: 6,
+      bumpMap: R.texture(creerBump(canvasTapis, { contraste: 1.2, bruit: 34 })), bumpScale: 0.9
     }), 0.05, 0.02)
   );
   tapis.rotation.x = -Math.PI / 2;
@@ -3360,11 +3859,13 @@ function construireSalle(){
   scene.add(bord);
 
   // ---- Plafond à caissons ----
+  const canvasPlafond = creerPlafond();
   const plafond = new THREE.Mesh(
     new THREE.PlaneGeometry(L * 2, P * 2),
-    new THREE.MeshLambertMaterial({
-      map: R.texture(creerPlafond(), { repete: true, rx: L * 2 / 2.5, ry: P * 2 / 2.5 }),
-      color: 0xd9d9d9
+    new THREE.MeshPhongMaterial({
+      map: R.texture(canvasPlafond, { repete: true, rx: L * 2 / 2.5, ry: P * 2 / 2.5 }),
+      bumpMap: R.texture(creerBump(canvasPlafond, { contraste: 2.2 }), { repete: true, rx: L * 2 / 2.5, ry: P * 2 / 2.5 }),
+      bumpScale: 0.5, color: 0x989898, specular: 0x1c1610, shininess: 12
     })
   );
   plafond.rotation.x = Math.PI / 2;
@@ -3374,6 +3875,10 @@ function construireSalle(){
   // ---- Murs : marbre sombre, soubassement de lattes, garnitures ----
   const marbre = creerMarbre('#2e2d35', '#9d9aa8', '#d6b06a', 16);
   const lattes = creerLattes();
+  // Un marbre poli n'a pas de relief : un grain, même fin, y scintillait. Ses
+  // veines restent dessinées dans la couleur, et le poli vient de la lumière
+  // (un reflet par pixel, voir le matériau des murs).
+  const bumpLattes = creerBump(lattes, { contraste: 1.6, bruit: 14 });
 
   const bois = [], laiton = [], led = [];
 
@@ -3395,12 +3900,19 @@ function construireSalle(){
 
     placer(new THREE.Mesh(
       new THREE.PlaneGeometry(m.l, Ht),
-      new THREE.MeshLambertMaterial({ map: R.texture(marbre, { repete: true, rx: m.l / 1.8, ry: Ht / 1.8 }), color: 0xb8b8b8 })
+      new THREE.MeshPhongMaterial({
+        map: R.texture(marbre, { repete: true, rx: m.l / 1.8, ry: Ht / 1.8 }),
+        color: 0x5c5c5c, specular: 0x1c1c22, shininess: 38
+      })
     ), Ht / 2, 0);
 
     placer(new THREE.Mesh(
       new THREE.PlaneGeometry(m.l, 1.0),
-      new THREE.MeshLambertMaterial({ map: R.texture(lattes, { repete: true, rx: m.l / 0.8, ry: 1 }) })
+      new THREE.MeshPhongMaterial({
+        map: R.texture(lattes, { repete: true, rx: m.l / 0.8, ry: 1 }),
+        bumpMap: R.texture(bumpLattes, { repete: true, rx: m.l / 0.8, ry: 1 }), bumpScale: 0.8,
+        color: 0xbfbfbf, specular: 0x2a1e12, shininess: 18
+      })
     ), 0.5, 0.02);
 
     // Les garnitures sont dessinées à plat contre le mur (x le long du mur,
@@ -4778,6 +5290,14 @@ const APPARENCES = {
     boutons: true, boutonsCouleur: '#2d3038'
   },
 
+  // Derrière le comptoir : un gilet bordeaux sur une chemise claire, le tablier
+  // noué, une barbe soignée.
+  barman: {
+    peau: '#b97d56', cheveux: '#2a1b12', coiffure: 'rejete', yeux: '#2c1d12', barbe: 1,
+    tenue: 'gilet', chemise: '#efece4', veste: '#5a1424', pantalon: '#15151a', chaussures: '#0a0908',
+    manches: '#efece4', poignets: '#efece4', noeud: '#2a0a12', boutons: true, boutonsCouleur: '#c9973a'
+  },
+
   // Au bar, de dos : un costume bleu nuit, la cravate dénouée.
   costume: {
     peau: '#c98f6b', cheveux: '#1d1410', coiffure: 'court', yeux: '#3a2a1c', barbe: 1,
@@ -5406,6 +5926,12 @@ function construireHabitues(){
     habitues.push(h);
   });
 
+  // Le barman, derrière le comptoir (le dessus de marbre est à 1,08 m ; il se
+  // tient à 55 cm de son bord, à portée de bras).
+  const barman = new Barman(-1.3, -7.74);
+  scene.add(barman.groupe);
+  habitues.push(barman);
+
   // Le croupier (construit avant, avec sa boutique) et les habitués sont tous
   // installés : leurs jambes et leurs ombres, qui ne bougent plus, se collent.
   fusionnerPersonnages();
@@ -5538,6 +6064,172 @@ class Habitue extends Humain {
     this.majBras();
   }
 }
+
+/* ---- Le barman ---- */
+
+// Derrière le comptoir, il essuie un verre, secoue un shaker, verse un whisky,
+// puis recommence. Il lève les yeux vers la personne qui passe devant lui.
+class Barman extends Humain {
+
+  constructor(x, z){
+
+    super(APPARENCES.barman);
+
+    this.type = 'barman';
+    this.def = { regard: 0, portee: 6, mains: [[0, 0, 0], [0, 0, 0]], pron: [0, 0] };
+    this.cycle = 15;
+
+    this.installer({
+      x, z, yaw: 0,
+      hanche: [HUMAIN.bassinDebout, 0],
+      penche: 0.04,
+      pieds: { y: 0.085, z: 0.03, ecart: 0.12, ouverture: 0.2 }
+    });
+
+    // Le verre qu'il essuie, tenu de la main droite ; le chiffon, dans la gauche.
+    this.verre = creerVerre('whisky');
+    this.verre.position.set(0, -HUMAIN.avantBras - 0.04, 0.03);
+    this.bras[0].coude.add(this.verre);
+
+    this.chiffon = new THREE.Mesh(
+      new THREE.BoxGeometry(0.11, 0.012, 0.09),
+      new THREE.MeshStandardMaterial({ color: 0xf0ece2, roughness: 0.9 })
+    );
+    this.chiffon.position.set(0, -HUMAIN.avantBras - 0.04, 0.03);
+    this.bras[1].coude.add(this.chiffon);
+
+    // Le shaker, à deux mains : il reste dans la gauche et la droite le rejoint.
+    this.shaker = new THREE.Group();
+    const acier = new THREE.MeshStandardMaterial({ color: 0xc9d1d9, metalness: 1, roughness: 0.18, envMap: R.env, envMapIntensity: 1.6 });
+    const corps = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.030, 0.17, 18), acier);
+    corps.position.y = 0.0;
+    const bouchon = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.034, 0.05, 18), acier);
+    bouchon.position.y = 0.108;
+    this.shaker.add(corps, bouchon);
+    this.shaker.position.set(0, -HUMAIN.avantBras - 0.03, 0.04);
+    this.bras[1].coude.add(this.shaker);
+
+    // La bouteille qu'il tient pour verser.
+    this.bouteille = new THREE.Group();
+    const verreSombre = new THREE.MeshStandardMaterial({ color: 0x1d3a26, roughness: 0.2, metalness: 0.1 });
+    const bBas = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.19, 18), verreSombre);
+    bBas.position.y = 0.075;
+    const bCol = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.034, 0.07, 16), verreSombre);
+    bCol.position.y = 0.205;
+    const bGoulot = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.07, 12), verreSombre);
+    bGoulot.position.y = 0.275;
+    const etiquette = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.0368, 0.0368, 0.075, 18, 1, true),
+      new THREE.MeshStandardMaterial({ color: 0xe8dfc8, roughness: 0.7 })
+    );
+    etiquette.position.y = 0.06;
+    this.bouteille.add(bBas, bCol, bGoulot, etiquette);
+    this.bouteille.position.set(0, -HUMAIN.avantBras - 0.02, 0.03);
+    this.bras[0].coude.add(this.bouteille);
+
+    // Le verre qu'il remplit, posé sur le comptoir (1,081 m).
+    this.verreComptoir = creerVerre('whisky');
+    this.verreComptoir.position.set(0.13, 1.081 + 0.046, 0.42);
+    this.groupe.add(this.verreComptoir);
+
+    this.qTravail = new THREE.Quaternion();
+    this.cibles = [new THREE.Vector3(), new THREE.Vector3()];
+    this.tv = Array.from({ length: 8 }, () => new THREE.Vector3());
+  }
+
+  // Ce qu'il fait à l'instant t, en poids de 0 à 1 (la somme vaut 1) : on glisse
+  // de l'un à l'autre sur sept dixièmes de seconde.
+  poids(t){
+
+    const u = (t + this.phase * 2) % this.cycle;
+    const f = 0.7;
+
+    const fen = (a, b) => {
+      const montee = clamp((u - a) / f, 0, 1), descente = clamp((b - u) / f, 0, 1);
+      const k = Math.min(montee, descente);
+      return k * k * (3 - 2 * k);
+    };
+
+    const polit = fen(0, 5.6), secoue = fen(5.6 - f, 9), verse = fen(9 - f, 13);
+
+    return { polit, secoue, verse, repos: Math.max(0, 1 - polit - secoue - verse), u };
+  }
+
+  maj(dt, t, reduit, cible){
+
+    this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
+
+    const w = reduit ? { polit: 0, secoue: 0, verse: 0, repos: 1, u: 0 } : this.poids(t);
+
+    // La tête : sur son ouvrage, ou sur la personne qui passe.
+    this.regarder(dt, t, reduit, cible, 0, 6, 1.2);
+    this.tete.rotation.set(
+      this.cou.pitch + (1 - this.attention) * (0.12 + 0.20 * (w.polit + w.verse)),
+      this.cou.yaw, 0
+    );
+
+    const T = this.cibles, V = this.tv;
+    const o = reduit ? 0 : 1;
+
+    // Au repos : les deux mains sur le comptoir.
+    const repos0 = V[0].set(-0.17, 1.112, 0.36), repos1 = V[1].set(0.17, 1.112, 0.36);
+
+    // Il essuie : le verre au creux de la main droite, le chiffon tourne dedans.
+    const pol0 = V[2].set(-0.09 + Math.sin(t * 2.6) * 0.008 * o, 1.20, 0.30);
+    const pol1 = V[3].set(0.07 + Math.cos(t * 6.0) * 0.022 * o, 1.17 + Math.sin(t * 6.0) * 0.018 * o, 0.30);
+
+    // Il secoue : les deux mains en haut, un va-et-vient vif.
+    const sec = Math.sin(t * 17) * 0.035 * o;
+    const sec0 = V[4].set(-0.06, 1.37 + sec, 0.30 + sec * 0.6);
+    const sec1 = V[5].set(0.06, 1.36 + sec, 0.30 + sec * 0.6);
+
+    // Il verse : la bouteille de la main droite, le verre tenu de la gauche.
+    const ver0 = V[6].set(-0.14, 1.32, 0.32);
+    const ver1 = V[7].set(0.13, 1.115, 0.40);
+
+    T[0].set(0, 0, 0)
+      .addScaledVector(repos0, w.repos).addScaledVector(pol0, w.polit)
+      .addScaledVector(sec0, w.secoue).addScaledVector(ver0, w.verse);
+    T[1].set(0, 0, 0)
+      .addScaledVector(repos1, w.repos).addScaledVector(pol1, w.polit)
+      .addScaledVector(sec1, w.secoue).addScaledVector(ver1, w.verse);
+
+    this.viserBras(0, T[0], 0.4);
+    this.viserBras(1, T[1], 0.4);
+    this.majBras();
+
+    // Les objets : seuls ceux du geste en cours se montrent, et restent
+    // droits, quoi que fasse le bras.
+    this.verre.visible = w.polit > 0.04;
+    this.chiffon.visible = w.polit > 0.04;
+    this.shaker.visible = w.secoue > 0.04;
+    this.bouteille.visible = w.verse > 0.04;
+    this.verreComptoir.visible = w.verse > 0.04;
+
+    const q = this.qTravail;
+
+    const redresser = (objet, bras) => {
+      const b = this.bras[bras];
+      q.copy(this.groupe.quaternion)
+        .multiply(this.bassin.quaternion).multiply(this.taille.quaternion)
+        .multiply(b.epaule.quaternion).multiply(b.coude.quaternion);
+      objet.quaternion.copy(q).invert();
+    };
+
+    if(this.verre.visible) redresser(this.verre, 0);
+    if(this.chiffon.visible){ redresser(this.chiffon, 1); this.chiffon.rotateY(t * 6); }
+    if(this.shaker.visible){ redresser(this.shaker, 1); this.shaker.rotateX(sec * 5); }
+
+    if(this.bouteille.visible){
+      redresser(this.bouteille, 0);
+      // La bouteille se penche à mesure que le verre se remplit.
+      const v = clamp((w.u - 9.4) / 3.0, 0, 1);
+      this.bouteille.rotateX(1.45 * Math.min(1, v * 3.5) * w.verse);
+      this.verreComptoir.children[0].scale.y = 0.15 + 0.85 * clamp(v * 1.2, 0, 1);
+    }
+  }
+}
+
 
 // Des jetons et des cartes sur les tables de jeu : une seule forme pour les
 // jetons, une pour les cartes.
@@ -5823,7 +6515,11 @@ function construireAmbiance(){
 
 const POST = {
   actif: false, bloom: true, rt: null, flouA: null, flouB: null,
-  cam: null, scene: null, quad: null, mat: {}, essais: 0
+  cam: null, scene: null, quad: null, mat: {}, essais: 0,
+  // L'occlusion ambiante (les coins et les contacts s'assombrissent) et le
+  // lissage des bords : deux passes de plus, coupées avant le halo si la
+  // machine peine.
+  ssao: false, fxaa: false, rtAA: null, aoA: null, aoB: null
 };
 
 const REFLET = {
@@ -5857,6 +6553,133 @@ void main(){
   gl_FragColor = vec4(c * k, 1.0);
 }`;
 
+// L'occlusion ambiante, calculée dans l'espace de l'écran à partir du tampon de
+// profondeur. Pour chaque pixel : sa position et sa normale dans l'espace de la
+// caméra, puis douze points tirés dans la demi-sphère au-dessus de lui ; un
+// point qui passe derrière une surface plus proche est « bouché ». Plus il y en
+// a, plus le pixel est dans un creux (angle de mur, pied de table, dessous de
+// comptoir) et plus il s'assombrit. Un bruit propre à chaque pixel, que le
+// flou qui suit efface, évite les bandes.
+const FS_SSAO = `
+uniform sampler2D tDepth;
+uniform vec2 uTan;
+uniform vec2 uNF;
+uniform vec2 uPx;
+uniform float uRayon;
+varying vec2 vUv;
+
+float prof(vec2 uv){
+  float d = texture2D(tDepth, uv).x;
+  return uNF.x * uNF.y / (uNF.y - d * (uNF.y - uNF.x));
+}
+
+vec3 pos(vec2 uv, float z){
+  return vec3((uv * 2.0 - 1.0) * uTan * z, z);
+}
+
+void main(){
+
+  float z = prof(vUv);
+
+  if(z > uNF.y * 0.85){
+    gl_FragColor = vec4(1.0);
+    return;
+  }
+
+  vec3 p = pos(vUv, z);
+
+  vec2 ex = vec2(uPx.x, 0.0), ey = vec2(0.0, uPx.y);
+  float zr = prof(vUv + ex), zl = prof(vUv - ex), zu = prof(vUv + ey), zd = prof(vUv - ey);
+
+  vec3 dx = abs(zr - z) < abs(zl - z) ? pos(vUv + ex, zr) - p : p - pos(vUv - ex, zl);
+  vec3 dy = abs(zu - z) < abs(zd - z) ? pos(vUv + ey, zu) - p : p - pos(vUv - ey, zd);
+
+  vec3 n = normalize(cross(dx, dy));
+  if(dot(n, p) > 0.0) n = -n;
+
+  vec3 t = normalize(cross(n, abs(n.y) < 0.95 ? vec3(0.0, 1.0, 0.0) : vec3(1.0, 0.0, 0.0)));
+  vec3 b = cross(n, t);
+
+  float rot = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))) * 6.2831853;
+
+  float occ = 0.0;
+
+  for(int i = 0; i < 12; i++){
+    float u = (float(i) + 0.5) / 12.0;
+    float a = float(i) * 2.399963 + rot;
+    vec3 d = normalize(t * cos(a) + b * sin(a) + n * (0.30 + 0.70 * u));
+    float r = uRayon * (0.2 + 0.8 * fract(u * 7.0 + rot));
+    vec3 sp = p + n * 0.02 + d * r;
+    if(sp.z <= 0.05) continue;
+    vec2 uv2 = sp.xy / (sp.z * uTan) * 0.5 + 0.5;
+    float sz = prof(uv2);
+    float diff = sp.z - sz;
+    float portee = smoothstep(0.0, 1.0, uRayon / max(abs(z - sz), 0.001));
+    occ += step(0.025, diff) * portee;
+  }
+
+  float ao = 1.0 - occ / 12.0;
+  gl_FragColor = vec4(vec3(ao), 1.0);
+}`;
+
+// Un flou 4 × 4 de l'occlusion : il efface le bruit du tirage.
+const FS_AO_FLOU = `
+uniform sampler2D tSource;
+uniform vec2 uTexel;
+varying vec2 vUv;
+void main(){
+  float s = 0.0;
+  for(int j = -2; j < 2; j++){
+    for(int i = -2; i < 2; i++){
+      s += texture2D(tSource, vUv + (vec2(float(i), float(j)) + 0.5) * uTexel).r;
+    }
+  }
+  gl_FragColor = vec4(vec3(s / 16.0), 1.0);
+}`;
+
+// Un lissage des bords (FXAA, version courte) : la scène est rendue dans une
+// image intermédiaire, sans l'anticrénelage de l'écran.
+const FS_FXAA = `
+uniform sampler2D tScene;
+uniform vec2 uPx;
+varying vec2 vUv;
+
+float lum(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
+
+void main(){
+  vec3 m  = texture2D(tScene, vUv).rgb;
+  vec3 nw = texture2D(tScene, vUv + vec2(-1.0, -1.0) * uPx).rgb;
+  vec3 ne = texture2D(tScene, vUv + vec2( 1.0, -1.0) * uPx).rgb;
+  vec3 sw = texture2D(tScene, vUv + vec2(-1.0,  1.0) * uPx).rgb;
+  vec3 se = texture2D(tScene, vUv + vec2( 1.0,  1.0) * uPx).rgb;
+
+  float lm = lum(m), lnw = lum(nw), lne = lum(ne), lsw = lum(sw), lse = lum(se);
+  float lmin = min(lm, min(min(lnw, lne), min(lsw, lse)));
+  float lmax = max(lm, max(max(lnw, lne), max(lsw, lse)));
+
+  // Une zone sans contraste n'a pas de bord à lisser.
+  if(lmax - lmin < max(0.03, lmax * 0.10)){
+    gl_FragColor = vec4(m, 1.0);
+    return;
+  }
+
+  vec2 dir;
+  dir.x = -((lnw + lne) - (lsw + lse));
+  dir.y =  ((lnw + lsw) - (lne + lse));
+
+  float reduc = max((lnw + lne + lsw + lse) * 0.03125, 0.0078125);
+  float inv = 1.0 / (min(abs(dir.x), abs(dir.y)) + reduc);
+  dir = clamp(dir * inv, vec2(-8.0), vec2(8.0)) * uPx;
+
+  vec3 a = 0.5 * (texture2D(tScene, vUv + dir * (1.0 / 3.0 - 0.5)).rgb
+                + texture2D(tScene, vUv + dir * (2.0 / 3.0 - 0.5)).rgb);
+  vec3 b = a * 0.5 + 0.25 * (texture2D(tScene, vUv + dir * -0.5).rgb
+                           + texture2D(tScene, vUv + dir *  0.5).rgb);
+
+  float lb = lum(b);
+  gl_FragColor = vec4((lb < lmin || lb > lmax) ? a : b, 1.0);
+}`;
+
 // Un flou gaussien, dans une direction à la fois.
 const FS_FLOU = `
 uniform sampler2D tSource;
@@ -5882,6 +6705,8 @@ uniform float uVignette;
 uniform float uGrain;
 uniform float uExposition;
 uniform float uGamma;
+uniform sampler2D tAO;
+uniform float uAO;
 varying vec2 vUv;
 
 vec3 etalonner(vec3 c){
@@ -5911,6 +6736,11 @@ void main(){
   col.r = texture2D(tScene, vUv + off).r;
   col.g = texture2D(tScene, vUv).g;
   col.b = texture2D(tScene, vUv - off).b;
+
+  // L'occlusion ambiante assombrit les creux, mais pas ce qui brille (un néon,
+  // une ampoule) : plus un pixel est clair, moins elle compte.
+  float clair = dot(col, vec3(0.299, 0.587, 0.114));
+  col *= mix(1.0, texture2D(tAO, vUv).r, uAO * (1.0 - smoothstep(0.5, 1.0, clair)));
 
   col += texture2D(tBloom, vUv).rgb * uBloom;
 
@@ -5954,6 +6784,11 @@ function creerPost(){
     POST.flouA = new THREE.WebGLRenderTarget(2, 2, petit);
     POST.flouB = new THREE.WebGLRenderTarget(2, 2, petit);
 
+    // L'occlusion se calcule en demi-résolution, le lissage des bords en pleine.
+    POST.aoA = new THREE.WebGLRenderTarget(2, 2, petit);
+    POST.aoB = new THREE.WebGLRenderTarget(2, 2, petit);
+    POST.rtAA = new THREE.WebGLRenderTarget(2, 2, petit);
+
     POST.cam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
     POST.scene = new THREE.Scene();
 
@@ -5967,15 +6802,26 @@ function creerPost(){
 
     POST.mat.seuil = mat(VS_ECRAN, FS_SEUIL, { tScene: { value: POST.rt.texture }, uSeuil: { value: 0.84 } });
     POST.mat.flou = mat(VS_ECRAN, FS_FLOU, { tSource: { value: null }, uDir: { value: new THREE.Vector2() } });
+
+    POST.mat.ssao = mat(VS_ECRAN, FS_SSAO, {
+      tDepth: { value: POST.rt.depthTexture }, uTan: { value: new THREE.Vector2(1, 1) },
+      uNF: { value: new THREE.Vector2(0.1, 70) }, uPx: { value: new THREE.Vector2(1, 1) },
+      uRayon: { value: 0.55 }
+    });
+    POST.mat.aoFlou = mat(VS_ECRAN, FS_AO_FLOU, { tSource: { value: POST.aoA.texture }, uTexel: { value: new THREE.Vector2(1, 1) } });
+    POST.mat.fxaa = mat(VS_ECRAN, FS_FXAA, { tScene: { value: POST.rt.texture }, uPx: { value: new THREE.Vector2(1, 1) } });
     POST.mat.final = mat(VS_ECRAN, FS_FINAL, {
       tScene: { value: POST.rt.texture }, tBloom: { value: POST.flouA.texture },
       uBloom: { value: 0.75 }, uT: { value: 0 }, uRes: { value: new THREE.Vector2(1, 1) },
       uVignette: { value: 0.36 }, uGrain: { value: 0.02 },
-      uExposition: { value: 1.06 }, uGamma: { value: 1.0 }
+      uExposition: { value: 1.06 }, uGamma: { value: 1.0 },
+      tAO: { value: POST.aoB.texture }, uAO: { value: 0 }
     });
 
     POST.actif = true;
     POST.bloom = true;
+    POST.ssao = true;
+    POST.fxaa = true;
 
     redimensionnerPost();
 
@@ -6001,6 +6847,14 @@ function redimensionnerPost(){
     POST.flouA.setSize(pl, ph);
     POST.flouB.setSize(pl, ph);
     POST.mat.final.uniforms.uRes.value.set(l, h);
+
+    const al = Math.max(2, Math.floor(l / 2)), ah = Math.max(2, Math.floor(h / 2));
+    POST.aoA.setSize(al, ah);
+    POST.aoB.setSize(al, ah);
+    POST.rtAA.setSize(l, h);
+    POST.mat.ssao.uniforms.uPx.value.set(1 / l, 1 / h);
+    POST.mat.aoFlou.uniforms.uTexel.value.set(1 / al, 1 / ah);
+    POST.mat.fxaa.uniforms.uPx.value.set(1 / l, 1 / h);
   }
 
   if(REFLET.actif){
@@ -6026,6 +6880,29 @@ function rendre(sc, cam){
   renderer.setRenderTarget(POST.rt);
   renderer.render(sc, cam);
 
+  const salle = sc === scene;
+
+  // L'occlusion ambiante : la salle seulement (la scène des cartes doit rester
+  // claire et nette).
+  const ao = salle && POST.ssao;
+
+  if(ao){
+    const f = Math.tan(cam.fov * Math.PI / 360);
+    const u = POST.mat.ssao.uniforms;
+    u.uTan.value.set(f * cam.aspect, f);
+    u.uNF.value.set(cam.near, cam.far);
+    passe(POST.mat.ssao, POST.aoA);
+    passe(POST.mat.aoFlou, POST.aoB);
+  }
+
+  // Le lissage des bords, avant le halo et l'étalonnage.
+  const aa = POST.fxaa && salle;
+
+  if(aa) passe(POST.mat.fxaa, POST.rtAA);
+
+  POST.mat.final.uniforms.tScene.value = aa ? POST.rtAA.texture : POST.rt.texture;
+  POST.mat.final.uniforms.uAO.value = ao ? 0.85 : 0;
+
   if(POST.bloom){
 
     const pl = POST.flouA.width, ph = POST.flouA.height;
@@ -6049,8 +6926,8 @@ function rendre(sc, cam){
   const g = sc === scene ? GRADE.salle : GRADE.cartes;
   const u = POST.mat.final.uniforms;
 
-  u.uBloom.value = POST.bloom ? g.halo : 0;
-  u.uExposition.value = g.exposition;
+  u.uBloom.value = POST.bloom ? g.halo + (salle ? eclairEcran * 1.1 : 0) : 0;
+  u.uExposition.value = g.exposition + (salle ? eclairEcran * 0.16 : 0);
   u.uGamma.value = g.gamma;
   u.uVignette.value = g.vignette;
   u.uT.value = temps;
@@ -8671,6 +9548,8 @@ function annoncerResultat(machine, res){
 
     machine.gagner(jackpot);
 
+    if(!etat.reduit) eclairEcran = jackpot ? 1 : 0.5;
+
     const mot = pluriel(pieces, 'pièce');
 
     const detail = (xp > 0 ? '+' + xp + ' XP' : '') + (xp > 0 && pieces > 0 ? ' · ' : '') +
@@ -9097,6 +9976,12 @@ function montrerEcran(type, texte){
       '<h2>Pause</h2>' +
       '<p>La salle t’attend. Tes tours et ton XP sont enregistrés à chaque tirage.</p>' +
       '<ul class="wv-aide">' + aide + '</ul>' +
+      '<div class="wv-reglage"><span>Qualité des images</span>' +
+      '<div class="wv-seg" id="wvQualite" role="group" aria-label="Qualité des images">' +
+      '<button type="button" data-q="auto">Auto</button>' +
+      '<button type="button" data-q="haute">Haute</button>' +
+      '<button type="button" data-q="basse">Économie</button>' +
+      '</div></div>' +
       '<div class="wv-actions">' +
       '<button type="button" class="wv-cta" id="wvEntrer">Reprendre</button>' +
       '<button type="button" class="wv-cta discret" id="wvSortir">Quitter la salle</button>' +
@@ -9227,6 +10112,11 @@ function montrerEcran(type, texte){
   });
 
   if(entrer) entrer.focus({ preventScroll: true });
+
+  H.ecran.querySelectorAll('#wvQualite button').forEach(b => {
+    b.addEventListener('click', () => choisirQualite(b.dataset.q));
+  });
+  majBoutonsQualite();
 
   if(type === 'boutique') brancherBoutique();
   if(type === 'collection') brancherCollection();
@@ -10059,6 +10949,56 @@ function redimensionner(){
   redimensionnerOuverture();
 }
 
+// Ce que le niveau de qualité change tout de suite : l'occlusion ambiante, les
+// reflets du sol, la finesse de l'image. (Les textures, elles, se dessinent à
+// l'entrée dans la salle : elles prennent le nouveau niveau à la visite
+// suivante.)
+function appliquerQualite(){
+
+  if(POST.actif){
+    // L'occlusion ambiante est réservée aux ordinateurs, sauf si la personne
+    // demande la qualité haute ; en économie, elle s'éteint.
+    POST.ssao = QUALITE.niveau !== 'basse' && (!etat.tactile || QUALITE.niveau === 'haute');
+    POST.bloom = true;
+    POST.fxaa = true;
+  }
+
+  if(QUALITE.niveau === 'basse' && REFLET.actif){
+    REFLET.actif = false;
+    desactiverReflets();
+  }
+
+  if(renderer && camera){
+    ratioMax = Math.min(
+      window.devicePixelRatio || 1,
+      QUALITE.niveau === 'basse' ? 1 : QUALITE.niveau === 'haute' && !etat.tactile ? 2 : (etat.tactile ? 1.5 : 1.75)
+    );
+    ratioActuel = ratioMax;
+    renderer.setPixelRatio(ratioActuel);
+    redimensionner();
+  }
+
+  lentes = 0;
+}
+
+function choisirQualite(niveau){
+
+  QUALITE.niveau = niveau;
+
+  try{ localStorage.setItem('lawave:waveurs:qualite', niveau); }catch(e){ /* sans effet */ }
+
+  appliquerQualite();
+  majBoutonsQualite();
+}
+
+function majBoutonsQualite(){
+  if(!H.ecran) return;
+  H.ecran.querySelectorAll('#wvQualite button').forEach(b => {
+    b.classList.toggle('actif', b.dataset.q === QUALITE.niveau);
+    b.setAttribute('aria-pressed', b.dataset.q === QUALITE.niveau ? 'true' : 'false');
+  });
+}
+
 // Sur une machine modeste, la salle perd en finesse plutôt qu'en fluidité :
 // si les images tardent, on renonce d'abord au halo, puis aux reflets du sol,
 // puis la résolution baisse d'un cran à la fois, et en dernier recours les
@@ -10067,12 +11007,20 @@ function surveillerPerformance(dt){
 
   if(dt > 1 / 28) lentes++; else lentes = Math.max(0, lentes - 1);
 
+  // En qualité « haute », la personne a demandé tous les effets : on ne les
+  // retire pas (ni en « basse », où il n'y a plus rien à retirer d'utile).
+  if(QUALITE.niveau !== 'auto') return;
+
   if(lentes <= 70) return;
 
   lentes = 0;
 
-  if(POST.actif && POST.bloom){
+  if(POST.actif && POST.ssao){
+    POST.ssao = false;
+  } else if(POST.actif && POST.bloom){
     POST.bloom = false;
+  } else if(POST.actif && POST.fxaa){
+    POST.fxaa = false;
   } else if(REFLET.actif){
     REFLET.actif = false;
     desactiverReflets();
@@ -10109,6 +11057,7 @@ function boucle(t){
   const dt = dernier ? Math.min(0.05, (t - dernier) / 1000) : 0.016;
   dernier = t;
   temps += dt;
+  eclairEcran = Math.max(0, eclairEcran - dt * 1.6);
 
   // Pendant l'ouverture d'un booster, la salle est à l'arrêt : on ne montre
   // que la scène des cartes.
@@ -10663,6 +11612,7 @@ window.Waveurs = {
     camera: () => camera,
     renderer: () => renderer,
     reprendre: () => { montrerEcran(null); },
+    ecran: (type, texte) => montrerEcran(type, texte),
     tirer,
     entrerFocus,
     sortirFocus
