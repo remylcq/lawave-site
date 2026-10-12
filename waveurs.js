@@ -6152,11 +6152,17 @@ class Humain {
     this.peaux = m.meshes.map(source => {
       const peau = new THREE.SkinnedMesh(source.geometry, this.preparerMateriau(source.material, source.name));
       peau.name = source.name;
+      // Hors du champ de la caméra, on ne le dessine pas : la sphère qui l'englobe est élargie de ce que
+      // les bras peuvent atteindre.
+      if(!source.geometry.boundingSphere) source.geometry.computeBoundingSphere();
+      if(!source.geometry.userData.elargie){
+        source.geometry.boundingSphere.radius += 0.8;
+        source.geometry.userData.elargie = true;
+      }
       if(source.morphTargetInfluences){
         peau.morphTargetDictionary = Object.assign({}, source.morphTargetDictionary);
         peau.morphTargetInfluences = source.morphTargetInfluences.map(() => 0);
       }
-      peau.frustumCulled = false;
       racine.add(peau);
       peau.bind(squelette, monde.clone());
       return peau;
