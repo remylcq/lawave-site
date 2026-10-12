@@ -27,6 +27,9 @@ esac
 case "$FTP_SERVER" in
   ''|*[!A-Za-z0-9.-]*) echo "FTP_SERVER n'a pas la forme d'un nom de serveur (lettres, chiffres, points, tirets)." >&2; exit 1 ;;
 esac
+case "$FTP_PASSWORD" in
+  *[[:space:][:cntrl:]]*) echo "FTP_PASSWORD contient un espace ou un saut de ligne (souvent un reste de copier-coller) : le reposer." >&2; exit 1 ;;
+esac
 case "$FTP_USERNAME" in
   *[[:space:],\"\'\\]*) echo "FTP_USERNAME contient un espace, une virgule, une apostrophe, un guillemet ou une barre oblique inverse." >&2; exit 1 ;;
 esac
@@ -70,7 +73,8 @@ if [ "${ESSAI:-false}" = "true" ]; then
   SSHPASS="$FTP_PASSWORD" sshpass -e sftp -v "${commun[@]}" -b "$lot" "$FTP_SERVER" 2> "$err"
   code=$?
   set -e
-  grep -E "Connection (established|closed|reset)|Remote protocol|kex: (algorithm|host key)|Server host key|Host '|SSH2_MSG_(SERVICE|USERAUTH|KEX)|Authentication succeeded|Permission denied|subsystem|Authenticated to|Next authentication|authentications that can continue|Exit status|Killed by|Too many|banner|Disconnect|disconnect" "$err" | grep -v "Authenticating to" | cut -c1-200 || true
+  # Seulement les méthodes d'authentification annoncées et essayées : aucune ligne ne porte de valeur secrète.
+  grep -iE "authentications that can continue|next authentication method|no more authentication methods|keyboard-interactive|Server host key" "$err" | cut -c1-160 || true
   echo "code de sortie : $code"
   exit "$code"
 fi
