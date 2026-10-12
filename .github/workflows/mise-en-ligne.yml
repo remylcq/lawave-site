@@ -19,6 +19,7 @@ on:
       - communaute.js
       - portail.js
       - modeles/**
+      - decor/**
       - outils/deploiement/**
       - .github/workflows/mise-en-ligne.yml
   workflow_dispatch:

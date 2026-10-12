@@ -1,7 +1,7 @@
 # Mise en ligne automatique
 
 Chaque fusion sur `main` qui touche un fichier du site (`index.html`, `waveurs.js`, `communaute.js`,
-`portail.js`, `modeles/`) l'envoie sur l'hébergement OVH par SFTP (SSH, chiffré), puis vérifie que `lawave.fr` sert bien
+`portail.js`, `modeles/`, `decor/`) l'envoie sur l'hébergement OVH par SFTP (SSH, chiffré), puis vérifie que `lawave.fr` sert bien
 les fichiers envoyés. Le workflow est `.github/workflows/mise-en-ligne.yml`.
 
 **Jamais envoyés :** `sql/` (à passer dans Supabase), `outils/`, `.github/` et `.htaccess` (qui reste sur le

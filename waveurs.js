@@ -3700,6 +3700,62 @@ async function chargerModelesPersonnages(){
   })));
 }
 
+// Les matières du décor : parquet, marbres, boiserie (voir outils/decor/preparer_decor.py ; Poly Haven et
+// ambientCG, licence CC0). Trois images par matière : couleur (_c), relief (_n), rugosité (_a, canal vert).
+// Une matière qui ne se charge pas n'est pas une erreur : la salle garde alors ses textures dessinées.
+const DECOR = { dossier: 'decor/', version: '?v=1', matieres: ['parquet', 'boiserie', 'murs', 'comptoir'] };
+
+async function chargerDecor(){
+
+  R.decor = {};
+
+  await Promise.all(DECOR.matieres.map(nom => Promise.all(['c', 'n', 'a'].map(k => new Promise(ok => {
+    try{
+      new THREE.TextureLoader().load(DECOR.dossier + nom + '_' + k + '.jpg' + DECOR.version, t => ok([k, t]), undefined, () => ok([k, null]));
+    }catch(e){ ok([k, null]); }
+  }))).then(paires => {
+    const m = {};
+    paires.forEach(([k, t]) => { m[k] = t; });
+    if(m.c) R.decor[nom] = m;
+  })));
+}
+
+// Une matière du décor, répétée `rx` × `ry` fois sur la surface. Sur ordinateur, un matériau physique (relief,
+// rugosité, reflets de la salle) ; sur téléphone, un matériau plus simple. `null` si les images manquent : on
+// garde alors l'ancien matériau.
+function matDecor(nom, o){
+
+  const d = R.decor && R.decor[nom];
+  if(!d) return null;
+
+  const tex = k => {
+    if(!d[k]) return null;
+    const t = d[k].clone();
+    t.needsUpdate = true;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(o.rx || 1, o.ry || 1);
+    t.anisotropy = R.aniso || 4;
+    return t;
+  };
+
+  // Le jeu calcule en couleurs brutes : pas de décodage sRGB (voir R.texture).
+  const c = tex('c'), n = tex('n'), a = tex('a');
+
+  if(etat.tactile || QUALITE.niveau === 'basse'){
+    return new THREE.MeshPhongMaterial({
+      map: c, normalMap: n, normalScale: new THREE.Vector2(o.relief || 1, o.relief || 1),
+      color: o.couleur === undefined ? 0xffffff : o.couleur, specular: o.specular || 0x333333, shininess: o.brillance || 40
+    });
+  }
+
+  return new THREE.MeshStandardMaterial({
+    map: c, normalMap: n, normalScale: new THREE.Vector2(o.relief || 1, o.relief || 1),
+    roughnessMap: a, roughness: o.rugosite === undefined ? 1 : o.rugosite, metalness: 0,
+    color: o.couleur === undefined ? 0xffffff : o.couleur,
+    envMap: R.env, envMapIntensity: o.env === undefined ? 0.5 : o.env
+  });
+}
+
 function chargerImage(src){
   return new Promise(ok => {
     if(!src) return ok(null);
@@ -3778,6 +3834,7 @@ async function construireMonde(){
 
   // Les personnages (des fichiers de plusieurs Mo) se téléchargent pendant que la salle se construit.
   const modelesPrets = chargerModelesPersonnages();
+  const decorPret = chargerDecor();
 
   const logoBrut = await chargerImage(options.logo);
 
@@ -3850,6 +3907,7 @@ async function construireMonde(){
   camera.rotation.order = 'YXZ';
 
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  R.aniso = aniso;
 
   R.texture = (canvas, opt) => {
     const o = opt || {};
@@ -4046,6 +4104,8 @@ async function construireMonde(){
   PERSONNAGES.jambes = [];
   PERSONNAGES.ombres = [];
 
+  await decorPret;
+
   construireSalle();
   construireBar();
   construireMobilier();
@@ -4124,10 +4184,15 @@ function construireSalle(){
   // Le parquet et le podium reflètent ce qui est au-dessus d'eux (voir
   // refleter) ; le tapis, velours mat, n'en garde qu'un voile aux angles
   // rasants.
-  const canvasParquet = creerParquet();
+  // Du parquet en chevrons (Poly Haven), ou, s'il manque, celui que dessine le code.
+  const matParquet = matDecor('parquet', {
+    rx: L * 2 / 1.3, ry: P * 2 / 1.3, couleur: 0x8c7a66, rugosite: 1.0, env: 0.22, relief: 1.3,
+    specular: 0x6a5238, brillance: 46
+  });
+  const canvasParquet = matParquet ? null : creerParquet();
   const sol = new THREE.Mesh(
     new THREE.PlaneGeometry(L * 2, P * 2),
-    refleter(new THREE.MeshPhongMaterial({
+    refleter(matParquet || new THREE.MeshPhongMaterial({
       map: R.texture(canvasParquet, { repete: true, rx: L, ry: P }),
       bumpMap: R.texture(creerBump(canvasParquet, { contraste: 1.5, bruit: 26 }), { repete: true, rx: L, ry: P }),
       bumpScale: 1.0,
@@ -4188,12 +4253,13 @@ function construireSalle(){
   scene.add(plafond);
 
   // ---- Murs : marbre sombre, soubassement de lattes, garnitures ----
-  const marbre = creerMarbre('#2e2d35', '#9d9aa8', '#d6b06a', 16);
-  const lattes = creerLattes();
+  const decorMurs = !!(R.decor && R.decor.murs), decorBois = !!(R.decor && R.decor.boiserie);
+  const marbre = decorMurs ? null : creerMarbre('#2e2d35', '#9d9aa8', '#d6b06a', 16);
+  const lattes = decorBois ? null : creerLattes();
   // Un marbre poli n'a pas de relief : un grain, même fin, y scintillait. Ses
   // veines restent dessinées dans la couleur, et le poli vient de la lumière
   // (un reflet par pixel, voir le matériau des murs).
-  const bumpLattes = creerBump(lattes, { contraste: 1.6, bruit: 14 });
+  const bumpLattes = lattes ? creerBump(lattes, { contraste: 1.6, bruit: 14 }) : null;
 
   const bois = [], laiton = [], led = [];
 
@@ -4213,16 +4279,20 @@ function construireSalle(){
       scene.add(mesh);
     };
 
+    // Un marbre noir veiné (ambientCG), réchauffé : ses veines tirent sur l'or.
     placer(new THREE.Mesh(
       new THREE.PlaneGeometry(m.l, Ht),
+      matDecor('murs', { rx: m.l / 2.4, ry: Ht / 2.4, couleur: 0xa8946e, rugosite: 0.45, env: 0.45, relief: 1.0, specular: 0x2a2a30, brillance: 44 }) ||
       new THREE.MeshPhongMaterial({
         map: R.texture(marbre, { repete: true, rx: m.l / 1.8, ry: Ht / 1.8 }),
         color: 0x5c5c5c, specular: 0x1c1c22, shininess: 38
       })
     ), Ht / 2, 0);
 
+    // Le soubassement : un placage de palissandre (Poly Haven).
     placer(new THREE.Mesh(
       new THREE.PlaneGeometry(m.l, 1.0),
+      matDecor('boiserie', { rx: m.l / 1.4, ry: 1.0 / 1.4, couleur: 0x8a6a56, rugosite: 0.6, env: 0.3, relief: 1.0, specular: 0x2a1e12, brillance: 22 }) ||
       new THREE.MeshPhongMaterial({
         map: R.texture(lattes, { repete: true, rx: m.l / 0.8, ry: 1 }),
         bumpMap: R.texture(bumpLattes, { repete: true, rx: m.l / 0.8, ry: 1 }), bumpScale: 0.8,
@@ -4370,10 +4440,11 @@ function construireBar(){
     boite(0.86, 1.02, 2.5, 4.07, 0.51, -8.75, BOIS)
   );
 
-  const lattes = R.texture(creerLattes(), { repete: true, rx: 9 / 0.8, ry: 1 });
+  const boisBar = (l, h) => matDecor('boiserie', { rx: l / 1.4, ry: h / 1.4, couleur: 0x7a5b49, rugosite: 0.55, env: 0.3, relief: 1.0, specular: 0x2a1e12, brillance: 24 });
+
   const facade = new THREE.Mesh(
     new THREE.PlaneGeometry(9.0, 0.96),
-    new THREE.MeshLambertMaterial({ map: lattes })
+    boisBar(9.0, 0.96) || new THREE.MeshLambertMaterial({ map: R.texture(creerLattes(), { repete: true, rx: 9 / 0.8, ry: 1 }) })
   );
   facade.position.set(0, 0.52, -6.705);
   scene.add(facade);
@@ -4381,7 +4452,7 @@ function construireBar(){
   [-1, 1].forEach(s => {
     const flanc = new THREE.Mesh(
       new THREE.PlaneGeometry(2.5, 0.96),
-      new THREE.MeshLambertMaterial({ map: R.texture(creerLattes(), { repete: true, rx: 2.5 / 0.8, ry: 1 }) })
+      boisBar(2.5, 0.96) || new THREE.MeshLambertMaterial({ map: R.texture(creerLattes(), { repete: true, rx: 2.5 / 0.8, ry: 1 }) })
     );
     flanc.position.set(s * 4.505, 0.52, -8.75);
     flanc.rotation.y = s * Math.PI / 2;
@@ -4393,6 +4464,7 @@ function construireBar(){
     bois.push(boite(l, 0.06, p, x, 1.05, z, CLAIR));
     const t = new THREE.Mesh(
       new THREE.PlaneGeometry(l, p),
+      matDecor('comptoir', { rx: l / 2.0, ry: p / 2.0, couleur: 0xd8cdb8, rugosite: 0.5, env: 0.55, relief: 1.0, specular: 0x666666, brillance: 70 }) ||
       new THREE.MeshPhongMaterial({
         map: R.texture(R.marbreClair, { repete: true, rx: l / 1.8, ry: p / 1.8 }),
         color: 0xc8c4bc, specular: 0x666666, shininess: 70
@@ -4403,7 +4475,7 @@ function construireBar(){
     scene.add(t);
   };
 
-  R.marbreClair = creerMarbre('#e6e1d8', '#7c7468', '#b58f3f', 14);
+  R.marbreClair = (R.decor && R.decor.comptoir) ? null : creerMarbre('#e6e1d8', '#7c7468', '#b58f3f', 14);
 
   dalle(9.36, 1.16, 0, -7.08);
   dalle(1.02, 2.34, -4.11, -8.83);
