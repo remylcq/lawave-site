@@ -5661,9 +5661,28 @@ function ik2(haut, milieu, S, T, L1, L2, pole, torsion){
   const cosA = clamp((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1);
   const A = Math.acos(cosA);
 
-  const n = pole.clone().addScaledVector(u, -pole.dot(u));
+  // Le plan dans lequel plie le milieu : celui de `u` et de `pole`. Quand la
+  // cible est pile dans l'axe de `pole` (la main à la bouche alors que le coude
+  // « pointe » vers l'arrière), ce plan n'est plus défini et il tourne d'un coup
+  // d'un côté à l'autre : le coude fouettait. On bascule alors, en douceur, vers
+  // un pôle de secours (le coude vers le bas, un peu vers l'extérieur).
+  const n = pole.clone().normalize();
+  const cosPole = n.dot(u);
+  n.addScaledVector(u, -cosPole);
   if(n.lengthSq() < 1e-6) n.set(1, 0, 0).addScaledVector(u, -u.x);
   n.normalize();
+
+  const w = smooth(0.55, 0.9, Math.abs(cosPole));
+  if(w > 0){
+    const secours = new THREE.Vector3(Math.sign(pole.x) * 0.5, -1, 0.1);
+    secours.addScaledVector(u, -secours.dot(u));
+    if(secours.lengthSq() > 1e-6){
+      secours.normalize();
+      n.lerp(secours, w);
+      if(n.lengthSq() < 1e-6) n.copy(secours);
+      n.normalize();
+    }
+  }
 
   // La direction du segment du haut, puis celle du segment du bas.
   const a = u.clone().multiplyScalar(Math.cos(A)).addScaledVector(n, Math.sin(A));
@@ -6500,18 +6519,20 @@ class Habitue extends Humain {
 
     this.regarder(dt, t, reduit, cible, defaut, def.portee || 5, 1.15);
 
-    // Une gorgée toutes les dix à quinze secondes.
+    // Une gorgée toutes les dix à quinze secondes : le verre monte, s'incline le
+    // temps d'avaler, puis redescend.
+    let incline = 0;
     if(this.verre && !reduit){
       const periode = 10 + (this.phase % 5);
-      const u = ((t + this.phase * 2) % periode) / 3.6;
+      const u = ((t + this.phase * 2) % periode) / 4.4;
       if(u < 1){
-        bump = Math.sin(u * Math.PI);
-        bump = bump * bump * (3 - 2 * bump);
+        bump = smooth(0.0, 0.32, u) * (1 - smooth(0.70, 1.0, u));
+        incline = smooth(0.30, 0.46, u) * (1 - smooth(0.56, 0.72, u));
       }
     }
 
     this.tete.rotation.set(
-      this.cou.pitch + (baisse - bump * 0.20) * (1 - this.attention),
+      this.cou.pitch + (baisse - bump * 0.08 - incline * 0.16) * (1 - this.attention),
       this.cou.yaw,
       0
     );
@@ -6550,7 +6571,7 @@ class Habitue extends Humain {
         .multiply(this.bassin.quaternion).multiply(this.taille.quaternion)
         .multiply(b.epaule.quaternion).multiply(b.coude.quaternion);
       this.verre.quaternion.copy(q).invert();
-      this.verre.rotateX(-0.9 * bump);
+      this.verre.rotateX(-0.25 * bump - 0.75 * incline);
     }
 
     this.majBras();
