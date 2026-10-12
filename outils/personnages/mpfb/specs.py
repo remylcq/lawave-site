@@ -8,15 +8,15 @@ en mètres, 0,95 par défaut), `tout` recolore tout.
 
 SPECS = {
 
-    # Derrière la table : un costume noir, une chemise blanche, les cheveux rejetés.
+    # Derrière la table : un costume noir, une chemise blanche, une cravate et des brassards bordeaux.
     'croupier': dict(
         genre='homme', age=0.55, muscle=0.5, poids=0.45, taille=0.55, proportions=0.5,
         race=dict(caucasian=1.0, asian=0.0, african=0.0),
-        peau='young_caucasian_male', peau_teinte='#dba883', peau_force=0.18, tex_peau=2048,
+        peau='young_caucasian_male', peau_teinte='#dba883', peau_force=0.18,
         yeux='brown', sourcils='eyebrow004', cils='eyelashes02',
         cheveux='short04', cheveux_couleur='#5a3f2a',
-        vetements=[dict(nom='male_elegantsuit01', teinte='#1c1e26', sans_cravate=True)],
-        accessoires=[dict(type='noeud', couleur='#0d0e12'), dict(type='brassards', sur='male_elegantsuit01', couleur='#8a1a2e')],
+        vetements=[dict(nom='male_elegantsuit01', teinte='#1c1e26', cravate='#8a1a2e')],
+        accessoires=[dict(type='brassards', sur='male_elegantsuit01', couleur='#8a1a2e')],
         chaussures='shoes01', chaussures_couleur='#0d0d0f',
     ),
 
