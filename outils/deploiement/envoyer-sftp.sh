@@ -82,5 +82,40 @@ if [ "${ESSAI:-false}" = "true" ]; then
   exit "$code"
 fi
 
-SSHPASS="$FTP_PASSWORD" sshpass -e sftp "${commun[@]}" -b "$lot" "$FTP_SERVER"
+# L'envoi réel : par lots de huit fichiers, chacun repris jusqu'à quatre fois si la connexion se coupe (OVH la
+# coupe parfois en plein envoi : « Broken pipe »). Les images, les modèles et les scripts partent d'abord ;
+# waveurs.js puis index.html, qui s'en servent, partent en dernier : une coupure ne laisse jamais une page
+# qui réclame des fichiers pas encore là.
+envoyer_lot(){
+  local tentative
+  for tentative in 1 2 3 4; do
+    if SSHPASS="$FTP_PASSWORD" sshpass -e sftp "${commun[@]}" -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -b "$1" "$FTP_SERVER"; then
+      return 0
+    fi
+    echo "Coupure de la connexion : nouvelle tentative ($tentative/4) dans 8 s." >&2
+    sleep 8
+  done
+  return 1
+}
+
+travail="$(mktemp -d)"
+trap 'rm -rf "$travail" "$lot"' EXIT
+
+{
+  echo "cd $dossier"
+  (cd "$src" && find . -mindepth 1 -type d | sed 's#^\./##' | sort) | while read -r d; do echo "-mkdir $d"; done
+} > "$travail/dossiers"
+envoyer_lot "$travail/dossiers" || { echo "Impossible de créer les dossiers." >&2; exit 1; }
+
+(cd "$src" && find . -type f | sed 's#^\./##' | sort | grep -vE '^(waveurs\.js|index\.html)$' || true
+ for f in waveurs.js index.html; do [ -f "$f" ] && echo "$f"; done) > "$travail/liste"
+
+split -l 8 "$travail/liste" "$travail/lot_"
+for l in "$travail"/lot_*; do
+  {
+    echo "cd $dossier"
+    while read -r f; do echo "put -p $src/$f $f"; done < "$l"
+  } > "$travail/commandes"
+  envoyer_lot "$travail/commandes" || { echo "Envoi interrompu : la connexion ne tient pas." >&2; exit 1; }
+done
 echo "Terminé."
