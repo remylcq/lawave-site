@@ -3776,6 +3776,9 @@ function construireOverlay(){
 
 async function construireMonde(){
 
+  // Les personnages (des fichiers de plusieurs Mo) se téléchargent pendant que la salle se construit.
+  const modelesPrets = chargerModelesPersonnages();
+
   const logoBrut = await chargerImage(options.logo);
 
   // Les textures écrivent avec la police du site : elle doit être là.
@@ -4047,7 +4050,7 @@ async function construireMonde(){
   construireBar();
   construireMobilier();
   construireMachine();
-  await chargerModelesPersonnages();
+  await modelesPrets;
 
   construireBoutique();
   construireHabitues();
@@ -6165,6 +6168,11 @@ class Humain {
     const corps = this.peaux.find(p => /corps$/.test(p.name));
     const dico = corps && corps.morphTargetDictionary;
     this.mains = dico ? { corps, d: dico.prise_d, g: dico.prise_g } : null;
+
+    // Le clignement : une forme clé « clin » sur le corps (les paupières) et sur les cils.
+    this.clins = this.peaux
+      .filter(p => p.morphTargetDictionary && p.morphTargetDictionary.clin !== undefined)
+      .map(p => ({ mesh: p, idx: p.morphTargetDictionary.clin }));
   }
 
   // Serre la main i (0 : droite, 1 : gauche) de 0 (relâchée) à 1 (autour d'un verre).
@@ -6209,7 +6217,8 @@ class Humain {
 
     mat.skinning = true;
     if(R.env) mat.envMap = R.env;
-    mat.envMapIntensity = /yeux/.test(nom) ? 1.0 : 0.45;
+    // Les yeux brillent, la peau un peu, les étoffes presque pas.
+    mat.envMapIntensity = /yeux/.test(nom) ? 1.0 : /corps|shoes/.test(nom) ? 0.4 : 0.12;
     mat.needsUpdate = true;
 
     return mat;
@@ -6399,7 +6408,7 @@ class Humain {
   cligner(dt, reduit){
 
     const c = this.clin;
-    if(!c || !(this.paupieres || this.clignement)) return;
+    if(!c || !(this.paupieres || this.clignement || (this.clins && this.clins.length))) return;
 
     let u = 0;
 
@@ -6427,6 +6436,12 @@ class Humain {
     }
 
     const baisse = clamp(this.cou.pitch * 1.4, 0, 0.35);
+
+    if(this.clins && this.clins.length){
+      const v = clamp(u + baisse * 0.5, 0, 1);
+      this.clins.forEach(c => { c.mesh.morphTargetInfluences[c.idx] = v; });
+      return;
+    }
 
     if(this.clignement){
       this.clignement.value = clamp(u + baisse * 0.8, 0, 1);

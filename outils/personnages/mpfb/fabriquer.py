@@ -15,7 +15,6 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
 import numpy as np
 import bpy
@@ -24,6 +23,7 @@ from mathutils import Vector, Quaternion, Matrix
 
 import mh
 import specs
+import accessoires as ACC
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 NOM = args[0] if args else 'croupier'
@@ -196,6 +196,28 @@ def positions_mpfb(rig):
     return P
 
 
+def preparer_clignement(base):
+    """Les deux paupières de MakeHuman (unités de visage « closure »), chargées en formes clés à 0."""
+    from bl_ext.user_default.mpfb.services.targetservice import TargetService
+    from bl_ext.user_default.mpfb.services.locationservice import LocationService
+    dossier = os.path.join(LocationService.get_mpfb_data('targets'), 'expression', 'units', 'caucasian')
+    for cote in ('left', 'right'):
+        TargetService.load_target(base, os.path.join(dossier, 'eye-%s-closure.target.gz' % cote), weight=0.0, name='clin_' + cote)
+
+
+def valeur_clignement(base, v):
+    for k in base.data.shape_keys.key_blocks:
+        if k.name.startswith('clin_'):
+            k.value = v
+
+
+def recoller(piece, base):
+    """Refait coller un accessoire (cils) au corps, tel qu'il est maintenant."""
+    from bl_ext.user_default.mpfb.services.clothesservice import ClothesService
+    ClothesService.fit_clothes_to_human(piece, base, set_parent=False)
+    bpy.context.view_layer.update()
+
+
 REPOS_DOIGTS = 0.30     # les doigts au repos : à peine repliés
 PRISE_DOIGTS = 0.78     # la main qui tient un verre
 
@@ -219,11 +241,30 @@ def poser_doigts(rig, cotes_pris=()):
     bpy.context.view_layer.update()
 
 
+def centre_groupe(base, nom):
+    gi = base.vertex_groups[nom].index
+    pts = [base.matrix_world @ v.co for v in base.data.vertices if any(g.group == gi and g.weight > 0.5 for g in v.groups)]
+    return sum(pts, Vector()) / len(pts)
+
+
 def point_bouche(base):
     """Le milieu des lèvres, dans le repère du jeu."""
     gi = base.vertex_groups['lips'].index
     pts = [base.matrix_world @ v.co for v in base.data.vertices if any(g.group == gi and g.weight > 0.5 for g in v.groups)]
     return mh.a_jeu(sum(pts, Vector()) / len(pts))
+
+
+def devant_col(objets):
+    """Le point le plus en avant du col, sur l'axe du corps (repère Blender)."""
+    meilleur = None
+    for cle, o in objets.items():
+        if not cle.startswith('vet:'):
+            continue
+        for v in o.data.vertices:
+            if abs(v.co.x) < 0.014 and 1.42 < v.co.z < 1.50:
+                if meilleur is None or v.co.y < meilleur.y:
+                    meilleur = v.co.copy()
+    return meilleur if meilleur is not None else Vector((0, -0.075, 1.465))
 
 
 def reperes_jeu(P):
@@ -285,7 +326,7 @@ def eclaircir_textures():
 
 def texture_peau():
     mat = mh.lire_mhmat(os.path.join(mh.dossier_donnees(), 'skins', spec['peau'], spec['peau'] + '.mhmat'))
-    a = mh.charger_tableau(mat['diffuseTexture'], TEX)
+    a = mh.charger_tableau(mat['diffuseTexture'], spec.get('tex_peau', TEX))
     return a
 
 
@@ -300,7 +341,7 @@ def fabriquer_materiaux(P, objets, partage):
     mats['corps'] = mh.materiau(NOM + '_peau', mh.image_depuis_tableau(NOM + '_peau', a), rugosite=0.58, spec=0.35)
     # yeux
     yeux = mh.lire_mhmat(os.path.join(donnees, 'eyes', 'materials', spec['yeux'] + '.mhmat'))
-    ay = mh.charger_tableau(yeux['diffuseTexture'], 512)
+    ay = mh.charger_tableau(yeux['diffuseTexture'], 256)
     mats['yeux'] = mh.materiau(NOM + '_yeux', mh.image_depuis_tableau(NOM + '_yeux', ay), rugosite=0.12, spec=0.9)
     # sourcils, cils
     for cle, dossier in (('sourcils', 'eyebrows'), ('cils', 'eyelashes')):
@@ -315,7 +356,7 @@ def fabriquer_materiaux(P, objets, partage):
     if spec.get('cheveux'):
         nom = spec['cheveux']
         m = mh.lire_mhmat(os.path.join(donnees, 'hair', nom, nom + '.mhmat'))
-        t = mh.charger_tableau(m['diffuseTexture'], TEX)
+        t = mh.charger_tableau(m['diffuseTexture'], 512)
         if spec.get('cheveux_couleur'):
             t = mh.teinter_tout(t, mh.hex_rgb(spec['cheveux_couleur']), force=1.0)
         mats['cheveux'] = mh.materiau(NOM + '_cheveux', mh.image_depuis_tableau(NOM + '_cheveux', t, jpeg=False), rugosite=0.5,
@@ -328,6 +369,9 @@ def fabriquer_materiaux(P, objets, partage):
         nom = v['nom']
         m = mh.lire_mhmat(os.path.join(donnees, 'clothes', nom, nom + '.mhmat'))
         t0 = mh.charger_tableau(m['diffuseTexture'], TEX)
+        if v.get('sans_cravate'):
+            # la cravate du costume, dans le dépliage de male_elegantsuit01 : on la peint comme la chemise
+            t0 = mh.blanchir_rect(t0, 0.344, 0.408, 0.815, 0.93)
         nrm = None
         if 'normalmapTexture' in m and os.path.exists(m['normalmapTexture']):
             nrm = mh.image_depuis_tableau(nom + '_n', mh.charger_tableau(m['normalmapTexture'], TEX), couleur=False)
@@ -382,6 +426,8 @@ def principal():
     # les formes clés du corps (curseurs) sont cuites ; le masque cache ce qui est sous les habits
     retirer_formes(base)
     bouche = point_bouche(base)
+    yeux = (centre_groupe(base, 'joint-l-eye'), centre_groupe(base, 'joint-r-eye'))
+    preparer_clignement(base)
     poser_doigts(rig)
     objets = {}
     objets['corps'] = figer(base, NOM + '_corps')
@@ -397,9 +443,33 @@ def principal():
         poser_doigts(rig, cotes_pris=(cote,))
         tmp = figer(base, 'tmp')
         sk = corps.shape_key_add(name=nom)
+        sk.value = 0.0
         for i, v in enumerate(tmp.data.vertices):
             sk.data[i].co = v.co
         bpy.data.objects.remove(tmp, do_unlink=True)
+    # le clignement : le corps et les cils, paupières fermées
+    poser_doigts(rig)
+    valeur_clignement(base, 1.0)
+    if 'cils' in ps:
+        recoller(ps['cils'], base)
+    for cle, src in (('corps', base), ('cils', ps.get('cils'))):
+        if src is None:
+            continue
+        o = objets[cle]
+        if not o.data.shape_keys:
+            o.shape_key_add(name='Basis')
+        tmp = figer(src, 'tmp')
+        sk = o.shape_key_add(name='clin')
+        ecart = 0.0
+        for i, v in enumerate(tmp.data.vertices):
+            ecart = max(ecart, (v.co - sk.data[i].co).length)
+            sk.data[i].co = v.co
+        print('   clignement', cle, 'écart max %.1f mm' % (ecart * 1000))
+        for k in o.data.shape_keys.key_blocks:
+            if k.name != 'Basis':
+                k.value = 0.0
+        bpy.data.objects.remove(tmp, do_unlink=True)
+    valeur_clignement(base, 0.0)
     chrono('formes figées')
 
     for k, o in objets.items():
@@ -423,6 +493,8 @@ def principal():
     chrono('matériaux')
     coupes = {('vet:' + v['nom']): v.get('coupe', 0.95) for v in spec['vetements']}
     for cle, o in objets.items():
+        if cle.startswith('acc'):
+            continue
         o.data.materials.clear()
         m = mats[cle]
         for mm in (m if isinstance(m, list) else [m]):
@@ -433,6 +505,36 @@ def principal():
         o.parent = arm
         md = o.modifiers.new('Armature', 'ARMATURE')
         md.object = arm
+    supplements = []
+    for acc in spec.get('accessoires', []):
+        t = acc['type']
+        if t == 'casquette':
+            o = ACC.casquette(acc['couleur'], objets['cheveux'], yeux[0].z)
+        elif t == 'lunettes':
+            o = ACC.lunettes(yeux[0], yeux[1])
+        elif t == 'noeud':
+            o = ACC.noeud_papillon(devant_col(objets), acc['couleur'])
+        elif t == 'gilet':
+            src = objets['vet:' + acc['sur']]
+            o = ACC.gilet(src, acc['couleur'])
+            ACC.copier_poids_proches(o, src)
+            ACC.materiau_uni(o, acc['couleur'], rugosite=0.5)
+        elif t == 'brassards':
+            src = objets['vet:' + acc['sur']]
+            for cote in ('d', 'g'):
+                e = mh.a_jeu_inverse(R['epaule_' + cote][0])
+                c = mh.a_jeu_inverse(R['coude_' + cote][0])
+                b = ACC.brassard(src, e, c, acc['couleur'], 'epaule_' + cote)
+                supplements.append(b)
+            continue
+        else:
+            continue
+        supplements.append(o)
+    for o in supplements:
+        o.parent = arm
+        md = o.modifiers.new('Armature', 'ARMATURE')
+        md.object = arm
+    objets.update({'acc%d' % i: o for i, o in enumerate(supplements)})
     for o in [base, rig] + list(ps['vetements']) + [ps[c] for c in ('yeux', 'sourcils', 'cils', 'cheveux', 'bouche') if c in ps and not isinstance(ps[c], list)]:
         pass
     # on supprime tout ce qui vient de MPFB

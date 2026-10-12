@@ -12,10 +12,11 @@ SPECS = {
     'croupier': dict(
         genre='homme', age=0.55, muscle=0.5, poids=0.45, taille=0.55, proportions=0.5,
         race=dict(caucasian=1.0, asian=0.0, african=0.0),
-        peau='young_caucasian_male', peau_teinte='#dba883', peau_force=0.35,
+        peau='young_caucasian_male', peau_teinte='#dba883', peau_force=0.18, tex_peau=2048,
         yeux='brown', sourcils='eyebrow004', cils='eyelashes02',
         cheveux='short04', cheveux_couleur='#5a3f2a',
-        vetements=[dict(nom='male_elegantsuit01', teinte='#16181f')],
+        vetements=[dict(nom='male_elegantsuit01', teinte='#1c1e26', sans_cravate=True)],
+        accessoires=[dict(type='noeud', couleur='#0d0e12'), dict(type='brassards', sur='male_elegantsuit01', couleur='#8a1a2e')],
         chaussures='shoes01', chaussures_couleur='#0d0d0f',
     ),
 
@@ -26,7 +27,8 @@ SPECS = {
         peau='young_caucasian_male2', peau_teinte='#b98866', peau_force=0.3,
         yeux='brown', sourcils='eyebrow002', cils='eyelashes01',
         cheveux='short01', cheveux_couleur='#3a281c',
-        vetements=[dict(nom='male_casualsuit01', haut='#f1f2f5', bas='#17171c', coupe=0.95)],
+        vetements=[dict(nom='male_casualsuit01', haut='#f1f2f5', bas='#222228', coupe=0.95)],
+        accessoires=[dict(type='gilet', sur='male_casualsuit01', couleur='#6a1a2c')],
         chaussures='shoes01', chaussures_couleur='#0d0d0f',
     ),
 
@@ -37,7 +39,7 @@ SPECS = {
         peau='young_caucasian_male', peau_teinte='#c98f6b', peau_force=0.4,
         yeux='brown', sourcils='eyebrow001', cils='eyelashes03',
         cheveux='short02', cheveux_couleur='#2a1d14',
-        vetements=[dict(nom='male_elegantsuit01', teinte='#27365c')],
+        vetements=[dict(nom='male_elegantsuit01', teinte='#34487c')],
         chaussures='shoes01', chaussures_couleur='#0d0d0f',
     ),
 
@@ -48,7 +50,7 @@ SPECS = {
         peau='young_caucasian_female', peau_teinte='#e6b899', peau_force=0.25,
         yeux='brown', sourcils='eyebrow006', cils='eyelashes04',
         cheveux='long01', cheveux_couleur='#2a1a14',
-        vetements=[dict(nom='female_elegantsuit01', haut='#a3142b', bas='#a3142b', coupe=1.0)],
+        vetements=[dict(nom='female_elegantsuit01', haut='#c41a3a', bas='#b01631', coupe=1.0)],
         chaussures='shoes01', chaussures_couleur='#5a0f1c',
     ),
 
@@ -56,9 +58,10 @@ SPECS = {
     'sweat': dict(
         genre='homme', age=0.4, muscle=0.5, poids=0.5, taille=0.5, proportions=0.5,
         race=dict(caucasian=0.0, asian=0.0, african=1.0),
-        peau='young_african_male', yeux='brown', sourcils='eyebrow003', cils='eyelashes02',
+        peau='young_african_male', peau_teinte='#a8714f', peau_force=0.3, yeux='brown', sourcils='eyebrow003', cils='eyelashes02',
         cheveux='short01', cheveux_couleur='#0f0b09',
-        vetements=[dict(nom='male_casualsuit02', haut='#4d525b', bas='#27354d', coupe=0.95)],
+        vetements=[dict(nom='male_casualsuit02', haut='#80858f', bas='#34466a', coupe=0.95)],
+        accessoires=[dict(type='casquette', couleur='#2f6a9c')],
         chaussures='shoes01', chaussures_couleur='#e6e6e6',
     ),
 
@@ -69,7 +72,7 @@ SPECS = {
         peau='young_caucasian_female2', peau_teinte='#f0c7a8', peau_force=0.25,
         yeux='bluegreen', sourcils='eyebrow005', cils='eyelashes01',
         cheveux='ponytail01', cheveux_couleur='#6d3b1f',
-        vetements=[dict(nom='female_elegantsuit01', haut='#1f5a45', bas='#1c1c22', coupe=1.0)],
+        vetements=[dict(nom='female_elegantsuit01', haut='#2f8a68', bas='#2b2b34', coupe=1.0)],
         chaussures='shoes01', chaussures_couleur='#1b1513',
     ),
 
@@ -79,7 +82,8 @@ SPECS = {
         race=dict(caucasian=1.0, asian=0.0, african=0.0),
         peau='old_caucasian_male', yeux='brown', sourcils='eyebrow008', cils='eyelashes01',
         cheveux='short02', cheveux_couleur='#b9b6b0',
-        vetements=[dict(nom='male_casualsuit05', teinte='#6b4a35', seuil=0.5, bas='#3a3b3f', coupe=0.95)],
+        vetements=[dict(nom='male_casualsuit05', teinte='#8a6446', seuil=0.5, bas='#4a4b50', coupe=0.95)],
+        accessoires=[dict(type='lunettes')],
         chaussures='shoes01', chaussures_couleur='#2a1d14',
     ),
 }

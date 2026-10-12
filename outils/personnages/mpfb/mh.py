@@ -35,6 +35,11 @@ def dossier_donnees():
     raise RuntimeError('ressources MPFB introuvables (variable MPFB_DATA)')
 
 
+def a_jeu_inverse(v):
+    """Un point du jeu -> repère Blender."""
+    return Vector((v[0], -v[2], v[1]))
+
+
 def a_jeu(v):
     """Un point Blender -> repère du jeu."""
     return Vector((v[0], v[2], -v[1]))
@@ -198,6 +203,29 @@ def teinter_region(a, masque, couleur, force=1.0):
     cible = np.clip(np.array(couleur, np.float32)[None, None, :] * (lum[..., None] / max(ref, 1e-3)), 0, 1)
     k = (masque.astype(np.float32) * force)[..., None]
     out[..., :3] = a[..., :3] * (1 - k) + cible * k
+    return out
+
+
+def srgb_vers_lin_couleur(c):
+    if isinstance(c, str):
+        c = hex_rgb(c)
+    return tuple(float(x) / 12.92 if x <= 0.04045 else float(((x + 0.055) / 1.055) ** 2.4) for x in c)
+
+
+def blanchir_rect(a, x0, x1, y0, y1, valeur=0.88):
+    """Peint en blanc un rectangle de la texture (coordonnées de 0 à 1, y vers le haut) : la cravate d'un costume."""
+    out = a.copy()
+    h, w = a.shape[:2]
+    out[int(y0 * h):int(y1 * h), int(x0 * w):int(x1 * w), :3] = valeur
+    return out
+
+
+def blanchir_bleu(a):
+    """Efface ce qui est bleu dans la texture (une cravate) : elle prend la couleur blanche de la chemise."""
+    out = a.copy()
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    masque = ((b - r) > 0.07) & (luminance(a) > 0.08)
+    out[..., :3] = np.where(masque[..., None], 0.88, a[..., :3])
     return out
 
 
