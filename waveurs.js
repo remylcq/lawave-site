@@ -6222,6 +6222,10 @@ class Humain {
   preparerMateriau(mat, nom){
 
     mat.skinning = true;
+    // Le jeu calcule en couleurs « brutes » (ni décodage ni encodage sRGB, comme pour les textures
+    // dessinées par le code) : les images du fichier doivent être lues de la même façon, sinon elles
+    // sortent beaucoup trop sombres.
+    ['map', 'emissiveMap'].forEach(k => { if(mat[k]) mat[k].encoding = THREE.LinearEncoding; });
     if(R.env) mat.envMap = R.env;
     // Les yeux brillent, la peau un peu, les étoffes presque pas.
     mat.envMapIntensity = /yeux/.test(nom) ? 1.0 : /corps|shoes/.test(nom) ? 0.4 : 0.12;
