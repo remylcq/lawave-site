@@ -54,7 +54,10 @@ if [ "${ESSAI:-false}" = "true" ]; then
   printf 'cd %s\nls -l\n' "$dossier" > "$lot"
 fi
 
+# sftp -b force BatchMode=yes, qui interdit toute authentification par mot de passe : ssh ne l'essaie même
+# pas ("No more authentication methods"). La première valeur donnée gagne, donc BatchMode=no doit précéder -b.
 commun=(
+  -o BatchMode=no
   -o "User=$FTP_USERNAME"
   -o "UserKnownHostsFile=$connus"
   -o "HostKeyAlias=$alias_hote"
