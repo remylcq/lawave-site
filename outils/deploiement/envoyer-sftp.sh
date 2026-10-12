@@ -51,13 +51,29 @@ if [ "${ESSAI:-false}" = "true" ]; then
   printf 'cd %s\nls -l\n' "$dossier" > "$lot"
 fi
 
-SSHPASS="$FTP_PASSWORD" sshpass -e sftp \
-  -o "User=$FTP_USERNAME" \
-  -o "UserKnownHostsFile=$connus" \
-  -o "HostKeyAlias=$alias_hote" \
-  -o StrictHostKeyChecking=yes \
-  -o PreferredAuthentications=password \
-  -o PubkeyAuthentication=no \
-  -o ConnectTimeout=30 \
-  -b "$lot" "$FTP_SERVER"
+commun=(
+  -o "User=$FTP_USERNAME"
+  -o "UserKnownHostsFile=$connus"
+  -o "HostKeyAlias=$alias_hote"
+  -o StrictHostKeyChecking=yes
+  -o PreferredAuthentications=password
+  -o PubkeyAuthentication=no
+  -o ConnectTimeout=30
+)
+
+if [ "${ESSAI:-false}" = "true" ]; then
+  # En essai, le détail de la connexion (-v) est filtré : seules les lignes qui ne portent ni identifiant
+  # ni mot de passe sont affichées.
+  err="$(mktemp)"
+  trap 'rm -f "$lot" "$err"' EXIT
+  set +e
+  SSHPASS="$FTP_PASSWORD" sshpass -e sftp -v "${commun[@]}" -b "$lot" "$FTP_SERVER" 2> "$err"
+  code=$?
+  set -e
+  grep -E "Connection (established|closed|reset)|Remote protocol|kex: (algorithm|host key)|Server host key|Host '|SSH2_MSG_(SERVICE|USERAUTH|KEX)|Authentication succeeded|Permission denied|subsystem|Authenticated to|Next authentication|authentications that can continue|Exit status|Killed by|Too many|banner|Disconnect|disconnect" "$err" | grep -v "Authenticating to" | cut -c1-200 || true
+  echo "code de sortie : $code"
+  exit "$code"
+fi
+
+SSHPASS="$FTP_PASSWORD" sshpass -e sftp "${commun[@]}" -b "$lot" "$FTP_SERVER"
 echo "Terminé."
