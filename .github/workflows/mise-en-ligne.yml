@@ -1,0 +1,100 @@
+name: Mise en ligne
+
+# Publie le site sur l'hébergement OVH (FTP) à chaque fusion sur main qui touche un fichier
+# servi aux visiteurs, ou à la demande (onglet Actions -> Mise en ligne -> Run workflow).
+# Les fichiers sql/ ne partent jamais : ils se passent dans Supabase.
+#
+# Réglages (Settings -> Secrets and variables -> Actions) :
+#   secrets   FTP_SERVER, FTP_USERNAME, FTP_PASSWORD
+#   variables FTP_PROTOCOL (ftps par défaut), FTP_DOSSIER (www/ par défaut), SITE_URL (https://lawave.fr)
+# Tant que les secrets ne sont pas posés, l'exécution se termine sans rien envoyer.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - waveurs.js
+      - communaute.js
+      - portail.js
+      - modeles/**
+      - outils/deploiement/**
+      - .github/workflows/mise-en-ligne.yml
+  workflow_dispatch:
+    inputs:
+      essai:
+        description: "Essai à blanc : liste ce qui serait envoyé, sans rien envoyer"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mise-en-ligne
+  cancel-in-progress: false
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SITE_URL: ${{ vars.SITE_URL || 'https://lawave.fr' }}
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Les identifiants FTP sont-ils posés ?
+        id: identifiants
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          if [ -z "$FTP_SERVER" ] || [ -z "$FTP_USERNAME" ] || [ -z "$FTP_PASSWORD" ]; then
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::warning title=Mise en ligne non configurée::Les secrets FTP_SERVER, FTP_USERNAME et FTP_PASSWORD ne sont pas tous posés : rien n'a été envoyé. Voir outils/deploiement/LISEZMOI.md."
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Préparer les fichiers à envoyer
+        if: steps.identifiants.outputs.ok == 'true'
+        run: bash outils/deploiement/preparer.sh _publication
+
+      - name: Envoyer par FTP
+        if: steps.identifiants.outputs.ok == 'true'
+        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./_publication/
+          server-dir: ${{ vars.FTP_DOSSIER || 'www/' }}
+          # Le nom commence par « .ht » : Apache refuse de le servir.
+          state-name: .htftp-sync-etat.json
+          dry-run: ${{ inputs.essai == true }}
+          log-level: standard
+
+      - name: Vérifier que le site sert bien les nouveaux fichiers
+        if: steps.identifiants.outputs.ok == 'true' && inputs.essai != true
+        run: |
+          echec=0
+          fichiers=$(cd _publication && find . -type f | sed 's#^\./##' | sort)
+          for f in $fichiers; do
+            attendu=$(sha256sum "_publication/$f" | cut -d' ' -f1)
+            recu=""
+            for essai in 1 2 3 4 5 6; do
+              recu=$(curl -fsS --max-time 60 "$SITE_URL/$f?verif=$GITHUB_SHA" 2>/dev/null | sha256sum | cut -d' ' -f1 || true)
+              [ "$recu" = "$attendu" ] && break
+              sleep 10
+            done
+            if [ "$recu" = "$attendu" ]; then
+              echo "ok        $f"
+            else
+              echo "DIFFÉRENT $f (le site ne sert pas la version envoyée)"
+              echec=1
+            fi
+          done
+          exit $echec
