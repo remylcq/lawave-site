@@ -3604,7 +3604,7 @@ const SOURCES_GLTF = [
   'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'
 ];
 
-const MODELES = { dossier: 'modeles/', version: '?v=1' };
+const MODELES = { dossier: 'modeles/', version: '?v=2' };
 
 async function assurerGLTF(){
 
@@ -3618,6 +3618,31 @@ async function assurerGLTF(){
   }
 
   throw new Error('chargeur glTF indisponible');
+}
+
+// Les mesures d'un modèle de Blender, tirées de la position de ses os au repos
+// (voir outils/personnages/mpfb/fabriquer.py) : mêmes noms que HUMAIN.
+function dimensionsModele(meta){
+
+  const P = n => new THREE.Vector3().fromArray(meta.os[n].p);
+  const dist = (a, b) => P(a).distanceTo(P(b));
+  const moy = (a, b) => (a + b) / 2;
+
+  return {
+    bassinDebout: P('bassin').y,
+    pivot: P('taille').y - P('bassin').y,
+    hCou: P('tete').y - P('taille').y,
+    epaule: moy(Math.abs(P('epaule_d').x), Math.abs(P('epaule_g').x)),
+    hEpaule: moy(P('epaule_d').y, P('epaule_g').y) - P('taille').y,
+    zEpaule: moy(P('epaule_d').z, P('epaule_g').z),
+    bras: moy(dist('epaule_d', 'coude_d'), dist('epaule_g', 'coude_g')),
+    avantBras: moy(dist('coude_d', 'poignet_d'), dist('coude_g', 'poignet_g')),
+    hanche: moy(Math.abs(P('hanche_d').x), Math.abs(P('hanche_g').x)),
+    hHanche: P('bassin').y - moy(P('hanche_d').y, P('hanche_g').y),
+    zHanche: moy(P('hanche_d').z, P('hanche_g').z),
+    cuisse: moy(dist('hanche_d', 'genou_d'), dist('hanche_g', 'genou_g')),
+    tibia: moy(dist('genou_d', 'cheville_d'), dist('genou_g', 'cheville_g'))
+  };
 }
 
 // Un modèle qui ne se charge pas n'est pas une erreur : le personnage garde alors
@@ -3640,10 +3665,31 @@ async function chargerModelesPersonnages(){
     try{
       new THREE.GLTFLoader().load(MODELES.dossier + nom + '.glb' + MODELES.version, gltf => {
 
-        let peau = null;
-        gltf.scene.traverse(o => { if(o.isSkinnedMesh && !peau) peau = o; });
+        try{
 
-        if(peau) R.modeles[nom] = { mesh: peau, noms: peau.skeleton.bones.map(b => b.name) };
+          // Le fichier : un squelette de quinze os, une pièce par partie du corps (toutes
+          // liées au même squelette), et les mesures du squelette au repos.
+          const meshes = [];
+          let meta = null;
+
+          gltf.scene.traverse(o => {
+            if(o.isSkinnedMesh) meshes.push(o);
+            if(o.userData && o.userData.meta) meta = o.userData.meta;
+          });
+
+          if(typeof meta === 'string') meta = JSON.parse(meta);
+
+          if(meshes.length && meta && meta.os){
+            R.modeles[nom] = {
+              meshes,
+              noms: meshes[0].skeleton.bones.map(b => b.name),
+              meta,
+              dim: dimensionsModele(meta),
+              bouche: new THREE.Vector3().fromArray(meta.bouche || [0, 0, 0.1]).sub(new THREE.Vector3().fromArray(meta.os.tete.p))
+            };
+          }
+
+        }catch(e){ /* un fichier illisible : le personnage dessiné par le code reste */ }
 
         ok();
 
@@ -5777,6 +5823,7 @@ function ik2(haut, milieu, S, T, L1, L2, pole, torsion){
 const APPARENCES = {
 
   croupier: {
+    modele: 'croupier',
     peau: '#dba883', cheveux: '#4b3523', coiffure: 'rejete', yeux: '#4a3a2a', barbe: 1,
     tenue: 'gilet', chemise: '#eef1f6', veste: '#15171d', pantalon: '#101116', chaussures: '#060606',
     noeud: '#0d0e12', manches: '#eef1f6', poignets: '#eef1f6', brassard: '#7a1526',
@@ -5786,6 +5833,7 @@ const APPARENCES = {
   // Derrière le comptoir : un gilet bordeaux sur une chemise claire, le tablier
   // noué, une barbe soignée.
   barman: {
+    modele: 'barman',
     peau: '#b97d56', cheveux: '#2a1b12', coiffure: 'rejete', yeux: '#2c1d12', barbe: 1,
     tenue: 'gilet', chemise: '#f2f3f6', veste: '#5a1424', pantalon: '#15151a', chaussures: '#0a0908',
     manches: '#f2f3f6', poignets: '#f2f3f6', noeud: '#2a0a12', boutons: true, boutonsCouleur: '#c9973a'
@@ -5793,6 +5841,7 @@ const APPARENCES = {
 
   // Au bar, de dos : un costume bleu nuit, la cravate dénouée.
   costume: {
+    modele: 'costume',
     peau: '#c98f6b', cheveux: '#1d1410', coiffure: 'court', yeux: '#3a2a1c', barbe: 1,
     tenue: 'veste', chemise: '#e9ecf1', veste: '#222e4d', pantalon: '#1b2139', chaussures: '#0b0a09',
     manches: '#222e4d', poignets: '#e9ecf1', ouverture: 0.10, fermeture: 0.22
@@ -5800,6 +5849,7 @@ const APPARENCES = {
 
   // Au bar, à côté : une robe rouge, les cheveux longs.
   robe: {
+    modele: 'robe',
     femme: true, peau: '#e6b899', cheveux: '#17100d', coiffure: 'long', yeux: '#3c2a1a', menton: 1.15,
     tenue: 'robe', veste: '#a3142b', pantalon: '#a3142b', chaussures: '#5a0f1c', jambes: 'nues',
     manches: null, collier: '#d8b25a', corps: 0.97
@@ -5807,12 +5857,14 @@ const APPARENCES = {
 
   // Au blackjack : un sweat gris, une casquette bleue.
   sweat: {
+    modele: 'sweat',
     peau: '#8c5a3c', cheveux: '#0f0b09', coiffure: 'casquette', casquette: '#2b5d8a', yeux: '#241710', barbe: 0,
     tenue: 'sweat', veste: '#4d525b', pantalon: '#27354d', chaussures: '#e6e6e6', manches: '#4d525b', rouleaux: 0
   },
 
   // Au poker : un blazer vert, les cheveux relevés.
   blazer: {
+    modele: 'blazer',
     femme: true, peau: '#f0c7a8', cheveux: '#6d3b1f', coiffure: 'chignon', yeux: '#3a6a8a', menton: 1.15,
     tenue: 'veste', chemise: '#f3efe6', veste: '#1f5a45', pantalon: '#1c1c22', chaussures: '#1b1513',
     manches: '#1f5a45', poignets: '#f3efe6', ouverture: 0.12, fermeture: 0.18, collier: '#d8b25a', corps: 0.97
@@ -5820,6 +5872,7 @@ const APPARENCES = {
 
   // Au salon : un gilet de laine brun, une barbe grise, des lunettes.
   cardigan: {
+    modele: 'cardigan',
     peau: '#e2b48f', cheveux: '#b9b6b0', coiffure: 'court', yeux: '#4a5a6a', barbe: 2, barbeCouleur: '#c7c4be',
     lunettes: true, tenue: 'veste', chemise: '#4d6b8c', veste: '#6b4a35', pantalon: '#3a3b3f', chaussures: '#2a1d14',
     manches: '#6b4a35', poignets: '#6b4a35', ouverture: 0.09, fermeture: 0.10, boutons: true,
@@ -5850,6 +5903,7 @@ class Humain {
     this.cible = [new THREE.Vector3(), new THREE.Vector3()];   // droite, gauche
     this.pose = [false, false];
     this.pronation = [0, 0];
+    this.priseCible = [0, 0];        // 0 : main relâchée, 1 : serrée autour d'un objet (modèles de Blender)
     this.pole = [new THREE.Vector3(-0.55, -0.5, -0.55), new THREE.Vector3(0.55, -0.5, -0.55)];
 
     // Un modèle de Blender, s'il y en a un pour lui : alors les articulations sont
@@ -5858,24 +5912,27 @@ class Humain {
     const modele = d.modele && R.modeles && R.modeles[d.modele] ? R.modeles[d.modele] : null;
     this.modele = modele;
 
+    // Les mesures du squelette : celles du code (HUMAIN) ou celles du modèle de Blender.
+    this.dim = modele ? modele.dim : HUMAIN;
+
     const mat = R.matHumain;
     const mesh = g => new THREE.Mesh(g, mat);
     const Noeud = modele ? THREE.Bone : THREE.Group;
 
     const racine = this.groupe = new THREE.Group();
     const bassin = this.bassin = new Noeud();
-    bassin.position.y = HUMAIN.bassinDebout;
+    bassin.position.y = this.dim.bassinDebout;
     racine.add(bassin);
 
     const taille = this.taille = new Noeud();
-    taille.position.y = HUMAIN.pivot;
+    taille.position.y = this.dim.pivot;
     bassin.add(taille);
 
     if(!modele) taille.add(mesh(geoTorse(d)));
 
     const cou = this.tete = new Noeud();
     cou.rotation.order = 'YXZ';
-    cou.position.y = HUMAIN.hCou;
+    cou.position.y = this.dim.hCou;
     if(!modele) cou.add(mesh(geoTete(d)));
     taille.add(cou);
 
@@ -5896,14 +5953,14 @@ class Humain {
     // Les bras : à droite du personnage (x < 0), puis à gauche.
     this.bras = [-1, 1].map(s => {
       const epaule = new Noeud();
-      epaule.position.set(s * HUMAIN.epaule, HUMAIN.hEpaule, 0);
+      epaule.position.set(s * this.dim.epaule, this.dim.hEpaule, this.dim.zEpaule || 0);
       if(!modele) epaule.add(mesh(geoBrasHaut(d)));
       const coude = new Noeud();
-      coude.position.y = -HUMAIN.bras;
+      coude.position.y = -this.dim.bras;
       let avantBras = null, poignet = null;
       if(modele){
         poignet = new THREE.Bone();
-        poignet.position.y = -HUMAIN.avantBras;
+        poignet.position.y = -this.dim.avantBras;
         coude.add(poignet);
       } else {
         avantBras = mesh(geoAvantBras(d, s));
@@ -5918,11 +5975,11 @@ class Humain {
     if(modele){
       this.jambes = [-1, 1].map(s => {
         const hanche = new THREE.Bone();
-        hanche.position.set(s * HUMAIN.hanche, -0.03, 0);
+        hanche.position.set(s * this.dim.hanche, -(this.dim.hHanche === undefined ? 0.03 : this.dim.hHanche), this.dim.zHanche || 0);
         const genou = new THREE.Bone();
-        genou.position.y = -HUMAIN.cuisse;
+        genou.position.y = -this.dim.cuisse;
         const cheville = new THREE.Bone();
-        cheville.position.y = -HUMAIN.tibia;
+        cheville.position.y = -this.dim.tibia;
         hanche.add(genou);
         genou.add(cheville);
         bassin.add(hanche);
@@ -5965,8 +6022,8 @@ class Humain {
 
     // Les jambes : posées une fois pour toutes, puis collées en une seule
     // forme (elles ne bougeront plus).
-    const cuisse = membre(HUMAIN.cuisse, 0.090, 0.064, d.jambes === 'nues' ? d.veste : d.pantalon, 1.04);
-    const tibia = membre(HUMAIN.tibia, 0.060, 0.042, d.jambes === 'nues' ? d.peau : d.pantalon, 1.05,
+    const cuisse = membre(this.dim.cuisse, 0.090, 0.064, d.jambes === 'nues' ? d.veste : d.pantalon, 1.04);
+    const tibia = membre(this.dim.tibia, 0.060, 0.042, d.jambes === 'nues' ? d.peau : d.pantalon, 1.05,
       d.jambes === 'nues' ? MATIERE.peau : MATIERE.tissu);
 
     const morceaux = [];
@@ -5974,11 +6031,11 @@ class Humain {
     [-1, 1].forEach(s => {
 
       const hanche = new THREE.Group();
-      hanche.position.set(s * HUMAIN.hanche, -0.03, 0);
+      hanche.position.set(s * this.dim.hanche, -0.03, 0);
       const genou = new THREE.Group();
-      genou.position.y = -HUMAIN.cuisse;
+      genou.position.y = -this.dim.cuisse;
       const cheville = new THREE.Group();
-      cheville.position.y = -HUMAIN.tibia;
+      cheville.position.y = -this.dim.tibia;
       hanche.add(genou);
       genou.add(cheville);
 
@@ -5986,7 +6043,7 @@ class Humain {
         s * (p.pieds.ecart || 0.10), p.pieds.y, p.pieds.z
       ).sub(this.bassin.position);
 
-      ik2(hanche, genou, hanche.position, cible, HUMAIN.cuisse, HUMAIN.tibia,
+      ik2(hanche, genou, hanche.position, cible, this.dim.cuisse, this.dim.tibia,
         new THREE.Vector3(s * 0.12, 0, 1), 0);
 
       // Le pied à plat, tourné un peu vers l'extérieur.
@@ -6030,7 +6087,7 @@ class Humain {
         s * (p.pieds.ecart || 0.10), p.pieds.y, p.pieds.z
       ).sub(this.bassin.position);
 
-      ik2(j.hanche, j.genou, j.hanche.position, cible, HUMAIN.cuisse, HUMAIN.tibia,
+      ik2(j.hanche, j.genou, j.hanche.position, cible, this.dim.cuisse, this.dim.tibia,
         new THREE.Vector3(s * 0.12, 0, 1), 0);
 
       // Le pied à plat, tourné un peu vers l'extérieur.
@@ -6050,35 +6107,19 @@ class Humain {
     this.majBras(true);
   }
 
-  // La peau du modèle suit les os. Le modèle a été dessiné debout, les bras un peu
-  // écartés (la « pose en A », voir MODELE_A) : on dit à chaque os où il se trouvait
-  // à ce moment-là, et la peau s'en déduit pour toute autre pose.
+  // La peau du modèle suit les os. Le fichier donne, pour chacun des quinze os, où il
+  // se trouvait (position, orientation) quand le modèle a été dessiné, debout, les bras
+  // un peu écartés : on le dit au squelette, et les pièces (corps, vêtements, cheveux,
+  // yeux...) s'en déduisent pour toute autre pose.
   lierPeau(){
 
     const m = this.modele;
     const racine = this.groupe;
-    const Z = new THREE.Vector3(0, 0, 1);
-
-    const T = v => new THREE.Matrix4().makeTranslation(v.x, v.y, v.z);
-    const repos = {};
-
-    const y0 = HUMAIN.bassinDebout;
-    repos.bassin = T(new THREE.Vector3(0, y0, 0));
-    repos.taille = T(new THREE.Vector3(0, y0 + HUMAIN.pivot, 0));
-    repos.tete = T(new THREE.Vector3(0, y0 + HUMAIN.pivot + HUMAIN.hCou, 0));
 
     const os = { bassin: this.bassin, taille: this.taille, tete: this.tete };
 
     this.bras.forEach(b => {
       const n = b.s < 0 ? 'd' : 'g';
-      const a = b.s * MODELE_A.bras;
-      const epaule = new THREE.Vector3(b.s * HUMAIN.epaule, y0 + HUMAIN.pivot + HUMAIN.hEpaule, 0);
-      const coude = epaule.clone().add(new THREE.Vector3(0, -HUMAIN.bras, 0).applyAxisAngle(Z, a));
-      const poignet = coude.clone().add(new THREE.Vector3(0, -HUMAIN.avantBras, 0).applyAxisAngle(Z, a));
-      const R = new THREE.Matrix4().makeRotationZ(a);
-      repos['epaule_' + n] = T(epaule).multiply(R);
-      repos['coude_' + n] = T(coude).multiply(R);
-      repos['poignet_' + n] = T(poignet).multiply(R);
       os['epaule_' + n] = b.epaule;
       os['coude_' + n] = b.coude;
       os['poignet_' + n] = b.poignet;
@@ -6086,39 +6127,90 @@ class Humain {
 
     this.jambes.forEach(j => {
       const n = j.s < 0 ? 'd' : 'g';
-      const x = j.s * HUMAIN.hanche;
-      repos['hanche_' + n] = T(new THREE.Vector3(x, y0 - 0.03, 0));
-      repos['genou_' + n] = T(new THREE.Vector3(x, y0 - 0.03 - HUMAIN.cuisse, 0));
-      repos['cheville_' + n] = T(new THREE.Vector3(x, y0 - 0.03 - HUMAIN.cuisse - HUMAIN.tibia, 0));
       os['hanche_' + n] = j.hanche;
       os['genou_' + n] = j.genou;
       os['cheville_' + n] = j.cheville;
     });
 
     const monde = racine.matrixWorld;
+    const un = new THREE.Vector3(1, 1, 1);
+    const repos = {};
+
+    m.noms.forEach(nom => {
+      const r = m.meta.os[nom];
+      repos[nom] = new THREE.Matrix4().compose(
+        new THREE.Vector3().fromArray(r.p), new THREE.Quaternion().fromArray(r.q), un);
+    });
+
     const os_ordre = m.noms.map(nom => os[nom]);
     const inverses = m.noms.map(nom => new THREE.Matrix4().multiplyMatrices(monde, repos[nom]).invert());
+    const squelette = new THREE.Skeleton(os_ordre, inverses);
 
-    const materiau = this.preparerMateriau(m.mesh.material);
+    this.peaux = m.meshes.map(source => {
+      const peau = new THREE.SkinnedMesh(source.geometry, this.preparerMateriau(source.material, source.name));
+      peau.name = source.name;
+      if(source.morphTargetInfluences){
+        peau.morphTargetDictionary = Object.assign({}, source.morphTargetDictionary);
+        peau.morphTargetInfluences = source.morphTargetInfluences.map(() => 0);
+      }
+      peau.frustumCulled = false;
+      racine.add(peau);
+      peau.bind(squelette, monde.clone());
+      return peau;
+    });
 
-    const peau = new THREE.SkinnedMesh(m.mesh.geometry, materiau);
-    peau.frustumCulled = false;
-    racine.add(peau);
-    peau.bind(new THREE.Skeleton(os_ordre, inverses), monde.clone());
+    this.peau = this.peaux[0];
 
-    this.peau = peau;
+    // Les doigts se plient par des formes clés du corps : une par main.
+    const corps = this.peaux.find(p => /corps$/.test(p.name));
+    const dico = corps && corps.morphTargetDictionary;
+    this.mains = dico ? { corps, d: dico.prise_d, g: dico.prise_g } : null;
   }
 
-  // Le matériau d'un modèle : celui du fichier, un peu d'environnement, et le
-  // clignement des yeux (peints sur la texture) fait dans le shader.
-  preparerMateriau(mat){
+  // Serre la main i (0 : droite, 1 : gauche) de 0 (relâchée) à 1 (autour d'un verre).
+  serrer(i, k){
+    this.priseCible[i] = k;
+  }
+
+  majPrises(){
+    const m = this.mains;
+    if(!m) return;
+    [m.d, m.g].forEach((idx, i) => {
+      if(idx === undefined) return;
+      const cur = m.corps.morphTargetInfluences[idx];
+      m.corps.morphTargetInfluences[idx] = cur + (this.priseCible[i] - cur) * 0.18;
+    });
+  }
+
+  // Un objet tenu à la main i : au poignet pour un modèle de Blender (à `a` mètres du poignet vers
+  // les doigts, `b` du côté de la paume), à l'avant-bras pour un personnage dessiné (`ancien`).
+  tenir(objet, i, a, b, ancien){
+    if(this.modele){
+      objet.position.set((this.bras[i].s < 0 ? 1 : -1) * b, -a, 0);
+      this.bras[i].poignet.add(objet);
+    } else {
+      objet.position.set(ancien[0], ancien[1], ancien[2]);
+      this.bras[i].coude.add(objet);
+    }
+  }
+
+  // La rotation, dans le monde, de ce qui porte l'objet tenu (pour le garder droit).
+  rotationMain(i, sortie){
+    const b = this.bras[i];
+    sortie.copy(this.groupe.quaternion)
+      .multiply(this.bassin.quaternion).multiply(this.taille.quaternion)
+      .multiply(b.epaule.quaternion).multiply(b.coude.quaternion);
+    if(this.modele) sortie.multiply(b.poignet.quaternion);
+    return sortie;
+  }
+
+  // Le matériau d'une pièce du modèle : celui du fichier, un peu d'environnement.
+  preparerMateriau(mat, nom){
 
     mat.skinning = true;
     if(R.env) mat.envMap = R.env;
-    mat.envMapIntensity = 0.55;
+    mat.envMapIntensity = /yeux/.test(nom) ? 1.0 : 0.45;
     mat.needsUpdate = true;
-
-    this.clignement = { value: 0 };
 
     return mat;
   }
@@ -6200,7 +6292,9 @@ class Humain {
     this.bassin.updateMatrix();
     this.taille.updateMatrix();
     this.tete.updateMatrix();
-    return sortie.set(0, TETE.haut - 0.052 * TETE.k, 0.094 * TETE.k)
+    // Un modèle de Blender donne le point de sa bouche (dans le repère de sa tête).
+    const lieu = this.modele ? sortie.copy(this.modele.bouche) : sortie.set(0, TETE.haut - 0.052 * TETE.k, 0.094 * TETE.k);
+    return lieu
       .applyMatrix4(this.tete.matrix)
       .applyMatrix4(this.taille.matrix)
       .applyMatrix4(this.bassin.matrix);
@@ -6226,8 +6320,10 @@ class Humain {
       }
 
       const T = this.cible[i].clone().applyMatrix4(m);
-      ik2(b.epaule, b.coude, b.epaule.position, T, HUMAIN.bras, HUMAIN.avantBras, this.pole[i], this.pronation[i]);
+      ik2(b.epaule, b.coude, b.epaule.position, T, this.dim.bras, this.dim.avantBras, this.pole[i], this.pronation[i]);
     });
+
+    this.majPrises();
 
     // Un modèle de Blender : les mains qui se posent à plat plient le poignet à chaque
     // pose du bras (les mains du croupier, elles, sont gérées dans sa propre mise à jour).
@@ -6345,7 +6441,7 @@ class Humain {
   maj(dt, t, reduit, cible){
 
     // Il respire, à peine.
-    this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
+    this.taille.position.y = this.dim.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
     this.souffle(t, reduit);
 
     this.regarder(dt, t, reduit, cible);
@@ -6377,7 +6473,7 @@ class Croupier extends Humain {
 
     this.installer({
       x, z, yaw: rotY,
-      hanche: [HUMAIN.bassinDebout, 0],
+      hanche: [this.dim.bassinDebout, 0],
       penche: 0.05,
       pieds: { y: 0.085, z: 0.03, ecart: 0.105, ouverture: 0.18 }
     });
@@ -6390,7 +6486,7 @@ class Croupier extends Humain {
         b.avantBras.geometry.dispose();
         b.avantBras.geometry = geoAvantBras(APPARENCES.croupier, b.s, null);
         b.poignet = new THREE.Group();
-        b.poignet.position.y = -HUMAIN.avantBras;
+        b.poignet.position.y = -this.dim.avantBras;
         b.poignet.add(new THREE.Mesh(geoMain(APPARENCES.croupier, b.s), R.matHumain));
         b.coude.add(b.poignet);
       });
@@ -6452,7 +6548,7 @@ class Croupier extends Humain {
     // Il se penche vers la personne quand il lui tend un booster.
     this.penche = 0.28 + 0.10 * r + this.remerciement * 0.10;
     this.souffle(t, reduit);
-    this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
+    this.taille.position.y = this.dim.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
 
     // La tête suit la personne quand elle est proche ; sinon son regard
     // balaie lentement la salle.
@@ -6487,6 +6583,7 @@ class Croupier extends Humain {
     this.viserBras(1, this.reposGauche, 1.25);
 
     this.paquet.visible = r > 0.06;
+    this.serrer(0, r * 0.6);
 
     this.majBras();
 
@@ -6720,8 +6817,8 @@ class Habitue extends Humain {
     // Le verre est dans la main ; il reste droit, quoi que fasse le bras.
     if(def.verre){
       this.verre = creerVerre(def.verre);
-      this.verre.position.set(0, -HUMAIN.avantBras - 0.045, 0.028);
-      this.bras[def.mainVerre || 0].coude.add(this.verre);
+      this.tenir(this.verre, def.mainVerre || 0, 0.075, 0.042, [0, -this.dim.avantBras - 0.045, 0.028]);
+      this.serrer(def.mainVerre || 0, 1);
     }
 
     this.majBras(true);
@@ -6734,7 +6831,7 @@ class Habitue extends Humain {
 
     const def = this.def;
 
-    this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.6 + this.phase) * 0.0035);
+    this.taille.position.y = this.dim.pivot + (reduit ? 0 : Math.sin(t * 1.6 + this.phase) * 0.0035);
     this.souffle(t, reduit);
 
     let defaut = def.regard || 0;
@@ -6801,10 +6898,7 @@ class Habitue extends Humain {
 
     // Le verre reste droit, quelle que soit la position du bras.
     if(this.verre){
-      const b = this.bras[this.def.mainVerre || 0];
-      const q = this.qTravail.copy(this.groupe.quaternion)
-        .multiply(this.bassin.quaternion).multiply(this.taille.quaternion)
-        .multiply(b.epaule.quaternion).multiply(b.coude.quaternion);
+      const q = this.rotationMain(this.def.mainVerre || 0, this.qTravail);
       this.verre.quaternion.copy(q).invert();
       this.verre.rotateX(-0.25 * bump - 0.75 * incline);
     }
@@ -6829,22 +6923,20 @@ class Barman extends Humain {
 
     this.installer({
       x, z, yaw: 0,
-      hanche: [HUMAIN.bassinDebout, 0],
+      hanche: [this.dim.bassinDebout, 0],
       penche: 0.04,
       pieds: { y: 0.085, z: 0.03, ecart: 0.12, ouverture: 0.2 }
     });
 
     // Le verre qu'il essuie, tenu de la main droite ; le chiffon, dans la gauche.
     this.verre = creerVerre('whisky');
-    this.verre.position.set(0, -HUMAIN.avantBras - 0.04, 0.03);
-    this.bras[0].coude.add(this.verre);
+    this.tenir(this.verre, 0, 0.075, 0.042, [0, -this.dim.avantBras - 0.04, 0.03]);
 
     this.chiffon = new THREE.Mesh(
       new THREE.BoxGeometry(0.11, 0.012, 0.09),
       new THREE.MeshStandardMaterial({ color: 0xf0ece2, roughness: 0.9 })
     );
-    this.chiffon.position.set(0, -HUMAIN.avantBras - 0.04, 0.03);
-    this.bras[1].coude.add(this.chiffon);
+    this.tenir(this.chiffon, 1, 0.07, 0.03, [0, -this.dim.avantBras - 0.04, 0.03]);
 
     // Le shaker, à deux mains : il reste dans la gauche et la droite le rejoint.
     this.shaker = new THREE.Group();
@@ -6854,8 +6946,7 @@ class Barman extends Humain {
     const bouchon = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.034, 0.05, 18), acier);
     bouchon.position.y = 0.108;
     this.shaker.add(corps, bouchon);
-    this.shaker.position.set(0, -HUMAIN.avantBras - 0.03, 0.04);
-    this.bras[1].coude.add(this.shaker);
+    this.tenir(this.shaker, 1, 0.075, 0.042, [0, -this.dim.avantBras - 0.03, 0.04]);
 
     // La bouteille qu'il tient pour verser.
     this.bouteille = new THREE.Group();
@@ -6872,8 +6963,7 @@ class Barman extends Humain {
     );
     etiquette.position.y = 0.06;
     this.bouteille.add(bBas, bCol, bGoulot, etiquette);
-    this.bouteille.position.set(0, -HUMAIN.avantBras - 0.02, 0.03);
-    this.bras[0].coude.add(this.bouteille);
+    this.tenir(this.bouteille, 0, 0.075, 0.042, [0, -this.dim.avantBras - 0.02, 0.03]);
 
     // Le verre qu'il remplit, posé sur le comptoir (1,081 m).
     this.verreComptoir = creerVerre('whisky');
@@ -6905,7 +6995,7 @@ class Barman extends Humain {
 
   maj(dt, t, reduit, cible){
 
-    this.taille.position.y = HUMAIN.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
+    this.taille.position.y = this.dim.pivot + (reduit ? 0 : Math.sin(t * 1.7 + this.phase) * 0.0035);
     this.souffle(t, reduit);
 
     const w = reduit ? { polit: 0, secoue: 0, verse: 0, repos: 1, u: 0 } : this.poids(t);
@@ -6958,12 +7048,13 @@ class Barman extends Humain {
     const q = this.qTravail;
 
     const redresser = (objet, bras) => {
-      const b = this.bras[bras];
-      q.copy(this.groupe.quaternion)
-        .multiply(this.bassin.quaternion).multiply(this.taille.quaternion)
-        .multiply(b.epaule.quaternion).multiply(b.coude.quaternion);
+      this.rotationMain(bras, q);
       objet.quaternion.copy(q).invert();
     };
+
+    // Les doigts se referment sur ce qu'il tient.
+    this.serrer(0, this.verre.visible || this.bouteille.visible ? 1 : 0);
+    this.serrer(1, this.chiffon.visible || this.shaker.visible ? 1 : 0);
 
     if(this.verre.visible) redresser(this.verre, 0);
     if(this.chiffon.visible){ redresser(this.chiffon, 1); this.chiffon.rotateY(t * 6); }
