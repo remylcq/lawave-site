@@ -31,6 +31,8 @@ SORTIE = os.environ.get('SORTIE', os.path.dirname(os.path.abspath(__file__)))
 DEST = os.environ.get('DEST', SORTIE)
 TEX = int(os.environ.get('TEX', '1024'))
 APERCUS = os.environ.get('APERCUS', '1') == '1'
+# HD=1 : la définition haute (peaux et vêtements en 2048, <nom>_h.glb) pour les ordinateurs récents ; sans : la définition légère.
+HD = os.environ.get('HD', '0') == '1'
 TRIS = int(os.environ.get('TRIS', '0'))
 spec = specs.SPECS[NOM]
 
@@ -150,22 +152,52 @@ def mappage():
     return m
 
 
-def poser_poids_jeu(obj):
+def lisser_poids(W, obj, centres, rayon, iterations=10, force=0.5):
+    """Adoucit les poids autour de ces points (les épaules) : en rapprochant chaque sommet de la moyenne de ses voisins,
+    la transition entre le buste et le bras s'étale, et l'épaule ne s'étire plus en pointes quand le bras se lève."""
+    V = len(obj.data.vertices)
+    co = np.array([v.co[:] for v in obj.data.vertices], np.float64)
+    masque = np.zeros(V, bool)
+    for c in centres:
+        masque |= np.linalg.norm(co - np.array(c[:], np.float64), axis=1) < rayon
+    masque &= W.sum(axis=1) > 0
+    aretes = np.array([e.vertices[:] for e in obj.data.edges], np.int64)
+    if not len(aretes):
+        return W
+    deg = np.zeros(V)
+    np.add.at(deg, aretes[:, 0], 1)
+    np.add.at(deg, aretes[:, 1], 1)
+    for _ in range(iterations):
+        S = np.zeros_like(W)
+        np.add.at(S, aretes[:, 0], W[aretes[:, 1]])
+        np.add.at(S, aretes[:, 1], W[aretes[:, 0]])
+        moy = S / np.maximum(deg, 1)[:, None]
+        W[masque] = (1 - force) * W[masque] + force * moy[masque]
+    return W
+
+
+def poser_poids_jeu(obj, centres_lissage=None):
     """Regroupe les poids du squelette MakeHuman sur les 15 os du jeu (4 influences au plus)."""
     mp = mappage()
     noms = {g.index: g.name for g in obj.vertex_groups}
-    nouveaux = {}
+    index = {n: i for i, n in enumerate(OS_JEU)}
+    V = len(obj.data.vertices)
+    W = np.zeros((V, len(OS_JEU)), np.float64)
     for v in obj.data.vertices:
-        acc = {}
         for g in v.groups:
             n = mp.get(noms[g.group])
             if n and g.weight > 1e-4:
-                acc[n] = acc.get(n, 0.0) + g.weight
-        if not acc:
+                W[v.index, index[n]] += g.weight
+    if centres_lissage:
+        W = lisser_poids(W, obj, centres_lissage, 0.15)
+    nouveaux = {}
+    for i in range(V):
+        ligne = W[i]
+        if ligne.sum() <= 0:
             continue
-        top = sorted(acc.items(), key=lambda t: -t[1])[:4]
+        top = sorted(((OS_JEU[k], ligne[k]) for k in np.argsort(-ligne)[:4]), key=lambda t: -t[1])
         tot = sum(w for _, w in top)
-        nouveaux[v.index] = [(n, w / tot) for n, w in top if w / tot > 0.01]
+        nouveaux[i] = [(n, w / tot) for n, w in top if w / tot > 0.01]
     for g in list(obj.vertex_groups):
         obj.vertex_groups.remove(g)
     vgs = {n: obj.vertex_groups.new(name=n) for n in OS_JEU}
@@ -326,7 +358,7 @@ def eclaircir_textures():
 
 def texture_peau():
     mat = mh.lire_mhmat(os.path.join(mh.dossier_donnees(), 'skins', spec['peau'], spec['peau'] + '.mhmat'))
-    a = mh.charger_tableau(mat['diffuseTexture'], spec.get('tex_peau', TEX))
+    a = mh.charger_tableau(mat['diffuseTexture'], 2048 if HD else TEX)
     return a
 
 
@@ -341,7 +373,7 @@ def fabriquer_materiaux(P, objets, partage):
     mats['corps'] = mh.materiau(NOM + '_peau', mh.image_depuis_tableau(NOM + '_peau', a), rugosite=0.58, spec=0.35)
     # yeux
     yeux = mh.lire_mhmat(os.path.join(donnees, 'eyes', 'materials', spec['yeux'] + '.mhmat'))
-    ay = mh.charger_tableau(yeux['diffuseTexture'], 256)
+    ay = mh.charger_tableau(yeux['diffuseTexture'], 512 if HD else 256)
     mats['yeux'] = mh.materiau(NOM + '_yeux', mh.image_depuis_tableau(NOM + '_yeux', ay), rugosite=0.12, spec=0.9)
     # sourcils, cils
     for cle, dossier in (('sourcils', 'eyebrows'), ('cils', 'eyelashes')):
@@ -356,7 +388,7 @@ def fabriquer_materiaux(P, objets, partage):
     if spec.get('cheveux'):
         nom = spec['cheveux']
         m = mh.lire_mhmat(os.path.join(donnees, 'hair', nom, nom + '.mhmat'))
-        t = mh.charger_tableau(m['diffuseTexture'], 512)
+        t = mh.charger_tableau(m['diffuseTexture'], 1024 if HD else 512)
         if spec.get('cheveux_couleur'):
             t = mh.teinter_tout(t, mh.hex_rgb(spec['cheveux_couleur']), force=1.0)
         mats['cheveux'] = mh.materiau(NOM + '_cheveux', mh.image_depuis_tableau(NOM + '_cheveux', t, jpeg=False), rugosite=0.5,
@@ -368,13 +400,17 @@ def fabriquer_materiaux(P, objets, partage):
     for v in habits:
         nom = v['nom']
         m = mh.lire_mhmat(os.path.join(donnees, 'clothes', nom, nom + '.mhmat'))
-        t0 = mh.charger_tableau(m['diffuseTexture'], TEX)
-        if v.get('sans_cravate'):
-            # la cravate du costume, dans le dépliage de male_elegantsuit01 : on la peint comme la chemise
-            t0 = mh.blanchir_rect(t0, 0.344, 0.408, 0.815, 0.93)
+        TV = 2048 if HD else TEX
+        t0 = mh.charger_tableau(m['diffuseTexture'], TV)
+        if v.get('cravate'):
+            # la cravate du costume, dans le dépliage de male_elegantsuit01 : recolorée, ses rayures gardent leur éclat
+            h_, w_ = t0.shape[:2]
+            zone = np.zeros((h_, w_), bool)
+            zone[int(0.815 * h_):int(0.93 * h_), int(0.344 * w_):int(0.408 * w_)] = True
+            t0 = mh.teinter_region(t0, zone & (mh.luminance(t0) < 0.97), mh.hex_rgb(v['cravate']))
         nrm = None
         if 'normalmapTexture' in m and os.path.exists(m['normalmapTexture']):
-            nrm = mh.image_depuis_tableau(nom + '_n', mh.charger_tableau(m['normalmapTexture'], TEX), couleur=False)
+            nrm = mh.image_depuis_tableau(nom + '_n', mh.charger_tableau(m['normalmapTexture'], TV), couleur=False)
         liste = []
         variantes = [('haut', v.get('haut')), ('bas', v.get('bas'))] if (v.get('haut') or v.get('bas')) else [('', None)]
         objet = objets.get('vet:' + nom)
@@ -386,7 +422,7 @@ def fabriquer_materiaux(P, objets, partage):
                 t = mh.teinter_tout(t, mh.hex_rgb(v['tout']), force=v.get('force', 1.0))
             if couleur:
                 faces = [i for i, k in enumerate(partage[objet.name]) if k == idx]
-                msk = mh.masque_uv(objet.data, faces, TEX)
+                msk = mh.masque_uv(objet.data, faces, TV)
                 print('   REGION', nom, suffixe, 'faces', len(faces), 'pixels', int(msk.sum()), 'lum', float(mh.luminance(t0)[msk].mean()) if msk.any() else None)
                 t = mh.teinter_region(t, msk, mh.hex_rgb(couleur), force=v.get('force', 1.0))
             liste.append(mh.materiau('%s_%s%s' % (NOM, nom, suffixe), mh.image_depuis_tableau(nom + '_c' + suffixe, t), nrm,
@@ -403,7 +439,7 @@ def exporter(arm, meshes):
         o.select_set(False)
     for o in [arm] + meshes:
         o.select_set(True)
-    chemin = os.path.join(DEST, NOM + '.glb')
+    chemin = os.path.join(DEST, NOM + ('_h' if HD else '') + '.glb')
     bpy.ops.export_scene.gltf(
         filepath=chemin, export_format='GLB', use_selection=True, export_apply=False, export_yup=True,
         export_texcoords=True, export_normals=True, export_tangents=False, export_materials='EXPORT',
@@ -477,7 +513,7 @@ def principal():
 
     # poids sur les os du jeu
     for o in objets.values():
-        poser_poids_jeu(o)
+        poser_poids_jeu(o, [mh.a_jeu_inverse(P['epaule_d']), mh.a_jeu_inverse(P['epaule_g'])])
     chrono('poids')
 
     # la nouvelle armature, les anciens objets disparaissent

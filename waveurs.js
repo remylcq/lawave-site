@@ -3622,6 +3622,24 @@ async function assurerGLTF(){
 
 // Les mesures d'un modèle de Blender, tirées de la position de ses os au repos
 // (voir outils/personnages/mpfb/fabriquer.py) : mêmes noms que HUMAIN.
+// Les textures en haute définition (2048) : seulement sur un ordinateur qui a de quoi les porter (la mémoire de
+// la carte graphique, pas le réseau, en est la limite). `deviceMemory` n'existe que dans certains navigateurs.
+function qualiteHD(){
+
+  if(etat.tactile || QUALITE.niveau === 'basse') return false;
+  if(QUALITE.niveau === 'haute') return true;
+
+  const memoire = navigator.deviceMemory;
+  const max = renderer && renderer.capabilities ? renderer.capabilities.maxTextureSize : 0;
+
+  return (memoire === undefined || memoire >= 8) && max >= 4096;
+}
+
+// Un fichier glTF, en promesse.
+function chargerGLTF(url){
+  return new Promise((ok, ko) => new THREE.GLTFLoader().load(url, ok, undefined, ko));
+}
+
 function dimensionsModele(meta){
 
   const P = n => new THREE.Vector3().fromArray(meta.os[n].p);
@@ -3647,6 +3665,7 @@ function dimensionsModele(meta){
 
 // Un modèle qui ne se charge pas n'est pas une erreur : le personnage garde alors
 // sa forme dessinée par le code (c'est la salle d'avant, et elle fonctionne).
+// Sur un ordinateur récent on prend la version HD (<nom>_h.glb), sinon la légère (<nom>.glb).
 async function chargerModelesPersonnages(){
 
   R.modeles = {};
@@ -3660,44 +3679,46 @@ async function chargerModelesPersonnages(){
     return;
   }
 
-  await Promise.all(noms.map(nom => new Promise(ok => {
+  const hd = qualiteHD();
+
+  await Promise.all(noms.map(async nom => {
+
+    let gltf = null;
+
+    if(hd){
+      try{ gltf = await chargerGLTF(MODELES.dossier + nom + '_h.glb' + MODELES.version); }catch(e){ gltf = null; }
+    }
+
+    if(!gltf){
+      try{ gltf = await chargerGLTF(MODELES.dossier + nom + '.glb' + MODELES.version); }catch(e){ return; }
+    }
 
     try{
-      new THREE.GLTFLoader().load(MODELES.dossier + nom + '.glb' + MODELES.version, gltf => {
 
-        try{
+      // Le fichier : un squelette de quinze os, une pièce par partie du corps (toutes
+      // liées au même squelette), et les mesures du squelette au repos.
+      const meshes = [];
+      let meta = null;
 
-          // Le fichier : un squelette de quinze os, une pièce par partie du corps (toutes
-          // liées au même squelette), et les mesures du squelette au repos.
-          const meshes = [];
-          let meta = null;
+      gltf.scene.traverse(o => {
+        if(o.isSkinnedMesh) meshes.push(o);
+        if(o.userData && o.userData.meta) meta = o.userData.meta;
+      });
 
-          gltf.scene.traverse(o => {
-            if(o.isSkinnedMesh) meshes.push(o);
-            if(o.userData && o.userData.meta) meta = o.userData.meta;
-          });
+      if(typeof meta === 'string') meta = JSON.parse(meta);
 
-          if(typeof meta === 'string') meta = JSON.parse(meta);
+      if(meshes.length && meta && meta.os){
+        R.modeles[nom] = {
+          meshes,
+          noms: meshes[0].skeleton.bones.map(b => b.name),
+          meta,
+          dim: dimensionsModele(meta),
+          bouche: new THREE.Vector3().fromArray(meta.bouche || [0, 0, 0.1]).sub(new THREE.Vector3().fromArray(meta.os.tete.p))
+        };
+      }
 
-          if(meshes.length && meta && meta.os){
-            R.modeles[nom] = {
-              meshes,
-              noms: meshes[0].skeleton.bones.map(b => b.name),
-              meta,
-              dim: dimensionsModele(meta),
-              bouche: new THREE.Vector3().fromArray(meta.bouche || [0, 0, 0.1]).sub(new THREE.Vector3().fromArray(meta.os.tete.p))
-            };
-          }
-
-        }catch(e){ /* un fichier illisible : le personnage dessiné par le code reste */ }
-
-        ok();
-
-      }, undefined, () => ok());
-    }catch(e){
-      ok();
-    }
-  })));
+    }catch(e){ /* un fichier illisible : le personnage dessiné par le code reste */ }
+  }));
 }
 
 // Les matières du décor : parquet, marbres, boiserie (voir outils/decor/preparer_decor.py ; Poly Haven et
@@ -3709,11 +3730,20 @@ async function chargerDecor(){
 
   R.decor = {};
 
-  await Promise.all(DECOR.matieres.map(nom => Promise.all(['c', 'n', 'a'].map(k => new Promise(ok => {
+  // Les images HD (_h) sur un ordinateur récent, avec repli sur les légères si l'une manque.
+  const suffixe = qualiteHD() ? '_h' : '';
+
+  const charger = (nom, k, suff) => new Promise(ok => {
     try{
-      new THREE.TextureLoader().load(DECOR.dossier + nom + '_' + k + '.jpg' + DECOR.version, t => ok([k, t]), undefined, () => ok([k, null]));
-    }catch(e){ ok([k, null]); }
-  }))).then(paires => {
+      new THREE.TextureLoader().load(DECOR.dossier + nom + '_' + k + suff + '.jpg' + DECOR.version, t => ok(t), undefined, () => ok(null));
+    }catch(e){ ok(null); }
+  });
+
+  await Promise.all(DECOR.matieres.map(nom => Promise.all(['c', 'n', 'a'].map(async k => {
+    let t = suffixe ? await charger(nom, k, suffixe) : null;
+    if(!t) t = await charger(nom, k, '');
+    return [k, t];
+  })).then(paires => {
     const m = {};
     paires.forEach(([k, t]) => { m[k] = t; });
     if(m.c) R.decor[nom] = m;
@@ -3785,6 +3815,7 @@ async function chargerMeubles(){
             const mat = o.material;
             // Couleurs brutes, comme les textures dessinées par le code (voir R.texture).
             ['map', 'emissiveMap'].forEach(k => { if(mat[k]) mat[k].encoding = THREE.LinearEncoding; });
+            ['map', 'normalMap', 'roughnessMap'].forEach(k => { if(mat[k]) mat[k].anisotropy = R.aniso || 4; });
             mat.envMap = R.env || null;
             mat.envMapIntensity = 0.5;
             mat.needsUpdate = true;
@@ -3919,10 +3950,6 @@ function construireOverlay(){
 
 async function construireMonde(){
 
-  // Les personnages (des fichiers de plusieurs Mo) se téléchargent pendant que la salle se construit.
-  const modelesPrets = chargerModelesPersonnages();
-  const decorPret = Promise.all([chargerDecor(), chargerMeubles()]);
-
   const logoBrut = await chargerImage(options.logo);
 
   // Les textures écrivent avec la police du site : elle doit être là.
@@ -3961,6 +3988,11 @@ async function construireMonde(){
   creerPost();
   if(!etat.tactile && QUALITE.niveau !== 'basse') creerReflet();
   appliquerQualite();
+
+  // Les personnages, les matières et les meubles (des fichiers de plusieurs Mo) se téléchargent pendant que
+  // la salle se construit ; la définition (HD ou légère) dépend de la machine (voir qualiteHD).
+  const modelesPrets = chargerModelesPersonnages();
+  const decorPret = Promise.all([chargerDecor(), chargerMeubles()]);
 
   // Le navigateur reprend parfois la carte graphique (une autre application,
   // un onglet trop gourmand). Three.js recrée seul ses ressources quand elle
@@ -6392,7 +6424,11 @@ class Humain {
     // dessinées par le code) : les images du fichier doivent être lues de la même façon, sinon elles
     // sortent beaucoup trop sombres.
     ['map', 'emissiveMap'].forEach(k => { if(mat[k]) mat[k].encoding = THREE.LinearEncoding; });
+    // Nettes aussi de biais (une peau vue de côté, un vêtement qui fuit).
+    ['map', 'normalMap', 'roughnessMap'].forEach(k => { if(mat[k]) mat[k].anisotropy = R.aniso || 4; });
     if(R.env) mat.envMap = R.env;
+    // La peau un peu moins claire : de près, sous une lampe, elle « brûlait ».
+    if(/corps/.test(nom) && mat.color) mat.color.setScalar(0.9);
     // Les yeux brillent, la peau un peu, les étoffes presque pas.
     mat.envMapIntensity = /yeux/.test(nom) ? 1.0 : /corps|shoes/.test(nom) ? 0.4 : 0.12;
     mat.needsUpdate = true;
@@ -6649,6 +6685,9 @@ class Humain {
 // bordeaux. Il regarde la personne qui s'approche, bat les cartes au repos,
 // tend un booster quand on lui parle, et le pousse d'un geste quand on
 // achète.
+// Où la main du croupier (un modèle de Blender) tient le booster : vers les doigts, du côté de la paume, et de combien le paquet monte.
+const PAQUET = { doigts: 0.085, cote: 0.02, monte: 0.07 };
+
 class Croupier extends Humain {
 
   constructor(x, z, rotY){
@@ -6811,6 +6850,15 @@ class Croupier extends Humain {
 
     // La place et l'inclinaison, ramenées du repère du personnage à celui du poignet.
     this.paquet.position.copy(Q.pos).applyQuaternion(Q.poignet);
+
+    // Un modèle de Blender a une vraie main : le booster se tient par son bord bas, au creux de la paume
+    // (à 8,5 cm du poignet vers les doigts, un peu du côté de la paume), et le reste du paquet monte droit.
+    if(this.modele){
+      Q.haut = Q.haut || new THREE.Vector3();
+      Q.haut.set(0, PAQUET.monte, 0).applyQuaternion(Q.poignet);
+      this.paquet.position.set(PAQUET.cote, -PAQUET.doigts, 0).add(Q.haut);
+    }
+
     this.paquet.quaternion.copy(Q.poignet).multiply(Q.voulu);
   }
 }

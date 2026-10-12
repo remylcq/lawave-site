@@ -26,7 +26,8 @@ La variable `MPFB_DATA` peut désigner un autre dossier. Rien de tout cela n'est
     blender -b -P outils/personnages/mpfb/fabriquer.py -- croupier
 
 Variables : `SORTIE` (aperçus et `.blend`), `DEST` (dossier du `.glb`, ex. `modeles`), `TEX` (taille des
-textures, 1024). Une fiche par personnage dans `specs.py` : curseurs MakeHuman (genre, âge, muscle, poids,
+textures, 1024), `HD=1` (version haute définition : peaux et vêtements en 2048, fichier `<nom>_h.glb` ; le jeu la
+prend sur un ordinateur récent, la légère `<nom>.glb` sinon : voir `qualiteHD` dans `waveurs.js`). Une fiche par personnage dans `specs.py` : curseurs MakeHuman (genre, âge, muscle, poids,
 taille), peau, yeux, sourcils, cils, cheveux, vêtements (recolorés par zone : `teinte`, `haut`, `bas`),
 chaussures, accessoires. Aperçus : `apercus.py` (voir son en-tête).
 
