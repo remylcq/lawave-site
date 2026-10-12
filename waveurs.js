@@ -3756,6 +3756,93 @@ function matDecor(nom, o){
   });
 }
 
+// Les meubles du décor (fauteuil, canapé, table, tabouret : Poly Haven, CC0), un fichier chacun, déjà à la
+// bonne échelle et dans le bon sens (voir outils/decor/preparer_meubles.py). Posés par `meubler`, dessinés en
+// un appel par pièce et par sorte de meuble (`instancierMeubles`). Un fichier qui manque : le meuble dessiné
+// par le code reste.
+DECOR.meubles = ['fauteuil', 'canape', 'table', 'tabouret'];
+const PLACES = {};
+
+async function chargerMeubles(){
+
+  R.meubles = {};
+  if(!DECOR.meubles.length) return;
+
+  try{
+    await assurerGLTF();
+  }catch(e){
+    return;
+  }
+
+  await Promise.all(DECOR.meubles.map(nom => new Promise(ok => {
+    try{
+      new THREE.GLTFLoader().load(DECOR.dossier + nom + '.glb' + DECOR.version, gltf => {
+        try{
+          gltf.scene.updateMatrixWorld(true);
+          const parties = [];
+          gltf.scene.traverse(o => {
+            if(!o.isMesh) return;
+            const mat = o.material;
+            // Couleurs brutes, comme les textures dessinées par le code (voir R.texture).
+            ['map', 'emissiveMap'].forEach(k => { if(mat[k]) mat[k].encoding = THREE.LinearEncoding; });
+            mat.envMap = R.env || null;
+            mat.envMapIntensity = 0.5;
+            mat.needsUpdate = true;
+            parties.push({ geometry: o.geometry, materiau: mat, matrice: o.matrixWorld.clone() });
+          });
+          if(parties.length) R.meubles[nom] = { parties };
+        }catch(e){ /* un fichier illisible : le meuble dessiné reste */ }
+        ok();
+      }, undefined, () => ok());
+    }catch(e){
+      ok();
+    }
+  })));
+}
+
+// Réserve la place d'un meuble (x, z du sol, rotation autour de y, échelle) ; `false` s'il n'y a pas de modèle.
+function meubler(nom, x, z, rot, echelle){
+  if(!R.meubles || !R.meubles[nom]) return false;
+  (PLACES[nom] = PLACES[nom] || []).push({ x, z, rot: rot || 0, e: echelle || 1 });
+  return true;
+}
+
+// Dessine les meubles réservés : une forme instanciée par pièce et par sorte de meuble.
+function instancierMeubles(){
+
+  const Y = new THREE.Vector3(0, 1, 0);
+  const M = new THREE.Matrix4(), I = new THREE.Matrix4();
+  const q = new THREE.Quaternion(), pos = new THREE.Vector3(), sc = new THREE.Vector3();
+
+  Object.keys(PLACES).forEach(nom => {
+
+    const liste = PLACES[nom];
+    const modele = R.meubles && R.meubles[nom];
+    if(!modele || !liste.length) return;
+
+    modele.parties.forEach(partie => {
+
+      const im = new THREE.InstancedMesh(partie.geometry, partie.materiau, liste.length);
+
+      liste.forEach((l, i) => {
+        q.setFromAxisAngle(Y, l.rot);
+        pos.set(l.x, 0, l.z);
+        sc.setScalar(l.e);
+        I.compose(pos, q, sc);
+        M.multiplyMatrices(I, partie.matrice);
+        im.setMatrixAt(i, M);
+      });
+
+      im.instanceMatrix.needsUpdate = true;
+      // Les exemplaires sont éparpillés dans la salle : la sphère d'une seule forme ne les contient pas.
+      im.frustumCulled = false;
+      scene.add(im);
+    });
+
+    liste.length = 0;
+  });
+}
+
 function chargerImage(src){
   return new Promise(ok => {
     if(!src) return ok(null);
@@ -3834,7 +3921,7 @@ async function construireMonde(){
 
   // Les personnages (des fichiers de plusieurs Mo) se téléchargent pendant que la salle se construit.
   const modelesPrets = chargerModelesPersonnages();
-  const decorPret = chargerDecor();
+  const decorPret = Promise.all([chargerDecor(), chargerMeubles()]);
 
   const logoBrut = await chargerImage(options.logo);
 
@@ -4109,6 +4196,7 @@ async function construireMonde(){
   construireSalle();
   construireBar();
   construireMobilier();
+  instancierMeubles();
   construireMachine();
   await modelesPrets;
 
@@ -4186,7 +4274,7 @@ function construireSalle(){
   // rasants.
   // Du parquet en chevrons (Poly Haven), ou, s'il manque, celui que dessine le code.
   const matParquet = matDecor('parquet', {
-    rx: L * 2 / 1.3, ry: P * 2 / 1.3, couleur: 0x8c7a66, rugosite: 1.0, env: 0.22, relief: 1.3,
+    rx: L * 2 / 1.3, ry: P * 2 / 1.3, couleur: 0x7f6e5c, rugosite: 1.0, env: 0.22, relief: 1.3,
     specular: 0x6a5238, brillance: 46
   });
   const canvasParquet = matParquet ? null : creerParquet();
@@ -4578,7 +4666,7 @@ function construireBar(){
   // Huit tabourets, en cuir lie-de-vin, laiton et rondeur.
   for(let i = 0; i < 8; i++){
     const x = -3.15 + i * 0.9;
-    poser({ tissu, laiton, bois }, geoTabouret('#6b1a2b', 0.74), x, -6.12, 0);
+    if(!meubler('tabouret', x, -6.12, Math.PI, 1)) poser({ tissu, laiton, bois }, geoTabouret('#6b1a2b', 0.74), x, -6.12, 0);
     colliders.push({ x0: x - 0.26, x1: x + 0.26, z0: -6.38, z1: -5.86 });
     // On s'y assoit face au comptoir, les pieds sur le repose-pieds de laiton.
     SIEGES.push({
@@ -4788,7 +4876,7 @@ function construireMobilier(){
       // Rotation de la table : (lx, lz) → monde.
       const wx = cx + lx * Math.cos(rot) + lz * Math.sin(rot);
       const wz = cz - lx * Math.sin(rot) + lz * Math.cos(rot);
-      poser(liste, geoTabouret(VELOURS2, 0.68), wx, wz, 0);
+      if(!meubler('tabouret', wx, wz, Math.atan2(cx - wx, cz - wz), 0.92)) poser(liste, geoTabouret(VELOURS2, 0.68), wx, wz, 0);
       boiteCollision(wx - 0.26, wx + 0.26, wz - 0.26, wz + 0.26);
       SIEGES.push({
         id: 'bj' + i, genre: 'tabouret', x: wx, z: wz, yaw: Math.atan2(cx - wx, cz - wz), haut: 0.68,
@@ -4800,13 +4888,19 @@ function construireMobilier(){
   }
 
   // ---- Un coin de salon près de la porte, à gauche ----
-  poser(liste, geoTableRonde(0.45, 0.7), -6.4, 6.6, 0);
-  poser(liste, geoFauteuil(VELOURS), -6.4, 5.75, 0);
-  poser(liste, geoFauteuil(VELOURS), -6.4, 7.45, Math.PI);
+  if(!meubler('table', -6.4, 6.6, 0, 1)) poser(liste, geoTableRonde(0.45, 0.7), -6.4, 6.6, 0);
+  if(!meubler('fauteuil', -6.4, 5.75, 0, 1)) poser(liste, geoFauteuil(VELOURS), -6.4, 5.75, 0);
+  if(!meubler('fauteuil', -6.4, 7.45, Math.PI, 1)) poser(liste, geoFauteuil(VELOURS), -6.4, 7.45, Math.PI);
   boiteCollision(-6.9, -5.9, 5.4, 7.8);
 
   // ---- À droite : la banquette de velours et ses deux tables ----
-  poser(liste, geoBanquette(4.4, VELOURS), 7.08, -2.5, -Math.PI / 2);
+  // Deux canapés de cuir, dos au mur, à la place de la banquette dessinée.
+  if(R.meubles && R.meubles.canape){
+    meubler('canape', 7.06, -3.7, -Math.PI / 2, 1);
+    meubler('canape', 7.06, -1.3, -Math.PI / 2, 1);
+  }else{
+    poser(liste, geoBanquette(4.4, VELOURS), 7.08, -2.5, -Math.PI / 2);
+  }
   boiteCollision(6.6, SALLE.l, -4.75, -0.25);
 
   // Sur la banquette, face à la salle, assis au bord de l'assise, près de la
@@ -4819,8 +4913,8 @@ function construireMobilier(){
   });
 
   [-3.6, -1.4].forEach(z => {
-    poser(liste, geoTableRonde(0.42, 0.68), 5.9, z, 0);
-    poser(liste, geoFauteuil(VELOURS2), 5.05, z, Math.PI / 2);
+    if(!meubler('table', 5.9, z, 0, 1)) poser(liste, geoTableRonde(0.42, 0.68), 5.9, z, 0);
+    if(!meubler('fauteuil', 5.05, z, Math.PI / 2, 1)) poser(liste, geoFauteuil(VELOURS2), 5.05, z, Math.PI / 2);
     boiteCollision(4.7, 6.35, z - 0.5, z + 0.5);
   });
 
@@ -4848,7 +4942,7 @@ function construireMobilier(){
       // mur de droite.
       const a = 0.94 + i * TAU / 5;
       const x = cx + Math.sin(a) * 1.72, z = cz + Math.cos(a) * 1.72;
-      poser(liste, geoFauteuil(VELOURS2), x, z, a + Math.PI);
+      if(!meubler('fauteuil', x, z, a + Math.PI, 1)) poser(liste, geoFauteuil(VELOURS2), x, z, a + Math.PI);
       boiteCollision(x - 0.36, x + 0.36, z - 0.36, z + 0.36);
       SIEGES.push({
         id: 'pok' + i, genre: 'fauteuil', x, z, yaw: a + Math.PI,
