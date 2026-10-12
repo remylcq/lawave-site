@@ -10,7 +10,13 @@ serveur, à la main). Ce qui est déjà sur le serveur sans être dans le dépô
 Les adresses des scripts reçoivent l'empreinte du fichier à l'envoi (`waveurs.js?v=1a2b3c4d`) : plus de
 numéro `?v=` à augmenter. Dans le dépôt, `index.html` garde son numéro ; sur le site, il porte l'empreinte.
 
-## Les identifiants (une seule fois, par toi, dans ton terminal)
+## Les identifiants
+
+Le dépôt contient déjà `FTP_HOST`, `FTP_USER` et `FTP_PASSWORD` (posés le 2026-09-01) : le workflow les accepte
+à la place de `FTP_SERVER`, `FTP_USERNAME` et `FTP_PASSWORD`. Si l'essai à blanc échoue sur la connexion,
+c'est qu'ils ne sont plus bons : les remplacer comme ci-dessous.
+
+### Les remplacer (une seule fois, par toi, dans ton terminal)
 
 Les mots de passe ne passent jamais par la conversation : chaque commande te les demande, saisie masquée.
 Les valeurs sont celles de FileZilla (hôte du type `ftp.cluster021.hosting.ovh.net`, identifiant, mot de passe).
