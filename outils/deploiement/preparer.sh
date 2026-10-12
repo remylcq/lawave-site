@@ -24,6 +24,11 @@ if [ -d modeles ]; then
   cp -r modeles "$dest/modeles"
 fi
 
+# Les matières et les meubles du décor (Poly Haven, ambientCG : CC0), s'il y en a.
+if [ -d decor ]; then
+  cp -r decor "$dest/decor"
+fi
+
 for js in waveurs communaute portail; do
   empreinte=$(sha256sum "$dest/$js.js" | cut -c1-8)
   sed -i -E "s/(${js}\.js\?v=)[0-9A-Za-z]+/\1${empreinte}/g" "$dest/index.html"

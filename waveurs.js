@@ -3700,6 +3700,149 @@ async function chargerModelesPersonnages(){
   })));
 }
 
+// Les matières du décor : parquet, marbres, boiserie (voir outils/decor/preparer_decor.py ; Poly Haven et
+// ambientCG, licence CC0). Trois images par matière : couleur (_c), relief (_n), rugosité (_a, canal vert).
+// Une matière qui ne se charge pas n'est pas une erreur : la salle garde alors ses textures dessinées.
+const DECOR = { dossier: 'decor/', version: '?v=1', matieres: ['parquet', 'boiserie', 'murs', 'comptoir'] };
+
+async function chargerDecor(){
+
+  R.decor = {};
+
+  await Promise.all(DECOR.matieres.map(nom => Promise.all(['c', 'n', 'a'].map(k => new Promise(ok => {
+    try{
+      new THREE.TextureLoader().load(DECOR.dossier + nom + '_' + k + '.jpg' + DECOR.version, t => ok([k, t]), undefined, () => ok([k, null]));
+    }catch(e){ ok([k, null]); }
+  }))).then(paires => {
+    const m = {};
+    paires.forEach(([k, t]) => { m[k] = t; });
+    if(m.c) R.decor[nom] = m;
+  })));
+}
+
+// Une matière du décor, répétée `rx` × `ry` fois sur la surface. Sur ordinateur, un matériau physique (relief,
+// rugosité, reflets de la salle) ; sur téléphone, un matériau plus simple. `null` si les images manquent : on
+// garde alors l'ancien matériau.
+function matDecor(nom, o){
+
+  const d = R.decor && R.decor[nom];
+  if(!d) return null;
+
+  const tex = k => {
+    if(!d[k]) return null;
+    const t = d[k].clone();
+    t.needsUpdate = true;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(o.rx || 1, o.ry || 1);
+    t.anisotropy = R.aniso || 4;
+    return t;
+  };
+
+  // Le jeu calcule en couleurs brutes : pas de décodage sRGB (voir R.texture).
+  const c = tex('c'), n = tex('n'), a = tex('a');
+
+  if(etat.tactile || QUALITE.niveau === 'basse'){
+    return new THREE.MeshPhongMaterial({
+      map: c, normalMap: n, normalScale: new THREE.Vector2(o.relief || 1, o.relief || 1),
+      color: o.couleur === undefined ? 0xffffff : o.couleur, specular: o.specular || 0x333333, shininess: o.brillance || 40
+    });
+  }
+
+  return new THREE.MeshStandardMaterial({
+    map: c, normalMap: n, normalScale: new THREE.Vector2(o.relief || 1, o.relief || 1),
+    roughnessMap: a, roughness: o.rugosite === undefined ? 1 : o.rugosite, metalness: 0,
+    color: o.couleur === undefined ? 0xffffff : o.couleur,
+    envMap: R.env, envMapIntensity: o.env === undefined ? 0.5 : o.env
+  });
+}
+
+// Les meubles du décor (fauteuil, canapé, table, tabouret : Poly Haven, CC0), un fichier chacun, déjà à la
+// bonne échelle et dans le bon sens (voir outils/decor/preparer_meubles.py). Posés par `meubler`, dessinés en
+// un appel par pièce et par sorte de meuble (`instancierMeubles`). Un fichier qui manque : le meuble dessiné
+// par le code reste.
+DECOR.meubles = ['fauteuil', 'canape', 'table', 'tabouret'];
+const PLACES = {};
+
+async function chargerMeubles(){
+
+  R.meubles = {};
+  if(!DECOR.meubles.length) return;
+
+  try{
+    await assurerGLTF();
+  }catch(e){
+    return;
+  }
+
+  await Promise.all(DECOR.meubles.map(nom => new Promise(ok => {
+    try{
+      new THREE.GLTFLoader().load(DECOR.dossier + nom + '.glb' + DECOR.version, gltf => {
+        try{
+          gltf.scene.updateMatrixWorld(true);
+          const parties = [];
+          gltf.scene.traverse(o => {
+            if(!o.isMesh) return;
+            const mat = o.material;
+            // Couleurs brutes, comme les textures dessinées par le code (voir R.texture).
+            ['map', 'emissiveMap'].forEach(k => { if(mat[k]) mat[k].encoding = THREE.LinearEncoding; });
+            mat.envMap = R.env || null;
+            mat.envMapIntensity = 0.5;
+            mat.needsUpdate = true;
+            parties.push({ geometry: o.geometry, materiau: mat, matrice: o.matrixWorld.clone() });
+          });
+          if(parties.length) R.meubles[nom] = { parties };
+        }catch(e){ /* un fichier illisible : le meuble dessiné reste */ }
+        ok();
+      }, undefined, () => ok());
+    }catch(e){
+      ok();
+    }
+  })));
+}
+
+// Réserve la place d'un meuble (x, z du sol, rotation autour de y, échelle) ; `false` s'il n'y a pas de modèle.
+function meubler(nom, x, z, rot, echelle){
+  if(!R.meubles || !R.meubles[nom]) return false;
+  (PLACES[nom] = PLACES[nom] || []).push({ x, z, rot: rot || 0, e: echelle || 1 });
+  return true;
+}
+
+// Dessine les meubles réservés : une forme instanciée par pièce et par sorte de meuble.
+function instancierMeubles(){
+
+  const Y = new THREE.Vector3(0, 1, 0);
+  const M = new THREE.Matrix4(), I = new THREE.Matrix4();
+  const q = new THREE.Quaternion(), pos = new THREE.Vector3(), sc = new THREE.Vector3();
+
+  Object.keys(PLACES).forEach(nom => {
+
+    const liste = PLACES[nom];
+    const modele = R.meubles && R.meubles[nom];
+    if(!modele || !liste.length) return;
+
+    modele.parties.forEach(partie => {
+
+      const im = new THREE.InstancedMesh(partie.geometry, partie.materiau, liste.length);
+
+      liste.forEach((l, i) => {
+        q.setFromAxisAngle(Y, l.rot);
+        pos.set(l.x, 0, l.z);
+        sc.setScalar(l.e);
+        I.compose(pos, q, sc);
+        M.multiplyMatrices(I, partie.matrice);
+        im.setMatrixAt(i, M);
+      });
+
+      im.instanceMatrix.needsUpdate = true;
+      // Les exemplaires sont éparpillés dans la salle : la sphère d'une seule forme ne les contient pas.
+      im.frustumCulled = false;
+      scene.add(im);
+    });
+
+    liste.length = 0;
+  });
+}
+
 function chargerImage(src){
   return new Promise(ok => {
     if(!src) return ok(null);
@@ -3778,6 +3921,7 @@ async function construireMonde(){
 
   // Les personnages (des fichiers de plusieurs Mo) se téléchargent pendant que la salle se construit.
   const modelesPrets = chargerModelesPersonnages();
+  const decorPret = Promise.all([chargerDecor(), chargerMeubles()]);
 
   const logoBrut = await chargerImage(options.logo);
 
@@ -3850,6 +3994,7 @@ async function construireMonde(){
   camera.rotation.order = 'YXZ';
 
   const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  R.aniso = aniso;
 
   R.texture = (canvas, opt) => {
     const o = opt || {};
@@ -4046,9 +4191,12 @@ async function construireMonde(){
   PERSONNAGES.jambes = [];
   PERSONNAGES.ombres = [];
 
+  await decorPret;
+
   construireSalle();
   construireBar();
   construireMobilier();
+  instancierMeubles();
   construireMachine();
   await modelesPrets;
 
@@ -4124,10 +4272,15 @@ function construireSalle(){
   // Le parquet et le podium reflètent ce qui est au-dessus d'eux (voir
   // refleter) ; le tapis, velours mat, n'en garde qu'un voile aux angles
   // rasants.
-  const canvasParquet = creerParquet();
+  // Du parquet en chevrons (Poly Haven), ou, s'il manque, celui que dessine le code.
+  const matParquet = matDecor('parquet', {
+    rx: L * 2 / 1.3, ry: P * 2 / 1.3, couleur: 0x7f6e5c, rugosite: 1.0, env: 0.22, relief: 1.3,
+    specular: 0x6a5238, brillance: 46
+  });
+  const canvasParquet = matParquet ? null : creerParquet();
   const sol = new THREE.Mesh(
     new THREE.PlaneGeometry(L * 2, P * 2),
-    refleter(new THREE.MeshPhongMaterial({
+    refleter(matParquet || new THREE.MeshPhongMaterial({
       map: R.texture(canvasParquet, { repete: true, rx: L, ry: P }),
       bumpMap: R.texture(creerBump(canvasParquet, { contraste: 1.5, bruit: 26 }), { repete: true, rx: L, ry: P }),
       bumpScale: 1.0,
@@ -4188,12 +4341,13 @@ function construireSalle(){
   scene.add(plafond);
 
   // ---- Murs : marbre sombre, soubassement de lattes, garnitures ----
-  const marbre = creerMarbre('#2e2d35', '#9d9aa8', '#d6b06a', 16);
-  const lattes = creerLattes();
+  const decorMurs = !!(R.decor && R.decor.murs), decorBois = !!(R.decor && R.decor.boiserie);
+  const marbre = decorMurs ? null : creerMarbre('#2e2d35', '#9d9aa8', '#d6b06a', 16);
+  const lattes = decorBois ? null : creerLattes();
   // Un marbre poli n'a pas de relief : un grain, même fin, y scintillait. Ses
   // veines restent dessinées dans la couleur, et le poli vient de la lumière
   // (un reflet par pixel, voir le matériau des murs).
-  const bumpLattes = creerBump(lattes, { contraste: 1.6, bruit: 14 });
+  const bumpLattes = lattes ? creerBump(lattes, { contraste: 1.6, bruit: 14 }) : null;
 
   const bois = [], laiton = [], led = [];
 
@@ -4213,16 +4367,20 @@ function construireSalle(){
       scene.add(mesh);
     };
 
+    // Un marbre noir veiné (ambientCG), réchauffé : ses veines tirent sur l'or.
     placer(new THREE.Mesh(
       new THREE.PlaneGeometry(m.l, Ht),
+      matDecor('murs', { rx: m.l / 2.4, ry: Ht / 2.4, couleur: 0xa8946e, rugosite: 0.45, env: 0.45, relief: 1.0, specular: 0x2a2a30, brillance: 44 }) ||
       new THREE.MeshPhongMaterial({
         map: R.texture(marbre, { repete: true, rx: m.l / 1.8, ry: Ht / 1.8 }),
         color: 0x5c5c5c, specular: 0x1c1c22, shininess: 38
       })
     ), Ht / 2, 0);
 
+    // Le soubassement : un placage de palissandre (Poly Haven).
     placer(new THREE.Mesh(
       new THREE.PlaneGeometry(m.l, 1.0),
+      matDecor('boiserie', { rx: m.l / 1.4, ry: 1.0 / 1.4, couleur: 0x8a6a56, rugosite: 0.6, env: 0.3, relief: 1.0, specular: 0x2a1e12, brillance: 22 }) ||
       new THREE.MeshPhongMaterial({
         map: R.texture(lattes, { repete: true, rx: m.l / 0.8, ry: 1 }),
         bumpMap: R.texture(bumpLattes, { repete: true, rx: m.l / 0.8, ry: 1 }), bumpScale: 0.8,
@@ -4370,10 +4528,11 @@ function construireBar(){
     boite(0.86, 1.02, 2.5, 4.07, 0.51, -8.75, BOIS)
   );
 
-  const lattes = R.texture(creerLattes(), { repete: true, rx: 9 / 0.8, ry: 1 });
+  const boisBar = (l, h) => matDecor('boiserie', { rx: l / 1.4, ry: h / 1.4, couleur: 0x7a5b49, rugosite: 0.55, env: 0.3, relief: 1.0, specular: 0x2a1e12, brillance: 24 });
+
   const facade = new THREE.Mesh(
     new THREE.PlaneGeometry(9.0, 0.96),
-    new THREE.MeshLambertMaterial({ map: lattes })
+    boisBar(9.0, 0.96) || new THREE.MeshLambertMaterial({ map: R.texture(creerLattes(), { repete: true, rx: 9 / 0.8, ry: 1 }) })
   );
   facade.position.set(0, 0.52, -6.705);
   scene.add(facade);
@@ -4381,7 +4540,7 @@ function construireBar(){
   [-1, 1].forEach(s => {
     const flanc = new THREE.Mesh(
       new THREE.PlaneGeometry(2.5, 0.96),
-      new THREE.MeshLambertMaterial({ map: R.texture(creerLattes(), { repete: true, rx: 2.5 / 0.8, ry: 1 }) })
+      boisBar(2.5, 0.96) || new THREE.MeshLambertMaterial({ map: R.texture(creerLattes(), { repete: true, rx: 2.5 / 0.8, ry: 1 }) })
     );
     flanc.position.set(s * 4.505, 0.52, -8.75);
     flanc.rotation.y = s * Math.PI / 2;
@@ -4393,6 +4552,7 @@ function construireBar(){
     bois.push(boite(l, 0.06, p, x, 1.05, z, CLAIR));
     const t = new THREE.Mesh(
       new THREE.PlaneGeometry(l, p),
+      matDecor('comptoir', { rx: l / 2.0, ry: p / 2.0, couleur: 0xd8cdb8, rugosite: 0.5, env: 0.55, relief: 1.0, specular: 0x666666, brillance: 70 }) ||
       new THREE.MeshPhongMaterial({
         map: R.texture(R.marbreClair, { repete: true, rx: l / 1.8, ry: p / 1.8 }),
         color: 0xc8c4bc, specular: 0x666666, shininess: 70
@@ -4403,7 +4563,7 @@ function construireBar(){
     scene.add(t);
   };
 
-  R.marbreClair = creerMarbre('#e6e1d8', '#7c7468', '#b58f3f', 14);
+  R.marbreClair = (R.decor && R.decor.comptoir) ? null : creerMarbre('#e6e1d8', '#7c7468', '#b58f3f', 14);
 
   dalle(9.36, 1.16, 0, -7.08);
   dalle(1.02, 2.34, -4.11, -8.83);
@@ -4506,7 +4666,7 @@ function construireBar(){
   // Huit tabourets, en cuir lie-de-vin, laiton et rondeur.
   for(let i = 0; i < 8; i++){
     const x = -3.15 + i * 0.9;
-    poser({ tissu, laiton, bois }, geoTabouret('#6b1a2b', 0.74), x, -6.12, 0);
+    if(!meubler('tabouret', x, -6.12, Math.PI, 1)) poser({ tissu, laiton, bois }, geoTabouret('#6b1a2b', 0.74), x, -6.12, 0);
     colliders.push({ x0: x - 0.26, x1: x + 0.26, z0: -6.38, z1: -5.86 });
     // On s'y assoit face au comptoir, les pieds sur le repose-pieds de laiton.
     SIEGES.push({
@@ -4716,7 +4876,7 @@ function construireMobilier(){
       // Rotation de la table : (lx, lz) → monde.
       const wx = cx + lx * Math.cos(rot) + lz * Math.sin(rot);
       const wz = cz - lx * Math.sin(rot) + lz * Math.cos(rot);
-      poser(liste, geoTabouret(VELOURS2, 0.68), wx, wz, 0);
+      if(!meubler('tabouret', wx, wz, Math.atan2(cx - wx, cz - wz), 0.92)) poser(liste, geoTabouret(VELOURS2, 0.68), wx, wz, 0);
       boiteCollision(wx - 0.26, wx + 0.26, wz - 0.26, wz + 0.26);
       SIEGES.push({
         id: 'bj' + i, genre: 'tabouret', x: wx, z: wz, yaw: Math.atan2(cx - wx, cz - wz), haut: 0.68,
@@ -4728,13 +4888,19 @@ function construireMobilier(){
   }
 
   // ---- Un coin de salon près de la porte, à gauche ----
-  poser(liste, geoTableRonde(0.45, 0.7), -6.4, 6.6, 0);
-  poser(liste, geoFauteuil(VELOURS), -6.4, 5.75, 0);
-  poser(liste, geoFauteuil(VELOURS), -6.4, 7.45, Math.PI);
+  if(!meubler('table', -6.4, 6.6, 0, 1)) poser(liste, geoTableRonde(0.45, 0.7), -6.4, 6.6, 0);
+  if(!meubler('fauteuil', -6.4, 5.75, 0, 1)) poser(liste, geoFauteuil(VELOURS), -6.4, 5.75, 0);
+  if(!meubler('fauteuil', -6.4, 7.45, Math.PI, 1)) poser(liste, geoFauteuil(VELOURS), -6.4, 7.45, Math.PI);
   boiteCollision(-6.9, -5.9, 5.4, 7.8);
 
   // ---- À droite : la banquette de velours et ses deux tables ----
-  poser(liste, geoBanquette(4.4, VELOURS), 7.08, -2.5, -Math.PI / 2);
+  // Deux canapés de cuir, dos au mur, à la place de la banquette dessinée.
+  if(R.meubles && R.meubles.canape){
+    meubler('canape', 7.06, -3.7, -Math.PI / 2, 1);
+    meubler('canape', 7.06, -1.3, -Math.PI / 2, 1);
+  }else{
+    poser(liste, geoBanquette(4.4, VELOURS), 7.08, -2.5, -Math.PI / 2);
+  }
   boiteCollision(6.6, SALLE.l, -4.75, -0.25);
 
   // Sur la banquette, face à la salle, assis au bord de l'assise, près de la
@@ -4747,8 +4913,8 @@ function construireMobilier(){
   });
 
   [-3.6, -1.4].forEach(z => {
-    poser(liste, geoTableRonde(0.42, 0.68), 5.9, z, 0);
-    poser(liste, geoFauteuil(VELOURS2), 5.05, z, Math.PI / 2);
+    if(!meubler('table', 5.9, z, 0, 1)) poser(liste, geoTableRonde(0.42, 0.68), 5.9, z, 0);
+    if(!meubler('fauteuil', 5.05, z, Math.PI / 2, 1)) poser(liste, geoFauteuil(VELOURS2), 5.05, z, Math.PI / 2);
     boiteCollision(4.7, 6.35, z - 0.5, z + 0.5);
   });
 
@@ -4776,7 +4942,7 @@ function construireMobilier(){
       // mur de droite.
       const a = 0.94 + i * TAU / 5;
       const x = cx + Math.sin(a) * 1.72, z = cz + Math.cos(a) * 1.72;
-      poser(liste, geoFauteuil(VELOURS2), x, z, a + Math.PI);
+      if(!meubler('fauteuil', x, z, a + Math.PI, 1)) poser(liste, geoFauteuil(VELOURS2), x, z, a + Math.PI);
       boiteCollision(x - 0.36, x + 0.36, z - 0.36, z + 0.36);
       SIEGES.push({
         id: 'pok' + i, genre: 'fauteuil', x, z, yaw: a + Math.PI,
