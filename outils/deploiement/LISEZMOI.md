@@ -1,7 +1,7 @@
 # Mise en ligne automatique
 
 Chaque fusion sur `main` qui touche un fichier du site (`index.html`, `waveurs.js`, `communaute.js`,
-`portail.js`, `modeles/`) l'envoie sur l'hébergement OVH par FTP, puis vérifie que `lawave.fr` sert bien
+`portail.js`, `modeles/`) l'envoie sur l'hébergement OVH par SFTP (SSH, chiffré), puis vérifie que `lawave.fr` sert bien
 les fichiers envoyés. Le workflow est `.github/workflows/mise-en-ligne.yml`.
 
 **Jamais envoyés :** `sql/` (à passer dans Supabase), `outils/`, `.github/` et `.htaccess` (qui reste sur le
@@ -10,19 +10,28 @@ serveur, à la main). Ce qui est déjà sur le serveur sans être dans le dépô
 Les adresses des scripts reçoivent l'empreinte du fichier à l'envoi (`waveurs.js?v=1a2b3c4d`) : plus de
 numéro `?v=` à augmenter. Dans le dépôt, `index.html` garde son numéro ; sur le site, il porte l'empreinte.
 
-## Les identifiants (une seule fois, par toi, dans ton terminal)
+## Les identifiants
 
-Les mots de passe ne passent jamais par la conversation : chaque commande te les demande, saisie masquée.
-Les valeurs sont celles de FileZilla (hôte du type `ftp.cluster021.hosting.ovh.net`, identifiant, mot de passe).
+OVH refuse le FTP chiffré mais accepte le SFTP (port 22) avec le même identifiant et le même mot de passe que
+FileZilla. Trois secrets : `FTP_SERVER` (`ftp.cluster021.hosting.ovh.net`), `FTP_USERNAME`, `FTP_PASSWORD`.
+Les anciens `FTP_HOST` et `FTP_USER` sont encore acceptés s'ils sont les seuls posés.
+
+### Les poser ou les remplacer (par toi, dans ton terminal)
+
+Les mots de passe ne passent jamais par la conversation : chaque commande pose la question « Paste your secret »,
+et c'est **à cet instant** qu'on tape la valeur (saisie masquée). Le dépôt est public, ses journaux aussi : le
+script n'affiche jamais ces valeurs.
 
     gh secret set FTP_SERVER --repo remylcq/lawave-site
     gh secret set FTP_USERNAME --repo remylcq/lawave-site
     gh secret set FTP_PASSWORD --repo remylcq/lawave-site
 
-Réglages facultatifs (variables, pas des secrets) : `FTP_PROTOCOL` (`ftps` par défaut ; `ftp` si l'hébergement
-refuse le chiffrement), `FTP_DOSSIER` (`www/` par défaut), `SITE_URL` (`https://lawave.fr`).
+Le serveur est vérifié contre l'empreinte de `ovh_known_hosts` ; si OVH change un jour de clé, la connexion est
+refusée (relever la nouvelle avec `ssh-keyscan ftp.cluster021.hosting.ovh.net`).
 
-    gh variable set FTP_PROTOCOL --repo remylcq/lawave-site --body ftp
+Réglages facultatifs (variables, pas des secrets) : `FTP_DOSSIER` (`www/` par défaut), `SITE_URL`
+(`https://lawave.fr`), `FTP_PROTOCOL` (`sftp` par défaut ; `ftp` ou `ftps` en secours, mais OVH refuse `ftps` et
+`ftp` envoie le mot de passe en clair).
 
 ## Essai à blanc, puis première mise en ligne
 
@@ -38,4 +47,4 @@ Annuler la fusion fautive (`git revert`) : la fusion de l'annulation remet l'anc
 ## Si le vérificateur échoue
 
 « DIFFÉRENT » : le site ne sert pas encore le fichier envoyé (cache de l'hébergement, envoi partiel). Relancer
-le workflow ; si cela persiste, regarder les journaux de l'étape « Envoyer par FTP ».
+le workflow ; si cela persiste, regarder les journaux de l'étape « Envoyer par SFTP ».

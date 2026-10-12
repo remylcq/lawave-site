@@ -5,8 +5,9 @@ name: Mise en ligne
 # Les fichiers sql/ ne partent jamais : ils se passent dans Supabase.
 #
 # Réglages (Settings -> Secrets and variables -> Actions) :
-#   secrets   FTP_SERVER, FTP_USERNAME, FTP_PASSWORD
-#   variables FTP_PROTOCOL (ftps par défaut), FTP_DOSSIER (www/ par défaut), SITE_URL (https://lawave.fr)
+#   secrets   FTP_SERVER, FTP_USERNAME, FTP_PASSWORD (les anciens noms FTP_HOST et FTP_USER, posés le
+#             2026-09-01, sont acceptés à leur place)
+#   variables FTP_PROTOCOL (sftp par défaut ; ftp ou ftps en secours), FTP_DOSSIER (www/ par défaut), SITE_URL (https://lawave.fr)
 # Tant que les secrets ne sont pas posés, l'exécution se termine sans rien envoyer.
 
 on:
@@ -47,13 +48,13 @@ jobs:
       - name: Les identifiants FTP sont-ils posés ?
         id: identifiants
         env:
-          FTP_SERVER: ${{ secrets.FTP_SERVER }}
-          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_SERVER: ${{ secrets.FTP_SERVER || secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME || secrets.FTP_USER }}
           FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
         run: |
           if [ -z "$FTP_SERVER" ] || [ -z "$FTP_USERNAME" ] || [ -z "$FTP_PASSWORD" ]; then
             echo "ok=false" >> "$GITHUB_OUTPUT"
-            echo "::warning title=Mise en ligne non configurée::Les secrets FTP_SERVER, FTP_USERNAME et FTP_PASSWORD ne sont pas tous posés : rien n'a été envoyé. Voir outils/deploiement/LISEZMOI.md."
+            echo "::warning title=Mise en ligne non configurée::Les secrets FTP_SERVER (ou FTP_HOST), FTP_USERNAME (ou FTP_USER) et FTP_PASSWORD ne sont pas tous posés : rien n'a été envoyé. Voir outils/deploiement/LISEZMOI.md."
           else
             echo "ok=true" >> "$GITHUB_OUTPUT"
           fi
@@ -62,14 +63,29 @@ jobs:
         if: steps.identifiants.outputs.ok == 'true'
         run: bash outils/deploiement/preparer.sh _publication
 
+      # Par défaut : SFTP (SSH, chiffré). L'hébergement OVH refuse le FTP chiffré (AUTH TLS).
+      - name: Installer sshpass
+        if: steps.identifiants.outputs.ok == 'true' && (vars.FTP_PROTOCOL == '' || vars.FTP_PROTOCOL == 'sftp')
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+
+      - name: Envoyer par SFTP
+        if: steps.identifiants.outputs.ok == 'true' && (vars.FTP_PROTOCOL == '' || vars.FTP_PROTOCOL == 'sftp')
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER || secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME || secrets.FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_DOSSIER: ${{ vars.FTP_DOSSIER || 'www/' }}
+          ESSAI: ${{ inputs.essai == true }}
+        run: bash outils/deploiement/envoyer-sftp.sh _publication
+
       - name: Envoyer par FTP
-        if: steps.identifiants.outputs.ok == 'true'
+        if: steps.identifiants.outputs.ok == 'true' && (vars.FTP_PROTOCOL == 'ftp' || vars.FTP_PROTOCOL == 'ftps')
         uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
+          server: ${{ secrets.FTP_SERVER || secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME || secrets.FTP_USER }}
           password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          protocol: ${{ vars.FTP_PROTOCOL }}
           local-dir: ./_publication/
           server-dir: ${{ vars.FTP_DOSSIER || 'www/' }}
           # Le nom commence par « .ht » : Apache refuse de le servir.
