@@ -21452,14 +21452,90 @@ const Fichiers = {
            (extension || '.jpg');
   },
 
-  // Envoie un blob et renvoie son URL publique.
+  // Ce que le stockage accepte (voir sql/stockage-images-limites.sql) : huit Mo au plus, et des images
+  // JPG, PNG ou WEBP. Une image plus lourde est allégée avant l'envoi (voir alleger).
+  LIMITE_OCTETS: 8 * 1024 * 1024,
+  TYPES_ACCEPTES: ['image/jpeg', 'image/png', 'image/webp'],
+
+  // « 12,4 Mo », « 480 Ko ».
+  taille(octets){
+    return octets >= 1048576
+      ? (octets / 1048576).toFixed(1).replace('.', ',') + ' Mo'
+      : Math.max(1, Math.round(octets / 1024)) + ' Ko';
+  },
+
+  // Allège une image trop lourde sans que l'œil le voie : mêmes dimensions (réduites seulement au-delà de
+  // 4096 px, la largeur d'un écran 4K : au-dessus, rien de plus ne s'affiche), JPEG à 92 %. Un cran de qualité
+  // de moins, puis des dimensions un peu réduites, seulement si cela ne suffit pas. Renvoie un JPEG sous les
+  // trois quarts de la limite, ou lève une erreur claire.
+  async alleger(blob){
+
+    const url = URL.createObjectURL(blob);
+
+    let image;
+    try{
+      image = await new Promise((ok, ko) => {
+        const i = new Image();
+        i.onload = () => ok(i);
+        i.onerror = ko;
+        i.src = url;
+      });
+    }catch(e){
+      throw new Error("Cette image fait " + this.taille(blob.size) + " (" + this.taille(this.LIMITE_OCTETS) +
+                      " au plus) et n'a pas pu être allégée : essaie avec un autre fichier.");
+    }finally{
+      URL.revokeObjectURL(url);
+    }
+
+    const base = Math.min(1, 4096 / Math.max(image.naturalWidth, image.naturalHeight));
+
+    // [part des dimensions de départ, qualité JPEG]
+    const essais = [[1, 0.92], [1, 0.86], [0.75, 0.9], [0.55, 0.9], [0.4, 0.9]];
+
+    for(const [part, qualite] of essais){
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(image.naturalWidth * base * part));
+      canvas.height = Math.max(1, Math.round(image.naturalHeight * base * part));
+
+      const ctx = canvas.getContext('2d');
+      // Un fond blanc : un PNG transparent deviendrait noir en JPEG.
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      const sortie = await new Promise(ok => canvas.toBlob(ok, 'image/jpeg', qualite));
+
+      if(sortie && sortie.size <= this.LIMITE_OCTETS * 0.75) return sortie;
+    }
+
+    throw new Error("Cette image est trop lourde (" + this.taille(blob.size) + ", " +
+                    this.taille(this.LIMITE_OCTETS) + " au plus) : essaie avec un autre fichier.");
+  },
+
+  // Envoie un blob et renvoie son URL publique. Au-delà de la limite, l'image est allégée d'abord, et on le dit.
   async envoyer(blob, nomFichier, typeMime){
+
+    if(blob.size > this.LIMITE_OCTETS){
+
+      const avant = blob.size;
+      blob = await this.alleger(blob);
+      typeMime = 'image/jpeg';
+
+      notifier('Image allégée', {
+        detail: this.taille(avant) + ' → ' + this.taille(blob.size) + ', sans perte visible.'
+      });
+    }
+
+    // Le type annoncé est celui du fichier (le stockage n'accepte que JPG, PNG et WEBP).
+    const type = typeMime || (this.TYPES_ACCEPTES.includes(blob.type) ? blob.type : 'image/jpeg');
 
     const { error } = await supabaseClient
       .storage
       .from(FICHIERS_BUCKET)
       .upload(nomFichier, blob, {
-        contentType: typeMime || 'image/jpeg',
+        contentType: type,
         upsert: false
       });
 
