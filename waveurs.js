@@ -3985,6 +3985,12 @@ async function construireMonde(){
   // Sortie en couleurs brutes (voir assurerThree).
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 
+  // Les ombres : calculées une fois par image, à la main (voir rendre), pas à chaque rendu (le reflet du sol en
+  // ferait un de plus). Flou « variance » : des bords doux, sans les marches d'escalier d'un filtre à pas fixe.
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.VSMShadowMap;
+  renderer.shadowMap.autoUpdate = false;
+
   // Les effets de rendu (halo, étalonnage, reflets du sol). Les reflets sont
   // réservés aux ordinateurs : sur un téléphone, un second rendu de la salle
   // coûterait trop.
@@ -4238,6 +4244,7 @@ async function construireMonde(){
   construireJetons();
   construireLumieres();
   construireAmbiance();
+  marquerOmbres();
 
   pret = true;
   redimensionner();
@@ -4284,22 +4291,59 @@ function construireSalle(){
   // depuis plusieurs points de vue ; au-dessus de 0,18, c'est trop clair. Le
   // nombre de lampes est compté : chacune se paie à chaque image, sur chaque
   // surface.
-  scene.add(new THREE.HemisphereLight(0xffe9d2, 0x22130b, 0.62 * PI_LUMIERE));
+  // `OMBRES.reglages` : les lampes que les ombres font bouger (voir reglerOmbres), avec leur intensité sans
+  // ombres (`pleine`) et avec (`avec`).
+  OMBRES.reglages = [];
+
+  const hemisphere = new THREE.HemisphereLight(0xffe9d2, 0x22130b, 0.62 * PI_LUMIERE);
+  scene.add(hemisphere);
+  OMBRES.reglages.push({ lampe: hemisphere, pleine: 0.62, avec: 0.7, facteur: PI_LUMIERE });
 
   [
+    // x, y, z, couleur, intensité, portée, intensité quand les ombres sont là (si elle change)
     [0, 4.2, 0.6, 0xffe2bc, 1.2, 14],           // le lustre, sur la machine et le podium
-    [-2.4, 2.7, -5.2, 0xffbd75, 0.8, 8.5],      // le bar, côté gauche
-    [2.4, 2.7, -5.2, 0xffbd75, 0.8, 8.5],       // le bar, côté droit
-    [-5.7, 2.55, 2.4, 0xffcf9a, 0.9, 8.5],      // le blackjack : plus bas, de face, pour que le visage du croupier reçoive la lumière
-    [5.4, 3.2, 4.4, 0xffd7a8, 0.9, 8.5],        // le poker
+    [-2.4, 2.7, -5.2, 0xffbd75, 0.8, 8.5, 0.4],      // le bar, côté gauche
+    [2.4, 2.7, -5.2, 0xffbd75, 0.8, 8.5, 0.4],       // le bar, côté droit
+    [-5.7, 2.55, 2.4, 0xffcf9a, 0.9, 8.5, 0.45],     // le blackjack : plus bas, de face, pour que le visage du croupier reçoive la lumière
+    [5.4, 3.2, 4.4, 0xffd7a8, 0.9, 8.5, 0.45],       // le poker
     [5.6, 3.0, -2.4, 0xffc58e, 0.85, 8],        // la banquette
-    [0, 3.4, 7.2, 0xffe9d2, 0.76, 11],          // l'entrée
+    [0, 3.4, 7.2, 0xffe9d2, 0.76, 11, 0.85],    // l'entrée
     [0, 2.2, -2.0, 0x39b8ff, 0.45, 7]           // le fil bleu La Wave
-  ].forEach(([x, y, z, c, i, d]) => {
-    const l = new THREE.PointLight(c, i * PI_LUMIERE * ECHELLE_PONCTUELLES, d, 1.2);
+  ].forEach(([x, y, z, c, i, d, avec]) => {
+    const f = PI_LUMIERE * ECHELLE_PONCTUELLES;
+    const l = new THREE.PointLight(c, i * f, d, 1.2);
     l.position.set(x, y, z);
     scene.add(l);
+    if(avec !== undefined) OMBRES.reglages.push({ lampe: l, pleine: i, avec, facteur: f });
   });
+
+  // Les ombres douces : à côté des lampes du blackjack, du poker et du bar, un projecteur dirigé sur ce
+  // qu'elles éclairent (la lampe ronde, réduite, garde le reste de la pièce). Ce qui est devant ces
+  // projecteurs (le croupier, les clients, les verres et bouteilles, les tables) porte une ombre sur le
+  // sol, le comptoir et les murs. Un projecteur éclaire moins large qu'une lampe ronde : le fond de
+  // l'hémisphère et la lampe de l'entrée sont relevés d'autant, pour garder la luminosité moyenne de la salle
+  // (0,137 mesurée, contre 0,139 sans ombres). Sans ombres (téléphone, qualité basse), les projecteurs
+  // s'éteignent et tout retrouve son intensité d'avant (voir reglerOmbres).
+  OMBRES.lampes = [
+    // x, y, z, couleur, intensité, portée, visée [x, y, z], demi-angle, pénombre, finesse de la carte
+    [-5.7, 2.55, 2.4, 0xffcf9a, 1.0, 8.5, [-6.7, 0.9, 2.4], 0.75, 0.6, 1024],   // le blackjack, sur le croupier
+    [5.4, 3.2, 4.4, 0xffd7a8, 1.0, 8.5, [4.4, 0.8, 4.6], 0.8, 0.6, 1024],     // le poker
+    [0.2, 2.8, -4.4, 0xffbd75, 1.5, 8.5, [0.4, 0.8, -6.4], 0.85, 0.6, 1024]    // le bar
+  ].map(([x, y, z, c, i, d, [vx, vy, vz], angle, penombre, carte]) => {
+    const l = new THREE.SpotLight(c, i * PI_LUMIERE * ECHELLE_PONCTUELLES, d, angle, penombre, 1.2);
+    l.position.set(x, y, z);
+    l.target.position.set(vx, vy, vz);
+    l.shadow.mapSize.set(carte, carte);
+    l.shadow.camera.near = 0.4;
+    l.shadow.camera.far = d + 2;
+    l.shadow.bias = -0.0004;
+    l.shadow.normalBias = 0.02;
+    l.shadow.radius = 6;
+    l.shadow.blurSamples = 12;
+    scene.add(l, l.target);
+    return l;
+  });
+  reglerOmbres();
 
   // ---- Sol : parquet, tapis, estrade de la machine ----
   // Le parquet et le podium reflètent ce qui est au-dessus d'eux (voir
@@ -6431,6 +6475,14 @@ class Humain {
     if(/corps/.test(nom) && mat.color) mat.color.setScalar(0.9);
     // Les yeux brillent, la peau un peu, les étoffes presque pas.
     mat.envMapIntensity = /yeux/.test(nom) ? 1.0 : /corps|shoes/.test(nom) ? 0.4 : 0.12;
+    // Le tissu a un reflet de velours (une frange claire sur les bords, vus de biais, sous la lampe) ; la
+    // peau, un duvet très léger, plus chaud. Ni les yeux, ni les cils, ni les sourcils, ni les cheveux, ni les chaussures.
+    if(mat.isMeshPhysicalMaterial && !/yeux|cils|sourcils|cheveux|shoes/.test(nom)){
+      const peau = /corps/.test(nom);
+      mat.sheen = peau ? 0.5 : 1;
+      mat.sheenRoughness = peau ? 0.6 : 0.5;
+      mat.sheenColor = new THREE.Color(peau ? 0.42 : 0.36, peau ? 0.26 : 0.32, peau ? 0.21 : 0.30);
+    }
     mat.needsUpdate = true;
 
     return mat;
@@ -7605,6 +7657,58 @@ const REFLET = {
   actif: false, plan: 0.142, rt: null, cam: null, matrice: null, surfaces: [], prets: false
 };
 
+// Les ombres douces : trois lampes (le blackjack, le poker, le bar) en projettent, sur les
+// ordinateurs seulement. Chaque lampe qui projette repasse sur la salle une fois par image : elles se coupent
+// d'abord quand la machine peine (voir surveillerPerformance) et n'existent pas sur téléphone ni en qualité basse.
+const OMBRES = { actif: false, lampes: [], reglages: [] };
+
+// Allume ou éteint les ombres selon la machine et le niveau de qualité (`actif` force le choix).
+function reglerOmbres(actif){
+
+  OMBRES.actif = actif !== undefined ? actif : (!etat.tactile && QUALITE.niveau !== 'basse');
+
+  OMBRES.lampes.forEach(l => {
+    l.visible = OMBRES.actif;
+    l.castShadow = OMBRES.actif;
+  });
+
+  OMBRES.reglages.forEach(r => {
+    r.lampe.intensity = (OMBRES.actif ? r.avec : r.pleine) * r.facteur;
+  });
+}
+
+// Qui projette une ombre, qui la reçoit. Tout ce qui est éclairé la reçoit (le sol, les murs, les tables, les
+// personnages) ; les objets de taille humaine la projettent : ni les murs, le sol, le plafond et les grands
+// comptoirs, ni ce qui brille de sa propre lumière ou se voit à travers (néons, verres, halos, ombres au sol).
+function marquerOmbres(){
+
+  const boite = new THREE.Box3();
+  const taille = new THREE.Vector3();
+
+  scene.updateMatrixWorld(true);
+
+  scene.traverse(o => {
+
+    if(!o.isMesh) return;
+
+    const m = Array.isArray(o.material) ? o.material[0] : o.material;
+
+    if(!m || m.isShaderMaterial || m.isMeshBasicMaterial || m.transparent) return;
+
+    o.receiveShadow = true;
+
+    if(!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    boite.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
+    boite.getSize(taille);
+
+    // Une instance de meuble : la boîte d'une seule pièce.
+    const petit = taille.x < 4.5 && taille.z < 4.5 && taille.y < 2.6;
+    const hors = boite.max.y > 2.8 || boite.min.y < -0.2;
+
+    o.castShadow = petit && !hors;
+  });
+}
+
 // L'étalonnage final. Dans la salle : une exposition de 1, des noirs
 // approfondis (gamma au-dessus de 1) et une vignette marquée, pour une
 // pénombre où seul ce qui est éclairé ressort.
@@ -7949,6 +8053,10 @@ function passe(materiau, cible){
 
 // Dessine `sc` vue par `cam`, avec ou sans les effets.
 function rendre(sc, cam){
+
+  // Les ombres se redessinent ici, une fois par image, pour la salle seulement (pas pour le reflet du sol,
+  // ni pour la scène des cartes) : voir renderer.shadowMap.autoUpdate.
+  if(sc === scene && OMBRES.actif) renderer.shadowMap.needsUpdate = true;
 
   if(!POST.actif){
     renderer.setRenderTarget(null);
@@ -12888,6 +12996,8 @@ function appliquerQualite(){
     desactiverReflets();
   }
 
+  reglerOmbres();
+
   if(renderer && camera){
     ratioMax = Math.min(
       window.devicePixelRatio || 1,
@@ -12920,7 +13030,7 @@ function majBoutonsQualite(){
 }
 
 // Sur une machine modeste, la salle perd en finesse plutôt qu'en fluidité :
-// si les images tardent, on renonce d'abord au halo, puis aux reflets du sol,
+// si les images tardent, on renonce d'abord aux ombres, puis à l'occlusion ambiante, au halo, aux reflets du sol,
 // puis la résolution baisse d'un cran à la fois, et en dernier recours les
 // effets de rendu s'arrêtent.
 function surveillerPerformance(dt){
@@ -12935,7 +13045,9 @@ function surveillerPerformance(dt){
 
   lentes = 0;
 
-  if(POST.actif && POST.ssao){
+  if(OMBRES.actif){
+    reglerOmbres(false);
+  } else if(POST.actif && POST.ssao){
     POST.ssao = false;
   } else if(POST.actif && POST.bloom){
     POST.bloom = false;

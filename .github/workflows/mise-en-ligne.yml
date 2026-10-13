@@ -99,7 +99,8 @@ jobs:
         if: steps.identifiants.outputs.ok == 'true' && inputs.essai != true
         run: |
           echec=0
-          fichiers=$(cd _publication && find . -type f | sed 's#^\./##' | sort)
+          # Les .htaccess ne se servent pas (Apache les refuse) : on ne vérifie que ce que le site publie.
+          fichiers=$(cd _publication && find . -type f -not -name '.ht*' | sed 's#^\./##' | sort)
           for f in $fichiers; do
             attendu=$(sha256sum "_publication/$f" | cut -d' ' -f1)
             recu=""

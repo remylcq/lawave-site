@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prépare le dossier à envoyer sur l'hébergement : seulement ce que le site sert,
-# jamais sql/, outils/, .github/ ni .htaccess (celui-ci reste sur le serveur, à la main).
+# jamais sql/, outils/, .github/ ni le .htaccess de la racine (celui-ci reste sur le serveur, à la main) ; ceux de modeles/ et decor/ partent avec leur dossier.
 #
 # Les adresses des scripts (waveurs.js?v=12, communaute.js?v=3, portail.js?v=1) reçoivent
 # l'empreinte du fichier : dès qu'un script change, son adresse change, et les navigateurs

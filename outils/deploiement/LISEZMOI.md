@@ -4,7 +4,7 @@ Chaque fusion sur `main` qui touche un fichier du site (`index.html`, `waveurs.j
 `portail.js`, `modeles/`, `decor/`, `lib/`) l'envoie sur l'hébergement OVH par SFTP (SSH, chiffré), puis vérifie que `lawave.fr` sert bien
 les fichiers envoyés. Le workflow est `.github/workflows/mise-en-ligne.yml`.
 
-**Jamais envoyés :** `sql/` (à passer dans Supabase), `outils/`, `.github/` et `.htaccess` (qui reste sur le
+**Jamais envoyés :** `sql/` (à passer dans Supabase), `outils/`, `.github/` et le `.htaccess` de la racine (qui reste sur le
 serveur, à la main). Ce qui est déjà sur le serveur sans être dans le dépôt (par exemple `musique/`) n'est pas touché.
 
 Les adresses des scripts reçoivent l'empreinte du fichier à l'envoi (`waveurs.js?v=1a2b3c4d`) : plus de
@@ -48,3 +48,5 @@ Annuler la fusion fautive (`git revert`) : la fusion de l'annulation remet l'anc
 
 « DIFFÉRENT » : le site ne sert pas encore le fichier envoyé (cache de l'hébergement, envoi partiel). Relancer
 le workflow ; si cela persiste, regarder les journaux de l'étape « Envoyer par SFTP ».
+
+Les dossiers `modeles/` et `decor/` portent leur propre `.htaccess` (type `model/gltf-binary` et compression des `.glb` : environ un quart de moins à télécharger). Il part avec le dossier ; la vérification après envoi ne le demande pas (Apache refuse de servir les `.ht*`).
