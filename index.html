@@ -632,6 +632,22 @@
     background:rgba(255,255,255,0.04);
   }
   .role-chip.small{font-size:10px; padding:2px 7px;}
+
+  /* ---------- PROFIL VÉRIFIÉ ----------
+     Un disque bleu et une coche : l'équipe a vu la preuve. Deux formes : le mot (profil, fiche d'un membre) et la
+     seule coche (à côté d'un nom, dans une liste). */
+  .badge-verifie{
+    display:inline-flex; align-items:center; gap:5px; white-space:nowrap;
+    font-size:11px; font-weight:600; padding:3px 10px 3px 6px;
+    color:var(--blue-bright); background:rgba(79,180,255,0.12);
+    border:1px solid rgba(79,180,255,0.42); border-radius:var(--radius-pill);
+    box-shadow:0 0 14px rgba(20,137,222,0.16);
+  }
+  .badge-verifie svg{width:14px; height:14px; flex-shrink:0;}
+  .badge-verifie.petit{font-size:10px; padding:2px 8px 2px 5px;}
+  .badge-verifie.petit svg{width:12px; height:12px;}
+  .coche-verifie{display:inline-flex; color:var(--blue-bright); vertical-align:-3px; margin-left:4px;}
+  .coche-verifie svg{width:15px; height:15px;}
   /* ---------- NOTIFICATIONS ---------- */
   .notif-zone{
     position:fixed; top:82px; right:20px; z-index:400;
@@ -1773,6 +1789,88 @@
     transition:color .2s var(--ease);
   }
   .artiste-signaler button:hover{color:var(--ink);}
+
+  /* ---------- PROFIL : VÉRIFICATION ---------- */
+  .vf-carte-profil{
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    margin:-6px 0 22px; padding:16px 18px; border-radius:var(--radius);
+    background:var(--glass); border:1px solid var(--line);
+    box-shadow:var(--ombre-1), var(--reflet-int);
+    animation:fondu .5s var(--ease) both;
+  }
+  .vf-carte-profil .vf-ic{
+    width:42px; height:42px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:19px; font-weight:700;
+    background:rgba(79,180,255,0.12); color:var(--blue-bright);
+  }
+  .vf-carte-profil .vf-ic svg{width:24px; height:24px;}
+  .vf-carte-profil .vf-texte{flex:1; min-width:210px;}
+  .vf-carte-profil .vf-texte b{display:block; font-size:15px; margin-bottom:2px;}
+  .vf-carte-profil .vf-texte span{font-size:13px; color:var(--ink-soft);}
+  .vf-carte-profil.ok{border-color:rgba(79,180,255,0.4);}
+  .vf-carte-profil.attente{border-color:rgba(233,196,106,0.38);}
+  .vf-carte-profil.attente .vf-ic{background:rgba(233,196,106,0.12); color:var(--gold-favori);}
+  .vf-carte-profil.refuse{border-color:rgba(229,105,92,0.42);}
+  .vf-carte-profil.refuse .vf-ic{background:rgba(229,105,92,0.12); color:var(--danger);}
+
+  /* ---------- ESPACE ÉQUIPE : PROFILS À VÉRIFIER ---------- */
+  .vf-compte{
+    display:inline-block; min-width:18px; margin-left:6px; padding:0 6px; border-radius:var(--radius-pill);
+    font-size:11px; font-weight:700; line-height:18px; text-align:center;
+    background:rgba(255,255,255,0.14); color:#fff;
+  }
+  .vf-compte:empty{display:none;}
+  .vf-carte{
+    display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"info preuve" "actions actions";
+    gap:16px 20px; padding:18px; margin-bottom:14px; border-radius:var(--radius);
+    background:var(--glass); border:1px solid var(--line);
+    box-shadow:var(--ombre-1), var(--reflet-int);
+    animation:fondu .4s var(--ease) both;
+  }
+  .vf-carte.sortie{opacity:0; transform:translateY(-6px); transition:opacity .3s var(--ease), transform .3s var(--ease);}
+  .vf-membre{grid-area:info; display:flex; gap:14px; align-items:flex-start; min-width:0;}
+  .vf-photo{
+    width:52px; height:52px; border-radius:50%; overflow:hidden; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-weight:600; color:var(--ink-soft);
+    background:rgba(255,255,255,0.07); border:1px solid var(--line-strong);
+  }
+  .vf-photo img{width:100%; height:100%; object-fit:cover;}
+  .vf-infos{min-width:0;}
+  .vf-infos h4{margin:0 0 4px; font-size:16px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .vf-meta{display:block; font-size:12px; color:var(--muted);}
+  .vf-bio{margin:10px 0 0; font-size:13px; color:var(--ink-soft); white-space:pre-wrap;}
+  .vf-liens{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  .vf-message{margin:10px 0 0; font-size:13px; color:var(--ink-soft); font-style:italic;}
+  .vf-alerte{margin:10px 0 0; font-size:12px; color:var(--danger);}
+  .vf-etat{margin:10px 0 0; font-size:12px; font-weight:600;}
+  .vf-etat.ok{color:#8fe3ab;}
+  .vf-etat.ko{color:var(--danger);}
+  .vf-preuve{grid-area:preuve;}
+  .vf-vignette{
+    width:150px; height:150px; padding:0; border-radius:var(--radius-sm); overflow:hidden; cursor:zoom-in;
+    display:flex; align-items:center; justify-content:center; font-size:12px; color:var(--muted);
+    background:rgba(255,255,255,0.05); border:1px solid var(--line-strong);
+    transition:border-color .2s var(--ease), transform .2s var(--ease);
+  }
+  .vf-vignette:hover{border-color:var(--blue); transform:translateY(-2px);}
+  .vf-vignette img{width:100%; height:100%; object-fit:cover; display:block;}
+  .vf-actions{grid-area:actions; display:flex; gap:10px; flex-wrap:wrap;}
+  .vf-panneau{grid-column:1 / -1;}
+  .vf-panneau textarea{width:100%; margin:10px 0 12px;}
+  .vf-motifs{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  .vf-motif{
+    padding:6px 12px; border-radius:var(--radius-pill); font-size:12px; font-weight:600; cursor:pointer;
+    color:var(--ink-soft); background:rgba(255,255,255,0.05); border:1px solid var(--line);
+    transition:border-color .2s var(--ease), color .2s var(--ease);
+  }
+  .vf-motif:hover{border-color:var(--line-strong); color:var(--ink);}
+  .vf-lightbox{position:relative; max-width:92vw; max-height:90vh;}
+  .vf-lightbox img{display:block; max-width:92vw; max-height:88vh; border-radius:var(--radius-sm); object-fit:contain; background:#000;}
+  .vf-lightbox .modal-close{top:-14px; right:-14px; z-index:2;}
+  @media (max-width:720px){
+    .vf-carte{grid-template-columns:1fr; grid-template-areas:"info" "preuve" "actions";}
+    .vf-vignette{width:100%; height:200px;}
+  }
 
   /* ---------- FICHE DE SORTIE : EN-TÊTE EN LIGNE ----------
      La pochette pleine largeur prenait 339 px : la notation et l'avis
@@ -4479,6 +4577,9 @@
         <!-- Identité : ce qu'on voit avant tout le reste. -->
         <div class="profil-entete" id="profilEntete"></div>
 
+        <!-- Termine ton profil, vérifie ton profil : rempli par rendreCarteVerification. -->
+        <div id="profilVerification"></div>
+
         <div class="xp-card" id="profilXp"></div>
 
         <div class="profil-section">
@@ -4723,6 +4824,7 @@
       <symbol id="eq-bouee" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></symbol>
       <symbol id="eq-cle" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M16 7l3 3M14 9l2 2"/></symbol>
       <symbol id="eq-sortie" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+      <symbol id="eq-verifie" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.7 7 9 4-1.3 7-4.6 7-9V6z"/><path d="m9 12 2.2 2.2L15.4 10"/></symbol>
       <symbol id="eq-actualiser" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
     </defs>
   </svg>
@@ -4794,6 +4896,13 @@
         role="tab" onclick="switchAdminTab('community')" title="Modération du forum">
         <svg class="eq-ic" aria-hidden="true"><use href="#eq-bulle"/></svg>
         <span class="admin-tab-label">Modération</span>
+      </button>
+
+      <button type="button" class="admin-tab" id="adminTab-profils"
+        role="tab" onclick="switchAdminTab('profils')" title="Profils à vérifier">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-verifie"/></svg>
+        <span class="admin-tab-label">Profils</span>
+        <span class="admin-tab-count" id="adminCount-profils"></span>
       </button>
 
       <button type="button" class="admin-tab" id="adminTab-support"
@@ -5487,6 +5596,44 @@
   <!-- ACCÈS TESTEURS (TEMPORAIRE) — fin (section) -->
 
 
+  <!-- ================= PROFILS À VÉRIFIER ================= -->
+
+  <div class="admin-section" id="adminSection-profils">
+
+    <div class="section-head">
+      <div>
+        <span class="eyebrow mono">Profils</span>
+        <h3>Vérifier les profils</h3>
+        <p class="desc">
+          Un membre qui se dit photographe, artiste, journaliste… envoie une capture qui le prouve. Regarde-la,
+          puis valide : le profil reçoit le badge « Profil vérifié ». Un photographe vérifié accède aux
+          accréditations.
+        </p>
+      </div>
+
+      <button type="button" class="btn btn-ghost" onclick="chargerProfilsAVerifier()">Actualiser</button>
+    </div>
+
+    <div class="type-choice" id="profilsFiltre" role="radiogroup" aria-label="Demandes de vérification" style="margin-top:20px;">
+      <label>
+        <input type="radio" name="profils-filtre" value="en_attente" checked>
+        À traiter<span class="vf-compte" id="profilsCompteAttente"></span>
+      </label>
+      <label>
+        <input type="radio" name="profils-filtre" value="traitees">
+        Traitées
+      </label>
+    </div>
+
+    <div class="form-msg" id="profilsActionMsg" style="margin-top:16px;"></div>
+
+    <div id="profilsListe" class="admin-list" style="margin-top:20px;">
+      <div class="empty-state chargement">Chargement des demandes...</div>
+    </div>
+
+  </div>
+
+
   <!-- ================= SUPPORT ================= -->
 
   <div class="admin-section" id="adminSection-support">
@@ -5547,6 +5694,14 @@
     <button class="modal-close" onclick="accredFermerModale()"
             aria-label="Fermer">✕</button>
     <div class="modal-body" id="accredModalCorps"></div>
+  </div>
+</div>
+
+<!-- Une capture de vérification en grand (espace équipe). L'adresse de l'image est signée et expire : voir ouvrirPreuve. -->
+<div class="modal-overlay" id="vfLightbox" onclick="if(event.target===this) fermerPreuve()">
+  <div class="vf-lightbox">
+    <button class="modal-close" onclick="fermerPreuve()" aria-label="Fermer">✕</button>
+    <img id="vfLightboxImg" alt="Capture envoyée par le membre">
   </div>
 </div>
 
@@ -5854,6 +6009,24 @@ const BD = {
 
   profils(){
     return supabaseClient.from('profiles').select('*');
+  },
+
+  // Ce pseudo est-il déjà pris ? Sans tenir compte de la casse (« Léa » et « léa » seraient deux comptes pour la base,
+  // mais une confusion pour les lecteurs). `sauf` : le profil à ignorer, le sien. Les % et _ du pseudo sont des
+  // caractères, pas des jokers. Renvoie { data: true | false, error }.
+  async pseudoPris(pseudo, sauf){
+
+    const motif = String(pseudo).replace(/[\\%_]/g, '\\$&');
+
+    let requete = supabaseClient.from('profiles').select('id').ilike('pseudo', motif).limit(1);
+
+    if(sauf) requete = requete.neq('id', sauf);
+
+    const { data, error } = await requete;
+
+    if(error) return { data: null, error };
+
+    return { data: (data || []).length > 0, error: null };
   },
 
   // Version allégée pour le forum : on n'a besoin que de quoi
@@ -7967,18 +8140,24 @@ async function saveContentPicks(){
 // Source unique : alimente le menu du profil, les badges affichés à
 // côté de chaque pseudo, et les filtres de l'annuaire.
 
+// `verifiable` : un membre de ce rôle peut faire vérifier son profil (une capture, validée par l'équipe : badge
+// « Profil vérifié »). Même liste que verification_roles() dans sql/profils-verifies.sql.
 const MEMBER_ROLES = [
   { name: 'Auditeur / Auditrice', icon: '🎧', color: '#8a9199' },
-  { name: 'Artiste',              icon: '🎤', color: '#1489de' },
-  { name: 'Beatmaker',            icon: '🎹', color: '#a855f7' },
-  { name: 'DJ',                   icon: '🎛️', color: '#f59e0b' },
-  { name: "Membre d'un label",    icon: '🏷️', color: '#10b981' },
-  { name: 'Manager',              icon: '📈', color: '#ec4899' },
-  { name: 'Relation presse',      icon: '📣', color: '#ef4444' },
-  { name: 'Média / Presse',       icon: '📰', color: '#06b6d4' },
-  { name: 'Photographe',          icon: '📷', color: '#22d3ee' },
+  { name: 'Artiste',              icon: '🎤', color: '#1489de', verifiable: true },
+  { name: 'Beatmaker',            icon: '🎹', color: '#a855f7', verifiable: true },
+  { name: 'DJ',                   icon: '🎛️', color: '#f59e0b', verifiable: true },
+  { name: "Membre d'un label",    icon: '🏷️', color: '#10b981', verifiable: true },
+  { name: 'Manager',              icon: '📈', color: '#ec4899', verifiable: true },
+  { name: 'Relation presse',      icon: '📣', color: '#ef4444', verifiable: true },
+  { name: 'Média / Presse',       icon: '📰', color: '#06b6d4', verifiable: true },
+  { name: 'Photographe',          icon: '📷', color: '#22d3ee', verifiable: true },
   { name: 'Autre',                icon: '✨', color: '#8a9199' }
 ];
+
+function roleAVerifier(nom){
+  return !!roleInfo(nom).verifiable;
+}
 
 // Les libellés ont changé : les comptes créés avant gardent l'ancien
 // texte en base tant qu'ils n'ont pas réenregistré leur profil. Sans
@@ -8086,7 +8265,17 @@ let accredComptes = {};
 let accredConsignes = {};
 let accredVilleFiltre = '';
 
+// S'inscrire aux tirages : l'équipe, ou un photographe dont le profil a été vérifié (capture validée dans
+// l'espace équipe). La base applique la même règle (est_photographe).
 function peutAccreditation(){
+  if(!currentUser) return false;
+  if(currentUser.isAdmin) return true;
+  return ROLES_ACCREDITATION.includes(roleNom(currentUser.role)) &&
+         !!currentUser.verifie && currentUser.verifieRole === 'Photographe';
+}
+
+// Trouver la page : tout photographe, vérifié ou non, y trouve son chemin (le voile lui dit quoi faire).
+function peutVoirAccreditations(){
   if(!currentUser) return false;
   if(currentUser.isAdmin) return true;
   return ROLES_ACCREDITATION.includes(roleNom(currentUser.role));
@@ -8102,11 +8291,11 @@ function majAccesAccreditations(){
   const lien = document.getElementById('navAccreditations');
   if(!lien) return;
 
-  lien.hidden = !peutAccreditation();
+  lien.hidden = !peutVoirAccreditations();
 
   // Un photographe qui arrive sur une autre page doit voir la pastille
   // sans être passé par les accréditations : une lecture, une seule.
-  if(!lien.hidden && !accredChargeUneFois){
+  if(!lien.hidden && peutAccreditation() && !accredChargeUneFois){
     accredChargeUneFois = true;
     chargerAccreditations(false).catch(() => {});
   }
@@ -8114,7 +8303,7 @@ function majAccesAccreditations(){
   const pastille = document.getElementById('navAccredPastille');
   if(!pastille) return;
 
-  const aRepondre = accredEvenements.filter(e =>
+  const aRepondre = !peutAccreditation() ? 0 : accredEvenements.filter(e =>
     e.statut === 'ouvert' &&
     !accredDatePassee(e.inscriptions_jusqu_au) &&
     !accredMesInscriptions.some(i => i.evenement_id === e.id)
@@ -8155,6 +8344,32 @@ function verifierAccesAccreditations(){
     return;
   }
 
+  // Photographe, mais pas encore vérifié : il lui reste à prouver qu'il l'est.
+  if(ROLES_ACCREDITATION.includes(roleNom(currentUser.role))){
+
+    texte.textContent =
+      'Ton profil photographe doit être vérifié avant que tu puisses t’inscrire aux tirages : envoie ' +
+      'une capture de ton compte Instagram ou de ton portfolio, l’équipe la regarde.';
+
+    actions.innerHTML = `
+      <button type="button" class="btn btn-primary"
+              onclick="accredFermerVoile(); ouvrirVerification('accreditations')">Faire vérifier mon profil</button>`;
+
+    // Une demande est peut-être déjà en route : le dire, plutôt que d'en proposer une seconde.
+    supabaseClient.rpc('verification_ma_demande').then(({ data }) => {
+      if(data && data.statut === 'en_attente' && voile.classList.contains('open')){
+        texte.textContent =
+          'Ta demande de vérification est en cours : l’équipe la regarde, et tu seras prévenu ici dès ' +
+          'qu’elle est validée.';
+        actions.innerHTML = `
+          <button type="button" class="btn btn-ghost"
+                  onclick="accredFermerVoile(); ouvrirVerification('accreditations')">Voir ma demande</button>`;
+      }
+    }, () => {});
+
+    return;
+  }
+
   texte.textContent =
     'Cette page est réservée aux comptes photographes. Ton profil indique ' +
     '«\u00a0' + roleNom(currentUser.role) + '\u00a0» : choisis «\u00a0Photographe\u00a0» si ' +
@@ -8163,6 +8378,12 @@ function verifierAccesAccreditations(){
   actions.innerHTML = `
     <button type="button" class="btn btn-primary"
             onclick="goTo('profile')">Modifier mon rôle</button>`;
+}
+
+// Ferme le voile des accréditations sans quitter la page (le dialogue de vérification s'ouvre par-dessus).
+function accredFermerVoile(){
+  const voile = document.getElementById('accredGate');
+  if(voile) voile.classList.remove('open');
 }
 
 
@@ -9827,6 +10048,27 @@ function roleBadgeHtml(nom, taille){
   >${r.icon} ${escapeHtml(r.name)}</span>`;
 }
 
+// Le badge des profils vérifiés par l'équipe. Des déclarations de fonctions, non des constantes : goTo peut
+// dessiner une page avant que le script n'atteigne cet endroit.
+function iconeVerifie(){
+  return '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/>' +
+         '<path d="m7.6 12.4 3 3 5.8-6" fill="none" stroke="#06121f" stroke-width="2.2" ' +
+         'stroke-linecap="round" stroke-linejoin="round"/></svg>';
+}
+
+// « Profil vérifié », en toutes lettres (profil, fiche d'un membre).
+function badgeVerifieHtml(user, taille){
+  if(!user || !user.verifie) return '';
+  const role = user.verifieRole ? ' (' + user.verifieRole + ')' : '';
+  return `<span class="badge-verifie${taille === 'small' ? ' petit' : ''}"
+    title="${escapeAttribute("L'équipe La Wave a vérifié ce profil" + role)}">${iconeVerifie()}Profil vérifié</span>`;
+}
+
+// La seule coche, à côté d'un nom.
+function cocheVerifieHtml(titre){
+  return `<span class="coche-verifie" title="${escapeAttribute(titre || 'Profil vérifié')}">${iconeVerifie()}</span>`;
+}
+
 // Remplit les menus déroulants des rôles : celui du profil, celui de l'inscription.
 (function fillRoleSelect(){
   const options = MEMBER_ROLES
@@ -9870,6 +10112,10 @@ function profileToUser(row){
     challenges: row.challenges || {},
     onboarding: row.onboarding || {},
     isAdmin: !!row.is_admin,
+    // Profil vérifié par l'équipe (voir sql/profils-verifies.sql) : pour quel rôle, et depuis quand.
+    verifie: !!row.verifie,
+    verifieRole: row.verifie_role || null,
+    verifieLe: row.verifie_le || null,
     createdAt: row.created_at
   };
 }
@@ -9925,7 +10171,8 @@ async function ensureProfileExists(authUser){
       socials: { instagram:'', twitter:'', tiktok:'', spotify:'', appleMusic:'', deezer:'' },
       xp: 0,
       challenges: { date: todayStr(), postForum:false, commentForum:false, instaComment:false },
-      onboarding: {}
+      // Un pseudo choisi à l'inscription (parcours ou formulaire) : l'identité est faite, le parcours reprend à la photo.
+      onboarding: pseudoChoisi ? { parcours: 'en_cours' } : {}
     });
 
     if(!error){
@@ -10034,6 +10281,7 @@ async function restoreSession(){
     currentUser = user;
   }
   refreshAccountUI();
+  apresConnexion(user);
 }
 
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -10152,16 +10400,157 @@ async function logoutUser(){
   goTo('home');
 }
 
+// ---- Parcours d'inscription et vérification des profils ----
+//
+// Deux fichiers chargés à la demande (comme la communauté et la salle des waveurs) : le reste du site n'en paie
+// pas le poids. Le numéro qui suit leur nom reçoit l'empreinte du fichier à la mise en ligne (voir
+// outils/deploiement/preparer.sh) : un navigateur qui a l'ancienne copie ne la garde pas.
+const VERIFICATION_FICHIER = 'verification.js?v=1';
+const PARCOURS_FICHIER = 'parcours.js?v=1';
+
+function chargerModuleSite(fichier, global, libelle){
+
+  if(window[global]) return Promise.resolve();
+
+  const cache = chargerModuleSite.cache || (chargerModuleSite.cache = {});
+  if(cache[fichier]) return cache[fichier];
+
+  cache[fichier] = new Promise((resolve, reject) => {
+
+    const s = document.createElement('script');
+    s.src = fichier;
+
+    s.onload = () => {
+      if(window[global]) resolve();
+      else reject(new Error("Le fichier " + libelle + " s'est chargé, mais il ne s'est pas lancé."));
+    };
+
+    s.onerror = () => {
+      delete cache[fichier];
+      reject(new Error("Le fichier " + libelle + " est introuvable. Il doit être transféré sur le serveur en même temps que index.html."));
+    };
+
+    document.head.appendChild(s);
+  });
+
+  return cache[fichier];
+}
+
+function chargerVerification(){
+  return chargerModuleSite(VERIFICATION_FICHIER, 'Verification', 'de la vérification (verification.js)');
+}
+
+function chargerParcours(){
+  return chargerModuleSite(PARCOURS_FICHIER, 'Parcours', "du parcours d'inscription (parcours.js)");
+}
+
+// Ouvre le dialogue de vérification du profil (preuve, état de la demande). `origine` : d'où l'on vient.
+async function ouvrirVerification(origine){
+
+  if(!currentUser){
+    openAuthModal('login');
+    return;
+  }
+
+  try{
+    await chargerVerification();
+    window.Verification.ouvrir({ origine: origine || 'profil' });
+  }catch(erreur){
+    notifier('Vérification indisponible', { type: 'erreur', detail: erreur.message });
+  }
+}
+
+// Ouvre l'assistant d'inscription. S'il ne peut pas se charger, l'ancien formulaire (pseudo, e-mail, mot de
+// passe, rôle) reste là en repli : on ne bloque jamais quelqu'un devant la porte.
+async function ouvrirParcours(options){
+
+  try{
+    await chargerParcours();
+    await window.Parcours.ouvrir(options || {});
+  }catch(erreur){
+    console.warn("⚠️ Parcours d'inscription indisponible, ancien formulaire :", erreur.message);
+    openAuthModal('signup', true);
+  }
+}
+
+// Ce qui suit une connexion : annoncer la décision de l'équipe sur une vérification, et rouvrir l'assistant pour un
+// compte tout neuf dont le parcours n'a pas été fini (un compte créé par Google ou Spotify n'y est jamais passé).
+function apresConnexion(user){
+
+  if(!user) return;
+
+  annoncerVerification().catch(() => { /* la base n'a peut-être pas encore la vérification : rien à dire */ });
+
+  if(parcoursARouvrir(user)){
+    setTimeout(() => ouvrirParcours({ mode: 'reprise' }), 700);
+  }
+}
+
+// Un compte créé depuis moins d'un jour, dont le parcours n'est ni fini ni abandonné.
+function parcoursARouvrir(user){
+
+  const flags = user.onboarding || {};
+  if(flags.parcours) return false;
+
+  const age = Date.now() - new Date(user.createdAt || 0).getTime();
+  return age >= 0 && age < 24 * 3600 * 1000;
+}
+
+// Une fois : la décision de l'équipe sur la dernière demande de vérification, dite à l'écran.
+async function annoncerVerification(){
+
+  const { data, error } = await supabaseClient.rpc('verification_ma_demande');
+
+  if(error || !data || data.vu) return;
+
+  if(data.statut === 'valide'){
+    notifier('Profil vérifié', {
+      type: 'succes',
+      icone: '✓',
+      detail: "L'équipe a validé ton profil " + data.role + " : le badge s'affiche à côté de ton nom."
+    });
+  } else if(data.statut === 'refuse'){
+    notifier('Vérification refusée', {
+      type: 'erreur',
+      detail: data.motif_refus || "L'équipe n'a pas pu valider ta capture.",
+      actions: [{ label: 'Envoyer une autre capture', primaire: true, action: () => ouvrirVerification('annonce') }]
+    });
+  } else if(data.statut === 'retire'){
+    notifier('Badge retiré', {
+      type: 'info',
+      detail: data.motif_refus || "L'équipe a retiré le badge de ton profil."
+    });
+  } else {
+    return;
+  }
+
+  supabaseClient.rpc('verification_marquer_vue', { p_id: data.id }).then(() => {}, () => {});
+}
+
+
 // ---- Auth modal ----
-function openAuthModal(mode){
-  document.getElementById('authModal').classList.add('open');
-  switchAuthTab(mode || 'login');
+//
+// « Créer un compte » ouvre l'assistant d'inscription (parcours.js) ; le formulaire de cette fenêtre ne sert plus
+// que de repli (`ancien`), si le fichier de l'assistant ne se charge pas.
+function openAuthModal(mode, ancien){
   document.getElementById('accountDropdown').classList.remove('open');
+  if(mode === 'signup' && !ancien){
+    closeAuthModal();
+    ouvrirParcours({ mode: 'inscription' });
+    return;
+  }
+  document.getElementById('authModal').classList.add('open');
+  switchAuthTab(mode || 'login', ancien);
 }
 function closeAuthModal(){
   document.getElementById('authModal').classList.remove('open');
 }
-function switchAuthTab(mode){
+function switchAuthTab(mode, ancien){
+  if(mode === 'signup' && !ancien){
+    closeAuthModal();
+    ouvrirParcours({ mode: 'inscription' });
+    return;
+  }
   document.getElementById('tabLogin').classList.toggle('active', mode==='login');
   document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
   document.getElementById('panelLogin').classList.toggle('active', mode==='login');
@@ -10265,6 +10654,7 @@ async function submitLogin(){
   currentUser = user;
   refreshAccountUI();
   closeAuthModal();
+  apresConnexion(user);
   // Se connecter depuis la salle des waveurs ramène à l'onglet Waveurs, et
   // la salle, si elle est ouverte, recharge ce qu'elle sait du membre (la
   // boutique du croupier en était restée à « Se connecter »).
@@ -10499,11 +10889,13 @@ async function renderProfileForm(){
       <div class="profil-etiquettes">
         <span class="badge-pill">${badge.icon} ${badge.name}</span>
         ${roleBadgeHtml(currentUser.role, 'small')}
+        ${badgeVerifieHtml(currentUser, 'small')}
       </div>
       ${currentUser.bio ? `<p class="profil-bio">${escapeHtml(currentUser.bio)}</p>` : ''}
     </div>`;
 
   majCarteXpProfil();
+  rendreCarteVerification();
 
   const obtenus = nombreDeSucces(currentUser);
 
@@ -10547,6 +10939,85 @@ async function renderProfileForm(){
       ? `<img class="cover-preview" style="border-radius:50%;" src="${escapeAttribute(profileAvatarDataUrl)}">`
       : `<span id="profilePhotoText">Cliquer pour choisir une image</span>`;
   }
+}
+
+// Sous l'identité du profil : un parcours à terminer, puis la vérification (faire vérifier son profil, où en est la
+// demande, ou le badge obtenu). Les rôles sans métier à prouver (auditeur, autre) n'ont pas cette carte.
+async function rendreCarteVerification(){
+
+  const zone = document.getElementById('profilVerification');
+  if(!zone) return;
+
+  if(!currentUser){
+    zone.innerHTML = '';
+    return;
+  }
+
+  const moi = currentUser;
+  const role = roleNom(moi.role);
+  const date = (iso) => iso ? formatFrDate(String(iso).slice(0, 10)) : '';
+
+  const carte = (classe, icone, titre, texte, bouton) => `
+    <div class="vf-carte-profil ${classe}">
+      <span class="vf-ic" aria-hidden="true">${icone}</span>
+      <div class="vf-texte"><b>${titre}</b><span>${texte}</span></div>
+      ${bouton || ''}
+    </div>`;
+
+  let html = '';
+
+  const flags = moi.onboarding || {};
+
+  // Un parcours quitté en route (« ignore ») se reprend d'ici ; fini (« fait »), la carte n'a plus lieu d'être.
+  if(flags.parcours !== 'fait' && (!moi.avatar || !moi.bio)){
+    html += carte('', '✨', 'Termine ton profil',
+      'Une photo, deux lignes sur toi, quelques sorties : ça prend deux minutes.',
+      `<button type="button" class="btn btn-primary" onclick="ouvrirParcours({ mode: 'reprise' })">Reprendre</button>`);
+  }
+
+  if(roleAVerifier(role)){
+
+    if(moi.verifie && moi.verifieRole === role){
+
+      html += carte('ok', iconeVerifie(), 'Profil vérifié',
+        "L'équipe a validé ton profil " + escapeHtml(role) +
+        (moi.verifieLe ? ' le ' + date(moi.verifieLe) : '') + ". Le badge s'affiche à côté de ton nom.");
+
+    } else {
+
+      const { data, error } = await supabaseClient.rpc('verification_ma_demande');
+
+      // Base pas encore passée à profils-verifies.sql : pas de carte, plutôt qu'un bouton qui échouerait.
+      if(!error && currentUser === moi){
+
+        const demande = data || null;
+        const bouton = (libelle, primaire) =>
+          `<button type="button" class="btn ${primaire ? 'btn-primary' : 'btn-ghost'}" onclick="ouvrirVerification('profil')">${libelle}</button>`;
+
+        if(demande && demande.statut === 'en_attente'){
+
+          html += carte('attente', '⏳', 'Vérification en cours',
+            'Envoyée le ' + date(demande.cree_le) + ". L'équipe regarde ta capture : tu seras prévenu dès qu'elle est validée.",
+            bouton('Voir ma demande', false));
+
+        } else if(demande && demande.statut === 'refuse'){
+
+          html += carte('refuse', '!', 'Vérification refusée',
+            escapeHtml(demande.motif_refus || "L'équipe n'a pas pu valider ta capture.") + ' Tu peux en envoyer une autre.',
+            bouton('Envoyer une autre capture', true));
+
+        } else {
+
+          html += carte('', iconeVerifie(), 'Fais vérifier ton profil ' + escapeHtml(role),
+            "Envoie une capture qui le prouve : l'équipe la regarde, et ton profil reçoit le badge « Profil vérifié »." +
+            (role === 'Photographe' ? " Il est nécessaire pour t'inscrire aux accréditations." : ''),
+            bouton('Faire vérifier mon profil', true));
+        }
+      }
+    }
+  }
+
+  if(currentUser === moi) zone.innerHTML = html;
 }
 
 document.getElementById('profilePhotoDrop').addEventListener('click', ()=> document.getElementById('profilePhotoInput').click());
@@ -10794,6 +11265,9 @@ function confirmCrop(){
     // Photo proposée pour un artiste encore inconnu : elle attend
     // l'envoi du formulaire, elle n'est pas posée tout de suite.
     poserPhotoNouvelArtiste(cropTarget.slice('artiste-nouveau-'.length), dataUrl);
+  } else if(cropTarget === 'parcours-avatar'){
+    // Photo de profil choisie dans l'assistant d'inscription : il l'envoie et l'enregistre.
+    if(window.Parcours) window.Parcours.avatarRecadre(dataUrl);
   } else if(cropTarget === 'com-avatar'){
     // Photo de profil changée depuis la page Communauté : envoyée aussitôt.
     if(window.Com) window.Com.avatarRecadre(dataUrl);
@@ -11316,7 +11790,7 @@ async function viewProfileClassique(userId){
         <span class="badge-pill">${badge.icon} ${badge.name}</span>
         <span class="mono" style="color:var(--muted); font-size:12px; margin-left:8px;">Niveau ${levelForXP(user.xp)} · ${user.xp||0} XP</span>
       </div>
-      <p style="margin-bottom:14px;">${roleBadgeHtml(user.role)}</p>
+      <p style="margin-bottom:14px; display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">${roleBadgeHtml(user.role)}${badgeVerifieHtml(user)}</p>
       ${user.bio ? `<p style="font-size:14px; color:var(--ink-soft); margin-bottom:16px; white-space:pre-wrap;">${escapeHtml(user.bio)}</p>` : ''}
       ${socialLinks ? `<div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-bottom:20px;">${socialLinks}</div>` : ''}
       <div class="hairline" style="margin:20px 0;"></div>
@@ -19284,6 +19758,7 @@ async function openAdminPanel(){
   await loadApprovedReleases();
   await loadArtistProfiles();
   await loadBugReports();
+  chargerCompteVerifications();
 }
 
 async function tryAdminLogin(){
@@ -19417,6 +19892,7 @@ const ADMIN_TABS = [
   'community',
   'accreditations',
   'support',
+  'profils',
   'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
 
@@ -19500,6 +19976,10 @@ function switchAdminTab(nom){
 
   if(nom === 'accreditations'){
     renderAdminAccreditations();
+  }
+
+  if(nom === 'profils'){
+    chargerProfilsAVerifier();
   }
 
   // ACCÈS TESTEURS (TEMPORAIRE)
@@ -21432,6 +21912,10 @@ function formatFrDate(dateStr){
 
 const FICHIERS_BUCKET = 'Covers';
 
+// Les captures qui prouvent un profil (voir sql/profils-verifies.sql) : un bucket PRIVÉ, un dossier par membre.
+// Seuls leur auteur et l'équipe peuvent les ouvrir, par une adresse signée qui expire.
+const BUCKET_PREUVES = 'preuves-profil';
+
 const Fichiers = {
 
   // Nom lisible et sans collision : horodatage + deux libellés
@@ -21514,8 +21998,9 @@ const Fichiers = {
                     this.taille(this.LIMITE_OCTETS) + " au plus) : essaie avec un autre fichier.");
   },
 
-  // Envoie un blob et renvoie son URL publique. Au-delà de la limite, l'image est allégée d'abord, et on le dit.
-  async envoyer(blob, nomFichier, typeMime){
+  // Prépare une image pour le stockage : au-delà de la limite elle est allégée d'abord (et on le dit), et le type
+  // annoncé est celui du fichier (le stockage n'accepte que JPG, PNG et WEBP).
+  async preparer(blob, typeMime){
 
     if(blob.size > this.LIMITE_OCTETS){
 
@@ -21528,14 +22013,21 @@ const Fichiers = {
       });
     }
 
-    // Le type annoncé est celui du fichier (le stockage n'accepte que JPG, PNG et WEBP).
     const type = typeMime || (this.TYPES_ACCEPTES.includes(blob.type) ? blob.type : 'image/jpeg');
+
+    return { blob, type };
+  },
+
+  // Envoie un blob et renvoie son URL publique.
+  async envoyer(blob, nomFichier, typeMime){
+
+    const pret = await this.preparer(blob, typeMime);
 
     const { error } = await supabaseClient
       .storage
       .from(FICHIERS_BUCKET)
-      .upload(nomFichier, blob, {
-        contentType: type,
+      .upload(nomFichier, pret.blob, {
+        contentType: pret.type,
         upsert: false
       });
 
@@ -21544,6 +22036,45 @@ const Fichiers = {
     }
 
     return this.urlPublique(nomFichier);
+  },
+
+  // Envoie une capture dans le bucket privé, dans le dossier du membre connecté, et renvoie son CHEMIN (jamais
+  // une adresse publique : il n'y en a pas).
+  async envoyerPrive(blob, nomFichier, typeMime){
+
+    if(!currentUser) throw new Error('Connecte-toi pour envoyer une capture.');
+
+    const pret = await this.preparer(blob, typeMime);
+    const chemin = currentUser.id + '/' + nomFichier;
+
+    const { error } = await supabaseClient
+      .storage
+      .from(BUCKET_PREUVES)
+      .upload(chemin, pret.blob, {
+        contentType: pret.type,
+        upsert: false
+      });
+
+    if(error){
+      throw new Error("Impossible d'envoyer la capture : " + error.message);
+    }
+
+    return chemin;
+  },
+
+  // Une adresse qui ouvre une capture privée pendant quelques minutes (équipe, ou son auteur).
+  async urlSignee(chemin, secondes){
+
+    const { data, error } = await supabaseClient
+      .storage
+      .from(BUCKET_PREUVES)
+      .createSignedUrl(chemin, secondes || 600);
+
+    if(error || !data){
+      throw new Error((error && error.message) || 'Capture introuvable.');
+    }
+
+    return data.signedUrl;
   },
 
   urlPublique(nomFichier){
@@ -25407,6 +25938,277 @@ async function supprimerPostCom(id){
 
   renderForumModeration();
 }
+
+// =========================================================
+// VÉRIFICATION DES PROFILS — ESPACE ÉQUIPE
+// =========================================================
+//
+// Les demandes viennent de verifications_liste (réservée à l'équipe), la décision passe par verification_traiter
+// (valider, refuser avec un motif, retirer un badge). Les captures sont dans un bucket privé : chacune s'ouvre par
+// une adresse signée qui expire au bout de dix minutes.
+
+let profilsFiltre = 'en_attente';
+let profilsLignes = [];
+
+const MOTIFS_REFUS_PROFIL = [
+  'Capture illisible',
+  'Compte introuvable ou privé',
+  'Ne correspond pas au rôle choisi',
+  'Le nom ne correspond pas'
+];
+
+document.querySelectorAll('input[name="profils-filtre"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    profilsFiltre = radio.value;
+    chargerProfilsAVerifier();
+  });
+});
+
+// Le nombre de demandes à traiter, pour la pastille de l'onglet : lu à l'ouverture de l'espace équipe.
+async function chargerCompteVerifications(){
+
+  const { data, error } = await supabaseClient.rpc('verifications_liste', { p_statut: 'en_attente', p_limite: 1 });
+
+  if(error || !data) return;
+
+  setAdminTabCount('profils', data.en_attente);
+}
+
+async function chargerProfilsAVerifier(){
+
+  const zone = document.getElementById('profilsListe');
+  if(!zone) return;
+
+  zone.innerHTML = `<div class="empty-state chargement">Chargement des demandes...</div>`;
+
+  const { data, error } = await supabaseClient.rpc('verifications_liste', { p_statut: profilsFiltre, p_limite: 60 });
+
+  if(error){
+    zone.innerHTML = /Could not find the function|schema cache/i.test(error.message)
+      ? `<div class="empty-state">La vérification des profils n'est pas encore activée : le fichier profils-verifies.sql n'a pas été passé dans Supabase.</div>`
+      : `<div class="form-msg err">${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  setAdminTabCount('profils', data.en_attente);
+
+  const compte = document.getElementById('profilsCompteAttente');
+  if(compte) compte.textContent = data.en_attente ? String(data.en_attente) : '';
+
+  profilsLignes = data.lignes || [];
+
+  if(!profilsLignes.length){
+    zone.innerHTML = `
+      <div class="empty-state">
+        ${profilsFiltre === 'en_attente' ? 'Aucune demande à traiter pour le moment.' : "Aucune demande traitée pour l'instant."}
+      </div>`;
+    return;
+  }
+
+  zone.innerHTML = profilsLignes.map(profilLigneHtml).join('');
+
+  chargerPreuvesProfils(profilsLignes);
+}
+
+
+function profilLigneHtml(l){
+
+  const id = escapeAttribute(l.id);
+  const p = l.profil || {};
+  const photo = safeUrl(p.avatar_url);
+  const attente = l.statut === 'en_attente';
+  const date = (iso) => iso ? formatFrDate(String(iso).slice(0, 10)) : '';
+
+  const liens = [
+    ['Instagram', (p.socials || {}).instagram],
+    ['Portfolio', (p.socials || {}).portfolio],
+    ['Lien joint à la demande', l.lien]
+  ]
+    .map(([libelle, url]) => [libelle, safeUrl(url)])
+    .filter(([, url]) => url)
+    .map(([libelle, url]) => `<a href="${escapeAttribute(url)}" target="_blank" rel="noopener noreferrer" class="platform-btn-sm">${escapeHtml(libelle)}</a>`)
+    .join('');
+
+  const etats = {
+    valide: ['Validée', 'ok'],
+    refuse: ['Refusée', 'ko'],
+    retire: ['Badge retiré', 'ko']
+  };
+
+  const [libelleEtat, classeEtat] = etats[l.statut] || ['', ''];
+
+  const roleChange = attente && p.role && p.role !== l.role;
+
+  return `
+    <article class="vf-carte" id="vf-${id}">
+
+      <div class="vf-membre">
+        <span class="vf-photo">${
+          photo
+            ? `<img src="${escapeAttribute(photo)}" alt="">`
+            : escapeHtml(artistInitial(p.pseudo || '?'))
+        }</span>
+        <div class="vf-infos">
+          <h4>
+            <button type="button" class="lien-profil" onclick="viewProfile('${escapeAttribute(l.user_id)}')">${escapeHtml(p.pseudo || 'Membre')}</button>
+            ${roleBadgeHtml(l.role, 'small')}
+          </h4>
+          <span class="vf-meta">
+            Demande du ${escapeHtml(date(l.cree_le))}${p.cree_le ? ' · inscrit le ' + escapeHtml(date(p.cree_le)) : ''}${p.ville ? ' · ' + escapeHtml(p.ville) : ''}
+          </span>
+          ${p.bio ? `<p class="vf-bio">${escapeHtml(p.bio)}</p>` : ''}
+          ${liens ? `<div class="vf-liens">${liens}</div>` : ''}
+          ${l.message ? `<p class="vf-message">« ${escapeHtml(l.message)} »</p>` : ''}
+          ${roleChange ? `<p class="vf-alerte">Le rôle du profil est maintenant « ${escapeHtml(p.role)} » : cette demande ne peut plus être validée, refuse-la.</p>` : ''}
+          ${
+            attente
+              ? ''
+              : `<p class="vf-etat ${classeEtat}">${escapeHtml(libelleEtat)} le ${escapeHtml(date(l.traite_le))}${l.traite_par ? ' par ' + escapeHtml(l.traite_par) : ''}${l.motif_refus ? ' — ' + escapeHtml(l.motif_refus) : ''}</p>`
+          }
+        </div>
+      </div>
+
+      <div class="vf-preuve">
+        <button type="button" class="vf-vignette" id="vf-vignette-${id}" onclick="ouvrirPreuve('${id}')"
+                aria-label="Agrandir la capture">Chargement…</button>
+      </div>
+
+      <div class="vf-actions">
+        ${
+          attente
+            ? `<button type="button" class="btn btn-primary" onclick="traiterVerification('${id}', 'valider')"${roleChange ? ' disabled' : ''}>Valider le profil</button>
+               <button type="button" class="btn btn-ghost" onclick="openConfirmPanel('vf-refus-${id}')">Refuser</button>`
+            : l.statut === 'valide'
+              ? `<button type="button" class="btn btn-ghost" onclick="openConfirmPanel('vf-retrait-${id}')">Retirer le badge</button>`
+              : ''
+        }
+      </div>
+
+      ${
+        attente
+          ? `<div class="confirm-panel danger vf-panneau" id="vf-refus-${id}">
+               <p>Dis au membre pourquoi : il lira ce motif et pourra envoyer une autre capture.</p>
+               <div class="vf-motifs">
+                 ${MOTIFS_REFUS_PROFIL.map(m => `<button type="button" class="vf-motif" onclick="choisirMotifRefus('${id}', this.textContent)">${escapeHtml(m)}</button>`).join('')}
+               </div>
+               <textarea id="vf-motif-${id}" rows="2" maxlength="300" placeholder="Motif (le membre le lira)"></textarea>
+               <div class="inline-actions">
+                 <button type="button" class="btn btn-ghost" onclick="traiterVerification('${id}', 'refuser')">Refuser la demande</button>
+                 <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('vf-refus-${id}')">Annuler</button>
+               </div>
+             </div>`
+          : l.statut === 'valide'
+            ? `<div class="confirm-panel danger vf-panneau" id="vf-retrait-${id}">
+                 <p>Retirer le badge de ${escapeHtml(p.pseudo || 'ce membre')} ? ${l.role === 'Photographe' ? 'Il perdra aussi l\'accès aux accréditations. ' : ''}Il en sera informé.</p>
+                 <textarea id="vf-motif-${id}" rows="2" maxlength="300" placeholder="Motif (facultatif, le membre le lira)"></textarea>
+                 <div class="inline-actions">
+                   <button type="button" class="btn btn-ghost" onclick="traiterVerification('${id}', 'retirer')">Oui, retirer le badge</button>
+                   <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('vf-retrait-${id}')">Annuler</button>
+                 </div>
+               </div>`
+            : ''
+      }
+
+    </article>`;
+}
+
+
+// Les captures s'ouvrent par une adresse signée, demandée au chargement de la liste.
+function chargerPreuvesProfils(lignes){
+
+  lignes.forEach(l => {
+
+    const vignette = document.getElementById('vf-vignette-' + l.id);
+    if(!vignette) return;
+
+    if(!l.preuve){
+      vignette.textContent = 'Aucune capture';
+      vignette.disabled = true;
+      return;
+    }
+
+    Fichiers.urlSignee(l.preuve).then(url => {
+      vignette.innerHTML = `<img src="${escapeAttribute(url)}" alt="Capture envoyée par le membre">`;
+    }).catch(() => {
+      vignette.textContent = 'Capture introuvable';
+    });
+  });
+}
+
+
+// L'adresse a pu expirer pendant que la liste restait ouverte : on en demande une neuve.
+async function ouvrirPreuve(id){
+
+  const ligne = profilsLignes.find(l => l.id === id);
+  if(!ligne || !ligne.preuve) return;
+
+  try{
+    const url = await Fichiers.urlSignee(ligne.preuve);
+    document.getElementById('vfLightboxImg').src = url;
+    document.getElementById('vfLightbox').classList.add('open');
+  }catch(erreur){
+    setRowMessage('profilsActionMsg', 'Capture illisible : ' + erreur.message, 'err');
+  }
+}
+
+function fermerPreuve(){
+  document.getElementById('vfLightbox').classList.remove('open');
+}
+
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape') fermerPreuve();
+});
+
+
+function choisirMotifRefus(id, motif){
+  const champ = document.getElementById('vf-motif-' + id);
+  if(champ){
+    champ.value = motif;
+    champ.focus();
+  }
+}
+
+
+async function traiterVerification(id, action){
+
+  const champ = document.getElementById('vf-motif-' + id);
+  const motif = champ ? champ.value.trim() : '';
+
+  if(action === 'refuser' && !motif){
+    setRowMessage('profilsActionMsg', 'Écris un motif : le membre le lira.', 'err');
+    if(champ) champ.focus();
+    return;
+  }
+
+  const { error } = await supabaseClient.rpc('verification_traiter', {
+    p_id: id,
+    p_action: action,
+    p_motif: motif || null
+  });
+
+  if(error){
+    setRowMessage('profilsActionMsg', 'Action impossible : ' + error.message, 'err');
+    return;
+  }
+
+  // La carte s'efface en douceur avant que la liste ne soit relue.
+  const carte = document.getElementById('vf-' + id);
+  if(carte){
+    carte.classList.add('sortie');
+    await new Promise(resolve => setTimeout(resolve, 260));
+  }
+
+  await chargerProfilsAVerifier();
+
+  setRowMessage(
+    'profilsActionMsg',
+    action === 'valider' ? 'Profil validé : le badge est posé.'
+      : action === 'refuser' ? 'Demande refusée : le membre en sera informé.'
+      : 'Badge retiré.',
+    'ok'
+  );
+}
+
 
 function generatePostVisual(sub, catalogNum){
   const canvas = document.createElement('canvas');
