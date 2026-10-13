@@ -577,7 +577,8 @@
     box-shadow:0 2px 12px rgba(20,137,222,0.45), var(--reflet-int);
     transition:transform .5s var(--ease);
   }
-  .type-choice:has(input[value="Projet"]:checked)::before{transform:translateX(100%);}
+  .type-choice:has(input[value="Projet"]:checked)::before,
+  .type-choice:has(label:last-child input:checked)::before{transform:translateX(100%);}
   /* Spécificité volontairement plus forte que .field label, qui met
      les libellés en majuscules — pas voulu sur ces mots. */
   .field .type-choice label, .type-choice label{
@@ -592,6 +593,10 @@
   .type-choice label:has(input:checked){color:#fff;}
   .type-choice input{position:absolute; opacity:0; pointer-events:none; margin:0;}
   .type-choice:has(input:focus-visible){outline:2px solid var(--blue); outline-offset:3px;}
+  /* Le signalement a des mots plus longs (« Un problème sur le site ») : le bouton prend la largeur
+     disponible, sans déborder sur un téléphone. */
+  #bugReportForm .type-choice{display:grid; width:100%; max-width:440px;}
+  #bugReportForm .type-choice label{min-width:0; padding:9px 12px; text-align:center;}
 
   /* Ce que veut dire le choix, en quelques mots : l'un glisse vers le
      haut quand l'autre prend sa place. */
@@ -1758,6 +1763,16 @@
   }
   .artiste-propriete .btn{text-decoration:none;}
   #maPageArtisteEdition{margin-top:14px;}
+  /* Le lien discret en bas de la page d'un artiste : Signaler cet artiste. */
+  .artiste-signaler{
+    margin:36px 0 0; font-size:13px; color:var(--muted);
+  }
+  .artiste-signaler button{
+    background:none; border:none; color:var(--ink-soft);
+    font:inherit; text-decoration:underline; padding:0; cursor:pointer;
+    transition:color .2s var(--ease);
+  }
+  .artiste-signaler button:hover{color:var(--ink);}
 
   /* ---------- FICHE DE SORTIE : EN-TÊTE EN LIGNE ----------
      La pochette pleine largeur prenait 339 px : la notation et l'avis
@@ -4574,36 +4589,86 @@
     </section>
   </section>
 
-  <!-- ================= SIGNALER UN BUG ================= -->
+  <!-- ================= SIGNALER UN PROBLÈME ================= -->
+  <!-- L'adresse reste #bugreport (liens existants). Deux sujets, un seul
+       formulaire : un problème sur le site, ou un artiste qui n'a rien à y
+       faire. Les deux arrivent dans le même onglet Support de l'espace
+       équipe. -->
   <section id="page-bugreport" class="page">
     <section>
       <div class="section-head">
         <div>
-          <h2>Signaler un bug</h2>
-          <p class="desc">Décris le problème rencontré, l'équipe La Wave va y jeter un œil.</p>
+          <h2>Signaler un problème</h2>
+          <p class="desc">Un souci sur le site, ou un artiste qui n'a rien à y faire : dis-le-nous, l'équipe La Wave s'en occupe.</p>
         </div>
       </div>
       <div class="form-wrap">
         <form id="bugReportForm" class="form-anim" novalidate>
           <div class="field">
-            <label for="bug-page">Sur quelle page ?</label>
-            <select id="bug-page">
-              <option>Accueil</option>
-              <option>Catalogue</option>
-              <option>Soumettre une sortie</option>
-              <option>Contenu</option>
-              <option>Communauté</option>
-              <option>Mon profil</option>
-              <option>À propos</option>
-              <option>Autre / je ne sais pas</option>
-            </select>
+            <label id="bug-sujet-libelle">Que veux-tu signaler ?</label>
+            <div class="type-choice" role="radiogroup" aria-labelledby="bug-sujet-libelle">
+              <label>
+                <input type="radio" name="bug-sujet" value="site" checked>
+                Un problème sur le site
+              </label>
+              <label>
+                <input type="radio" name="bug-sujet" value="artiste">
+                Un artiste
+              </label>
+            </div>
           </div>
-          <div class="field" data-etape="la description">
-            <label for="bug-description">Décris le problème</label>
-            <textarea id="bug-description" rows="5" placeholder="Ce que tu as essayé de faire, ce qui s'est passé..."></textarea>
+
+          <div id="bug-bloc-site">
+            <div class="field">
+              <label for="bug-page">Sur quelle page ?</label>
+              <select id="bug-page">
+                <option>Accueil</option>
+                <option>Catalogue</option>
+                <option>Soumettre une sortie</option>
+                <option>Contenu</option>
+                <option>Communauté</option>
+                <option>Espace photographe</option>
+                <option>Mon profil</option>
+                <option>À propos</option>
+                <option>Autre / je ne sais pas</option>
+              </select>
+            </div>
+            <div class="field" data-etape="la description">
+              <label for="bug-description">Décris le problème</label>
+              <textarea id="bug-description" rows="5" placeholder="Ce que tu as essayé de faire, ce qui s'est passé..."></textarea>
+            </div>
           </div>
+
+          <div id="bug-bloc-artiste" hidden>
+            <div class="field" data-etape="l'artiste">
+              <label for="bug-artiste">Quel artiste ?</label>
+              <input type="text" id="bug-artiste" autocomplete="off" maxlength="120"
+                     spellcheck="false" data-lpignore="true" data-1p-ignore="true"
+                     placeholder="Son nom, tel qu'il apparaît sur le site"
+                     oninput="chercherArtisteSignalement()">
+              <div id="bug-artiste-resultats" class="recherche-resultats"></div>
+            </div>
+            <div class="field" data-etape="le motif">
+              <label for="bug-motif">Qu'est-ce qui ne va pas ?</label>
+              <select id="bug-motif">
+                <option value="">Choisis un motif</option>
+                <option>Ce n'est pas un vrai artiste</option>
+                <option>Contenu inapproprié ou choquant</option>
+                <option>Il n'a pas sa place ici</option>
+                <option>Infos ou photo erronées</option>
+                <option>Doublon d'un autre artiste</option>
+                <option>C'est moi ou mon groupe, et je veux modifier ou retirer ma fiche</option>
+                <option>Autre</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="bug-details">Précise si besoin</label>
+              <textarea id="bug-details" rows="4" placeholder="Ce qui te gêne, un lien, le nom de la sortie concernée..."></textarea>
+            </div>
+          </div>
+
           <div class="field">
-            <label>Capture d'écran (facultatif)</label>
+            <label id="bug-capture-libelle">Capture d'écran (facultatif)</label>
             <div class="cover-drop" id="bugImageDrop">
               <span>Cliquer pour joindre une image</span>
             </div>
@@ -4732,7 +4797,7 @@
       </button>
 
       <button type="button" class="admin-tab" id="adminTab-support"
-        role="tab" onclick="switchAdminTab('support')" title="Bugs signalés">
+        role="tab" onclick="switchAdminTab('support')" title="Problèmes signalés">
         <svg class="eq-ic" aria-hidden="true"><use href="#eq-bouee"/></svg>
         <span class="admin-tab-label">Support</span>
         <span class="admin-tab-count" id="adminCount-support"></span>
@@ -5430,10 +5495,11 @@
       <div>
         <span class="eyebrow mono">Support</span>
         <h3>
-          Bugs signalés
+          Problèmes signalés
         </h3>
         <p class="desc">
-          Les signalements envoyés depuis le site arrivent ici.
+          Les signalements envoyés depuis le site arrivent ici : les problèmes du site, et les artistes que
+          des visiteurs jugent problématiques.
         </p>
       </div>
 
@@ -5631,7 +5697,7 @@
       <!-- Le lien du menu n'apparaît qu'aux photographes : celui-ci reste
            visible de tous, c'est par lui qu'on découvre que ça existe. -->
       <a class="footer-admin-link" onclick="goTo('accreditations')" href="javascript:void(0)">Espace photographe</a>
-      <a class="footer-admin-link" onclick="goTo('bugreport')" href="javascript:void(0)">Signaler un bug</a>
+      <a class="footer-admin-link" onclick="goTo('bugreport')" href="javascript:void(0)">Signaler un problème</a>
       <a class="footer-admin-link" onclick="goTo('about')" href="javascript:void(0)">À propos</a>
     </div>
   </div>
@@ -16952,6 +17018,11 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
         ? sorties.map(tileHtml).join('')
         : `<div class="empty-state">Aucune sortie publiée pour l'instant.</div>`}
     </div>
+
+    <p class="artiste-signaler">
+      Un problème avec cette fiche ?
+      <button type="button" onclick="signalerArtiste('${handleSain(handle)}')">Signaler cet artiste</button>
+    </p>
   `;
 }
 
@@ -17529,9 +17600,11 @@ function activerFormulaire(racine, options){
 
   function actualiser(){
 
+    // Un bloc caché (hidden) ne compte pas : le formulaire du signalement n'en montre qu'un à la fois.
     const champs = [...racine.querySelectorAll('.field')].filter(c =>
-      c.hasAttribute('data-etape') ||
-      c.querySelector('[required], [aria-required="true"]'));
+      !c.closest('[hidden]') &&
+      (c.hasAttribute('data-etape') ||
+       c.querySelector('[required], [aria-required="true"]')));
 
     const bilan = champs.map(champ => {
       if(!champ.hasAttribute('data-etape')) champ.setAttribute('data-etape', '');
@@ -18715,11 +18788,18 @@ msg.textContent =
 
 
 
-// ---------------- SIGNALER UN BUG ----------------
+// ---------------- SIGNALER UN PROBLÈME ----------------
 //
 // Les signalements vont dans la table bug_reports et s'affichent dans
 // l'onglet Support de l'espace équipe. La capture éventuelle part
 // dans le bucket Covers, préfixe "bug-".
+//
+// Deux sujets. Pour un problème du site, `page` est la page et
+// `description` le texte. Pour un artiste, `page` vaut « Artiste : <nom> »
+// et `description` « Motif : … », puis le texte, puis « Fiche : <pseudo> »
+// quand l'artiste a été choisi dans la liste. La table n'a pas de colonne
+// pour cela (donc rien à passer dans Supabase) : lireSignalement relit ce
+// format côté équipe.
 
 let bugImageDataUrl = null;
 
@@ -18764,9 +18844,142 @@ function clearBugImage(){
   bugImageDrop.innerHTML = `<span>Cliquer pour joindre une image</span>`;
 }
 
+// Le pseudo de l'artiste choisi dans la liste (null : nom tapé à la main).
+// Rangé sur la fonction, non dans une variable `let` : goTo peut ouvrir
+// cette page avant que le script n'atteigne ce point.
+function etatSignalement(){
+  return etatSignalement.v || (etatSignalement.v = { artiste: null });
+}
+
+function sujetSignalement(){
+  const coche = document.querySelector('#bugReportForm input[name="bug-sujet"]:checked');
+  return coche && coche.value === 'artiste' ? 'artiste' : 'site';
+}
+
+// Montre le bloc du sujet choisi, cache l'autre : le kit de formulaires
+// ne compte pas les champs d'un bloc caché.
+function appliquerSujetSignalement(sujet){
+
+  sujet = sujet === 'artiste' ? 'artiste' : 'site';
+
+  const coche = document.querySelector('#bugReportForm input[name="bug-sujet"][value="' + sujet + '"]');
+  if(coche) coche.checked = true;
+
+  const blocSite = document.getElementById('bug-bloc-site');
+  const blocArtiste = document.getElementById('bug-bloc-artiste');
+  if(blocSite) blocSite.hidden = sujet !== 'site';
+  if(blocArtiste) blocArtiste.hidden = sujet !== 'artiste';
+
+  const capture = document.getElementById('bug-capture-libelle');
+  if(capture){
+    capture.textContent = sujet === 'artiste'
+      ? 'Une capture, comme preuve (facultatif)'
+      : "Capture d'écran (facultatif)";
+  }
+
+  const formulaire = document.getElementById('bugReportForm');
+  if(formulaire && formulaire._formulaire) formulaire._formulaire.actualiser();
+}
+
+// Les suggestions d'artistes : par le début du nom ou d'un de ses mots
+// (« gyneco » retrouve « Doc Gynéco »), sans tenir compte des accents.
+// Un nom absent de la liste reste permis : il part tel quel.
+function chercherArtisteSignalement(){
+
+  const champ = document.getElementById('bug-artiste');
+  const zone = document.getElementById('bug-artiste-resultats');
+  if(!champ || !zone) return;
+
+  // Retaper le nom annule le choix précédent.
+  etatSignalement().artiste = null;
+
+  const requete = texteNu(champ.value.trim());
+
+  if(!requete){
+    zone.innerHTML = '';
+    return;
+  }
+
+  const trouves = Object.values(artistsByHandle)
+    .filter(profil => {
+      const nom = texteNu(profil.display_name || profil.instagram_handle || '');
+      return nom.startsWith(requete) || nom.split(/\s+/).some(mot => mot.startsWith(requete));
+    })
+    .sort((a, b) =>
+      String(a.display_name || a.instagram_handle)
+        .localeCompare(String(b.display_name || b.instagram_handle)))
+    .slice(0, 6);
+
+  if(!trouves.length){
+    zone.innerHTML = `
+      <p class="recherche-vide">
+        Pas dans la liste ? Écris son nom tel quel, l'équipe le retrouvera.
+      </p>`;
+    return;
+  }
+
+  zone.innerHTML = trouves.map(profil => {
+
+    const photo = safeUrl(profil.photo_url);
+    const nom = profil.display_name || profil.instagram_handle;
+
+    return `
+      <button type="button" class="recherche-resultat"
+              onclick="choisirArtisteSignalement('${handleSain(profil.instagram_handle)}')">
+        <span class="recherche-vignette">
+          ${
+            photo
+              ? `<img src="${escapeAttribute(photo)}" alt="">`
+              : escapeHtml(artistInitial(nom))
+          }
+        </span>
+        <span style="min-width:0;">${escapeHtml(nom)}</span>
+      </button>`;
+  }).join('');
+}
+
+function choisirArtisteSignalement(handle){
+
+  const profil = artistsByHandle[handle];
+  const champ = document.getElementById('bug-artiste');
+  const zone = document.getElementById('bug-artiste-resultats');
+  if(!profil || !champ) return;
+
+  champ.value = profil.display_name || profil.instagram_handle;
+  etatSignalement().artiste = handle;
+  if(zone) zone.innerHTML = '';
+
+  const formulaire = document.getElementById('bugReportForm');
+  if(formulaire && formulaire._formulaire) formulaire._formulaire.actualiser();
+}
+
+// « Signaler cet artiste », depuis sa page : le formulaire s'ouvre sur
+// le sujet « Un artiste », l'artiste déjà choisi.
+function signalerArtiste(handle){
+
+  goTo('bugreport');
+
+  appliquerSujetSignalement('artiste');
+
+  const profil = artistsByHandle[handle];
+  const champ = document.getElementById('bug-artiste');
+  const zone = document.getElementById('bug-artiste-resultats');
+  if(!champ) return;
+
+  champ.value = profil ? (profil.display_name || profil.instagram_handle) : handle;
+  etatSignalement().artiste = handle;
+  if(zone) zone.innerHTML = '';
+
+  const formulaire = document.getElementById('bugReportForm');
+  if(formulaire && formulaire._formulaire) formulaire._formulaire.actualiser();
+
+  const motif = document.getElementById('bug-motif');
+  if(motif) motif.focus();
+}
+
 // À chaque ouverture de la page : l'escalier d'entrée, et l'email du
 // compte déjà dans le champ de contact — c'est là que l'équipe écrira, et
-// celui qui signale un bug n'a pas à le retaper. goTo l'appelle dès le
+// celui qui signale un problème n'a pas à le retaper. goTo l'appelle dès le
 // chargement quand l'adresse est #bugreport : déclaration de fonction,
 // donc disponible dès ce moment-là.
 function preparerSignalement(){
@@ -18774,8 +18987,52 @@ function preparerSignalement(){
   const formulaire = document.getElementById('bugReportForm');
   if(!formulaire) return;
 
+  // Les blocs suivent la case cochée (le navigateur peut avoir gardé un
+  // choix d'avant).
+  appliquerSujetSignalement(sujetSignalement());
+
+  // La liste des artistes se charge si on arrive ici sans être passé par
+  // le catalogue (adresse directe) ; les suggestions se redessinent ensuite.
+  loadArtists().then(() => {
+    if(sujetSignalement() === 'artiste' && !etatSignalement().artiste) chercherArtisteSignalement();
+  }).catch(() => { /* les suggestions manqueront, le nom tapé partira tel quel */ });
+
   preremplirContacts();
   activerFormulaire(formulaire);
+}
+
+document.querySelectorAll('#bugReportForm input[name="bug-sujet"]').forEach(coche => {
+  coche.addEventListener('change', () => appliquerSujetSignalement(coche.value));
+});
+
+// Ce que l'équipe lit d'un signalement : le sujet, l'artiste et son
+// pseudo s'il y en a un, le motif, le texte. Voir le format plus haut.
+function lireSignalement(bug){
+
+  const page = String(bug.page || '');
+  const description = String(bug.description || '');
+
+  if(!/^Artiste : /.test(page)){
+    return { artiste: null, handle: null, motif: '', texte: description };
+  }
+
+  let texte = description;
+  let handle = null;
+  let motif = '';
+
+  const fiche = /(?:^|\n\n)Fiche : ([a-z0-9._]+)\s*$/.exec(texte);
+  if(fiche){
+    handle = fiche[1];
+    texte = texte.slice(0, fiche.index);
+  }
+
+  const m = /^Motif : ([^\n]*)(?:\n\n)?/.exec(texte);
+  if(m){
+    motif = m[1];
+    texte = texte.slice(m[0].length);
+  }
+
+  return { artiste: page.slice('Artiste : '.length), handle, motif, texte };
 }
 
 document.getElementById('bugReportForm').addEventListener('submit', async (e)=>{
@@ -18783,14 +19040,45 @@ document.getElementById('bugReportForm').addEventListener('submit', async (e)=>{
   const msg = document.getElementById('bugReportMsg');
   const submitBtn = e.target.querySelector('button[type=submit]');
 
-  const page = document.getElementById('bug-page').value;
-  const description = document.getElementById('bug-description').value.trim();
+  const sujet = sujetSignalement();
   const email = document.getElementById('bug-email').value.trim();
 
-  if(!description){
-    msg.textContent = "Merci de décrire le problème avant d'envoyer.";
-    msg.className = 'form-msg err';
-    return;
+  let page, description;
+
+  if(sujet === 'artiste'){
+
+    const nom = document.getElementById('bug-artiste').value.trim();
+    const motif = document.getElementById('bug-motif').value;
+    const details = document.getElementById('bug-details').value.trim();
+    const handle = etatSignalement().artiste;
+
+    if(!nom){
+      msg.textContent = "Dis-nous de quel artiste il s'agit.";
+      msg.className = 'form-msg err';
+      return;
+    }
+
+    if(!motif){
+      msg.textContent = "Choisis ce qui ne va pas avec cet artiste.";
+      msg.className = 'form-msg err';
+      return;
+    }
+
+    page = 'Artiste : ' + nom;
+    description = 'Motif : ' + motif +
+      (details ? '\n\n' + details : '') +
+      (handle ? '\n\nFiche : ' + handle : '');
+
+  } else {
+
+    page = document.getElementById('bug-page').value;
+    description = document.getElementById('bug-description').value.trim();
+
+    if(!description){
+      msg.textContent = "Merci de décrire le problème avant d'envoyer.";
+      msg.className = 'form-msg err';
+      return;
+    }
   }
 
   submitBtn.disabled = true;
@@ -18822,9 +19110,16 @@ document.getElementById('bugReportForm').addEventListener('submit', async (e)=>{
 
     if(error) throw error;
 
-    msg.textContent = "Merci ! Le signalement a bien été transmis à l'équipe.";
+    msg.textContent = sujet === 'artiste'
+      ? "Merci ! L'équipe va regarder cet artiste de près."
+      : "Merci ! Le signalement a bien été transmis à l'équipe.";
     msg.className = 'form-msg ok succes';
     e.target.reset();
+    etatSignalement().artiste = null;
+    const suggestions = document.getElementById('bug-artiste-resultats');
+    if(suggestions) suggestions.innerHTML = '';
+    // reset() remet la case « Un problème sur le site » : les blocs suivent.
+    appliquerSujetSignalement('site');
     clearBugImage();
 
   } catch(err){
@@ -24269,6 +24564,10 @@ async function loadBugReports(){
 
       const traite = bug.status === 'resolved';
 
+      // Un signalement d'artiste porte son nom dans `page` (voir lireSignalement).
+      const lu = lireSignalement(bug);
+      const estArtiste = lu.artiste !== null;
+
       return `
         <div class="admin-row stacked" id="bug-${bug.id}"
              style="${traite ? 'opacity:.55;' : ''}">
@@ -24288,13 +24587,21 @@ async function loadBugReports(){
             <div class="meta" style="padding-top:2px;">
 
               <h4>
-                ${escapeHtml(bug.page || 'Page non précisée')}
+                ${
+                  estArtiste
+                    ? `<span style="display:inline-block; margin-right:8px; padding:2px 9px; border-radius:var(--radius-pill);
+                                    font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+                                    background:rgba(255,184,77,.14); color:#ffb84d;">Artiste</span>${escapeHtml(lu.artiste || 'Artiste non précisé')}`
+                    : escapeHtml(bug.page || 'Page non précisée')
+                }
                 ${traite ? '<span style="font-weight:500; color:var(--muted);">— traité</span>' : ''}
               </h4>
 
-              <span style="display:block; margin-top:4px; color:var(--ink-soft);">
-                ${escapeHtml(bug.description)}
-              </span>
+              <span style="display:block; margin-top:4px; color:var(--ink-soft); white-space:pre-line;">${
+                lu.motif
+                  ? `<strong style="color:var(--ink);">${escapeHtml(lu.motif)}</strong>${lu.texte ? '\n' : ''}`
+                  : ''
+              }${escapeHtml(lu.texte)}</span>
 
               <span style="display:block; margin-top:6px;">
                 <i class="eq-i eq-i-cal"></i>${date}
@@ -24305,6 +24612,15 @@ async function loadBugReports(){
 
             <div class="admin-actions"
                  style="flex-direction:column; align-items:stretch;">
+
+              ${
+                lu.handle
+                  ? `<button type="button"
+                       onclick="ouvrirPageArtiste('${handleSain(lu.handle)}')">
+                       Voir la fiche
+                     </button>`
+                  : ''
+              }
 
               <button type="button"
                 onclick="toggleBugStatus('${bug.id}', '${traite ? 'open' : 'resolved'}')">
