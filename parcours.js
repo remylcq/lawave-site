@@ -1911,7 +1911,7 @@
 
       if(!etat || etat.racine !== el) return;
 
-      const suivante = () => { if(etat && etat.nom === 'verification') afficher(etat.suite[etat.index + 1], 1); };
+      const suivante = () => { if(etat && etat.nom === 'verification') aller(etat.suite[etat.index + 1], 1); };
 
       etat.verifControleur = await window.Verification.monter(zone, {
         compact: true,
@@ -2172,25 +2172,41 @@
     }
   }
 
-  function passer(){
+  // Changer d'étape sans rien valider : pendant le changement, un second clic n'a pas d'effet.
+  async function aller(nom, sens){
 
     if(!etat || etat.occupe) return;
 
-    afficher(etat.suite[etat.index + 1], 1);
+    const courant = etat;
+
+    courant.occupe = true;
+
+    try{
+      await afficher(nom, sens);
+    }finally{
+      if(etat === courant) courant.occupe = false;
+    }
+  }
+
+  function passer(){
+
+    if(!etat) return;
+
+    aller(etat.suite[etat.index + 1], 1);
   }
 
   function reculer(){
 
-    if(!etat || etat.occupe) return;
+    if(!etat) return;
 
     if(etat.nom === 'confirmation'){
-      afficher('compte', -1);
+      aller('compte', -1);
       return;
     }
 
     if(etat.index <= indexPlancher()) return;
 
-    afficher(etat.suite[etat.index - 1], -1);
+    aller(etat.suite[etat.index - 1], -1);
   }
 
   // ---------------------------------------------------------------------
