@@ -296,6 +296,12 @@ function nomHtml(u, options){
     ? `<span class="com-badge-equipe" title="Équipe La Wave">${icone('bouclier', 14)}</span>`
     : '';
 
+  // Un profil dont l'équipe a vérifié le métier (une capture, validée dans l'espace équipe) : la coche pleine du
+  // site, la même que « Profil vérifié » sur la page Profil. Distincte de la petite coche d'une page artiste.
+  const verifie = u && u.verifie && !o.sansVerifie && typeof cocheVerifieHtml === 'function'
+    ? cocheVerifieHtml('Profil vérifié' + (u.verifie_role || u.verifieRole ? ' · ' + (u.verifie_role || u.verifieRole) : ''))
+    : '';
+
   const artiste = u && u.artiste && !o.sansArtiste
     ? `<span class="com-badge-artiste" title="Page artiste vérifiée">${icone('coche', 11)}</span>`
     : '';
@@ -304,7 +310,7 @@ function nomHtml(u, options){
     ? ` data-act="membre" data-cle="${attr(u.pseudo)}"`
     : '';
 
-  return `<span class="com-nom"${lien}>${esc(pseudo)}</span>${equipe}${artiste}`;
+  return `<span class="com-nom"${lien}>${esc(pseudo)}</span>${equipe}${verifie}${artiste}`;
 }
 
 
@@ -4765,6 +4771,7 @@ function profilEnteteHtml(V){
         <h2 class="com-profil-nom">${nomHtml(p, { sansLien: true })}</h2>
         <div class="com-profil-meta">
           ${roleHtml(p.role)}
+          ${p.verifie && typeof badgeVerifieHtml === 'function' ? badgeVerifieHtml({ verifie: true, verifieRole: p.verifie_role }) : ''}
           ${p.ville ? `<span class="com-ville">${icone('lieu', 14)} ${esc(p.ville)}</span>` : ''}
         </div>
         <div class="com-profil-sous">

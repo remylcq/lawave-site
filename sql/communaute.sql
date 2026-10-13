@@ -106,7 +106,12 @@ alter table public.profiles
   add column if not exists cherche           text[] not null default '{}',
   add column if not exists propose           text[] not null default '{}',
   add column if not exists genres            text[] not null default '{}',
-  add column if not exists derniere_activite timestamptz;
+  add column if not exists derniere_activite timestamptz,
+  -- Le badge « Profil vérifié » (voir profils-verifies.sql, qui les pose aussi) : les fonctions
+  -- ci-dessous les lisent, elles doivent exister dès la première installation.
+  add column if not exists verifie           boolean not null default false,
+  add column if not exists verifie_role      text,
+  add column if not exists verifie_le        timestamptz;
 
 do $$
 begin
@@ -600,6 +605,7 @@ as $$
         'role',       public.com_role_canonique(p.role),
         'xp',         coalesce(p.xp, 0),
         'equipe',     coalesce(p.is_admin, false),
+        'verifie',    coalesce(p.verifie, false),
         'ville',      p.ville,
         'artiste',    (
           select a.instagram_handle from public.artists a
@@ -613,7 +619,7 @@ as $$
     ),
     jsonb_build_object(
       'id', null, 'pseudo', 'Compte supprimé', 'avatar_url', null,
-      'role', 'Autre', 'xp', 0, 'equipe', false, 'ville', null, 'artiste', null
+      'role', 'Autre', 'xp', 0, 'equipe', false, 'verifie', false, 'ville', null, 'artiste', null
     )
   );
 $$;
@@ -1146,6 +1152,8 @@ begin
       'genres',      to_jsonb(p.genres),
       'socials',     coalesce(p.socials, '{}'::jsonb),
       'equipe',      coalesce(p.is_admin, false),
+      'verifie',     coalesce(p.verifie, false),
+      'verifie_role', p.verifie_role,
       'cree_le',     p.created_at,
       'artiste',     (select a.instagram_handle from public.artists a
                        where a.verifie_par = p.id order by a.instagram_handle limit 1),
@@ -1258,6 +1266,7 @@ begin
                'propose',    to_jsonb(p.propose),
                'genres',     to_jsonb(p.genres),
                'equipe',     coalesce(p.is_admin, false),
+               'verifie',    coalesce(p.verifie, false),
                'nb_abonnes', (select count(*) from public.com_suivis s where s.suivi_id = p.id),
                'nb_posts',   (select count(*) from public.com_posts k where k.auteur_id = p.id),
                'moi',        jsonb_build_object(
@@ -1316,6 +1325,7 @@ begin
                'cherche',    to_jsonb(s.cherche),
                'propose',    to_jsonb(s.propose),
                'equipe',     coalesce(s.is_admin, false),
+               'verifie',    coalesce(s.verifie, false),
                'raisons',    to_jsonb(array_remove(array[
                  case when s.tu_cherches then 'tu_cherches' end,
                  case when s.te_cherche  then 'te_cherche'  end,
@@ -1325,7 +1335,7 @@ begin
              ) as j
         from (
           select c.id, c.pseudo, c.avatar_url, c.bio, c.role, c.xp, c.ville,
-                 c.cherche, c.propose, c.is_admin,
+                 c.cherche, c.propose, c.is_admin, c.verifie,
                  coalesce(c.derniere_activite, c.updated_at, c.created_at) as actif,
                  (v_moi is not null and public.com_role_cle(c.role) = any (m.cherche))     as tu_cherches,
                  (v_cle is not null and v_cle = any (c.cherche))                           as te_cherche,
