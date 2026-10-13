@@ -51,6 +51,7 @@ create or replace function public.verification_roles()
 returns text[]
 language sql
 immutable
+set search_path = public
 as $$
   select array[
     'Artiste', 'Beatmaker', 'DJ', 'Membre d''un label', 'Manager',
