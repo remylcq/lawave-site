@@ -2472,6 +2472,11 @@
     const drapeaux = (currentUser && currentUser.onboarding) || {};
     const socials = (currentUser && currentUser.socials) || {};
 
+    // Pseudo et rôle déjà choisis : par le parcours lui-même, ou parce que le compte a plus d'un jour (même délai que
+    // parcoursARouvrir dans index.html). La reprise, lancée depuis la page Profil, repart alors de la photo.
+    const age = reprise ? Date.now() - new Date(currentUser.createdAt || 0).getTime() : 0;
+    const identite = reprise && (!!drapeaux.parcours || age >= 24 * 3600 * 1000);
+
     // Ce que le profil dit déjà de la ville, des styles et de ce que le membre cherche ou propose : un parcours repris
     // ne l'efface pas.
     let ligne = null;
@@ -2485,11 +2490,11 @@
 
     etat = {
       reprise,
-      identiteFaite: reprise && !!drapeaux.parcours,
+      identiteFaite: identite,
       compteExiste: reprise,
       userId: reprise ? currentUser.id : null,
       pseudo: reprise ? currentUser.pseudo : '',
-      role: reprise && drapeaux.parcours ? roleNom(currentUser.role) : '',
+      role: identite ? roleNom(currentUser.role) : '',
       email: '',
       mdp: '',
       avatarUrl: reprise ? (currentUser.avatar || '') : '',
