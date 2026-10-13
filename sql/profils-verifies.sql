@@ -18,8 +18,9 @@
 --   4. des fonctions : demander, lire sa demande, lister et traiter (équipe) ;
 --   5. un bucket de stockage PRIVÉ pour les captures : seul leur auteur et
 --      l'équipe peuvent les ouvrir (le bucket « Covers », lui, est public) ;
---   6. l'accès aux accréditations photo exige désormais un photographe
---      vérifié (est_photographe) ;
+--   6. l'accès aux accréditations photo exige un photographe vérifié
+--      (est_photographe), tant que l'interrupteur « vérification exigée »
+--      est allumé : il peut être mis en pause (voir la section 6) ;
 --   7. le badge dans les données de la communauté (4 fonctions reprises
 --      de communaute.sql, avec une clé `verifie` en plus).
 --
@@ -470,13 +471,76 @@ end $$;
 
 
 -- ---------------------------------------------------------------------
--- 6. Les accréditations photo exigent un photographe vérifié
+-- 6. L'interrupteur, et les accréditations photo
 --
--- Remplace est_photographe() (accreditations.sql) : être « Photographe »
--- sur son profil ne suffit plus, l'équipe doit avoir validé la preuve. Les
--- inscriptions, la livraison des photos et les propositions de concert s'y
--- appuient déjà.
+-- « Vérification exigée » : allumé, l'accès aux accréditations photo demande
+-- un photographe VÉRIFIÉ (l'équipe a validé sa preuve) ; éteint, le rôle
+-- Photographe suffit, comme avant la vérification, et le site n'invite plus
+-- personne à faire vérifier son profil (pause, par exemple pendant une phase
+-- de test). Une seule ligne, dans la table verification_reglage.
+--
+-- Il se change dans l'espace équipe (onglet « Profils » : bandeau et bouton),
+-- ou depuis l'éditeur SQL :
+--     update public.verification_reglage set exigee = false;   -- pause
+--     update public.verification_reglage set exigee = true;    -- réactivée
+-- Relancer ce fichier ne change pas sa position (allumé à la première
+-- installation).
+--
+-- EN PRODUCTION : éteint le 2026-10-14, pour la phase de test des
+-- photographes. À RÉACTIVER quand elle est levée (voir aussi la liste de
+-- retrait du portail, en tête de acces-testeurs-retrait.sql).
+--
+-- Remplace est_photographe() (accreditations.sql). Les inscriptions, la
+-- livraison des photos et les propositions de concert s'y appuient déjà.
 -- ---------------------------------------------------------------------
+
+create table if not exists public.verification_reglage (
+  id      boolean     primary key default true check (id),   -- une seule ligne
+  exigee  boolean     not null default true,
+  maj_le  timestamptz not null default now(),
+  maj_par uuid        references public.profiles(id) on delete set null
+);
+
+insert into public.verification_reglage (id, exigee) values (true, true)
+on conflict (id) do nothing;
+
+alter table public.verification_reglage enable row level security;
+revoke all on table public.verification_reglage from anon, authenticated;
+
+-- La vérification est-elle exigée ? Lisible par tous : le site en a besoin
+-- pour savoir quoi proposer, même à un visiteur.
+create or replace function public.verification_exigee()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select r.exigee from public.verification_reglage r where r.id), true);
+$$;
+
+-- Allumer ou éteindre (équipe). Renvoie la nouvelle position.
+create or replace function public.verification_regler(p_exigee boolean)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not public.est_equipe() then
+    raise exception 'Réservé à l''équipe.';
+  end if;
+
+  update public.verification_reglage
+     set exigee = coalesce(p_exigee, true), maj_le = now(), maj_par = auth.uid()
+   where id;
+
+  return public.verification_exigee();
+end $$;
+
+revoke all on function public.verification_regler(boolean) from public, anon;
+grant execute on function public.verification_regler(boolean) to authenticated;
+grant execute on function public.verification_exigee()        to anon, authenticated;
 
 create or replace function public.est_photographe()
 returns boolean
@@ -488,7 +552,8 @@ as $$
   select coalesce((
     select p.is_admin
         or (public.com_role_canonique(p.role) = 'Photographe'
-            and p.verifie and p.verifie_role = 'Photographe')
+            and (not public.verification_exigee()
+                 or (p.verifie and p.verifie_role = 'Photographe')))
     from public.profiles p
     where p.id = auth.uid()
   ), false);
@@ -851,5 +916,7 @@ select id, public, file_size_limit from storage.buckets where id = 'preuves-prof
 select proname from pg_proc
  where pronamespace = 'public'::regnamespace
    and proname in ('verification_demander', 'verification_ma_demande', 'verification_marquer_vue',
-                   'verifications_liste', 'verification_traiter')
+                   'verifications_liste', 'verification_traiter', 'verification_exigee', 'verification_regler')
  order by 1;
+
+select exigee as verification_exigee from public.verification_reglage;

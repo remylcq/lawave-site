@@ -590,7 +590,9 @@
 
     s.push('photo', 'profil', 'univers', 'sorties');
 
-    if(etat.role && roleAVerifier(etat.role)) s.push('verification');
+    // L'étape de vérification n'existe que si la vérification est active (elle peut être en pause : voir
+    // verificationExigee dans index.html) et que le rôle peut recevoir le badge.
+    if(etat.role && roleAVerifier(etat.role) && verificationExigee) s.push('verification');
 
     s.push('fin');
 
@@ -643,7 +645,9 @@
         <ul class="pc-promesses">
           <li><span aria-hidden="true">🎧</span><div><b>Note les sorties</b><small>Garde celles que tu aimes dans ta collection.</small></div></li>
           <li><span aria-hidden="true">🤝</span><div><b>Rencontre la scène</b><small>Artistes, photographes, médias : tout le monde y est.</small></div></li>
-          <li><span aria-hidden="true">✓</span><div><b>Fais vérifier ton profil</b><small>Un badge pour montrer que tu es bien celui que tu dis.</small></div></li>
+          ${verificationExigee
+            ? `<li><span aria-hidden="true">✓</span><div><b>Fais vérifier ton profil</b><small>Un badge pour montrer que tu es bien celui que tu dis.</small></div></li>`
+            : `<li><span aria-hidden="true">⚡</span><div><b>Gagne de l'XP</b><small>Chaque action te rapproche du niveau suivant.</small></div></li>`}
         </ul>
         <div class="pc-actions">
           <button type="button" class="btn btn-primary" data-act="suivant" data-focus>${reprise ? 'Continuer' : "C'est parti"}</button>
@@ -820,7 +824,8 @@
 
   function noteRole(role){
 
-    if(!role) return { icone: '', texte: '' };
+    // Vérification en pause : on n'en parle pas.
+    if(!role || !verificationExigee) return { icone: '', texte: '' };
 
     if(!roleAVerifier(role)){
       return { icone: SVG.coche, texte: "Pas de vérification à faire : tu pourras tout utiliser dès la fin du parcours." };
@@ -1942,7 +1947,7 @@
       const n = nombreEnregistrees();
       const photo = !!(etat.avatarUrl || (currentUser && currentUser.avatar));
       const bio = !!(currentUser && currentUser.bio && currentUser.bio.trim());
-      const verifiable = roleAVerifier(etat.role);
+      const verifiable = roleAVerifier(etat.role) && verificationExigee;
 
       // Ce qui est fait se montre ; ce qui reste tient en une ligne discrète, sans rien reprocher.
       const lignes = [

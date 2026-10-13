@@ -1814,6 +1814,27 @@
   .vf-carte-profil.refuse .vf-ic{background:rgba(229,105,92,0.12); color:var(--danger);}
 
   /* ---------- ESPACE ÉQUIPE : PROFILS À VÉRIFIER ---------- */
+  /* Le bandeau de l'interrupteur : la vérification est active, ou en pause (phase de test). */
+  .vf-reglage{
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+    padding:16px 18px; border-radius:var(--radius);
+    background:var(--glass); border:1px solid var(--line);
+    box-shadow:var(--ombre-1), var(--reflet-int);
+  }
+  .vf-reglage .vf-ic{
+    width:42px; height:42px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:18px;
+    background:rgba(79,180,255,0.12); color:var(--blue-bright);
+  }
+  .vf-reglage .vf-ic svg{width:24px; height:24px;}
+  .vf-reglage .vf-texte{flex:1; min-width:240px;}
+  .vf-reglage .vf-texte b{display:block; font-size:15px; margin-bottom:2px;}
+  .vf-reglage .vf-texte span{font-size:13px; color:var(--ink-soft);}
+  .vf-reglage .vf-texte strong{color:var(--ink); font-weight:600;}
+  .vf-reglage.pause{border-color:rgba(233,196,106,0.42);}
+  .vf-reglage.pause .vf-ic{background:rgba(233,196,106,0.12); color:var(--gold-favori);}
+  .vf-reglage.actif{border-color:rgba(79,180,255,0.4);}
+  #profilsEtat .confirm-panel{margin-top:12px;}
   .vf-compte{
     display:inline-block; min-width:18px; margin-left:6px; padding:0 6px; border-radius:var(--radius-pill);
     font-size:11px; font-weight:700; line-height:18px; text-align:center;
@@ -5606,13 +5627,16 @@
         <h3>Vérifier les profils</h3>
         <p class="desc">
           Un membre qui se dit photographe, artiste, journaliste… envoie une capture qui le prouve. Regarde-la,
-          puis valide : le profil reçoit le badge « Profil vérifié ». Un photographe vérifié accède aux
-          accréditations.
+          puis valide : le profil reçoit le badge « Profil vérifié ». Quand la vérification est active, un
+          photographe vérifié accède aux accréditations.
         </p>
       </div>
 
       <button type="button" class="btn btn-ghost" onclick="chargerProfilsAVerifier()">Actualiser</button>
     </div>
+
+    <!-- L'interrupteur de la vérification : en pause ou active (voir majBandeauVerification). -->
+    <div id="profilsEtat" style="margin-top:20px;"></div>
 
     <div class="type-choice" id="profilsFiltre" role="radiogroup" aria-label="Demandes de vérification" style="margin-top:20px;">
       <label>
@@ -8265,13 +8289,53 @@ let accredComptes = {};
 let accredConsignes = {};
 let accredVilleFiltre = '';
 
-// S'inscrire aux tirages : l'équipe, ou un photographe dont le profil a été vérifié (capture validée dans
-// l'espace équipe). La base applique la même règle (est_photographe).
+// La vérification des profils est-elle exigée ? L'interrupteur vit dans la base (verification_exigee) et se change dans
+// l'espace équipe, onglet « Profils » : éteint (pause, par exemple pendant une phase de test), un photographe accède aux
+// accréditations sans être vérifié et personne n'est invité à faire vérifier son profil. Lu une fois au chargement
+// (chargerEtatVerification). Tant qu'on ne le sait pas, ou si la base ne répond pas, on la tient pour en pause : rien n'est
+// bloqué à tort, et la base applique de toute façon sa propre règle (est_photographe).
+var verificationExigee = false;
+var etatVerificationPromesse = null;
+
+function chargerEtatVerification(){
+
+  if(etatVerificationPromesse) return etatVerificationPromesse;
+
+  etatVerificationPromesse = (async () => {
+    try{
+      const { data, error } = await supabaseClient.rpc('verification_exigee');
+      if(!error && typeof data === 'boolean') appliquerEtatVerification(data);
+    }catch(erreur){
+      // La base n'a pas encore l'interrupteur : la vérification reste en pause côté site.
+    }
+  })();
+
+  return etatVerificationPromesse;
+}
+
+// Une nouvelle position de l'interrupteur : tout ce que le site en dit se met à jour.
+function appliquerEtatVerification(exigee){
+
+  const change = verificationExigee !== !!exigee;
+
+  verificationExigee = !!exigee;
+
+  majBandeauVerification();
+
+  if(!change) return;
+
+  verifierAccesAccreditations();
+  majAccesAccreditations();
+  rendreCarteVerification();
+}
+
+// S'inscrire aux tirages : l'équipe, ou un photographe. Quand la vérification est exigée, il faut de plus que son profil
+// ait été vérifié (capture validée dans l'espace équipe). La base applique la même règle (est_photographe).
 function peutAccreditation(){
   if(!currentUser) return false;
   if(currentUser.isAdmin) return true;
-  return ROLES_ACCREDITATION.includes(roleNom(currentUser.role)) &&
-         !!currentUser.verifie && currentUser.verifieRole === 'Photographe';
+  if(!ROLES_ACCREDITATION.includes(roleNom(currentUser.role))) return false;
+  return !verificationExigee || (!!currentUser.verifie && currentUser.verifieRole === 'Photographe');
 }
 
 // Trouver la page : tout photographe, vérifié ou non, y trouve son chemin (le voile lui dit quoi faire).
@@ -10452,6 +10516,14 @@ async function ouvrirVerification(origine){
     return;
   }
 
+  if(!verificationExigee){
+    notifier('Vérification en pause', {
+      type: 'info',
+      detail: 'La vérification des profils reprendra à la fin de la phase de test.'
+    });
+    return;
+  }
+
   try{
     await chargerVerification();
     window.Verification.ouvrir({ origine: origine || 'profil' });
@@ -10466,6 +10538,8 @@ async function ouvrirParcours(options){
 
   try{
     await chargerParcours();
+    // Le parcours propose l'étape de vérification, ou non : il lui faut savoir si elle est en pause.
+    await chargerEtatVerification();
     await window.Parcours.ouvrir(options || {});
   }catch(erreur){
     console.warn("⚠️ Parcours d'inscription indisponible, ancien formulaire :", erreur.message);
@@ -10983,8 +11057,9 @@ async function rendreCarteVerification(){
         "L'équipe a validé ton profil " + escapeHtml(role) +
         (moi.verifieLe ? ' le ' + date(moi.verifieLe) : '') + ". Le badge s'affiche à côté de ton nom.");
 
-    } else {
+    } else if(verificationExigee){
 
+      // (Vérification en pause : aucune carte, personne n'est invité à la demander. Un badge déjà accordé s'affiche quand même.)
       const { data, error } = await supabaseClient.rpc('verification_ma_demande');
 
       // Base pas encore passée à profils-verifies.sql : pas de carte, plutôt qu'un bouton qui échouerait.
@@ -13438,6 +13513,9 @@ renderCatalogue();
 
 // Reprend la session laissée par une visite précédente.
 restoreSession();
+
+// La vérification des profils est-elle en pause ? (interrupteur de la base)
+chargerEtatVerification();
 
 // Applique l'adresse d'arrivée : un lien partagé vers une sortie ou
 // un artiste ouvre directement la bonne page. Une adresse inattendue ne
@@ -25964,6 +26042,71 @@ document.querySelectorAll('input[name="profils-filtre"]').forEach(radio => {
   });
 });
 
+// Le bandeau en tête de l'onglet : la vérification est-elle active ou en pause ? Avec le bouton pour l'autre position, et
+// une confirmation : réactiver ferme les accréditations aux photographes non vérifiés. C'est aussi le rappel de la phase de test.
+function majBandeauVerification(){
+
+  const zone = document.getElementById('profilsEtat');
+  if(!zone) return;
+
+  zone.innerHTML = verificationExigee
+    ? `
+      <div class="vf-reglage actif">
+        <span class="vf-ic" aria-hidden="true">${iconeVerifie()}</span>
+        <div class="vf-texte">
+          <b>La vérification est active</b>
+          <span>Un photographe doit être vérifié pour accéder aux accréditations, et chaque membre d'un métier de la
+          musique ou de l'image est invité à faire vérifier son profil.</span>
+        </div>
+        <button type="button" class="btn btn-ghost" onclick="openConfirmPanel('vf-pause-confirme')">Mettre en pause</button>
+      </div>
+      <div class="confirm-panel vf-panneau" id="vf-pause-confirme">
+        <p>Mettre la vérification en pause ? Les photographes accèdent aux accréditations sans être vérifiés, et plus
+        personne n'est invité à faire vérifier son profil. Les badges déjà accordés restent.</p>
+        <div class="inline-actions">
+          <button type="button" class="btn btn-ghost" onclick="reglerVerification(false)">Oui, mettre en pause</button>
+          <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('vf-pause-confirme')">Annuler</button>
+        </div>
+      </div>`
+    : `
+      <div class="vf-reglage pause">
+        <span class="vf-ic" aria-hidden="true">⏸</span>
+        <div class="vf-texte">
+          <b>Vérification en pause — phase de test</b>
+          <span>Les photographes accèdent aux accréditations sans être vérifiés, et personne n'est invité à faire vérifier
+          son profil. <strong>À réactiver quand la phase de test sera levée.</strong></span>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="openConfirmPanel('vf-reprise-confirme')">Réactiver la vérification</button>
+      </div>
+      <div class="confirm-panel vf-panneau" id="vf-reprise-confirme">
+        <p>Réactiver la vérification ? Un photographe devra être vérifié pour accéder aux accréditations : ceux qui ne le sont
+        pas perdront l'accès tant que tu n'auras pas validé leur profil. Tous les membres d'un métier de la musique ou de
+        l'image seront de nouveau invités à faire vérifier le leur.</p>
+        <div class="inline-actions">
+          <button type="button" class="btn btn-primary" onclick="reglerVerification(true)">Oui, réactiver</button>
+          <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('vf-reprise-confirme')">Annuler</button>
+        </div>
+      </div>`;
+}
+
+async function reglerVerification(exigee){
+
+  const { data, error } = await supabaseClient.rpc('verification_regler', { p_exigee: !!exigee });
+
+  if(error){
+    setRowMessage('profilsActionMsg', /Could not find the function|schema cache/i.test(error.message)
+      ? "L'interrupteur n'existe pas encore dans la base : le fichier profils-verifies.sql n'a pas été passé."
+      : 'Action impossible : ' + error.message, 'err');
+    return;
+  }
+
+  appliquerEtatVerification(!!data);
+
+  setRowMessage('profilsActionMsg', data
+    ? 'Vérification réactivée : les photographes doivent être vérifiés pour accéder aux accréditations.'
+    : 'Vérification en pause : les photographes accèdent aux accréditations sans être vérifiés.', 'ok');
+}
+
 // Le nombre de demandes à traiter, pour la pastille de l'onglet : lu à l'ouverture de l'espace équipe.
 async function chargerCompteVerifications(){
 
@@ -25978,6 +26121,8 @@ async function chargerProfilsAVerifier(){
 
   const zone = document.getElementById('profilsListe');
   if(!zone) return;
+
+  majBandeauVerification();
 
   zone.innerHTML = `<div class="empty-state chargement">Chargement des demandes...</div>`;
 
