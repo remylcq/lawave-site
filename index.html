@@ -10555,7 +10555,10 @@ document.getElementById('profilePhotoInput').addEventListener('change', (e)=>{
   if(!file) return;
   const allowed = ['image/png', 'image/jpeg', 'image/webp'];
   if(!allowed.includes(file.type)){
-    alert("Seules les images (JPG, PNG, WEBP) sont acceptées — pas de GIF ni de vidéo.");
+    notifier('Format refusé', {
+      type: 'erreur',
+      detail: 'Seules les images JPG, PNG ou WEBP sont acceptées — pas de GIF ni de vidéo.'
+    });
     e.target.value = '';
     return;
   }
@@ -25239,42 +25242,63 @@ async function renderForumModeration(){
     return (c.auteur ? c.auteur.pseudo + ' : ' : '') + String(c.extrait || '').slice(0, 140);
   };
 
+  // Les suppressions se confirment dans la page, jamais avec confirm() : un navigateur qui a bloqué les
+  // boîtes de dialogue d'une page rendrait le bouton muet (voir « CONFIRMATIONS INLINE — ADMIN »).
+  const confirmation = (id, question, action) => `
+    <div class="confirm-panel danger" id="${id}" style="flex-basis:100%;">
+      <p>${question}</p>
+      <div class="inline-actions">
+        <button type="button" class="btn btn-ghost" onclick="${action}">Oui, supprimer</button>
+        <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('${id}')">Annuler</button>
+      </div>
+    </div>`;
+
   list.innerHTML = `
+    <div class="form-msg" id="forumModMsg"></div>
+
     <span class="eyebrow mono">Signalements ouverts · ${liste.length}</span>
-    ${liste.length ? liste.map(s => `
-      <div class="admin-row">
+    ${liste.length ? liste.map(s => {
+      const id = escapeAttribute(s.id);
+      return `
+      <div class="admin-row" style="flex-wrap:wrap;">
         <div class="meta">
           <h4>${escapeHtml(motifs[s.motif] || s.motif)} — signalé par ${escapeHtml(s.auteur ? s.auteur.pseudo : '?')}</h4>
           <span>${escapeHtml(cibleTexte(s))}${s.details ? ' · « ' + escapeHtml(s.details) + ' »' : ''}</span>
         </div>
         <div class="admin-actions">
-          <button class="approve" onclick="traiterSignalementCom('${escapeAttribute(s.id)}','ignorer')">Ignorer</button>
-          <button class="reject" onclick="traiterSignalementCom('${escapeAttribute(s.id)}','supprimer')">Supprimer</button>
+          <button class="approve" onclick="traiterSignalementCom('${id}','ignorer')">Ignorer</button>
+          <button class="reject" onclick="openConfirmPanel('com-sig-suppr-${id}')">Supprimer</button>
         </div>
-      </div>`).join('') : `<div class="empty-state">Aucun signalement en attente.</div>`}
+        ${confirmation('com-sig-suppr-' + id, 'Supprimer le contenu signalé ? Cette action est définitive.',
+                       "traiterSignalementCom('" + id + "','supprimer')")}
+      </div>`;
+    }).join('') : `<div class="empty-state">Aucun signalement en attente.</div>`}
 
     <span class="eyebrow mono" style="margin-top:28px;">Derniers messages</span>
-    ${posts.length ? posts.map(p => `
-      <div class="admin-row">
+    ${posts.length ? posts.map(p => {
+      const id = escapeAttribute(p.id);
+      return `
+      <div class="admin-row" style="flex-wrap:wrap;">
         <div class="meta">
           <h4>${escapeHtml(p.auteur ? p.auteur.pseudo : '?')}${p.epingle ? ' · ' + '<i class="eq-i eq-i-epingle"></i>' + 'épinglé' : ''}</h4>
           <span>${escapeHtml(String(p.contenu || '(image ou lien)').slice(0, 120))}${(p.contenu || '').length > 120 ? '…' : ''} · ${p.nb_commentaires} commentaire(s)</span>
         </div>
         <div class="admin-actions">
-          <button class="approve" onclick="epinglerPostCom('${escapeAttribute(p.id)}', ${p.epingle ? 'false' : 'true'})">${p.epingle ? 'Désépingler' : 'Épingler'}</button>
-          <button class="reject" onclick="supprimerPostCom('${escapeAttribute(p.id)}')">Supprimer</button>
+          <button class="approve" onclick="epinglerPostCom('${id}', ${p.epingle ? 'false' : 'true'})">${p.epingle ? 'Désépingler' : 'Épingler'}</button>
+          <button class="reject" onclick="openConfirmPanel('com-post-suppr-${id}')">Supprimer</button>
         </div>
-      </div>`).join('') : `<div class="empty-state">Aucun message publié pour l'instant.</div>`}`;
+        ${confirmation('com-post-suppr-' + id, 'Supprimer ce message ? Cette action est définitive.',
+                       "supprimerPostCom('" + id + "')")}
+      </div>`;
+    }).join('') : `<div class="empty-state">Aucun message publié pour l'instant.</div>`}`;
 }
 
 async function traiterSignalementCom(id, action){
 
-  if(action === 'supprimer' && !confirm('Supprimer le contenu signalé ? Cette action est définitive.')) return;
-
   const { error } = await supabaseClient.rpc('com_traiter_signalement', { p_id: id, p_action: action });
 
   if(error){
-    alert('Action impossible : ' + error.message);
+    setRowMessage('forumModMsg', 'Action impossible : ' + error.message, 'err');
     return;
   }
 
@@ -25286,7 +25310,7 @@ async function epinglerPostCom(id, actif){
   const { error } = await supabaseClient.rpc('com_epingler', { p_id: id, p_actif: actif });
 
   if(error){
-    alert('Action impossible : ' + error.message);
+    setRowMessage('forumModMsg', 'Action impossible : ' + error.message, 'err');
     return;
   }
 
@@ -25295,12 +25319,10 @@ async function epinglerPostCom(id, actif){
 
 async function supprimerPostCom(id){
 
-  if(!confirm('Supprimer ce message ? Cette action est définitive.')) return;
-
   const { data, error } = await supabaseClient.rpc('com_supprimer_post', { p_id: id });
 
   if(error){
-    alert('Suppression impossible : ' + error.message);
+    setRowMessage('forumModMsg', 'Suppression impossible : ' + error.message, 'err');
     return;
   }
 
