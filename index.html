@@ -4307,7 +4307,7 @@
            demander une accréditation. -->
       <div class="section-head" style="margin-top:32px;">
         <div>
-          <span class="eyebrow">Vos envies</span>
+          <span class="eyebrow">Tes envies</span>
           <h3>Proposer un concert</h3>
           <p class="desc">
             Un concert, un festival, une salle où tu aimerais shooter : dis-le-nous,
@@ -5600,6 +5600,12 @@
         <div class="field" data-etape><label>Pseudo</label><input type="text" id="signupPseudo" maxlength="40"></div>
         <div class="field" data-etape><label>Email</label><input type="email" id="signupEmail"></div>
         <div class="field" data-etape><label>Mot de passe</label><input type="password" id="signupPassword"></div>
+        <!-- Le rôle se choisit dès l'inscription : un photographe n'a pas à fouiller son profil pour accéder
+             aux accréditations. Rempli avec les mêmes rôles que le profil (voir fillRoleSelect). -->
+        <div class="field">
+          <label for="signupRole">Tu es plutôt…</label>
+          <select id="signupRole"></select>
+        </div>
         <button class="btn btn-primary" data-envoi style="width:100%; justify-content:center;" onclick="submitSignup()">Créer mon compte</button>
         <div class="form-msg" id="signupMsg"></div>
       </div>
@@ -5767,8 +5773,14 @@ const Auth = {
     return (data && data.session) || null;
   },
 
-  async inscrire(email, motDePasse){
-    return supabaseClient.auth.signUp({ email, password: motDePasse });
+  // `choix` (pseudo, rôle) accompagne le compte : si la confirmation par email est exigée, le profil ne
+  // naît qu'à la première connexion, et ce qui a été tapé ici s'y retrouve (voir ensureProfileExists).
+  async inscrire(email, motDePasse, choix){
+    return supabaseClient.auth.signUp({
+      email,
+      password: motDePasse,
+      options: choix ? { data: choix } : undefined
+    });
   },
 
   async connecter(email, motDePasse){
@@ -6256,6 +6268,49 @@ const BD = {
   majEvenementAccreditation(id, champs){
     return supabaseClient
       .from('evenements_accreditation').update(champs).eq('id', id).select();
+  },
+
+  // Les consignes aux photographes retenus (rendez-vous, contact sur place) ne doivent pas être lisibles de
+  // tous : l'événement, lui, est public. Elles vivent dans leur propre table, que la base ne montre qu'à
+  // l'équipe et aux photographes retenus pour l'événement (voir sql/accreditations-consignes-privees.sql).
+  // Tant que ce fichier n'est pas passé, la table n'existe pas : la colonne `consignes` de l'événement
+  // sert de repli, pour que rien ne casse entre la mise en ligne du site et le passage du SQL.
+  consignesTableAbsente(erreur){
+    return !!erreur && (
+      erreur.code === '42P01' || erreur.code === 'PGRST205' ||
+      /consignes_accreditation/.test(erreur.message || '') && /does not exist|schema cache|introuvable/i.test(erreur.message || '')
+    );
+  },
+
+  async consignesAccreditation(){
+    const r = await supabaseClient.from('consignes_accreditation').select('evenement_id, texte');
+    return r.error ? { data: [], error: null } : r;
+  },
+
+  async consignesDe(evenementId, secours){
+    const r = await supabaseClient
+      .from('consignes_accreditation').select('texte').eq('evenement_id', evenementId).maybeSingle();
+    if(r.error) return secours || '';
+    return r.data ? r.data.texte : (secours || '');
+  },
+
+  async enregistrerConsignes(evenementId, texte){
+
+    const t = String(texte || '').trim();
+
+    const r = t
+      ? await supabaseClient.from('consignes_accreditation')
+          .upsert({ evenement_id: evenementId, texte: t, maj_le: new Date().toISOString() }, { onConflict: 'evenement_id' })
+          .select()
+      : await supabaseClient.from('consignes_accreditation')
+          .delete().eq('evenement_id', evenementId).select();
+
+    if(r.error && BD.consignesTableAbsente(r.error)){
+      return supabaseClient.from('evenements_accreditation')
+        .update({ consignes: t || null }).eq('id', evenementId).select();
+    }
+
+    return r;
   },
 
   supprimerEvenementAccreditation(id){
@@ -8028,6 +8083,7 @@ const ROLES_ACCREDITATION = ['Photographe'];
 let accredEvenements = [];
 let accredMesInscriptions = [];
 let accredComptes = {};
+let accredConsignes = {};
 let accredVilleFiltre = '';
 
 function peutAccreditation(){
@@ -8088,9 +8144,9 @@ function verifierAccesAccreditations(){
 
   if(!currentUser){
     texte.textContent =
-      'Cette page est réservée aux comptes photographes. Crée-toi un compte ' +
-      'avec ce rôle : tu pourras t’inscrire aux tirages au sort des places ' +
-      'que La Wave obtient.';
+      'Cette page est réservée aux comptes photographes. Crée-toi un compte en ' +
+      'choisissant le rôle «\u00a0Photographe\u00a0» : tu pourras t’inscrire aux ' +
+      'tirages au sort des places que La Wave obtient.';
     actions.innerHTML = `
       <button type="button" class="btn btn-primary"
               onclick="openAuthModal('signup')">Créer un compte</button>
@@ -8101,7 +8157,7 @@ function verifierAccesAccreditations(){
 
   texte.textContent =
     'Cette page est réservée aux comptes photographes. Ton profil indique ' +
-    '« ' + roleNom(currentUser.role) + '  » : choisis « Photographe » si ' +
+    '«\u00a0' + roleNom(currentUser.role) + '\u00a0» : choisis «\u00a0Photographe\u00a0» si ' +
     'c’est ton cas.';
 
   actions.innerHTML = `
@@ -8149,14 +8205,19 @@ function accredPourChamp(valeur){
 
 async function chargerAccreditations(pourEquipe){
 
-  const [evenements, inscriptions, comptes] = await Promise.all([
+  const [evenements, inscriptions, comptes, consignes] = await Promise.all([
     BD.evenementsAccreditation(pourEquipe),
     currentUser ? BD.mesInscriptionsAccreditation() : Promise.resolve({ data: [] }),
-    BD.comptesInscriptionsAccreditation()
+    BD.comptesInscriptionsAccreditation(),
+    currentUser ? BD.consignesAccreditation() : Promise.resolve({ data: [] })
   ]);
 
   accredEvenements = evenements.data || [];
   accredMesInscriptions = inscriptions.data || [];
+
+  // Les consignes ne reviennent que pour les événements où l'on est retenu (la base filtre).
+  accredConsignes = {};
+  (consignes.data || []).forEach(c => { accredConsignes[c.evenement_id] = c.texte; });
 
   accredComptes = {};
   (comptes.data || []).forEach(ligne => {
@@ -8623,7 +8684,7 @@ function accredBoutonsHtml(evenement, mienne, ouvert){
   if(mienne.statut === 'inscrit'){
     return `
       <button type="button" class="btn btn-ghost"
-              onclick="accredSeRetirer('${id}')">Retirer mon inscription</button>`;
+              onclick="accredConfirmerRetrait(this, '${id}')">Retirer mon inscription</button>`;
   }
 
   if(mienne.statut === 'retenu'){
@@ -9192,6 +9253,29 @@ async function accredEnvoyerInscription(evenement, id){
 }
 
 
+// Un retrait peut coûter la place (la date limite passée, on ne se réinscrit plus) : le premier clic
+// demande confirmation sur le bouton même, le second retire ; sans réponse, le bouton se réarme seul.
+function accredConfirmerRetrait(bouton, id){
+
+  if(bouton.dataset.confirme === '1'){
+    clearTimeout(bouton._minuteur);
+    accredSeRetirer(id);
+    return;
+  }
+
+  const libelle = bouton.textContent;
+
+  bouton.dataset.confirme = '1';
+  bouton.textContent = 'Confirmer le retrait ?';
+
+  clearTimeout(bouton._minuteur);
+  bouton._minuteur = setTimeout(() => {
+    bouton.dataset.confirme = '';
+    bouton.textContent = libelle;
+  }, 4000);
+}
+
+
 async function accredSeRetirer(id){
 
   const mienne = accredMesInscriptions.find(i => i.evenement_id === id);
@@ -9275,6 +9359,10 @@ function suiviAccredHtml(inscription, evenement){
 
   const date = evenement ? accredDateTexte(evenement.date_evenement, true) : '';
 
+  // La table des consignes d'abord ; la colonne de l'événement tant que la base n'a pas été passée à
+  // accreditations-consignes-privees.sql.
+  const consignes = accredConsignes[inscription.evenement_id] || (evenement && evenement.consignes) || '';
+
   return `
     <article class="accred-suivi-ligne">
 
@@ -9287,10 +9375,10 @@ function suiviAccredHtml(inscription, evenement){
       </div>
 
       ${
-        inscription.statut === 'retenu' && evenement && evenement.consignes
+        inscription.statut === 'retenu' && consignes
           ? `<div class="accred-consignes">
                <span class="eyebrow" style="margin-bottom:6px;">Consignes de l'équipe</span>
-               <p style="margin:0; white-space:pre-wrap;">${escapeHtml(evenement.consignes)}</p>
+               <p style="margin:0; white-space:pre-wrap;">${escapeHtml(consignes)}</p>
              </div>`
           : ''
       }
@@ -9739,13 +9827,15 @@ function roleBadgeHtml(nom, taille){
   >${r.icon} ${escapeHtml(r.name)}</span>`;
 }
 
-// Remplit le menu déroulant du profil.
+// Remplit les menus déroulants des rôles : celui du profil, celui de l'inscription.
 (function fillRoleSelect(){
-  const sel = document.getElementById('profileRole');
-  if(!sel) return;
-  sel.innerHTML = MEMBER_ROLES
+  const options = MEMBER_ROLES
     .map(r => `<option value="${escapeAttribute(r.name)}">${r.icon} ${r.name}</option>`)
     .join('');
+  ['profileRole', 'signupRole'].forEach(id => {
+    const sel = document.getElementById(id);
+    if(sel) sel.innerHTML = options;
+  });
 })();
 
 
@@ -9813,7 +9903,12 @@ async function ensureProfileExists(authUser){
   const existant = await fetchProfile(authUser.id);
   if(existant) return existant;
 
-  const base =
+  // Le pseudo et le rôle choisis à l'inscription, quand ils ont voyagé avec le compte.
+  const choix = authUser.user_metadata || {};
+  const roleChoisi = MEMBER_ROLES.some(r => r.name === choix.role) ? choix.role : MEMBER_ROLES[0].name;
+  const pseudoChoisi = String(choix.pseudo || '').trim().slice(0, 40);
+
+  const base = pseudoChoisi ||
     (authUser.email || 'membre')
       .split('@')[0]
       .replace(/[^\w.-]/g, '') || 'membre';
@@ -9826,7 +9921,7 @@ async function ensureProfileExists(authUser){
     const { error } = await BD.creerProfil({
       id: authUser.id,
       pseudo,
-      role: MEMBER_ROLES[0].name,
+      role: roleChoisi,
       socials: { instagram:'', twitter:'', tiktok:'', spotify:'', appleMusic:'', deezer:'' },
       xp: 0,
       challenges: { date: todayStr(), postForum:false, commentForum:false, instaComment:false },
@@ -10096,7 +10191,11 @@ async function submitSignup(){
   msg.className = 'form-msg ok';
 
   // 1. Le compte lui-même (mot de passe haché par Supabase).
-  const { data, error } = await Auth.inscrire(email, password);
+  // Le rôle de la liste, jamais une valeur venue d'ailleurs (le menu peut avoir été modifié).
+  const roleChoisi = document.getElementById('signupRole').value;
+  const role = MEMBER_ROLES.some(r => r.name === roleChoisi) ? roleChoisi : MEMBER_ROLES[0].name;
+
+  const { data, error } = await Auth.inscrire(email, password, { pseudo, role });
 
   if(error){
     msg.textContent = error.message.includes('already registered')
@@ -10118,7 +10217,7 @@ async function submitSignup(){
   const { error: profilError } = await BD.creerProfil({
     id: data.user.id,
     pseudo,
-    role: MEMBER_ROLES[0].name,
+    role,
     socials: { instagram:'', twitter:'', tiktok:'', spotify:'', appleMusic:'', deezer:'' },
     xp: 0,
     challenges: { date: todayStr(), postForum:false, commentForum:false, instaComment:false },
@@ -20008,6 +20107,12 @@ function adminEvenementHtml(evenement){
   const enAttente = inscrits.filter(i => i.statut === 'inscrit');
   const livraisons = retenus.filter(i => i.livraison_url);
 
+  const placesLibres = Math.max(evenement.places - retenus.length, 0);
+
+  // Le tirage ne regarde que ceux déjà inscrits : si les inscriptions sont encore ouvertes, les suivants
+  // resteraient sans réponse. La confirmation le dit.
+  const inscriptionsOuvertes = evenement.statut === 'ouvert' && !accredDatePassee(evenement.inscriptions_jusqu_au);
+
   const etats = {
     brouillon: 'Brouillon — invisible du public',
     ouvert:    'Ouvert aux inscriptions',
@@ -20045,8 +20150,8 @@ function adminEvenementHtml(evenement){
         ${
           enAttente.length
             ? `<button type="button" class="btn btn-primary"
-                       onclick="lancerTirage('${id}')">
-                 Tirer au sort (${Math.max(evenement.places - retenus.length, 0)} place${evenement.places - retenus.length > 1 ? 's' : ''})
+                       onclick="openConfirmPanel('ev-tirage-${id}')">
+                 Tirer au sort (${placesLibres} place${placesLibres > 1 ? 's' : ''})
                </button>`
             : ''
         }
@@ -20084,6 +20189,31 @@ function adminEvenementHtml(evenement){
                   onclick="closeConfirmPanel('ev-suppr-${id}')">Annuler</button>
         </div>
       </div>
+
+      ${
+        enAttente.length
+          ? `<div class="confirm-panel" id="ev-tirage-${id}">
+               <p>
+                 Tirer au sort ${placesLibres} place${placesLibres > 1 ? 's' : ''} parmi
+                 ${enAttente.length} inscrit${enAttente.length > 1 ? 's' : ''} en attente ?
+                 Le tirage est définitif : les autres inscrits passent en « non retenus ».
+                 ${
+                   inscriptionsOuvertes
+                     ? `<br><strong>Les inscriptions sont encore ouvertes.</strong> Ceux qui s'inscriront après
+                        ce tirage ne seront pas tirés : si tu veux les arrêter, passe d'abord l'événement à
+                        « Inscriptions closes » (Modifier).`
+                     : ''
+                 }
+               </p>
+               <div class="inline-actions">
+                 <button type="button" class="btn btn-primary"
+                         onclick="lancerTirage('${id}')">Oui, tirer au sort</button>
+                 <button type="button" class="btn btn-ghost"
+                         onclick="closeConfirmPanel('ev-tirage-${id}')">Annuler</button>
+               </div>
+             </div>`
+          : ''
+      }
 
       <div class="form-msg" id="admin-accred-msg-${id}"></div>
 
@@ -20259,8 +20389,11 @@ function ouvrirFormulaireEvenement(id, prefill){
 
   // Relu en base plutôt que repris de l'affichage : entre-temps, l'autre
   // membre de l'équipe a pu modifier la fiche.
-  BD.evenementsAccreditation(true).then(({ data }) => {
-    afficher((data || []).find(x => x.id === id) || null);
+  BD.evenementsAccreditation(true).then(async ({ data }) => {
+    const evenement = (data || []).find(x => x.id === id) || null;
+    // Les consignes sont dans leur propre table (voir BD.consignesDe).
+    if(evenement) evenement.consignes = await BD.consignesDe(id, evenement.consignes);
+    afficher(evenement);
   });
 }
 
@@ -20382,12 +20515,21 @@ async function enregistrerEvenement(){
     inscriptions_jusqu_au: valeur('ev-limite') ? new Date(valeur('ev-limite')).toISOString() : null,
     statut: valeur('ev-statut') || 'brouillon',
     description: valeur('ev-description') || null,
-    consignes: valeur('ev-consignes') || null,
     image_url: valeur('ev-image') || null
   };
 
+  // Les consignes ne partent pas avec l'événement, qui est public : voir BD.enregistrerConsignes.
+  const consignes = valeur('ev-consignes');
+
   if(!champs.artiste || !champs.salle || !champs.date_evenement){
     msg.textContent = "L'artiste, la salle et la date sont nécessaires.";
+    msg.className = 'form-msg err';
+    return;
+  }
+
+  // Une limite après le concert n'a pas de sens : le tirage se ferait trop tard pour s'organiser.
+  if(champs.inscriptions_jusqu_au && champs.inscriptions_jusqu_au > champs.date_evenement){
+    msg.textContent = "La date limite d'inscription doit être avant le concert.";
     msg.className = 'form-msg err';
     return;
   }
@@ -20409,6 +20551,21 @@ async function enregistrerEvenement(){
   if(!data || (Array.isArray(data) && data.length === 0)){
     msg.textContent = 'Refusé : connecte-toi avec un compte marqué administrateur.';
     msg.className = 'form-msg err';
+    return;
+  }
+
+  // L'événement est enregistré : s'il vient d'être créé, le formulaire en retient l'identifiant, pour qu'un
+  // nouvel essai (les consignes ci-dessous) modifie la fiche au lieu d'en créer une seconde.
+  const evenementId = id || (Array.isArray(data) ? data[0] : data).id;
+  const champId = document.getElementById('ev-id');
+  if(champId) champId.value = evenementId;
+
+  const resultat = await BD.enregistrerConsignes(evenementId, consignes);
+
+  if(resultat.error){
+    msg.textContent = "L'événement est enregistré, mais pas ses consignes : " + resultat.error.message;
+    msg.className = 'form-msg err';
+    await renderAdminAccreditations();
     return;
   }
 
