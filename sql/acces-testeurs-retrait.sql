@@ -19,6 +19,12 @@
 --      serveur.
 --   3. Passer ce fichier dans l'éditeur SQL de Supabase.
 --   4. Facultatif : si un .htaccess protégeait le site, le retirer aussi.
+--   5. RÉACTIVER LA VÉRIFICATION DES PROFILS, mise en pause pendant la phase de
+--      test (le 2026-10-14) : espace équipe → onglet « Profils » → bouton
+--      « Réactiver la vérification » (ou, dans l'éditeur SQL :
+--      update public.verification_reglage set exigee = true;). Ensuite, les
+--      photographes devront être vérifiés pour accéder aux accréditations : valider
+--      d'abord ceux qui sont déjà inscrits. Voir profils-verifies.sql, section 6.
 --
 -- (Les navigateurs des testeurs gardent une clé « lw-portail-jeton » dans leur
 -- stockage local : inoffensive, plus rien ne la lit.)
