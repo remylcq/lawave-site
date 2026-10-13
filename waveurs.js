@@ -44,10 +44,11 @@ if(window.Waveurs) return;
 
 const VERSION = 2;
 
-const SOURCES_THREE = [
-  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
-  'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'
-];
+// Depuis Three.js r155, l'intensité d'une lumière n'est plus multipliée par π en interne : pour garder l'éclairage
+// réglé sur l'ancienne version, on le fait ici. Les lampes ponctuelles s'éteignent aussi autrement avec la
+// distance (inverse du carré, fenêtre) : ECHELLE_PONCTUELLES les recale (mesuré sur 8 vues, voir __lum).
+const PI_LUMIERE = Math.PI;
+const ECHELLE_PONCTUELLES = 1;
 
 // Rempli quand la bibliothèque est chargée.
 let THREE = null;
@@ -3564,60 +3565,60 @@ function webglDispo(){
   }
 }
 
-function chargerScript(url){
-  return new Promise((ok, ko) => {
-    const s = document.createElement('script');
-    s.src = url;
-    s.async = true;
-    s.onload = ok;
-    s.onerror = () => ko(new Error('chargement'));
-    document.head.appendChild(s);
-  });
-}
-
+// Three.js (r170) et son chargeur glTF sont servis avec le site (dossier lib/three/, voir son LISEZMOI) : un
+// module ES, chargé par import(). Les adresses ne portent pas de numéro de version : un module est identifié par
+// son adresse, et le chargeur glTF doit retrouver la même copie de Three.js que nous.
 async function assurerThree(){
 
-  if(window.THREE){
-    THREE = window.THREE;
-    return;
-  }
+  if(THREE) return;
 
-  for(const url of SOURCES_THREE){
-    try{
-      await chargerScript(url);
-      if(window.THREE){
-        THREE = window.THREE;
-        return;
-      }
-    }catch(e){ /* on essaie la source suivante */ }
-  }
+  try{
+    const noyau = await import('./lib/three/three.module.min.js');
+    const { GLTFLoader } = await import('./lib/three/GLTFLoader.js');
+    const { MeshoptDecoder } = await import('./lib/three/meshopt_decoder.module.js');
 
-  throw new Error("La bibliothèque 3D n'a pas pu être chargée. Vérifie ta connexion et réessaie.");
+    // Le module est figé : une copie ordinaire, à laquelle on ajoute le chargeur.
+    THREE = Object.assign({}, noyau, { GLTFLoader, MeshoptDecoder });
+
+    // Le jeu calcule en couleurs « brutes » (ni décodage ni encodage sRGB, comme pour les textures dessinées
+    // par le code) : on garde ce réglage, que la salle a été réglée à l'œil.
+    THREE.ColorManagement.enabled = false;
+
+    // Les lampes ponctuelles de la salle ont été réglées avec l'ancienne façon de s'éteindre à distance
+    // (de 1 à côté de la lampe jusqu'à 0 à sa portée) ; la nouvelle (inverse du carré) les rendrait trop
+    // contrastées. On remet l'ancienne : le calcul est celui de Three.js r128.
+    const avant = THREE.ShaderChunk.lights_pars_begin;
+    THREE.ShaderChunk.lights_pars_begin = avant.replace(/float getDistanceAttenuation\([\s\S]*?\n\}\n/,
+      `float getDistanceAttenuation( const in float lightDistance, const in float cutoffDistance, const in float decayExponent ) {
+	if ( cutoffDistance > 0.0 && decayExponent > 0.0 ) {
+		return pow( saturate( - lightDistance / cutoffDistance + 1.0 ), decayExponent );
+	}
+	return 1.0;
+}
+`);
+    if(THREE.ShaderChunk.lights_pars_begin === avant) console.warn('Atténuation des lampes : remplacement impossible');
+  }catch(e){
+    THREE = null;
+    throw new Error("La bibliothèque 3D n'a pas pu être chargée. Vérifie ta connexion et réessaie.");
+  }
 }
 
 // Les personnages modélisés dans Blender (dossier modeles/, fichiers .glb) : un
 // maillage unique, habillé de textures, lié à un squelette dont les os portent
 // les noms des articulations de la classe Humain. Le chargeur de fichiers glTF
 // n'est pas dans le coeur de Three.js : on le prend au même endroit que lui.
-const SOURCES_GLTF = [
-  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/examples/js/loaders/GLTFLoader.js',
-  'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'
-];
 
 const MODELES = { dossier: 'modeles/', version: '?v=2' };
 
+// Le chargeur de fichiers glTF (il lit aussi les maillages compressés par meshopt).
 async function assurerGLTF(){
+  if(!THREE.GLTFLoader) throw new Error('chargeur glTF indisponible');
+}
 
-  if(THREE.GLTFLoader) return;
-
-  for(const url of SOURCES_GLTF){
-    try{
-      await chargerScript(url);
-      if(THREE.GLTFLoader) return;
-    }catch(e){ /* on essaie la source suivante */ }
-  }
-
-  throw new Error('chargeur glTF indisponible');
+function nouveauChargeurGLTF(){
+  const c = new THREE.GLTFLoader();
+  if(THREE.MeshoptDecoder) c.setMeshoptDecoder(THREE.MeshoptDecoder);
+  return c;
 }
 
 // Les mesures d'un modèle de Blender, tirées de la position de ses os au repos
@@ -3637,7 +3638,7 @@ function qualiteHD(){
 
 // Un fichier glTF, en promesse.
 function chargerGLTF(url){
-  return new Promise((ok, ko) => new THREE.GLTFLoader().load(url, ok, undefined, ko));
+  return new Promise((ok, ko) => nouveauChargeurGLTF().load(url, ok, undefined, ko));
 }
 
 function dimensionsModele(meta){
@@ -3806,7 +3807,7 @@ async function chargerMeubles(){
 
   await Promise.all(DECOR.meubles.map(nom => new Promise(ok => {
     try{
-      new THREE.GLTFLoader().load(DECOR.dossier + nom + '.glb' + DECOR.version, gltf => {
+      nouveauChargeurGLTF().load(DECOR.dossier + nom + '.glb' + DECOR.version, gltf => {
         try{
           gltf.scene.updateMatrixWorld(true);
           const parties = [];
@@ -3814,7 +3815,7 @@ async function chargerMeubles(){
             if(!o.isMesh) return;
             const mat = o.material;
             // Couleurs brutes, comme les textures dessinées par le code (voir R.texture).
-            ['map', 'emissiveMap'].forEach(k => { if(mat[k]) mat[k].encoding = THREE.LinearEncoding; });
+            ['map', 'emissiveMap'].forEach(k => { if(mat[k]) mat[k].colorSpace = THREE.NoColorSpace; });
             ['map', 'normalMap', 'roughnessMap'].forEach(k => { if(mat[k]) mat[k].anisotropy = R.aniso || 4; });
             mat.envMap = R.env || null;
             mat.envMapIntensity = 0.5;
@@ -3981,6 +3982,8 @@ async function construireMonde(){
   );
   ratioActuel = ratioMax;
   renderer.setPixelRatio(ratioActuel);
+  // Sortie en couleurs brutes (voir assurerThree).
+  renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 
   // Les effets de rendu (halo, étalonnage, reflets du sol). Les reflets sont
   // réservés aux ordinateurs : sur un téléphone, un second rendu de la salle
@@ -4072,18 +4075,16 @@ async function construireMonde(){
         .replace('#include <map_fragment>', `
           vec4 texelColor = vec4(0.0);
           for(int i = 0; i < 5; i++){
-            texelColor += texture2D(map, vUv + vec2((float(i) - 2.0) * uFlou * 0.011, 0.0));
+            texelColor += texture2D(map, vMapUv + vec2((float(i) - 2.0) * uFlou * 0.011, 0.0));
           }
           texelColor *= 0.2;
-          texelColor = mapTexelToLinear(texelColor);
           diffuseColor *= texelColor;`)
         .replace('#include <emissivemap_fragment>', `
           vec4 emissiveColor = vec4(0.0);
           for(int i = 0; i < 5; i++){
-            emissiveColor += texture2D(emissiveMap, vUv + vec2((float(i) - 2.0) * uFlou * 0.011, 0.0));
+            emissiveColor += texture2D(emissiveMap, vEmissiveMapUv + vec2((float(i) - 2.0) * uFlou * 0.011, 0.0));
           }
           emissiveColor *= 0.2;
-          emissiveColor.rgb = emissiveMapTexelToLinear(emissiveColor).rgb;
           totalEmissiveRadiance *= emissiveColor.rgb;`)
         .replace('#include <dithering_fragment>', `
           float bombe = clamp(dot(normalize(vNormal), normalize(vViewPosition)), 0.0, 1.0);
@@ -4283,7 +4284,7 @@ function construireSalle(){
   // depuis plusieurs points de vue ; au-dessus de 0,18, c'est trop clair. Le
   // nombre de lampes est compté : chacune se paie à chaque image, sur chaque
   // surface.
-  scene.add(new THREE.HemisphereLight(0xffe9d2, 0x22130b, 0.62));
+  scene.add(new THREE.HemisphereLight(0xffe9d2, 0x22130b, 0.62 * PI_LUMIERE));
 
   [
     [0, 4.2, 0.6, 0xffe2bc, 1.2, 14],           // le lustre, sur la machine et le podium
@@ -4295,7 +4296,7 @@ function construireSalle(){
     [0, 3.4, 7.2, 0xffe9d2, 0.76, 11],          // l'entrée
     [0, 2.2, -2.0, 0x39b8ff, 0.45, 7]           // le fil bleu La Wave
   ].forEach(([x, y, z, c, i, d]) => {
-    const l = new THREE.PointLight(c, i, d, 1.2);
+    const l = new THREE.PointLight(c, i * PI_LUMIERE * ECHELLE_PONCTUELLES, d, 1.2);
     l.position.set(x, y, z);
     scene.add(l);
   });
@@ -6419,11 +6420,10 @@ class Humain {
   // Le matériau d'une pièce du modèle : celui du fichier, un peu d'environnement.
   preparerMateriau(mat, nom){
 
-    mat.skinning = true;
     // Le jeu calcule en couleurs « brutes » (ni décodage ni encodage sRGB, comme pour les textures
     // dessinées par le code) : les images du fichier doivent être lues de la même façon, sinon elles
     // sortent beaucoup trop sombres.
-    ['map', 'emissiveMap'].forEach(k => { if(mat[k]) mat[k].encoding = THREE.LinearEncoding; });
+    ['map', 'emissiveMap'].forEach(k => { if(mat[k]) mat[k].colorSpace = THREE.NoColorSpace; });
     // Nettes aussi de biais (une peau vue de côté, un vêtement qui fuit).
     ['map', 'normalMap', 'roughnessMap'].forEach(k => { if(mat[k]) mat[k].anisotropy = R.aniso || 4; });
     if(R.env) mat.envMap = R.env;
@@ -9111,11 +9111,11 @@ function construireScenePaquet(){
   sc.add(rayons);
 
   // De quoi éclairer le booster (les cartes, elles, se passent de lumière).
-  sc.add(new THREE.AmbientLight(0xffffff, 0.62));
-  const clef = new THREE.DirectionalLight(0xffffff, 0.55);
+  sc.add(new THREE.AmbientLight(0xffffff, 0.62 * PI_LUMIERE));
+  const clef = new THREE.DirectionalLight(0xffffff, 0.55 * PI_LUMIERE);
   clef.position.set(1.5, 2, 3);
   sc.add(clef);
-  const lueur = new THREE.PointLight(0x6fb8ff, 0.7, 9);
+  const lueur = new THREE.PointLight(0x6fb8ff, 0.7 * PI_LUMIERE * ECHELLE_PONCTUELLES, 9);
   lueur.position.set(-1.6, 1.0, 2.2);
   sc.add(lueur);
 
