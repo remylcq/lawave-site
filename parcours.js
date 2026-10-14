@@ -1802,6 +1802,15 @@
     const avant = estEnregistree(id);
     const voulu = !avant;
 
+    // Une sortie déjà notée ou commentée ne se retire pas d'un clic de pochette : sa note et son avis partiraient avec.
+    if(avant){
+      const e = etatSortie(id);
+      if(e.note || e.avis || e.favori){
+        notifier('Cette sortie a une note ou un avis', { detail: 'Retire-la depuis sa fiche.' });
+        return;
+      }
+    }
+
     bouton.dataset.occupe = '1';
     bouton.setAttribute('aria-pressed', String(voulu));
 
