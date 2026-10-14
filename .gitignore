@@ -18,3 +18,5 @@ publication/
 # Configuration des serveurs MCP : contient une cle d'API personnelle.
 # Le depot est public, ce fichier ne doit jamais y arriver.
 .mcp.json
+__pycache__/
+outils/decor/_cache/

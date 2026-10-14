@@ -1,0 +1,13 @@
+# Les modèles 3D (.glb) : un type reconnu, et compressés à l'envoi (environ un quart de moins à télécharger).
+# Chaque règle est gardée par son module : si l'hébergement ne l'a pas, elle est ignorée, rien ne casse.
+# Ce fichier part avec le site (voir outils/deploiement/LISEZMOI.md) ; le dossier decor/ a le même.
+
+<IfModule mod_mime.c>
+  AddType model/gltf-binary .glb
+</IfModule>
+
+<IfModule mod_deflate.c>
+  <FilesMatch "\.glb$">
+    SetOutputFilter DEFLATE
+  </FilesMatch>
+</IfModule>
