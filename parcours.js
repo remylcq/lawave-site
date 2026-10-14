@@ -1772,7 +1772,8 @@
 
     if(!q) return catalogueTrie;
 
-    return catalogueTrie.filter(s =>
+    // Tout ce que le site a lu (le catalogue récent, et ce que la recherche vient de ramener du serveur).
+    return catalogueData.filter(s =>
       texteNu(s.title).includes(q) ||
       texteNu(s.artist).includes(q) ||
       (s.featuring || []).some(f => texteNu(f.nom).includes(q))
@@ -1930,11 +1931,23 @@
 
       champ.addEventListener('input', () => {
         clearTimeout(minuteur);
-        minuteur = setTimeout(() => {
+        minuteur = setTimeout(async () => {
           etat.recherche = champ.value;
           etat.sortiesVisibles = 24;
           dessinerSorties();
-        }, 140);
+
+          // Le catalogue est grand : les sorties plus anciennes se cherchent chez le serveur, puis la grille se met à jour.
+          const brut = champ.value;
+          if(texteNu(brut).trim().length >= 2 && typeof BD.catalogueChercher === 'function'){
+            try{
+              const { data } = await BD.catalogueChercher(brut, 60, 0);
+              if(champ.value === brut && data && data.length){
+                fusionnerSorties(data, true);
+                dessinerSorties();
+              }
+            }catch(erreur){ /* la mémoire suffit */ }
+          }
+        }, 220);
       });
 
       el.querySelector('#pc-grille').addEventListener('click', (ev) => {

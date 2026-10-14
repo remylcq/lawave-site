@@ -4976,15 +4976,18 @@ function profilEnteteHtml(V){
 // Les sorties que ce membre a écoutées : lues dans la mémoire du site (le catalogue et ses notes se chargent avec lui).
 function nbEcoutees(userId){
 
-  if(typeof toutesLesNotes === 'undefined' || typeof catalogueData === 'undefined') return 0;
+  if(typeof toutesLesNotes === 'undefined') return 0;
 
-  return toutesLesNotes.filter(n => n.user_id === userId && n.saved && catalogueData.some(c => c.id === n.release_id)).length;
+  return toutesLesNotes.filter(n => n.user_id === userId && n.saved).length;
 }
 
 // Le catalogue et les notes, indispensables à la collection ; chargés d'abord si la communauté est ouverte la première.
-async function preparerCollection(){
+async function preparerCollection(userId){
 
   if(typeof catalogueData !== 'undefined' && !catalogueData.length && typeof renderCatalogue === 'function') await renderCatalogue();
+
+  // Sa collection peut contenir des sorties plus anciennes que celles lues à l'ouverture du catalogue.
+  if(userId && typeof assurerSortiesDesNotes === 'function') await assurerSortiesDesNotes(userId);
 
   if(typeof chargerProfil === 'function') await chargerProfil();
 }
@@ -5097,7 +5100,7 @@ VUES.membre = {
 
         // La collection est dans un fichier à part : on la charge avant de dessiner les onglets.
         try{
-          await preparerCollection();
+          await preparerCollection(V.profil.id);
           window.Profil.poserFeuille();
           onglets.push(...window.Profil.onglets(!!V.rel.soi));
         }catch(erreur){
