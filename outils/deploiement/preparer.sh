@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Prépare le dossier à envoyer sur l'hébergement : seulement ce que le site sert,
-# jamais sql/, outils/, .github/ ni le .htaccess de la racine (celui-ci reste sur le serveur, à la main) ; ceux de modeles/ et decor/ partent avec leur dossier.
+# jamais sql/, outils/, .github/ ni le .htaccess de la racine (celui-ci reste sur le serveur, à la main) ; ceux de modeles/, decor/ et logos/ partent avec leur dossier.
 #
 # Les adresses des scripts (waveurs.js?v=12, communaute.js?v=3, portail.js?v=1, verification.js?v=1, parcours.js?v=1) reçoivent
 # l'empreinte du fichier : dès qu'un script change, son adresse change, et les navigateurs
@@ -27,6 +27,11 @@ fi
 # Les matières et les meubles du décor (Poly Haven, ambientCG : CC0), s'il y en a.
 if [ -d decor ]; then
   cp -r decor "$dest/decor"
+fi
+
+# Les logos des médias vérifiés posés par l'équipe (voir sql/logo-media.sql), s'il y en a.
+if [ -d logos ]; then
+  cp -r logos "$dest/logos"
 fi
 
 # Three.js et son chargeur glTF, servis avec le site (voir lib/three/LISEZMOI.md).

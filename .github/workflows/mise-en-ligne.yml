@@ -23,6 +23,7 @@ on:
       - profil.js
       - modeles/**
       - decor/**
+      - logos/**
       - lib/**
       - outils/deploiement/**
       - .github/workflows/mise-en-ligne.yml
