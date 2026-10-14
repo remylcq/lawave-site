@@ -162,6 +162,7 @@ const ICONES = {
   croix:     '<path d="M6 6l12 12M18 6 6 18"/>',
   coche:     '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
   chevronBas:'<path d="m6 9 6 6 6-6"/>',
+  chevronDroite:'<path d="m9 6 6 6-6 6"/>',
   retour:    '<path d="m15 18-6-6 6-6"/>',
   tendance:  '<path d="m3 17 6-6 4 4 8-8M15 7h6v6"/>',
   epingle:   '<path d="M12 17v5M8 3h8l-1 7 3 3v2H6v-2l3-3z"/>',
@@ -4210,25 +4211,40 @@ function membreHtml(m){
 
   const suit = !!(m.moi && m.moi.suit);
   const r = roleInfo(m.role);
-
-  // Une seule ligne de détail : ce qu'il cherche et propose, sinon un bout de sa description.
   const cherche = (m.cherche || []).map(libelleMetier).join(', ');
   const propose = (m.propose || []).map(libelleMetier).join(', ');
-  const resume = [cherche && 'Cherche ' + cherche, propose && 'Propose ' + propose].filter(Boolean).join(' · ') || m.bio || '';
 
   return `
-    <article class="com-membre" data-membre="${attr(m.id)}" data-act="membre" data-cle="${attr(m.pseudo)}" tabindex="0" aria-label="Profil de ${attr(m.pseudo)}">
-      ${avatarHtml(m, 'l')}
-      <div class="com-membre-id">
-        <div class="com-membre-nom">${nomHtml(m, { sansLien: true })}</div>
-        <div class="com-membre-sous">
-          <span>${esc(r.icon)} ${esc(r.name)}</span>
-          ${m.ville ? `<span class="com-sep">·</span><span class="com-ville">${esc(m.ville)}</span>` : ''}
-        </div>
-        ${resume ? `<p class="com-membre-resume">${esc(resume)}</p>` : ''}
+    <article class="com-profil-carte" data-membre="${attr(m.id)}" data-act="membre" data-cle="${attr(m.pseudo)}" tabindex="0" aria-label="Profil de ${attr(m.pseudo)}">
+      ${avatarHtml(m, 'xl')}
+      <div class="com-pc-nom">${nomHtml(m, { sansLien: true })}</div>
+      <div class="com-pc-sous">
+        <span>${esc(r.icon)} ${esc(r.name)}</span>
+        ${m.ville ? `<span class="com-sep">·</span><span class="com-ville">${esc(m.ville)}</span>` : ''}
       </div>
-      <div class="com-membre-actions">${boutonSuivre(m, suit)}</div>
+      ${m.bio ? `<p class="com-pc-bio">${esc(m.bio)}</p>` : ''}
+      ${cherche || propose ? `
+        <dl class="com-pc-metiers">
+          ${cherche ? `<div><dt>Cherche</dt><dd>${esc(cherche)}</dd></div>` : ''}
+          ${propose ? `<div><dt>Propose</dt><dd>${esc(propose)}</dd></div>` : ''}
+        </dl>` : ''}
+      <div class="com-pc-actions">${boutonSuivre(m, suit)}</div>
     </article>`;
+}
+
+// Des cartes vides pendant le chargement du défilé de profils.
+function squeletteProfils(n){
+  let html = '';
+  for(let k = 0; k < (n || 3); k++){
+    html += `
+      <div class="com-profil-carte" aria-hidden="true">
+        <span class="com-sq com-sq-rond" style="width:84px;height:84px"></span>
+        <span class="com-sq" style="width:55%;margin-top:6px"></span>
+        <span class="com-sq" style="width:75%"></span>
+        <span class="com-sq" style="width:90%;margin-top:14px"></span>
+      </div>`;
+  }
+  return html;
 }
 
 // Les suggestions sont gardées une minute : le fil, l'explorateur et la
@@ -4396,19 +4412,25 @@ VUES.explorer = {
         </div>
         <div class="com-filtres-actifs" data-ex-actifs></div>
       </div>
-      <div data-ex-suggestions></div>
       <div class="com-explorer-resultats">
         <div class="com-resultats-tete" data-ex-compte></div>
-        <div class="com-liste-membres" data-ex-liste></div>
-        <div class="com-bas"><div class="com-sentinelle" data-ex-sentinelle></div><div class="com-bas-etat" data-ex-bas></div></div>
+        <div class="com-carrousel">
+          <button type="button" class="com-fleche gauche" data-act="ex-defiler" data-sens="-1" aria-label="Profils précédents" hidden>${icone('retour', 20)}</button>
+          <div class="com-defile-profils" data-ex-defile tabindex="0" aria-label="Profils">
+            <div class="com-defile-liste" data-ex-liste></div>
+            <span class="com-sentinelle-h" data-ex-sentinelle></span>
+          </div>
+          <button type="button" class="com-fleche droite" data-act="ex-defiler" data-sens="1" aria-label="Profils suivants" hidden>${icone('chevronDroite', 20)}</button>
+        </div>
+        <div class="com-bas-etat" data-ex-bas></div>
       </div>`;
 
     V.hotes = {
       roles: $('[data-ex-roles]', V.el),
       affiner: $('[data-ex-affiner]', V.el),
       actifs: $('[data-ex-actifs]', V.el),
-      sugg: $('[data-ex-suggestions]', V.el),
       compte: $('[data-ex-compte]', V.el),
+      defile: $('[data-ex-defile]', V.el),
       liste: $('[data-ex-liste]', V.el),
       bas: $('[data-ex-bas]', V.el),
       sentinelle: $('[data-ex-sentinelle]', V.el)
@@ -4416,11 +4438,31 @@ VUES.explorer = {
 
     VUES.explorer.dessinerRoles(V);
 
+    // La suite se charge quand on approche de la fin du défilé.
     V.observateur = ('IntersectionObserver' in window)
-      ? new IntersectionObserver((es) => { if(es.some(x => x.isIntersecting)) VUES.explorer.plus(V); }, { rootMargin: '600px 0px' })
+      ? new IntersectionObserver((es) => { if(es.some(x => x.isIntersecting)) VUES.explorer.plus(V); }, { root: V.hotes.defile, rootMargin: '0px 500px 0px 0px' })
       : null;
 
     if(V.observateur) V.observateur.observe(V.hotes.sentinelle);
+
+    V.hotes.defile.addEventListener('scroll', () => VUES.explorer.majFleches(V), { passive: true });
+  },
+
+  // Les flèches n'apparaissent que là où il y a encore à voir.
+  majFleches(V){
+
+    const d = V.hotes.defile;
+    const pas = d.scrollWidth - d.clientWidth;
+
+    $('.com-fleche.gauche', V.el).hidden = d.scrollLeft < 8;
+    $('.com-fleche.droite', V.el).hidden = pas < 8 || d.scrollLeft > pas - 8;
+  },
+
+  defiler(V, sens){
+
+    const d = V.hotes.defile;
+
+    d.scrollBy({ left: sens * Math.max(240, d.clientWidth * 0.8), behavior: mouvementReduit() ? 'auto' : 'smooth' });
   },
 
   // Le métier cherché se choisit dans un petit menu, comme le sujet du fil.
@@ -4452,42 +4494,9 @@ VUES.explorer = {
       V.charge = true;
       VUES.explorer.charger(V, true);
     }
-
-    VUES.explorer.suggestionsBloc(V);
   },
 
   pause(){},
-
-  async suggestionsBloc(V){
-
-    // Sans filtre seulement : les suggestions sont une porte d'entrée, pas un résultat.
-    if(VUES.explorer.aDesFiltres(V)){
-      V.hotes.sugg.innerHTML = '';
-      return;
-    }
-
-    try{
-      const liste = await suggestions(false);
-
-      // Un filtre a pu être posé pendant l'attente : les suggestions s'effacent.
-      if(VUES.explorer.aDesFiltres(V)){ V.hotes.sugg.innerHTML = ''; return; }
-
-      V.hotes.sugg.innerHTML = liste.length ? `
-        <section class="com-sugg-bloc">
-          <h3 class="com-sous-titre">${moi() ? 'Pour toi' : 'À découvrir'}</h3>
-          <div class="com-defile com-defile-visages">
-            ${liste.slice(0, 10).map(m => `
-              <a class="com-visage" href="#community/membre/${attr(encodeURIComponent(m.pseudo))}" data-act="membre" data-cle="${attr(m.pseudo)}" data-membre="${attr(m.id)}">
-                ${avatarHtml(m, 'l')}
-                <b>${esc(m.pseudo)}</b>
-                <span>${esc(roleInfo(m.role).name)}</span>
-              </a>`).join('')}
-          </div>
-        </section>` : '';
-    }catch(e){
-      V.hotes.sugg.innerHTML = '';
-    }
-  },
 
   args(V, decalage){
     const e = V.etat;
@@ -4512,7 +4521,8 @@ VUES.explorer = {
     if(premiere){
       V.membres = [];
       V.fin = false;
-      V.hotes.liste.innerHTML = squeletteMembre(4);
+      V.hotes.liste.innerHTML = squeletteProfils(3);
+      V.hotes.defile.scrollLeft = 0;
       V.hotes.compte.textContent = '';
     }
 
@@ -4535,7 +4545,7 @@ VUES.explorer = {
         V.hotes.liste.innerHTML = neufs.length
           ? neufs.map(m => membreHtml(m)).join('')
           : VUES.explorer.vide(V);
-        entrerEnCascade($$('.com-membre', V.hotes.liste), 40);
+        entrerEnCascade($$('.com-profil-carte', V.hotes.liste), 40);
       } else {
         const tmp = document.createElement('div');
         tmp.innerHTML = neufs.map(m => membreHtml(m)).join('');
@@ -4549,6 +4559,7 @@ VUES.explorer = {
         : '';
 
       V.hotes.bas.innerHTML = '';
+      VUES.explorer.majFleches(V);
 
     }catch(e){
 
@@ -4584,7 +4595,6 @@ VUES.explorer = {
   rechercher(V){
     VUES.explorer.dessinerRoles(V);
     VUES.explorer.dessinerFiltresActifs(V);
-    VUES.explorer.suggestionsBloc(V);
     VUES.explorer.charger(V, true);
   },
 
@@ -4669,8 +4679,8 @@ VUES.collabs = {
       <div class="com-collabs-barre">
         <div class="com-seg com-seg-texte" role="radiogroup" aria-label="Sens de l'annonce">
           <button type="button" role="radio" class="com-seg-btn actif" data-act="collab-mode" data-mode="" aria-checked="true">Toutes</button>
-          <button type="button" role="radio" class="com-seg-btn" data-act="collab-mode" data-mode="cherche" aria-checked="false">Cherchent</button>
-          <button type="button" role="radio" class="com-seg-btn" data-act="collab-mode" data-mode="propose" aria-checked="false">Proposent</button>
+          <button type="button" role="radio" class="com-seg-btn" data-act="collab-mode" data-mode="cherche" aria-checked="false">Demandes</button>
+          <button type="button" role="radio" class="com-seg-btn" data-act="collab-mode" data-mode="propose" aria-checked="false">Offres</button>
         </div>
         <div class="com-collabs-droite">
           <span data-collab-roles></span>
@@ -7160,6 +7170,10 @@ function agir(act, cible, e){
       VUES.explorer.reset(V);
       return;
 
+    case 'ex-defiler':
+      VUES.explorer.defiler(V, Number(cible.dataset.sens));
+      return;
+
     case 'ex-plus':
       VUES.explorer.plus(V);
       return;
@@ -8221,28 +8235,47 @@ const FEUILLE = String.raw`
 .com-puce.bouton.retirable{padding:4px 10px; cursor:pointer; background:rgba(20,137,222,0.16); border-color:rgba(79,180,255,0.35); color:var(--ink);}
 
 .com-resultats-tete{font-size:13px; color:var(--muted); font-weight:300; margin:2px 4px 10px; min-height:18px;}
-.com-liste-membres{display:flex; flex-direction:column;}
-.com-sugg-bloc{margin:20px 0 22px;}
-.com-defile-visages{gap:6px; padding:2px 2px 6px;}
-.com-visage{
-  flex:none; width:88px; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px; border-radius:16px;
-  text-decoration:none; text-align:center; transition:background .25s var(--ease);
+.com-carrousel{position:relative;}
+.com-defile-profils{
+  display:flex; gap:12px; overflow-x:auto; padding:4px 2px 14px; margin:0 -2px;
+  scroll-snap-type:x proximity; scrollbar-width:none; -webkit-overflow-scrolling:touch; outline:0;
 }
-.com-visage:hover{background:rgba(255,255,255,0.05);}
-.com-visage b{max-width:100%; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.com-visage span{max-width:100%; font-size:11.5px; color:var(--muted); font-weight:400; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-
-.com-membre{
-  display:flex; align-items:center; gap:14px; padding:14px 6px; cursor:pointer;
-  border-bottom:1px solid var(--line); border-radius:0; transition:background .25s var(--ease);
+.com-defile-profils::-webkit-scrollbar{display:none;}
+.com-defile-liste{display:contents;}
+.com-defile-profils .com-vide{flex:1 0 100%;}
+.com-sentinelle-h{flex:none; width:1px;}
+.com-profil-carte{
+  flex:none; width:268px; min-height:330px; padding:26px 22px 20px; display:flex; flex-direction:column; align-items:center;
+  text-align:center; gap:4px; cursor:pointer; scroll-snap-align:start; border-radius:24px;
+  background:rgba(255,255,255,0.035); border:1px solid var(--line);
+  transition:background .3s var(--ease), border-color .3s var(--ease), transform .4s var(--ease);
 }
-.com-membre:hover{background:rgba(255,255,255,0.03);}
-.com-membre:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
-.com-membre-id{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;}
-.com-membre-nom{font-size:15.5px; display:flex; align-items:center; flex-wrap:wrap;}
-.com-membre-sous{display:flex; align-items:center; flex-wrap:wrap; gap:0 6px; font-size:13px; color:var(--muted);}
-.com-membre-resume{margin:3px 0 0; font-size:13px; color:var(--ink-soft); font-weight:300; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-.com-membre-actions{flex:none;}
+.com-profil-carte:hover{background:rgba(255,255,255,0.06); border-color:var(--line-strong);}
+.com-profil-carte:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+.com-profil-carte .com-av-xl{margin-bottom:10px;}
+.com-pc-nom{font-size:18px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-wrap:wrap;}
+.com-pc-sous{display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:0 6px; font-size:13px; color:var(--muted);}
+.com-pc-bio{
+  margin:10px 0 0; font-size:13.5px; line-height:1.5; color:var(--ink-soft); font-weight:300;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+}
+.com-pc-metiers{margin:12px 0 0; display:flex; flex-direction:column; gap:6px; width:100%; text-align:left;}
+.com-pc-metiers > div{display:flex; flex-direction:column; gap:1px;}
+.com-pc-metiers dt{font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);}
+.com-pc-metiers dd{margin:0; font-size:13px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.com-pc-actions{margin-top:auto; padding-top:16px;}
+.com-fleche{
+  position:absolute; top:calc(50% - 22px); z-index:3; width:44px; height:44px; padding:0; border-radius:50%;
+  display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer;
+  background:rgba(8,11,16,0.8); border:1px solid var(--line-strong);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  transition:transform .3s var(--ease), background .25s var(--ease);
+}
+.com-fleche[hidden]{display:none;}
+.com-fleche:hover{background:rgba(20,26,36,0.95); transform:scale(1.06);}
+.com-fleche.gauche{left:-14px;}
+.com-fleche.droite{right:-14px;}
+@media (hover:none){ .com-fleche{display:none;} }
 
 .com-ruban{margin:0 0 18px;}
 .com-ruban-liste{display:flex; gap:10px; overflow-x:auto; scrollbar-width:none; padding:2px 2px 6px;}
@@ -8799,8 +8832,6 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 
 /* ---------- LES PAGES LARGES : EXPLORER ET COLLABS ---------- */
 
-.com-liste-membres{display:flex; flex-direction:column;}
-.com-liste-membres .com-vide{grid-column:1 / -1;}
 .com-explorer-tete{max-width:none;}
 /* Les annonces : une liste à lignes fines, sans cartes ni bandeau de pied. */
 .com-vue[data-vue="collabs"] .com-liste{display:flex; flex-direction:column; gap:0;}
