@@ -28,6 +28,11 @@ alter table public.artists
   add column if not exists deezer_complet_le       timestamptz,
   add column if not exists deezer_complet_essai_le timestamptz;
 
+-- Chaque album lu est comparé aux sorties déjà connues du même artiste : sans cet index, ce serait un parcours de
+-- toute la table à chaque album.
+create index if not exists submissions_artist_handle_idx
+  on public.submissions (artist_handle);
+
 
 -- 1. Tous les artistes reliés à Deezer sont suivis.
 
