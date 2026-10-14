@@ -637,6 +637,17 @@
     background:rgba(255,255,255,0.04);
   }
   .role-chip.small{font-size:10px; padding:2px 7px;}
+  /* « Je suis aussi… » : des pastilles à cocher dans les paramètres du profil. */
+  .roles-supp{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
+  .role-puce{
+    display:inline-flex; align-items:center; gap:7px; padding:8px 14px; border-radius:var(--radius-pill);
+    font-size:13.5px; color:var(--ink-soft); background:rgba(255,255,255,.04); border:1px solid var(--line); cursor:pointer;
+    transition:background .25s var(--ease), border-color .25s var(--ease), color .25s var(--ease), transform .3s var(--ease);
+  }
+  .role-puce:hover{border-color:var(--line-strong); color:#fff;}
+  .role-puce:active{transform:scale(.95);}
+  .role-puce[aria-pressed="true"]{color:#fff; border-color:var(--blue); background:rgba(20,137,222,.22);}
+  .role-puce[aria-disabled="true"]{opacity:.4; cursor:not-allowed;}
 
   /* ---------- PROFIL VÉRIFIÉ ----------
      Un disque bleu et une coche : l'équipe a vu la preuve. Deux formes : le mot (profil, fiche d'un membre) et la
@@ -1841,6 +1852,10 @@
   .vf-bio{margin:10px 0 0; font-size:13px; color:var(--ink-soft); white-space:pre-wrap;}
   .vf-liens{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
   .vf-message{margin:10px 0 0; font-size:13px; color:var(--ink-soft); font-style:italic;}
+  /* Le logo envoyé par un média, sur fond sombre : un logo blanc détouré s'y lit comme sur le profil. */
+  .vf-logo{display:flex; align-items:center; gap:12px; margin:12px 0 0; padding:10px 14px; border-radius:var(--radius-sm); background:#0a0d12; border:1px solid var(--line);}
+  .vf-logo span{font-size:12px; color:var(--muted);}
+  .vf-logo img{height:34px; max-width:160px; object-fit:contain;}
   .vf-alerte{margin:10px 0 0; font-size:12px; color:var(--danger);}
   .vf-etat{margin:10px 0 0; font-size:12px; font-weight:600;}
   .vf-etat.ok{color:#8fe3ab;}
@@ -5612,14 +5627,15 @@
       <textarea id="profileBio" rows="3" maxlength="280"></textarea>
     </div>
     <div class="field">
-      <label>Je suis...</label>
+      <label>Mon rôle principal</label>
       <!-- Options générées depuis MEMBER_ROLES pour rester
            alignées avec les badges affichés partout ailleurs. -->
-      <select id="profileRole"></select>
+      <select id="profileRole" onchange="majRolesSupp()"></select>
       <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
-        Ton rôle s'affiche à côté de ton pseudo partout sur le site,
-        et permet aux autres membres de te repérer dans l'annuaire.
+        Ton rôle principal s'affiche d'abord à côté de ton pseudo, et c'est celui que tu fais vérifier.
       </p>
+      <label style="margin-top:16px;">Je suis aussi… <small style="text-transform:none; letter-spacing:0; font-weight:400; color:var(--muted);">(2 au plus)</small></label>
+      <div class="roles-supp" id="profileRolesSupp" role="group" aria-label="Mes autres rôles"></div>
     </div>
     <!-- Pour les photographes : le lien vers leur travail. Il se
          retrouve dans leur profil public et pré-remplit leurs
@@ -8146,6 +8162,19 @@ function roleNom(nom){
   return roleInfo(nom || MEMBER_ROLES[0].name).name;
 }
 
+// Tous les rôles d'un membre : le principal (celui qu'on fait vérifier), puis jusqu'à deux autres.
+function rolesDe(u){
+  if(!u) return [];
+  return [roleNom(u.role)].concat((u.rolesSupp || []).map(roleNom).filter(r => r !== roleNom(u.role)));
+}
+
+// Un des rôles du membre fait-il partie de la liste ?
+function aUnRoleParmi(u, liste){
+  return rolesDe(u).some(r => liste.includes(r));
+}
+
+const ROLES_SUPP_MAX = 2;
+
 // Le formulaire de soumission alimente directement la file de
 // modération de l'équipe : seuls les rôles qui ont légitimement une
 // sortie à proposer y accèdent.
@@ -8163,7 +8192,7 @@ const ROLES_SOUMISSION = [
 function peutSoumettre(){
   if(!currentUser) return false;
   if(currentUser.isAdmin) return true;
-  return ROLES_SOUMISSION.includes(roleNom(currentUser.role));
+  return aUnRoleParmi(currentUser, ROLES_SOUMISSION);
 }
 
 // Lève ou pose le voile de la page Soumettre. Appelée à chaque
@@ -8203,7 +8232,7 @@ function verifierAccesSoumission(){
 
   texte.textContent =
     'Cette page est réservée aux comptes ayant le statut ' + liste +
-    ". Ton profil indique « " + roleNom(currentUser.role) +
+    ". Ton profil indique « " + rolesDe(currentUser).join(' · ') +
     " » : modifie-le si tu fais partie de ces statuts.";
 
   actions.innerHTML = `
@@ -8274,7 +8303,7 @@ function appliquerEtatVerification(exigee){
 function peutAccreditation(){
   if(!currentUser) return false;
   if(currentUser.isAdmin) return true;
-  if(!ROLES_ACCREDITATION.includes(roleNom(currentUser.role))) return false;
+  if(!aUnRoleParmi(currentUser, ROLES_ACCREDITATION)) return false;
   return !verificationExigee || (!!currentUser.verifie && currentUser.verifieRole === 'Photographe');
 }
 
@@ -8282,7 +8311,7 @@ function peutAccreditation(){
 function peutVoirAccreditations(){
   if(!currentUser) return false;
   if(currentUser.isAdmin) return true;
-  return ROLES_ACCREDITATION.includes(roleNom(currentUser.role));
+  return aUnRoleParmi(currentUser, ROLES_ACCREDITATION);
 }
 
 
@@ -8349,7 +8378,7 @@ function verifierAccesAccreditations(){
   }
 
   // Photographe, mais pas encore vérifié : il lui reste à prouver qu'il l'est.
-  if(ROLES_ACCREDITATION.includes(roleNom(currentUser.role))){
+  if(aUnRoleParmi(currentUser, ROLES_ACCREDITATION)){
 
     texte.textContent =
       'Ton profil photographe doit être vérifié avant que tu puisses t’inscrire aux tirages : envoie ' +
@@ -8376,7 +8405,7 @@ function verifierAccesAccreditations(){
 
   texte.textContent =
     'Cette page est réservée aux comptes photographes. Ton profil indique ' +
-    '«\u00a0' + roleNom(currentUser.role) + '\u00a0» : choisis «\u00a0Photographe\u00a0» si ' +
+    '«\u00a0' + rolesDe(currentUser).join(' · ') + '\u00a0» : ajoute «\u00a0Photographe\u00a0» à tes rôles si ' +
     'c’est ton cas.';
 
   actions.innerHTML = `
@@ -10143,8 +10172,10 @@ function profileToUser(row){
     pseudo: row.pseudo,
     avatar: row.avatar_url || '',
     banniere: row.banniere_url || '',
+    logo: row.logo_url || '',
     bio: row.bio || '',
     role: roleNom(row.role),
+    rolesSupp: Array.isArray(row.roles_supp) ? row.roles_supp.map(roleNom) : [],
     socials: row.socials || {},
     xp: row.xp || 0,
     challenges: row.challenges || {},
@@ -10858,6 +10889,51 @@ async function renderProfileForm(){
   connecte.textContent = "Ton profil n'a pas pu s'ouvrir pour le moment. Réessaie dans un instant.";
 }
 
+// « Je suis aussi… » : les autres rôles, à cocher (le rôle principal n'y figure pas).
+function dessinerRolesSupp(choisis){
+
+  const zone = document.getElementById('profileRolesSupp');
+  if(!zone) return;
+
+  const principal = roleNom(document.getElementById('profileRole').value);
+  const gardes = (choisis || []).map(roleNom).filter((r, i, t) => r !== principal && t.indexOf(r) === i).slice(0, ROLES_SUPP_MAX);
+
+  zone.innerHTML = MEMBER_ROLES.filter(r => r.name !== principal).map(r => `
+    <button type="button" class="role-puce" data-role="${escapeAttribute(r.name)}"
+            aria-pressed="${gardes.includes(r.name)}" onclick="basculerRoleSupp(this)">${r.icon} ${escapeHtml(r.name)}</button>`).join('');
+
+  majRolesSuppLimite();
+}
+
+function rolesSuppChoisis(){
+  return [...document.querySelectorAll('#profileRolesSupp .role-puce[aria-pressed="true"]')].map(b => b.dataset.role);
+}
+
+function majRolesSuppLimite(){
+
+  const n = rolesSuppChoisis().length;
+
+  document.querySelectorAll('#profileRolesSupp .role-puce').forEach(b => {
+    const bloque = n >= ROLES_SUPP_MAX && b.getAttribute('aria-pressed') !== 'true';
+    b.setAttribute('aria-disabled', bloque ? 'true' : 'false');
+  });
+}
+
+function basculerRoleSupp(bouton){
+
+  const actif = bouton.getAttribute('aria-pressed') === 'true';
+
+  if(!actif && rolesSuppChoisis().length >= ROLES_SUPP_MAX) return;
+
+  bouton.setAttribute('aria-pressed', String(!actif));
+  majRolesSuppLimite();
+}
+
+// Le rôle principal a changé : il quitte la liste des autres rôles.
+function majRolesSupp(){
+  dessinerRolesSupp(rolesSuppChoisis());
+}
+
 // Les champs du tiroir de paramètres reprennent ce que le profil dit déjà.
 function remplirReglages(){
 
@@ -10866,6 +10942,7 @@ function remplirReglages(){
   document.getElementById('profilePseudo').value = currentUser.pseudo || '';
   document.getElementById('profileBio').value = currentUser.bio || '';
   document.getElementById('profileRole').value = roleNom(currentUser.role);
+  dessinerRolesSupp(currentUser.rolesSupp || []);
   document.getElementById('socialInstagram').value = saisieReseau((currentUser.socials || {}).instagram);
   document.getElementById('socialTwitter').value = saisieReseau((currentUser.socials || {}).twitter);
   document.getElementById('socialTiktok').value = saisieReseau((currentUser.socials || {}).tiktok);
@@ -10925,9 +11002,7 @@ async function rendreCarteVerification(){
 
     if(moi.verifie && moi.verifieRole === role){
 
-      html += carte('ok', iconeVerifie(), 'Profil vérifié',
-        "L'équipe a validé ton profil " + escapeHtml(role) +
-        (moi.verifieLe ? ' le ' + date(moi.verifieLe) : '') + ". Le badge s'affiche à côté de ton nom.");
+      // Profil vérifié : la coche bleue à côté du nom suffit, aucune carte en dessous.
 
     } else if(verificationExigee){
 
@@ -11366,6 +11441,7 @@ async function saveProfile(){
       pseudo,
       bio: document.getElementById('profileBio').value.trim(),
       role: document.getElementById('profileRole').value,
+      roles_supp: rolesSuppChoisis().filter(r => r !== roleNom(document.getElementById('profileRole').value)).slice(0, ROLES_SUPP_MAX),
       avatar_url: avatarUrl || null,
       socials
     });
@@ -26557,6 +26633,7 @@ function profilLigneHtml(l){
           ${p.bio ? `<p class="vf-bio">${escapeHtml(p.bio)}</p>` : ''}
           ${liens ? `<div class="vf-liens">${liens}</div>` : ''}
           ${l.message ? `<p class="vf-message">« ${escapeHtml(l.message)} »</p>` : ''}
+          ${safeUrl(l.logo) ? `<div class="vf-logo"><span>Logo envoyé</span><img src="${escapeAttribute(safeUrl(l.logo))}" alt="Logo de ${escapeAttribute(p.pseudo || 'ce média')}"></div>` : ''}
           ${roleChange ? `<p class="vf-alerte">Le rôle du profil est maintenant « ${escapeHtml(p.role)} » : cette demande ne peut plus être validée, refuse-la.</p>` : ''}
           ${
             attente

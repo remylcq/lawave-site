@@ -312,7 +312,8 @@ function nomHtml(u, options){
     ? ` data-act="membre" data-cle="${attr(u.pseudo)}"`
     : '';
 
-  return `<span class="com-nom"${lien}>${esc(pseudo)}</span>${equipe}${verifie}${artiste}`;
+  // Le nom et ses badges sur une même ligne, alignés au centre : l'écusson de l'équipe et la coche bleue tombent pile sur le pseudo.
+  return `<span class="com-nom-ligne"><span class="com-nom"${lien}>${esc(pseudo)}</span>${equipe}${verifie}${artiste}</span>`;
 }
 
 
@@ -4857,6 +4858,14 @@ function moisAnnee(iso){
   return new Date(iso).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
 }
 
+// Le logo d'un média vérifié, à côté de son pseudo (posé par l'équipe, voir sql/logo-media.sql).
+function logoNomHtml(p){
+
+  const url = safeUrl(p.logo_url);
+
+  return url && p.verifie ? `<img class="com-logo-nom" src="${attr(url)}" alt="Logo de ${attr(p.pseudo)}" loading="lazy">` : '';
+}
+
 function profilEnteteHtml(V){
 
   const p = V.profil;
@@ -4907,10 +4916,9 @@ function profilEnteteHtml(V){
                    <input type="file" data-c-avatar accept="image/jpeg,image/png,image/webp" hidden>` : ''}
         </div>
 
-        <h2 class="com-profil-nom">${nomHtml(p, { sansLien: true })}</h2>
+        <h2 class="com-profil-nom">${nomHtml(p, { sansLien: true })}${logoNomHtml(p)}</h2>
         <div class="com-profil-meta">
-          ${roleHtml(p.role)}
-          ${p.verifie && typeof badgeVerifieHtml === 'function' ? badgeVerifieHtml({ verifie: true, verifieRole: p.verifie_role }) : ''}
+          ${roleHtml(p.role)}${(p.roles_supp || []).map(x => roleHtml(x, true)).join('')}
           ${p.ville ? `<span class="com-ville">${icone('lieu', 14)} ${esc(p.ville)}</span>` : ''}
         </div>
         <div class="com-profil-sous">
@@ -7787,7 +7795,14 @@ const FEUILLE = String.raw`
 .com-nom{font-weight:600; color:var(--ink);}
 .com-nom[data-act]{cursor:pointer;}
 .com-nom[data-act]:hover{text-decoration:underline;}
-.com-badge-equipe{display:inline-flex; margin-left:4px; color:var(--blue-bright); vertical-align:-2px;}
+.com-profil-nom{display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px;}
+.com-logo-nom{height:30px; width:auto; max-width:140px; object-fit:contain; flex:none; opacity:.95;}
+.com-nom-ligne{display:inline-flex; align-items:center; gap:5px; max-width:100%; vertical-align:middle;}
+.com-nom-ligne > *{flex:none;}
+.com-nom-ligne > .com-nom{flex:0 1 auto; min-width:0; overflow-wrap:anywhere;}
+.com-badge-equipe{display:inline-flex; align-items:center; color:var(--blue-bright);}
+.com-nom-ligne .com-badge-equipe svg, .com-nom-ligne .coche-verifie svg{width:16px; height:16px; display:block;}
+.com-nom-ligne .coche-verifie{margin:0; vertical-align:baseline; display:inline-flex; align-items:center;}
 .com-badge-artiste{
   display:inline-flex; align-items:center; justify-content:center; margin-left:4px;
   width:15px; height:15px; border-radius:50%; background:var(--blue); color:#fff; vertical-align:1px;

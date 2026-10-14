@@ -424,6 +424,10 @@
   .pc-puce[aria-pressed="true"]{color:#fff; border-color:var(--blue); background:rgba(20,137,222,.22); animation:pcPop .35s var(--ease);}
   .pc-puce[aria-disabled="true"]{opacity:.4;}
   .pc-puce .ic{font-size:15px; line-height:1;}
+  .pc-aussi{margin-top:22px;}
+  .pc-aussi[hidden]{display:none;}
+  .pc-aussi-titre{margin:0 0 10px; font-size:14px; font-weight:600;}
+  .pc-aussi-titre small{font-weight:400; color:var(--muted);}
   .pc-bloc{border:0; padding:0; margin:0 0 28px; min-width:0;}
   .pc-bloc > legend{padding:0; margin:0 0 12px; font-size:14px; font-weight:600; color:var(--ink);}
   .pc-bloc > legend small{margin-left:6px; font-size:12.5px; font-weight:400; color:var(--muted);}
@@ -857,6 +861,21 @@
     if(note.texte) zone.classList.add('joue');
   }
 
+  // Les « autres rôles » : tout sauf le principal, à cocher (deux au plus).
+  function dessinerAutres(el){
+
+    const zone = el.querySelector('[data-aussi]');
+    const choisis = etat.autres || [];
+
+    zone.innerHTML = MEMBER_ROLES.filter(r => r.name !== etat.role).map(r => `
+      <button type="button" class="pc-puce" data-autre="${attr(r.name)}" aria-pressed="${choisis.includes(r.name)}"
+              aria-disabled="${choisis.length >= 2 && !choisis.includes(r.name)}">
+        <span class="ic" aria-hidden="true">${esc(r.icon)}</span>${esc(r.name)}
+      </button>`).join('');
+
+    el.querySelector('.pc-aussi').hidden = !etat.role;
+  }
+
   ETAPES.role = {
 
     large: true,
@@ -877,6 +896,10 @@
         <h2 class="pc-titre" tabindex="-1">Qu'est-ce qui te décrit le mieux ?</h2>
         <p class="pc-sous">Ton rôle s'affiche sur ton profil, à côté de ton pseudo. Tu pourras le changer plus tard.</p>
         <div class="pc-roles" role="group" aria-label="Ton rôle">${cartes}</div>
+        <div class="pc-aussi">
+          <p class="pc-aussi-titre">Tu es aussi… <small>— facultatif, 2 au plus</small></p>
+          <div class="pc-puces" data-aussi role="group" aria-label="Tes autres rôles"></div>
+        </div>
         <div class="pc-note vide" aria-live="polite"></div>
         <div class="form-msg" id="pc-msg" role="alert"></div>
         <div class="pc-actions">
@@ -896,12 +919,34 @@
 
         el.querySelectorAll('.pc-role').forEach(c => c.setAttribute('aria-pressed', String(c === carte)));
 
+        // Le rôle principal quitte la liste des autres.
+        etat.autres = (etat.autres || []).filter(r => r !== etat.role);
+        dessinerAutres(el);
+
         // Le parcours s'allonge d'une étape pour les rôles qui peuvent être vérifiés.
         etat.suite = calculerSuite();
         majEntete(etat.nom);
         majNoteRole();
         dire('');
       });
+
+      el.querySelector('[data-aussi]').addEventListener('click', (ev) => {
+
+        const puce = ev.target.closest('[data-autre]');
+
+        if(!puce) return;
+
+        const nom = puce.dataset.autre;
+        const liste = etat.autres || [];
+
+        if(liste.includes(nom)) etat.autres = liste.filter(r => r !== nom);
+        else if(liste.length < 2) etat.autres = liste.concat(nom);
+        else return;
+
+        dessinerAutres(el);
+      });
+
+      dessinerAutres(el);
 
       if(etat.role) majNoteRole();
     },
@@ -914,12 +959,16 @@
         return false;
       }
 
-      // Un compte déjà créé (reprise) : le rôle change tout de suite, sur le profil.
-      if(etat.reprise && roleNom(currentUser.role) !== etat.role){
+      // Un compte déjà créé (reprise) : les rôles changent tout de suite, sur le profil.
+      const autres = (etat.autres || []).filter(r => r !== etat.role);
+      const memes = JSON.stringify(autres) === JSON.stringify(currentUser.rolesSupp || []);
+
+      if(etat.reprise && (roleNom(currentUser.role) !== etat.role || !memes)){
 
         try{
-          await saveCurrentProfile({ role: etat.role });
+          await saveCurrentProfile({ role: etat.role, roles_supp: autres });
           currentUser.role = etat.role;
+          currentUser.rolesSupp = autres;
         }catch(erreur){
           dire('Enregistrement impossible : ' + erreur.message);
           return false;
@@ -1147,6 +1196,7 @@
         id: etat.userId,
         pseudo: etat.pseudo,
         role: etat.role,
+        roles_supp: (etat.autres || []).filter(r => r !== etat.role),
         socials: { instagram: '', twitter: '', tiktok: '', spotify: '', appleMusic: '', deezer: '' },
         xp: 0,
         challenges: { date: todayStr(), postForum: false, commentForum: false, instaComment: false },
@@ -2510,6 +2560,7 @@
       userId: reprise ? currentUser.id : null,
       pseudo: reprise ? currentUser.pseudo : '',
       role: identite ? roleNom(currentUser.role) : '',
+      autres: identite ? (currentUser.rolesSupp || []).slice() : [],
       email: '',
       mdp: '',
       avatarUrl: reprise ? (currentUser.avatar || '') : '',

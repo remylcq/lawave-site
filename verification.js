@@ -316,6 +316,9 @@
 
       const refuse = e.demande && e.demande.statut === 'refuse';
 
+      // Un média envoie aussi son logo détouré, pour l'afficher à côté de son pseudo.
+      const avecLogo = e.role === 'Média / Presse';
+
       racine.innerHTML = `
         <div class="vd-entete">
           <span class="vd-ic" aria-hidden="true">${icone()}</span>
@@ -341,15 +344,26 @@
           <input type="file" id="vd-fichier" accept="image/png,image/jpeg,image/webp" hidden>
         </div>
 
+        ${avecLogo ? `
         <div class="vd-bloc" style="--i:1">
-          <b><span class="vd-num">2</span>Un lien <span style="font-weight:400; color:var(--muted);">— facultatif</span></b>
+          <b><span class="vd-num">2</span>Le logo de ton média, détouré</b>
+          <p>Un PNG sur fond transparent : il s'affichera à côté de ton pseudo, sur ton profil, une fois validé.</p>
+          <div class="vd-depot vd-logo" id="vd-logo-depot" role="button" tabindex="0" aria-label="Choisir le logo de ton média">
+            <span>Clique pour choisir ton logo</span>
+            <span class="vd-astuce">PNG ou WEBP, fond transparent</span>
+          </div>
+          <input type="file" id="vd-logo-fichier" accept="image/png,image/webp" hidden>
+        </div>` : ''}
+
+        <div class="vd-bloc" style="--i:${avecLogo ? 2 : 1}">
+          <b><span class="vd-num">${avecLogo ? 3 : 2}</span>Un lien <span style="font-weight:400; color:var(--muted);">— facultatif</span></b>
           <div class="field">
             <input type="text" id="vd-lien" maxlength="300" placeholder="${attr(guide.lien)}" autocomplete="off" spellcheck="false">
           </div>
         </div>
 
-        <div class="vd-bloc" style="--i:2">
-          <b><span class="vd-num">3</span>Un mot pour l'équipe <span style="font-weight:400; color:var(--muted);">— facultatif</span></b>
+        <div class="vd-bloc" style="--i:${avecLogo ? 3 : 2}">
+          <b><span class="vd-num">${avecLogo ? 4 : 3}</span>Un mot pour l'équipe <span style="font-weight:400; color:var(--muted);">— facultatif</span></b>
           <div class="field">
             <textarea id="vd-message" rows="2" maxlength="500" placeholder="Ce que tu fais, où te trouver…"></textarea>
           </div>
@@ -357,7 +371,7 @@
 
         <p class="vd-confidentiel">
           <span aria-hidden="true">🔒</span>
-          <span>Seule l'équipe La Wave voit cette capture. Elle ne sert qu'à vérifier ton profil et n'est jamais publique.</span>
+          <span>Seule l'équipe La Wave voit cette capture. Elle ne sert qu'à vérifier ton profil et n'est jamais publique${avecLogo ? ' (le logo, lui, sera visible sur ton profil)' : ''}.</span>
         </p>
 
         <div class="vd-actions">
@@ -377,6 +391,13 @@
       let fichier = null;
       let apercu = null;
       let enCours = false;
+
+      let logo = null;
+      let apercuLogo = null;
+      const logoDepot = racine.querySelector('#vd-logo-depot');
+      const logoEntree = racine.querySelector('#vd-logo-fichier');
+
+      const pret = () => !!fichier && (!avecLogo || !!logo);
 
       const dire = (texte, ok) => {
         msg.textContent = texte || '';
@@ -407,8 +428,43 @@
           <span class="vd-changer">Changer de capture</span>`;
 
         dire('');
-        bouton.disabled = false;
+        bouton.disabled = !pret();
       };
+
+      const choisirLogo = (f) => {
+
+        if(!f) return;
+
+        if(f.type !== 'image/png' && f.type !== 'image/webp'){
+          dire('Le logo doit être un PNG (ou WEBP) sur fond transparent : un JPG aurait un fond blanc.');
+          return;
+        }
+
+        if(f.size > 5 * 1024 * 1024){
+          dire('Ce logo est trop lourd (5 Mo au plus).');
+          return;
+        }
+
+        if(apercuLogo) URL.revokeObjectURL(apercuLogo);
+        logo = f;
+        apercuLogo = URL.createObjectURL(f);
+
+        logoDepot.classList.add('plein');
+        logoDepot.innerHTML = `
+          <img src="${attr(apercuLogo)}" alt="Aperçu du logo" style="max-height:90px; max-width:70%; object-fit:contain;">
+          <span class="vd-changer">Changer de logo</span>`;
+
+        dire('');
+        bouton.disabled = !pret();
+      };
+
+      if(avecLogo){
+        logoDepot.addEventListener('click', () => logoEntree.click());
+        logoDepot.addEventListener('keydown', (ev) => {
+          if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); logoEntree.click(); }
+        });
+        logoEntree.addEventListener('change', () => { choisirLogo(logoEntree.files[0]); logoEntree.value = ''; });
+      }
 
       depot.addEventListener('click', () => entree.click());
       depot.addEventListener('keydown', (ev) => {
@@ -437,6 +493,7 @@
       controleur.nettoyer = () => {
         document.removeEventListener('paste', coller);
         if(apercu) URL.revokeObjectURL(apercu);
+        if(apercuLogo) URL.revokeObjectURL(apercuLogo);
       };
 
       bouton.addEventListener('click', async () => {
@@ -445,6 +502,11 @@
 
         if(!fichier){
           dire('Ajoute une capture : c\'est ce qui permet à l\'équipe de vérifier ton profil.');
+          return;
+        }
+
+        if(avecLogo && !logo){
+          dire('Ajoute le logo de ton média, détouré (un PNG sur fond transparent).');
           return;
         }
 
@@ -468,10 +530,16 @@
 
           const chemin = await Fichiers.envoyerPrive(fichier, nom);
 
+          // Le logo part dans le stockage public du site : seule son adresse est gardée, et ne sert qu'une fois validé.
+          const adresseLogo = avecLogo
+            ? await Fichiers.envoyer(logo, Fichiers.nommer('logo', currentUser.pseudo, logo.type === 'image/webp' ? '.webp' : '.png'), logo.type)
+            : null;
+
           const { data, error } = await supabaseClient.rpc('verification_demander', {
             p_preuve: chemin,
             p_lien: adresse || null,
-            p_message: message.value.trim() || null
+            p_message: message.value.trim() || null,
+            p_logo: adresseLogo
           });
 
           if(error) throw error;
