@@ -649,7 +649,7 @@ function ouvrirMenu(ancre, items){
   boite.innerHTML = items.filter(Boolean).map((it, i) => `
     ${it.separe ? '<div class="com-menu-sep" role="separator"></div>' : ''}
     <button type="button" role="menuitem" class="com-menu-item${it.danger ? ' danger' : ''}${it.actif ? ' actif' : ''}" data-i="${i}">
-      ${it.point ? `<i class="com-pt" style="--sj:${attr(it.point)}" aria-hidden="true"></i>` : it.icone ? icone(it.icone, 18) : ''}<span>${esc(it.libelle)}</span>
+      ${it.point ? `<i class="com-pt" style="--sj:${attr(it.point)}" aria-hidden="true"></i>` : it.emoji ? `<span class="com-menu-emoji" aria-hidden="true">${esc(it.emoji)}</span>` : it.icone ? icone(it.icone, 18) : ''}<span>${esc(it.libelle)}</span>
       ${it.actif ? `<span class="com-menu-coche" aria-hidden="true">${icone('coche', 16)}</span>` : ''}
     </button>`).join('');
 
@@ -1368,19 +1368,19 @@ function collabHtml(c){
   const remu = REMUNERATIONS[c.remuneration] || null;
   const styles = (c.styles || []).slice(0, 5);
 
+  const details = [
+    ...styles.map(esc),
+    c.lieu ? `${icone('lieu', 12)} ${esc(c.lieu)}` : '',
+    remu ? esc(remu.court) : ''
+  ].filter(Boolean);
+
   return `
     <div class="com-collab" data-mode="${attr(c.mode)}">
-      <span class="com-collab-ic">${esc(m.icone)}</span>
-      <div class="com-collab-corps">
-        <span class="com-collab-mode">${cherche ? 'Cherche' : 'Propose ses services'}</span>
-        <b class="com-collab-metier">${esc(m.libelle)}</b>
-        <div class="com-collab-puces">
-          ${styles.map(s => `<span class="com-puce">${esc(s)}</span>`).join('')}
-          ${c.lieu ? `<span class="com-puce lieu">${icone('lieu', 13)} ${esc(c.lieu)}</span>` : ''}
-          ${remu ? `<span class="com-puce remu" data-r="${attr(c.remuneration)}">${esc(remu.court)}</span>` : ''}
-        </div>
+      <div class="com-collab-ligne">
+        <span class="com-collab-mode">${cherche ? 'Cherche' : 'Propose'}</span>
+        <b class="com-collab-metier"><span aria-hidden="true">${esc(m.icone)}</span> ${esc(m.libelle)}</b>
       </div>
-      <span class="com-collab-ondes" aria-hidden="true">${icone('ondes', 44)}</span>
+      ${details.length ? `<div class="com-collab-details">${details.map(d => `<span>${d}</span>`).join('<i aria-hidden="true">·</i>')}</div>` : ''}
     </div>`;
 }
 
@@ -4206,34 +4206,28 @@ const RAISONS = {
   meme_style:  'Tes styles'
 };
 
-function membreHtml(m, o){
+function membreHtml(m){
 
-  const opt = o || {};
   const suit = !!(m.moi && m.moi.suit);
   const r = roleInfo(m.role);
-  const raisons = (m.raisons || []).map(x => RAISONS[x]).filter(Boolean);
+
+  // Une seule ligne de détail : ce qu'il cherche et propose, sinon un bout de sa description.
+  const cherche = (m.cherche || []).map(libelleMetier).join(', ');
+  const propose = (m.propose || []).map(libelleMetier).join(', ');
+  const resume = [cherche && 'Cherche ' + cherche, propose && 'Propose ' + propose].filter(Boolean).join(' · ') || m.bio || '';
 
   return `
-    <article class="com-carte com-membre" data-membre="${attr(m.id)}" data-act="membre" data-cle="${attr(m.pseudo)}" tabindex="0" aria-label="Profil de ${attr(m.pseudo)}">
-      <div class="com-membre-haut">
-        ${avatarHtml(m, 'l')}
-        <div class="com-membre-id">
-          <div class="com-membre-nom">${nomHtml(m, { sansLien: true })}</div>
-          <div class="com-membre-sous">
-            <span class="com-role-simple">${esc(r.icon)} ${esc(r.name)}</span>
-            ${m.ville ? `<span class="com-sep">·</span><span class="com-ville">${icone('lieu', 13)} ${esc(m.ville)}</span>` : ''}
-          </div>
+    <article class="com-membre" data-membre="${attr(m.id)}" data-act="membre" data-cle="${attr(m.pseudo)}" tabindex="0" aria-label="Profil de ${attr(m.pseudo)}">
+      ${avatarHtml(m, 'l')}
+      <div class="com-membre-id">
+        <div class="com-membre-nom">${nomHtml(m, { sansLien: true })}</div>
+        <div class="com-membre-sous">
+          <span>${esc(r.icon)} ${esc(r.name)}</span>
+          ${m.ville ? `<span class="com-sep">·</span><span class="com-ville">${esc(m.ville)}</span>` : ''}
         </div>
-        <div class="com-membre-actions">${boutonSuivre(m, suit)}</div>
+        ${resume ? `<p class="com-membre-resume">${esc(resume)}</p>` : ''}
       </div>
-      ${raisons.length ? `<div class="com-raisons">${raisons.map(x => `<span class="com-raison">${icone('etincelle', 12)} ${esc(x)}</span>`).join('')}</div>` : ''}
-      ${m.bio ? `<p class="com-membre-bio">${esc(m.bio)}</p>` : ''}
-      ${(m.cherche && m.cherche.length) || (m.propose && m.propose.length) ? `
-        <div class="com-membre-metiers">
-          ${m.cherche && m.cherche.length ? `<div class="com-ligne-metiers"><span class="com-ligne-lib">Cherche</span>${pastilles(m.cherche)}</div>` : ''}
-          ${m.propose && m.propose.length ? `<div class="com-ligne-metiers"><span class="com-ligne-lib">Propose</span>${pastilles(m.propose)}</div>` : ''}
-        </div>` : ''}
-      ${m.genres && m.genres.length ? `<div class="com-membre-genres">${m.genres.slice(0, 5).map(g => `<span class="com-puce">${esc(g)}</span>`).join('')}</div>` : ''}
+      <div class="com-membre-actions">${boutonSuivre(m, suit)}</div>
     </article>`;
 }
 
@@ -4327,6 +4321,28 @@ async function ecrireA(id){
 // (un beatmaker, un vidéaste...), on affine, on contacte.
 // ---------------------------------------------------------------------
 
+// Le bouton qui dit le métier choisi (ou « Tous les métiers »), et le menu qu'il ouvre.
+function boutonMetier(cle, act, libelleTous){
+
+  const m = cle ? S.ref.metiers.find(x => x.cle === cle) : null;
+
+  return `
+    <button type="button" class="com-sujet-bouton${m ? ' filtre' : ''}" data-act="${act}" aria-haspopup="menu"
+            aria-label="Filtrer par métier : ${attr(m ? m.libelle : libelleTous.toLowerCase())}">
+      ${m ? `<span aria-hidden="true">${esc(m.icone)}</span>` : ''}
+      <span>${esc(m ? m.libelle : libelleTous)}</span>
+      ${icone('chevronBas', 15)}
+    </button>`;
+}
+
+function menuMetiers(ancre, actif, libelleTous, choisir){
+
+  ouvrirMenu(ancre, [
+    { libelle: libelleTous, actif: !actif, action: () => choisir(null) },
+    ...S.ref.metiers.map(m => ({ libelle: m.libelle, emoji: m.icone, actif: actif === m.cle, action: () => choisir(m.cle) }))
+  ]);
+}
+
 const TRIS = [
   { cle: 'actifs', libelle: 'Les plus actifs' },
   { cle: 'recents', libelle: 'Les plus récents' },
@@ -4346,18 +4362,15 @@ VUES.explorer = {
     V.gen = 0;
 
     V.el.innerHTML = `
-      <div class="com-carte com-explorer-tete">
-        <h2 class="com-explorer-titre">Trouve avec qui créer</h2>
-        <p class="com-explorer-sous">Artistes, beatmakers, ingénieurs son, vidéastes… Filtre, découvre, écris-leur.</p>
-        <label class="com-recherche-champ">
-          ${icone('loupe', 18)}
-          <input type="search" data-ex="recherche" placeholder="Un pseudo, un nom…" autocomplete="off" aria-label="Chercher un membre">
-        </label>
-        <div class="com-explorer-groupe">
-          <span class="com-explorer-lib">Tu cherches un…</span>
-          <div class="com-defile" data-ex-roles></div>
+      <div class="com-explorer-tete">
+        <div class="com-ex-barre">
+          <label class="com-recherche-champ">
+            ${icone('loupe', 18)}
+            <input type="search" data-ex="recherche" placeholder="Chercher un membre" autocomplete="off" aria-label="Chercher un membre">
+          </label>
+          <span data-ex-roles></span>
+          <button type="button" class="com-sujet-bouton" data-act="ex-affiner" aria-expanded="false" aria-label="Affiner la recherche">${icone('rouage', 15)}<span>Filtres</span></button>
         </div>
-        <button type="button" class="com-affiner" data-act="ex-affiner" aria-expanded="false">${icone('rouage', 15)} Affiner la recherche</button>
         <div class="com-affiner-zone" data-ex-affiner hidden>
           <div class="com-grille-champs">
             <label class="com-champ"><span>Il ou elle cherche</span>
@@ -4399,16 +4412,9 @@ VUES.explorer = {
     if(V.observateur) V.observateur.observe(V.hotes.sentinelle);
   },
 
+  // Le métier cherché se choisit dans un petit menu, comme le sujet du fil.
   dessinerRoles(V){
-
-    const e = V.etat;
-
-    V.hotes.roles.innerHTML = `
-      <button type="button" class="com-chip${!e.role ? ' actif' : ''}" data-act="ex-role" data-cle="">Tous</button>
-      ${S.ref.metiers.map(m => `
-        <button type="button" class="com-chip${e.role === m.cle ? ' actif' : ''}" data-act="ex-role" data-cle="${attr(m.cle)}">
-          <span class="com-chip-ic">${esc(m.icone)}</span>${esc(m.libelle)}
-        </button>`).join('')}`;
+    V.hotes.roles.innerHTML = boutonMetier(V.etat.role, 'ex-role-menu', 'Tous les métiers');
   },
 
   dessinerFiltresActifs(V){
@@ -4457,18 +4463,14 @@ VUES.explorer = {
 
       V.hotes.sugg.innerHTML = liste.length ? `
         <section class="com-sugg-bloc">
-          <h3 class="com-sous-titre">${moi() ? 'Pour toi' : 'Des membres à découvrir'}</h3>
-          <div class="com-defile com-defile-cartes">
-            ${liste.slice(0, 8).map(m => `
-              <div class="com-carte com-ruban-carte" data-membre="${attr(m.id)}">
-                <a class="com-ruban-lien" href="#community/membre/${attr(encodeURIComponent(m.pseudo))}" data-act="membre" data-cle="${attr(m.pseudo)}">
-                  ${avatarHtml(m, 'l')}
-                  <b>${esc(m.pseudo)}</b>
-                  <span>${esc(roleInfo(m.role).icon)} ${esc(roleInfo(m.role).name)}</span>
-                  ${m.raisons && m.raisons.length ? `<em>${esc(RAISONS[m.raisons[0]] || '')}</em>` : '<em>&nbsp;</em>'}
-                </a>
-                ${boutonSuivre(m, !!(m.moi && m.moi.suit))}
-              </div>`).join('')}
+          <h3 class="com-sous-titre">${moi() ? 'Pour toi' : 'À découvrir'}</h3>
+          <div class="com-defile com-defile-visages">
+            ${liste.slice(0, 10).map(m => `
+              <a class="com-visage" href="#community/membre/${attr(encodeURIComponent(m.pseudo))}" data-act="membre" data-cle="${attr(m.pseudo)}" data-membre="${attr(m.id)}">
+                ${avatarHtml(m, 'l')}
+                <b>${esc(m.pseudo)}</b>
+                <span>${esc(roleInfo(m.role).name)}</span>
+              </a>`).join('')}
           </div>
         </section>` : '';
     }catch(e){
@@ -4532,7 +4534,7 @@ VUES.explorer = {
       }
 
       V.hotes.compte.textContent = V.total
-        ? pluriel(V.total, 'membre') + (VUES.explorer.aDesFiltres(V) ? ' correspondent' : '')
+        ? pluriel(V.total, 'membre') + (VUES.explorer.aDesFiltres(V) ? (V.total > 1 ? ' correspondent' : ' correspond') : '')
         : '';
 
       V.hotes.bas.innerHTML = '';
@@ -4649,22 +4651,18 @@ VUES.collabs = {
     V.etat = { mode: '', role: '' };
 
     V.el.innerHTML = `
-      <div class="com-carte com-collabs-tete">
-        <div>
-          <h2 class="com-explorer-titre">Trouve ton prochain projet</h2>
-          <p class="com-explorer-sous">Qui cherche un beatmaker ? Qui propose ses services ? Réponds à une annonce, ou lance la tienne.</p>
+      <div class="com-collabs-barre">
+        <div class="com-seg com-seg-texte" role="radiogroup" aria-label="Sens de l'annonce">
+          <button type="button" role="radio" class="com-seg-btn actif" data-act="collab-mode" data-mode="" aria-checked="true">Toutes</button>
+          <button type="button" role="radio" class="com-seg-btn" data-act="collab-mode" data-mode="cherche" aria-checked="false">Cherchent</button>
+          <button type="button" role="radio" class="com-seg-btn" data-act="collab-mode" data-mode="propose" aria-checked="false">Proposent</button>
         </div>
-        <button type="button" class="com-btn com-btn-plein" data-act="collab-publier">${icone('plus', 16)} Publier une annonce</button>
+        <div class="com-collabs-droite">
+          <span data-collab-roles></span>
+          <button type="button" class="com-sujet-bouton" data-act="collab-publier">${icone('plus', 15)}<span>Annonce</span></button>
+        </div>
       </div>
       <div data-hote="composer" class="com-hote-composer" hidden></div>
-      <div class="com-collabs-filtres">
-        <div class="com-seg com-seg-large" role="radiogroup" aria-label="Sens de l'annonce">
-          <button type="button" role="radio" class="com-seg-btn actif" data-act="collab-mode" data-mode="" aria-checked="true">Toutes</button>
-          <button type="button" role="radio" class="com-seg-btn" data-act="collab-mode" data-mode="cherche" aria-checked="false">Ils cherchent</button>
-          <button type="button" role="radio" class="com-seg-btn" data-act="collab-mode" data-mode="propose" aria-checked="false">Ils proposent</button>
-        </div>
-        <div class="com-defile" data-collab-roles></div>
-      </div>
       <div class="com-liste" data-liste></div>`;
 
     V.hotes = { composer: $('[data-hote="composer"]', V.el), roles: $('[data-collab-roles]', V.el) };
@@ -4690,12 +4688,7 @@ VUES.collabs = {
   },
 
   dessinerRoles(V){
-    V.hotes.roles.innerHTML = `
-      <button type="button" class="com-chip${!V.etat.role ? ' actif' : ''}" data-act="collab-role" data-cle="">Tous les métiers</button>
-      ${S.ref.metiers.map(m => `
-        <button type="button" class="com-chip${V.etat.role === m.cle ? ' actif' : ''}" data-act="collab-role" data-cle="${attr(m.cle)}">
-          <span class="com-chip-ic">${esc(m.icone)}</span>${esc(m.libelle)}
-        </button>`).join('')}`;
+    V.hotes.roles.innerHTML = boutonMetier(V.etat.role, 'collab-role-menu', 'Tous les métiers');
   },
 
   montrer(V){
@@ -7135,8 +7128,11 @@ function agir(act, cible, e){
 
     // --- Explorer ---
 
-    case 'ex-role':
-      VUES.explorer.definirRole(V, cible.dataset.cle);
+    case 'ex-role-menu':
+      menuMetiers(cible, V.etat.role, 'Tous les métiers', (cle) => {
+        VUES.explorer.definirRole(V, cle);
+        VUES.explorer.dessinerRoles(V);
+      });
       return;
 
     case 'ex-affiner':
@@ -7171,10 +7167,12 @@ function agir(act, cible, e){
       VUES.collabs.filtrer(V);
       return;
 
-    case 'collab-role':
-      V.etat.role = cible.dataset.cle;
-      VUES.collabs.dessinerRoles(V);
-      VUES.collabs.filtrer(V);
+    case 'collab-role-menu':
+      menuMetiers(cible, V.etat.role || null, 'Tous les métiers', (cle) => {
+        V.etat.role = cle || '';
+        VUES.collabs.dessinerRoles(V);
+        VUES.collabs.filtrer(V);
+      });
       return;
 
     // --- Messages privés ---
@@ -8030,7 +8028,7 @@ const FEUILLE = String.raw`
 .com-mention:hover, .com-tag:hover{text-decoration:underline;}
 
 .com-post > .com-images, .com-post > .com-embed, .com-post > .com-carte-lien,
-.com-post > .com-collab, .com-post > .com-collab-cta, .com-post > .com-edition{margin-left:54px; margin-top:10px;}
+.com-post > .com-collab-cta, .com-post > .com-edition{margin-left:54px; margin-top:10px;}
 .com-post.detail .com-post-corps .com-texte{font-size:17px;}
 
 .com-edition{display:flex; flex-direction:column; gap:8px;}
@@ -8040,27 +8038,16 @@ const FEUILLE = String.raw`
 .com-edition .com-comp-texte{font-size:15px; min-height:70px;}
 .com-edition-pied{display:flex; justify-content:flex-end; gap:8px;}
 
-/* Annonce de collaboration */
-.com-collab{
-  --c:var(--blue-bright);
-  display:flex; align-items:flex-start; gap:14px; padding:14px 16px; border-radius:18px;
-  border:1px solid rgba(79,180,255,0.28);
-  background:linear-gradient(135deg, rgba(20,137,222,0.16), rgba(20,137,222,0.03));
-}
-.com-collab[data-mode="propose"]{
-  --c:var(--com-vert);
-  border-color:rgba(62,207,142,0.3);
-  background:linear-gradient(135deg, rgba(62,207,142,0.14), rgba(62,207,142,0.02));
-}
-.com-collab-ic{
-  flex:none; width:46px; height:46px; border-radius:14px; font-size:24px;
-  display:flex; align-items:center; justify-content:center;
-  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12);
-}
-.com-collab-corps{min-width:0; display:flex; flex-direction:column; gap:2px;}
-.com-collab-mode{font-size:11px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--c);}
-.com-collab-metier{font-size:19px; font-weight:700; letter-spacing:-0.01em;}
-.com-collab-puces{display:flex; flex-wrap:wrap; gap:6px; margin-top:7px;}
+/* Annonce de collaboration : une ligne et ses détails, sans bandeau. */
+.com-collab{--c:var(--blue-bright); display:flex; flex-direction:column; gap:4px; padding:0; border:0; background:none;}
+.com-collab[data-mode="propose"]{--c:var(--com-vert);}
+.com-collab-ligne{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;}
+.com-collab-mode{display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:700; letter-spacing:0.12em; text-transform:uppercase; color:var(--c);}
+.com-collab-mode::before{content:''; width:6px; height:6px; border-radius:50%; background:var(--c);}
+.com-collab-metier{font-size:16px; font-weight:600; letter-spacing:-0.01em;}
+.com-collab-details{display:flex; align-items:center; flex-wrap:wrap; gap:0 8px; font-size:13px; color:var(--muted); font-weight:400;}
+.com-collab-details span{display:inline-flex; align-items:center; gap:4px;}
+.com-collab-details i{font-style:normal; opacity:.5;}
 .com-collab-cta{display:flex; gap:8px; flex-wrap:wrap;}
 
 /* Images */
@@ -8203,13 +8190,11 @@ const FEUILLE = String.raw`
 
 /* ---------- EXPLORER ET MEMBRES ---------- */
 
-.com-explorer-tete, .com-collabs-tete{padding:22px 22px 18px; margin-bottom:18px; display:flex; flex-direction:column; gap:14px;}
-.com-collabs-tete{flex-direction:row; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap;}
-.com-collabs-tete > div{flex:1; min-width:220px;}
-.com-explorer-titre{font-size:24px; font-weight:700; letter-spacing:-0.02em;}
-.com-explorer-sous{margin:4px 0 0; color:var(--ink-soft); font-size:14.5px; font-weight:300; line-height:1.5;}
-.com-explorer-groupe{display:flex; flex-direction:column; gap:8px;}
-.com-explorer-lib{font-size:12px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted);}
+.com-explorer-tete{margin-bottom:6px; display:flex; flex-direction:column; gap:12px;}
+.com-ex-barre{display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+.com-ex-barre .com-recherche-champ{flex:1; min-width:200px;}
+.com-ex-barre .com-recherche-champ input{background:rgba(255,255,255,0.04); border-color:transparent;}
+.com-ex-barre .com-recherche-champ input:focus{background:rgba(255,255,255,0.07);}
 .com-affiner{
   align-self:flex-start; display:inline-flex; align-items:center; gap:7px; padding:6px 2px; border:0; background:none;
   color:var(--blue-bright); font-size:13.5px; font-weight:600; cursor:pointer;
@@ -8217,33 +8202,34 @@ const FEUILLE = String.raw`
 .com-affiner:hover{text-decoration:underline;}
 .com-affiner.actif .com-ic{transform:rotate(60deg);}
 .com-affiner .com-ic{transition:transform .5s var(--ease);}
-.com-affiner-zone{padding-top:2px;}
+.com-affiner-zone{padding:4px 0 2px;}
 .com-filtres-actifs{display:flex; flex-wrap:wrap; gap:6px;}
 .com-filtres-actifs:empty{display:none;}
 .com-puce.bouton.retirable{padding:4px 10px; cursor:pointer; background:rgba(20,137,222,0.16); border-color:rgba(79,180,255,0.35); color:var(--ink);}
 
 .com-resultats-tete{font-size:13px; color:var(--muted); font-weight:300; margin:2px 4px 10px; min-height:18px;}
-.com-liste-membres{display:flex; flex-direction:column; gap:12px;}
-.com-sugg-bloc{margin-bottom:18px;}
-.com-defile-cartes{padding:2px 2px 6px;}
-
-.com-membre{padding:16px 18px; cursor:pointer; transition:border-color .3s var(--ease), background .3s var(--ease), transform .4s var(--ease);}
-.com-membre:hover{border-color:rgba(255,255,255,0.18); background:var(--com-carte-haut);}
-.com-membre:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
-.com-membre-haut{display:flex; align-items:center; gap:14px;}
-.com-membre-id{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
-.com-membre-nom{font-size:16px; display:flex; align-items:center; flex-wrap:wrap;}
-.com-membre-sous{display:flex; align-items:center; flex-wrap:wrap; gap:0;}
-.com-membre-bio{margin:10px 0 0; color:var(--ink-soft); font-size:14px; font-weight:300; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
-.com-membre-metiers{display:flex; flex-direction:column; gap:7px; margin-top:12px;}
-.com-ligne-metiers{display:flex; align-items:center; flex-wrap:wrap; gap:6px;}
-.com-ligne-lib{font-size:12px; font-weight:600; color:var(--muted); min-width:58px; letter-spacing:0.02em;}
-.com-membre-genres{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
-.com-raisons{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;}
-.com-raison{
-  display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:500;
-  background:rgba(20,137,222,0.14); color:var(--blue-bright); border:1px solid rgba(79,180,255,0.25);
+.com-liste-membres{display:flex; flex-direction:column;}
+.com-sugg-bloc{margin:20px 0 22px;}
+.com-defile-visages{gap:6px; padding:2px 2px 6px;}
+.com-visage{
+  flex:none; width:88px; display:flex; flex-direction:column; align-items:center; gap:3px; padding:8px 4px; border-radius:16px;
+  text-decoration:none; text-align:center; transition:background .25s var(--ease);
 }
+.com-visage:hover{background:rgba(255,255,255,0.05);}
+.com-visage b{max-width:100%; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.com-visage span{max-width:100%; font-size:11.5px; color:var(--muted); font-weight:400; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+.com-membre{
+  display:flex; align-items:center; gap:14px; padding:14px 6px; cursor:pointer;
+  border-bottom:1px solid var(--line); border-radius:0; transition:background .25s var(--ease);
+}
+.com-membre:hover{background:rgba(255,255,255,0.03);}
+.com-membre:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
+.com-membre-id{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px;}
+.com-membre-nom{font-size:15.5px; display:flex; align-items:center; flex-wrap:wrap;}
+.com-membre-sous{display:flex; align-items:center; flex-wrap:wrap; gap:0 6px; font-size:13px; color:var(--muted);}
+.com-membre-resume{margin:3px 0 0; font-size:13px; color:var(--ink-soft); font-weight:300; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.com-membre-actions{flex:none;}
 
 .com-ruban{margin:0 0 18px;}
 .com-ruban-liste{display:flex; gap:10px; overflow-x:auto; scrollbar-width:none; padding:2px 2px 6px;}
@@ -8724,13 +8710,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 .com-post > .com-images{max-width:none;}
 
 /* Le bandeau d'une annonce de collaboration : il passe avant l'auteur. */
-.com-post > .com-collab{
-  position:relative; overflow:hidden; margin:-18px -20px 16px; padding:18px 22px; border-radius:0; border:0;
-  border-bottom:1px dashed rgba(255,255,255,0.22);
-}
-.com-collab-ic{width:52px; height:52px; border-radius:16px; font-size:27px;}
-.com-collab-metier{font-size:21px;}
-.com-collab-ondes{position:absolute; right:20px; top:50%; transform:translateY(-50%); color:var(--c); opacity:0.16; display:flex; pointer-events:none;}
+.com-post > .com-collab{margin:0 0 12px; padding:0 0 12px; border-bottom:1px solid var(--line);}
 
 /* Le bas : réactions visibles, puis commentaires, enregistrer, partager. */
 .com-post-pied{
@@ -8806,14 +8786,17 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 
 /* ---------- LES PAGES LARGES : EXPLORER ET COLLABS ---------- */
 
-.com-liste-membres{display:grid; grid-template-columns:repeat(auto-fill, minmax(340px, 1fr)); gap:14px;}
+.com-liste-membres{display:flex; flex-direction:column;}
 .com-liste-membres .com-vide{grid-column:1 / -1;}
 .com-explorer-tete{max-width:none;}
-.com-vue[data-vue="collabs"] .com-liste{display:grid; grid-template-columns:repeat(auto-fill, minmax(420px, 1fr)); gap:16px; align-items:start;}
-.com-vue[data-vue="collabs"] .com-liste > .com-bas, .com-vue[data-vue="collabs"] .com-liste > .com-vide,
-.com-vue[data-vue="collabs"] .com-liste > .com-squelette-post{grid-column:auto;}
-.com-vue[data-vue="collabs"] .com-liste > .com-bas, .com-vue[data-vue="collabs"] .com-liste > .com-vide{grid-column:1 / -1;}
-.com-vue[data-vue="collabs"] .com-post-pied{flex-direction:column; align-items:stretch;}
+/* Les annonces : une liste à lignes fines, sans cartes ni bandeau de pied. */
+.com-vue[data-vue="collabs"] .com-liste{display:flex; flex-direction:column; gap:0;}
+.com-vue[data-vue="collabs"] .com-post{
+  padding:20px 4px 6px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:none; box-shadow:none;
+  -webkit-backdrop-filter:none; backdrop-filter:none; overflow:visible;
+}
+.com-vue[data-vue="collabs"] .com-post[data-act]:hover{background:rgba(255,255,255,0.02);}
+.com-vue[data-vue="collabs"] .com-post-pied{margin:12px 0 0; padding:6px 0; border:0; background:none;}
 
 /* ---------- LE PROFIL : UNE CARTE QUI RESTE EN VUE ---------- */
 
@@ -8880,7 +8863,17 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 
 .com-seg-large{display:inline-flex; width:auto;}
 .com-seg-large .com-seg-btn{flex:none; padding:9px 20px;}
-.com-collabs-filtres{display:flex; flex-direction:column; gap:12px; margin-bottom:16px;}
+.com-collabs-barre{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 14px; margin-bottom:16px;}
+.com-collabs-droite{display:flex; align-items:center; gap:2px;}
+.com-seg-texte{display:inline-flex; gap:2px; padding:0; background:none; border:0; box-shadow:none;}
+.com-seg-texte .com-seg-btn{
+  flex:none; padding:9px 14px; border:0; border-radius:var(--radius-pill); background:none; box-shadow:none;
+  color:var(--muted); font-size:13.5px; font-weight:500; cursor:pointer;
+  transition:background .25s var(--ease), color .25s var(--ease);
+}
+.com-seg-texte .com-seg-btn:hover{background:rgba(255,255,255,0.06); color:var(--ink);}
+.com-seg-texte .com-seg-btn.actif{background:rgba(255,255,255,0.1); color:#fff;}
+.com-menu-emoji{width:18px; text-align:center; font-size:15px; line-height:1;}
 
 /* « N nouveaux messages » : sous le dock, pas sous la barre du site. */
 .com-pilule{top:168px;}
@@ -8959,7 +8952,6 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 
 @media (max-width:900px){
   .com-vue[data-vue="collabs"] .com-liste{grid-template-columns:1fr;}
-  .com-liste-membres{grid-template-columns:1fr;}
   .com-profil-grille{grid-template-columns:1fr;}
   .com-profil-gauche{position:static;}
 }
@@ -9001,7 +8993,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com[data-comp="1"] .com-fab{display:none;}
 
   .com-post{padding:16px 16px 0; border-radius:18px;}
-  .com-post > .com-collab{margin:-16px -16px 14px; padding:16px 18px;}
+  .com-post > .com-collab{margin:0 0 12px; padding:0 0 12px;}
   .com-post-pied{margin:14px -16px 0; padding:8px 10px 8px 14px;}
   .com-outil-lib{display:none;}
   .com-texte{font-size:15.5px;}
@@ -9012,8 +9004,6 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-comp-pied{gap:6px;}
 
   .com-explorer-tete{padding:18px 16px 14px;}
-  .com-collabs-tete{padding:18px 16px;}
-  .com-membre{padding:14px;}
   .com-profil-corps{padding:0 16px 18px;}
   .com-profil-nom{font-size:22px;}
 
