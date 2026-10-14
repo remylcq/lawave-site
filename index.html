@@ -228,7 +228,12 @@
     box-shadow:var(--reflet-int), 0 2px 10px rgba(0,0,0,0.28);
   }
 
-  .burger{display:none; background:none; border:none; font-size:22px; color:var(--ink);}
+  .burger{display:none; position:relative; background:none; border:none; font-size:22px; color:var(--ink);}
+  /* Un point sur le menu mobile quand la communauté a du nouveau : la pastille de l'onglet y est cachée. */
+  .burger.avec-pastille::after{
+    content:''; position:absolute; top:8px; right:7px; width:10px; height:10px; border-radius:50%;
+    background:var(--blue); box-shadow:0 0 0 2px var(--bg, #05070a);
+  }
 
   .account-zone{position:relative;}
   .account-icon{
@@ -3937,7 +3942,7 @@
         <div id="accDropLoggedIn" style="display:none;">
           <p class="mono" id="accDropPseudo" style="margin:0 0 10px; color:var(--ink); font-size:13px;"></p>
           <button onclick="goTo('profile')">Mon profil</button>
-          <button onclick="goTo('community')">Communauté</button>
+          <button onclick="goTo('waveurs')">L'espace des waveurs</button>
           <button onclick="logoutUser()">Se déconnecter</button>
         </div>
       </div>
@@ -10276,6 +10281,12 @@ function majBadgeCommunaute(total){
 
   pastille.hidden = !total;
   pastille.textContent = total > 9 ? '9+' : String(total || '');
+
+  const burger = document.getElementById('burgerBtn');
+  if(burger){
+    burger.classList.toggle('avec-pastille', !!total);
+    burger.setAttribute('aria-label', total ? 'Menu, ' + total + ' notification' + (total > 1 ? 's' : '') + ' de la communauté' : 'Menu');
+  }
 }
 
 let compteursCommunauteLe = 0;
@@ -10289,7 +10300,7 @@ async function majCompteursCommunaute(){
   // Sur la page, la communauté fait déjà ce travail.
   if(surLaPage && window.Com) return;
 
-  if(Date.now() - compteursCommunauteLe < 20000) return;
+  if(Date.now() - compteursCommunauteLe < 15000) return;
   compteursCommunauteLe = Date.now();
 
   try{
@@ -10299,7 +10310,7 @@ async function majCompteursCommunaute(){
   }catch(erreur){}
 }
 
-setInterval(majCompteursCommunaute, 75000);
+setInterval(majCompteursCommunaute, 30000);
 document.addEventListener('visibilitychange', () => { if(!document.hidden) majCompteursCommunaute(); });
 
 // Supabase Auth conserve lui-même la session : au chargement, on la
