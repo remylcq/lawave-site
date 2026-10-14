@@ -4959,7 +4959,7 @@
     <div class="field" style="margin-top:20px; margin-bottom:0;">
       <input type="text" id="rechercheCatalogue" autocomplete="off"
              placeholder="Chercher un titre, un artiste, un pseudo"
-             oninput="renderApprovedReleasesList()">
+             oninput="renderApprovedReleasesList(); chercherDansLeCatalogueEquipe()">
     </div>
 
     <div
@@ -6042,14 +6042,93 @@ const BD = {
     'release_type', 'featuring', 'source', 'validated_at', 'validated_by'
   ].join(', '),
 
-  // Catalogue public : trié par date de sortie, la plus récente
-  // d'abord. Le filtrage des sorties encore à venir se fait côté
-  // site, pour garder ici une requête simple.
-  sortiesPubliees(){
-    return toutesLesPages(() => supabaseClient.from('submissions')
+  // Le catalogue s'ouvre sur les sorties les plus récentes (et toutes celles choisies à la main), pas sur tout :
+  // avec les discographies complètes, il y en a des dizaines de milliers. Le reste se lit au besoin (sortiesPage,
+  // sortiesParIds, sortiesDeLArtiste, catalogueChercher). Même ordre partout : date de sortie, puis numéro.
+  async sortiesRecentes(){
+
+    const [recentes, manuelles] = await Promise.all([
+      BD.sortiesPage(0, CATALOGUE_AMORCE),
+      toutesLesPages(() => supabaseClient.from('submissions')
+        .select(BD.COLONNES_PUBLIQUES)
+        .eq('status', 'approved')
+        .is('source', null)
+        .order('catalog_number', { ascending: false }))
+    ]);
+
+    const erreur = recentes.error || manuelles.error;
+
+    if(erreur) return { data: null, error: erreur };
+
+    const vus = new Set();
+    const data = (recentes.data || []).concat(manuelles.data || []).filter(l => {
+      if(vus.has(l.id)) return false;
+      vus.add(l.id);
+      return true;
+    });
+
+    return { data, error: null, decalage: (recentes.data || []).length, fin: (recentes.data || []).length < CATALOGUE_AMORCE };
+  },
+
+  // Une page de sorties, de la plus récente à la plus ancienne (décalage : combien en sauter).
+  sortiesPage(decalage, taille){
+    const aujourdhui = new Date().toLocaleDateString('sv-SE');
+    return supabaseClient.from('submissions')
       .select(BD.COLONNES_PUBLIQUES)
       .eq('status', 'approved')
-      .order('release_date', { ascending: false, nullsFirst: false }));
+      .or('release_date.is.null,release_date.lte.' + aujourdhui)
+      .order('release_date', { ascending: false, nullsFirst: false })
+      .order('catalog_number', { ascending: false })
+      .range(decalage, decalage + taille - 1);
+  },
+
+  sortiesParIds(ids){
+    return supabaseClient.from('submissions')
+      .select(BD.COLONNES_PUBLIQUES)
+      .eq('status', 'approved')
+      .in('id', ids);
+  },
+
+  sortieParNumero(numero){
+    return supabaseClient.from('submissions')
+      .select(BD.COLONNES_PUBLIQUES)
+      .eq('status', 'approved')
+      .eq('catalog_number', Number(numero))
+      .limit(5);
+  },
+
+  // Tout ce qu'un artiste a sorti, et ce où il est invité (sa page).
+  async sortiesDeLArtiste(handle){
+
+    const aujourdhui = new Date().toLocaleDateString('sv-SE');
+
+    const [siennes, invite] = await Promise.all([
+      toutesLesPages(() => supabaseClient.from('submissions')
+        .select(BD.COLONNES_PUBLIQUES)
+        .eq('status', 'approved')
+        .eq('artist_handle', handle)
+        .or('release_date.is.null,release_date.lte.' + aujourdhui)
+        .order('catalog_number', { ascending: false })),
+      toutesLesPages(() => supabaseClient.from('submissions')
+        .select(BD.COLONNES_PUBLIQUES)
+        .eq('status', 'approved')
+        .contains('featuring', [{ handle }])
+        .or('release_date.is.null,release_date.lte.' + aujourdhui)
+        .order('catalog_number', { ascending: false }))
+    ]);
+
+    return { data: (siennes.data || []).concat(invite.data || []), error: siennes.error || invite.error };
+  },
+
+  async catalogueChercher(texte, limite, decalage){
+    const { data, error } = await supabaseClient.rpc('catalogue_chercher', {
+      p_q: texte, p_limite: limite || 60, p_decalage: decalage || 0
+    });
+    return { data: Array.isArray(data) ? data : [], error };
+  },
+
+  comptesArtistes(){
+    return supabaseClient.rpc('catalogue_comptes_artistes');
   },
 
   // Une seule ligne : de quoi savoir si la base répond, sans relire le
@@ -6062,11 +6141,41 @@ const BD = {
   },
 
   // Espace équipe : même contenu, trié par numéro de catalogue.
-  sortiesValidees(){
-    return toutesLesPages(() => supabaseClient.from('submissions')
+  async sortiesValidees(){
+
+    const [manuelles, recentes, total] = await Promise.all([
+      toutesLesPages(() => supabaseClient.from('submissions')
+        .select('*').eq('status', 'approved').is('source', null)
+        .order('catalog_number', { ascending: false })),
+      supabaseClient.from('submissions')
+        .select('*').eq('status', 'approved')
+        .order('catalog_number', { ascending: false })
+        .range(0, 299),
+      supabaseClient.from('submissions')
+        .select('id', { count: 'exact', head: true }).eq('status', 'approved')
+    ]);
+
+    const erreur = manuelles.error || recentes.error;
+
+    if(erreur) return { data: null, error: erreur };
+
+    const vus = new Set();
+    const data = (recentes.data || []).concat(manuelles.data || [])
+      .filter(l => { if(vus.has(l.id)) return false; vus.add(l.id); return true; })
+      .sort((a, b) => (b.catalog_number || 0) - (a.catalog_number || 0));
+
+    return { data, error: null, total: total.count || data.length };
+  },
+
+  // L'espace équipe cherche dans tout le catalogue : titre, artiste ou pseudo.
+  sortiesEquipeChercher(texte){
+    const q = String(texte || '').replace(/[%,()*\\]/g, ' ').trim().slice(0, 60);
+    return supabaseClient.from('submissions')
       .select('*')
       .eq('status', 'approved')
-      .order('catalog_number', { ascending: false }));
+      .or('track_title.ilike.%' + q + '%,artist_name.ilike.%' + q + '%,artist_handle.ilike.%' + q + '%')
+      .order('catalog_number', { ascending: false })
+      .limit(120);
   },
 
   sortiesEnAttente(){
@@ -11825,6 +11934,7 @@ async function viewProfileClassique(userId){
   const users = await getUsers();
   const user = users.find(u=>u.id===userId);
   const body = document.getElementById('viewProfileBody');
+  if(user) await assurerSortiesDesNotes(userId);
   if(!user){
     body.innerHTML = `<p style="color:var(--muted);">Profil introuvable.</p>`;
   } else {
@@ -13119,24 +13229,33 @@ function catalogueFiltre(){
 
   if(!requete) return catalogueTrie;
 
-  return catalogueTrie.filter(sortie =>
+  const serveur = catalogueRecherche && catalogueRecherche.q === requete ? catalogueRecherche.ids : null;
+
+  return catalogueData.filter(sortie =>
     texteNu(sortie.title).includes(requete) ||
     texteNu(sortie.artist).includes(requete) ||
     (sortie.featuring || []).some(feat =>
-      texteNu(feat.nom).includes(requete))
-  );
+      texteNu(feat.nom).includes(requete)) ||
+    (serveur && serveur.has(sortie.id))
+  ).sort(comparerSorties);
 }
 
 
 // Le bouton sous la grille : présent tant qu'il reste des sorties plus
-// anciennes que celles affichées.
+// anciennes que celles affichées (en mémoire, ou chez le serveur).
 function renderSuiteCatalogue(total){
 
   const reste = document.getElementById('catalogueReste');
 
   if(!reste) return;
 
-  const encore = total > catalogueVisibles;
+  const requete = texteNu(texteRecherche('rechercheCataloguePublic'));
+
+  const serveurEncore = requete
+    ? requete.length >= 2 && !(catalogueRecherche && catalogueRecherche.q === requete && catalogueRecherche.fin)
+    : !catalogueFinServeur;
+
+  const encore = total > catalogueVisibles || serveurEncore;
   const present = !!reste.querySelector('.cat-plus');
 
   // Le bouton n'est recréé que quand il apparaît : le remplacer à
@@ -13152,9 +13271,27 @@ function renderSuiteCatalogue(total){
 
 // Seules les nouvelles pochettes s'ajoutent à la grille : la refaire
 // en entier rejouerait l'animation d'entrée des soixante premières.
-function voirPlusCatalogue(){
+async function voirPlusCatalogue(){
 
   const grid = document.getElementById('catalogueGrid');
+  const bouton = document.querySelector('#catalogueReste .cat-plus');
+  const requete = texteNu(texteRecherche('rechercheCataloguePublic'));
+
+  // Les pochettes en mémoire ne suffisent plus pour la page suivante : on lit la suite chez le serveur.
+  if(catalogueVisibles + CATALOGUE_PAR_PAGE > catalogueFiltre().length){
+
+    if(bouton) bouton.disabled = true;
+
+    try{
+      if(requete) await chercherPlusCatalogue(requete);
+      else await chargerPlusCatalogue();
+    }catch(erreur){
+      console.warn('⚠️ Suite du catalogue illisible :', erreur);
+      catalogueFinServeur = true;
+    }
+
+    if(bouton) bouton.disabled = false;
+  }
 
   if(!grid || !grid.querySelector('.cat-tile')){
     catalogueVisibles += CATALOGUE_PAR_PAGE;
@@ -13195,9 +13332,13 @@ function renderCatalogueGrille(){
   const trouvees = catalogueFiltre();
 
   if(!trouvees.length){
+
+    const requete = texteNu(texteRecherche('rechercheCataloguePublic'));
+    const enAttente = requete.length >= 2 && !(catalogueRecherche && catalogueRecherche.q === requete);
+
     grid.innerHTML = `
       <div class="empty-state">
-        Aucune sortie ne correspond à cette recherche.
+        ${enAttente ? 'Recherche…' : 'Aucune sortie ne correspond à cette recherche.'}
       </div>`;
     renderSuiteCatalogue(0);
     return;
@@ -13212,8 +13353,22 @@ function renderCatalogueGrille(){
 // La recherche repart de la première page : sinon, chercher après
 // avoir déroulé tout le catalogue affichait d'emblée mille résultats.
 function onRechercheCatalogue(){
+
   catalogueVisibles = CATALOGUE_PAR_PAGE;
   renderCatalogueGrille();
+
+  // Le serveur cherche dans tout le catalogue, un instant après la dernière touche.
+  clearTimeout(catalogueRechercheMinuteur);
+
+  const brut = texteRecherche('rechercheCataloguePublic');
+
+  if(texteNu(brut).length < 2){
+    catalogueRechercheJeton++;
+    catalogueRecherche = null;
+    return;
+  }
+
+  catalogueRechercheMinuteur = setTimeout(() => chercherCatalogue(brut), 260);
 }
 
 // La pochette s'ouvre aussi au clavier (Tab puis Entrée ou Espace) : une
@@ -13274,55 +13429,9 @@ async function renderCatalogue(){
 }
 
 
-async function chargerEtAfficherCatalogue(){
-
-  try{
-
-    // ==========================================
-    // RÉCUPÉRER LES SORTIES VALIDÉES
-    // ==========================================
-
-    // Les photos viennent des profils artistes, les moyennes des
-    // notes : on charge les deux avant de construire les fiches. Les trois
-    // lectures partent ensemble — l'une après l'autre, l'accueil attendait
-    // la somme des trois.
-    const [, , { data, error }] = await Promise.all([
-      loadArtists(),
-      chargerNotes(),
-      BD.sortiesPubliees()
-    ]);
-
-
-    if(error){
-      throw error;
-    }
-
-
-    // ==========================================
-    // TRANSFORMER LES DONNÉES SUPABASE
-    // AU FORMAT UTILISÉ PAR LE CATALOGUE
-    // ==========================================
-
-    // Date du jour en heure LOCALE (et non UTC) : le format
-    // suédois donne exactement YYYY-MM-DD, comparable tel quel
-    // à la colonne release_date de Supabase.
-    const today =
-  new Date().toLocaleDateString('sv-SE');
-
-const list = (data || [])
-  .filter(submission => {
-
-    // Si aucune date n'est renseignée,
-    // on conserve la sortie pour éviter
-    // de casser les anciennes données.
-    if(!submission.release_date){
-      return true;
-    }
-
-    return submission.release_date <= today;
-
-  })
-  .map(submission => ({
+// Une ligne de la base -> la forme que le site manipule.
+function sortieDepuisLigne(submission){
+  return ({
 
     id: submission.id,
 
@@ -13378,11 +13487,205 @@ const list = (data || [])
 
     validatedBy:
       submission.validated_by
+  });
+}
 
-  }));
+const CATALOGUE_AMORCE = 240;          // sorties lues à l'ouverture (les plus récentes)
+const CATALOGUE_PAGE_SERVEUR = 120;    // sorties lues à chaque « Afficher plus » au-delà de la mémoire
+let catalogueDecalageServeur = 0;      // combien de sorties du catalogue, dans l'ordre, ont déjà été lues
+let catalogueFinServeur = false;       // le serveur n'en a plus de plus anciennes
+let catalogueRecherche = null;         // { q, ids, fin, decalage } : la dernière recherche faite au serveur
+let catalogueRechercheMinuteur = null;
+let catalogueRechercheJeton = 0;
+
+// Date de sortie, la plus récente d'abord, puis numéro de catalogue.
+function comparerSorties(a, b){
+
+  const dateA = a.releaseDate || '';
+  const dateB = b.releaseDate || '';
+
+  if(dateA !== dateB){
+    return dateB.localeCompare(dateA);
+  }
+
+  return (b.catalogNum || 0) - (a.catalogNum || 0);
+}
+
+// Ajoute à la mémoire des sorties lues « à la demande » (extra : elles ne font pas partie du catalogue défilant).
+function fusionnerSorties(lignes, extra){
+
+  const connus = new Map(catalogueData.map(sortie => [sortie.id, sortie]));
+  const rendues = [];
+
+  (lignes || []).forEach(ligne => {
+
+    const deja = connus.get(ligne.id);
+
+    if(deja){
+      if(!extra) deja.extra = false;
+      rendues.push(deja);
+      return;
+    }
+
+    const sortie = sortieDepuisLigne(ligne);
+    sortie.extra = !!extra;
+
+    catalogueData.push(sortie);
+    connus.set(sortie.id, sortie);
+    rendues.push(sortie);
+  });
+
+  return rendues;
+}
+
+function reconstruireCatalogueTrie(){
+  catalogueTrie = catalogueData.filter(sortie => !sortie.extra).sort(comparerSorties);
+}
+
+// Ces sorties sont-elles en mémoire ? Sinon on les lit (collection d'un membre, fiche ouverte par son adresse...).
+async function assurerSorties(ids){
+
+  const connus = new Set(catalogueData.map(sortie => sortie.id));
+  const manquantes = [...new Set((ids || []).filter(id => id && !connus.has(id)))];
+
+  for(let i = 0; i < manquantes.length; i += 80){
+    const { data } = await BD.sortiesParIds(manquantes.slice(i, i + 80));
+    fusionnerSorties(data, true);
+  }
+}
+
+// Les sorties de la collection d'un membre (écoutées, à écouter, favorites).
+async function assurerSortiesDesNotes(userId){
+
+  const ids = toutesLesNotes
+    .filter(n => n.user_id === userId && (n.saved || n.a_ecouter || n.favori))
+    .map(n => n.release_id);
+
+  await assurerSorties(ids);
+}
+
+async function assurerSortiesArtiste(handle){
+
+  if(!handle) return;
+
+  const { data } = await BD.sortiesDeLArtiste(handle);
+  fusionnerSorties(data, true);
+}
+
+// Les sorties plus anciennes que celles déjà lues : la suite d'« Afficher plus ».
+async function chargerPlusCatalogue(){
+
+  if(catalogueFinServeur) return;
+
+  const { data, error } = await BD.sortiesPage(catalogueDecalageServeur, CATALOGUE_PAGE_SERVEUR);
+
+  if(error) throw error;
+
+  catalogueDecalageServeur += (data || []).length;
+  catalogueFinServeur = (data || []).length < CATALOGUE_PAGE_SERVEUR;
+
+  fusionnerSorties(data, false);
+  reconstruireCatalogueTrie();
+}
+
+// La recherche : sur ce qui est en mémoire tout de suite, puis sur tout le catalogue dès que le serveur répond.
+async function chercherCatalogue(brut){
+
+  const q = texteNu(brut);
+  const jeton = ++catalogueRechercheJeton;
+
+  if(q.length < 2) return;
+
+  const { data, error } = await BD.catalogueChercher(brut, 120, 0);
+
+  if(jeton !== catalogueRechercheJeton) return;
+
+  // La fonction n'existe pas (sql/catalogue-pagine.sql pas encore passé) : la mémoire suffit.
+  if(error){
+    catalogueRecherche = { q, ids: new Set(), fin: true, decalage: 0 };
+    renderCatalogueGrille();
+    return;
+  }
+
+  const trouvees = fusionnerSorties(data, true);
+
+  catalogueRecherche = { q, ids: new Set(trouvees.map(sortie => sortie.id)), fin: data.length < 120, decalage: data.length };
+  renderCatalogueGrille();
+}
+
+async function chercherPlusCatalogue(q){
+
+  const r = catalogueRecherche;
+
+  if(!r || r.q !== q || r.fin) return;
+
+  const { data, error } = await BD.catalogueChercher(texteRecherche('rechercheCataloguePublic'), 120, r.decalage);
+
+  if(error){ r.fin = true; return; }
+
+  fusionnerSorties(data, true).forEach(sortie => r.ids.add(sortie.id));
+
+  r.decalage += data.length;
+  r.fin = data.length < 120;
+}
+
+async function chargerEtAfficherCatalogue(){
+
+  try{
+
+    // ==========================================
+    // RÉCUPÉRER LES SORTIES VALIDÉES
+    // ==========================================
+
+    // Les photos viennent des profils artistes, les moyennes des
+    // notes : on charge les deux avant de construire les fiches. Les trois
+    // lectures partent ensemble — l'une après l'autre, l'accueil attendait
+    // la somme des trois.
+    const [, , { data, error, decalage, fin }] = await Promise.all([
+      loadArtists(),
+      chargerNotes(),
+      BD.sortiesRecentes()
+    ]);
 
 
-    catalogueData = list;
+    if(error){
+      throw error;
+    }
+
+
+    // ==========================================
+    // TRANSFORMER LES DONNÉES SUPABASE
+    // AU FORMAT UTILISÉ PAR LE CATALOGUE
+    // ==========================================
+
+    // Date du jour en heure LOCALE (et non UTC) : le format
+    // suédois donne exactement YYYY-MM-DD, comparable tel quel
+    // à la colonne release_date de Supabase.
+    const today =
+  new Date().toLocaleDateString('sv-SE');
+
+const list = (data || [])
+  .filter(submission => {
+
+    // Si aucune date n'est renseignée,
+    // on conserve la sortie pour éviter
+    // de casser les anciennes données.
+    if(!submission.release_date){
+      return true;
+    }
+
+    return submission.release_date <= today;
+
+  })
+  .map(submission => sortieDepuisLigne(submission));
+
+
+    // Ce qui a été lu ailleurs (page d'un artiste, collection, recherche) reste en mémoire : seule la partie
+    // « catalogue » est remplacée par cette lecture.
+    const lues = new Set(list.map(sortie => sortie.id));
+    catalogueData = list.concat(catalogueData.filter(sortie => !lues.has(sortie.id)));
+    catalogueDecalageServeur = decalage || 0;
+    catalogueFinServeur = !!fin;
     catalogueLuLe = Date.now();
 
 
@@ -13394,17 +13697,7 @@ const list = (data || [])
     // texte suffit. Les sorties sans date (anciennes) passent
     // en dernier, départagées par leur numéro de catalogue.
 
-    const sorted = [...list].sort((a, b) => {
-
-      const dateA = a.releaseDate || '';
-      const dateB = b.releaseDate || '';
-
-      if(dateA !== dateB){
-        return dateB.localeCompare(dateA);
-      }
-
-      return b.catalogNum - a.catalogNum;
-    });
+    const sorted = catalogueData.filter(sortie => !sortie.extra).sort(comparerSorties);
 
 
     // ==========================================
@@ -16635,28 +16928,42 @@ function artistesLocalises(){
 // Le nombre de sorties de chaque artiste, d'après le catalogue : lui
 // comme invité compte aussi, comme sur sa page. Calculé une fois par
 // lecture du catalogue plutôt qu'une fois par ligne affichée.
-let carteComptesSorties = null;
+var carteComptesSorties = null;
+var carteComptesLuLe = 0;
 
 function sortiesParArtisteCarte(){
+  return carteComptesSorties || new Map();
+}
 
-  if(carteComptesSorties && carteComptesSorties.ref === catalogueData){
-    return carteComptesSorties.comptes;
+// Les comptes viennent de la base (le catalogue en mémoire n'a plus que les sorties récentes). Si la fonction n'existe
+// pas encore (sql/catalogue-pagine.sql), on compte ce qui est en mémoire, comme avant.
+async function chargerComptesCarte(){
+
+  if(carteComptesSorties && Date.now() - carteComptesLuLe < 60000) return;
+
+  let comptes = null;
+
+  try{
+    const { data, error } = await BD.comptesArtistes();
+    if(!error && data && typeof data === 'object') comptes = new Map(Object.entries(data));
+  }catch(erreur){ /* repli ci-dessous */ }
+
+  if(!comptes){
+
+    comptes = new Map();
+
+    const compter = (handle) => {
+      if(handle) comptes.set(handle, (comptes.get(handle) || 0) + 1);
+    };
+
+    catalogueData.forEach(sortie => {
+      compter(sortie.artistHandle || instagramHandle(sortie.instagram));
+      (sortie.featuring || []).forEach(feat => compter(feat.handle));
+    });
   }
 
-  const comptes = new Map();
-
-  const compter = (handle) => {
-    if(handle) comptes.set(handle, (comptes.get(handle) || 0) + 1);
-  };
-
-  catalogueData.forEach(sortie => {
-    compter(sortie.artistHandle || instagramHandle(sortie.instagram));
-    (sortie.featuring || []).forEach(feat => compter(feat.handle));
-  });
-
-  carteComptesSorties = { ref: catalogueData, comptes };
-
-  return comptes;
+  carteComptesSorties = comptes;
+  carteComptesLuLe = Date.now();
 }
 
 
@@ -16830,6 +17137,7 @@ async function renderCarte(){
   // Les sorties servent à compter celles de chaque artiste ; les
   // profils portent la ville.
   if(!catalogueData.length) await renderCatalogue();
+  await chargerComptesCarte();
 
   // Les profils ne sont relus que s'ils datent : revenir d'une fiche
   // d'artiste ne doit pas retélécharger la liste entière.
@@ -18010,9 +18318,9 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
 
   if(currentUser) awardXP('visiterArtiste', 5);
 
-  // Le catalogue porte déjà les sorties publiées et visibles.
+  // Le catalogue ne porte que les sorties récentes : celles de l'artiste (et où il est invité) se lisent ici.
   if(!catalogueData.length) await renderCatalogue();
-  await loadArtists();
+  await Promise.all([loadArtists(), assurerSortiesArtiste(handle)]);
 
   const profil = artistsByHandle[handle] || null;
 
@@ -18392,9 +18700,15 @@ async function ouvrirSortieParNumero(numero, garderPage){
 
   if(!catalogueData.length) await renderCatalogue();
 
-  const item = catalogueData.find(
+  let item = catalogueData.find(
     s => String(s.catalogNum) === String(numero)
   );
+
+  if(!item){
+    const { data } = await BD.sortieParNumero(numero);
+    const lues = fusionnerSorties(data, true);
+    item = lues.find(s => String(s.catalogNum) === String(numero)) || null;
+  }
 
   if(item) openCatalogueModal(item.id);
 }
@@ -18442,8 +18756,15 @@ function lancerClip(bouton, videoId){
 }
 
 
-function openCatalogueModal(id){
-  const item = catalogueData.find(c=>c.id===id);
+async function openCatalogueModal(id){
+  let item = catalogueData.find(c=>c.id===id);
+
+  // Une sortie plus ancienne que celles lues à l'ouverture (collection, lien partagé...) : on va la chercher.
+  if(!item){
+    await assurerSorties([id]);
+    item = catalogueData.find(c=>c.id===id);
+  }
+
   if(!item) return;
 
   const zoneClip = document.getElementById('modalClip');
@@ -23007,6 +23328,34 @@ function voirToutLeCatalogue(){
 }
 
 
+// L'espace équipe ne charge que les sorties choisies à la main et les plus récentes : une recherche va lire le reste.
+let rechercheEquipeMinuteur = null;
+
+function chercherDansLeCatalogueEquipe(){
+
+  clearTimeout(rechercheEquipeMinuteur);
+
+  const requete = texteRecherche('rechercheCatalogue');
+
+  if(String(requete || '').trim().length < 2) return;
+
+  rechercheEquipeMinuteur = setTimeout(async () => {
+
+    const { data } = await BD.sortiesEquipeChercher(requete);
+
+    if(!data || !data.length) return;
+
+    const connus = new Set(approvedReleasesData.map(l => l.id));
+    const neuves = data.filter(l => !connus.has(l.id));
+
+    if(!neuves.length) return;
+
+    approvedReleasesData = approvedReleasesData.concat(neuves);
+    renderApprovedReleasesList();
+
+  }, 300);
+}
+
 function renderApprovedReleasesList(){
 
   const list = document.getElementById('approvedReleasesList');
@@ -23078,7 +23427,7 @@ async function loadApprovedReleases(){
     // Les vignettes d'artiste viennent des profils.
     await loadArtists();
 
-    const { data, error } = await BD.sortiesValidees();
+    const { data, error, total } = await BD.sortiesValidees();
 
     if(error){
       throw error;
@@ -23086,7 +23435,7 @@ async function loadApprovedReleases(){
 
     approvedReleasesData = data || [];
 
-    setAdminTabCount('catalogue', approvedReleasesData.length);
+    setAdminTabCount('catalogue', total || approvedReleasesData.length);
 
     // L'édition en cours n'a plus de sens après un rechargement.
     releaseEditingId = null;
@@ -23687,9 +24036,9 @@ function renderArtistProfilesList(){
 // ---- Artistes suivis sur Deezer ----
 //
 // artists.deezer_artist_id relie un profil à sa page Deezer ; deezer_suivi
-// dit si l'import va y chercher de nouvelles sorties. Tant que
-// sql/deezer-featurings.sql n'est pas passé, la colonne deezer_suivi
-// n'existe pas : un artiste relié à Deezer est alors suivi, comme avant.
+// dit si l'import va y chercher de nouvelles sorties. Tous les artistes reliés sont suivis, sans choix à faire
+// (sql/discographie-complete.sql) ; seuls les profils créés par un featuring restent à part, pour que l'import
+// ne s'étende pas d'invité en invité.
 
 function artisteDeezerEtat(profil){
 
@@ -23705,10 +24054,6 @@ function artistesFiltres(){
       garde: () => true },
     { cle: 'auto',      libelle: 'Ajoutés automatiquement',
       garde: p => p.source === 'deezer-auto' },
-    { cle: 'suivis',    libelle: 'Suivis sur Deezer',
-      garde: p => artisteDeezerEtat(p) === 'suivi' },
-    { cle: 'nonsuivis', libelle: 'Non suivis',
-      garde: p => artisteDeezerEtat(p) === 'nonsuivi' },
     { cle: 'sans',      libelle: 'Pas reliés à Deezer',
       garde: p => artisteDeezerEtat(p) === 'sans' },
     // Ceux qui n'ont pas de photo de profil : l'import reprend celle de
@@ -23800,8 +24145,8 @@ function artisteDeezerHtml(profil, h){
          rel="noopener noreferrer" style="color:var(--blue);">Deezer ↗</a>
       · ${
         suivi
-          ? 'suivi (' + verifie + ')'
-          : 'non suivi : ses sorties ne sont pas importées'
+          ? 'suivi automatiquement (' + verifie + ')'
+          : 'ajouté par un featuring : ses sorties arrivent avec celles des artistes qui le font participer'
       }
       · ${
         importees
@@ -23809,10 +24154,6 @@ function artisteDeezerHtml(profil, h){
             ' importée' + (importees > 1 ? 's' : '')
           : 'aucune sortie importée'
       }
-      · <button type="button" class="lien-bouton"
-                onclick="basculerSuiviArtiste('${h}', ${suivi ? 'false' : 'true'})">${
-        suivi ? 'Ne plus suivre' : 'Suivre ses sorties'
-      }</button>
       · <button type="button" class="lien-bouton"
                 onclick="ouvrirAjoutArtiste('${h}')">Changer de profil</button>
     </span>`;
@@ -23842,56 +24183,6 @@ function messageSqlDeezer(error){
   }
 
   return 'Échec : ' + detail;
-}
-
-
-async function basculerSuiviArtiste(handle, suivre){
-
-  if(!isAdmin) return;
-
-  const profil = artistProfilesData.find(p => p.instagram_handle === handle);
-  if(!profil) return;
-
-  setRowMessage('artistsActionMsg', '');
-
-  // « Suivre » remet la date de vérification à zéro : l'import va voir
-  // l'artiste dès son prochain passage.
-  const { data, error } = await BD.majArtiste(
-    handle,
-    suivre
-      ? { deezer_suivi: true, deezer_verifie_le: null }
-      : { deezer_suivi: false }
-  );
-
-  if(error){
-    setRowMessage('artistsActionMsg', messageSqlDeezer(error), 'err');
-    return;
-  }
-
-  // Écriture réservée à l'équipe : sans droits, Supabase renvoie zéro
-  // ligne modifiée et aucune erreur.
-  if(!data || data.length === 0){
-    setRowMessage(
-      'artistsActionMsg',
-      'Modification refusée : connecte-toi avec un compte marqué administrateur.',
-      'err'
-    );
-    return;
-  }
-
-  Object.assign(profil, data[0]);
-  renderArtistProfilesList();
-
-  const nom = profil.display_name || handle;
-
-  setRowMessage(
-    'artistsActionMsg',
-    suivre
-      ? '✅ ' + nom + " est suivi : l'import ira chercher ses sorties au " +
-        'prochain passage (toutes les 20 minutes).'
-      : '✅ ' + nom + " n'est plus suivi : ses sorties déjà au catalogue y " +
-        "restent, les prochaines n'arriveront plus."
-  );
 }
 
 
