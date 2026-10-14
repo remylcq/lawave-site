@@ -4321,6 +4321,16 @@ async function ecrireA(id){
 // (un beatmaker, un vidéaste...), on affine, on contacte.
 // ---------------------------------------------------------------------
 
+// Explorer rassemble les deux pages : les membres, et les annonces de collaboration.
+function selecteurExplorer(actif){
+
+  return `
+    <div class="com-seg com-seg-texte" role="tablist" aria-label="Explorer">
+      <button type="button" role="tab" class="com-seg-btn${actif === 'membres' ? ' actif' : ''}" data-act="aller" data-vers="explorer" aria-selected="${actif === 'membres'}">Membres</button>
+      <button type="button" role="tab" class="com-seg-btn${actif === 'annonces' ? ' actif' : ''}" data-act="aller" data-vers="collabs" aria-selected="${actif === 'annonces'}">Annonces</button>
+    </div>`;
+}
+
 // Le bouton qui dit le métier choisi (ou « Tous les métiers »), et le menu qu'il ouvre.
 function boutonMetier(cle, act, libelleTous){
 
@@ -4363,6 +4373,7 @@ VUES.explorer = {
 
     V.el.innerHTML = `
       <div class="com-explorer-tete">
+        ${selecteurExplorer('membres')}
         <div class="com-ex-barre">
           <label class="com-recherche-champ">
             ${icone('loupe', 18)}
@@ -4644,13 +4655,17 @@ function ctaCollabHtml(p){
 
 VUES.collabs = {
 
-  titre: () => 'Collaborations',
+  titre: () => 'Explorer',
 
   creer(V){
 
     V.etat = { mode: '', role: '' };
 
     V.el.innerHTML = `
+      <div class="com-collabs-barre">
+        ${selecteurExplorer('annonces')}
+        <button type="button" class="com-sujet-bouton" data-act="collab-publier">${icone('plus', 15)}<span>Annonce</span></button>
+      </div>
       <div class="com-collabs-barre">
         <div class="com-seg com-seg-texte" role="radiogroup" aria-label="Sens de l'annonce">
           <button type="button" role="radio" class="com-seg-btn actif" data-act="collab-mode" data-mode="" aria-checked="true">Toutes</button>
@@ -4659,7 +4674,6 @@ VUES.collabs = {
         </div>
         <div class="com-collabs-droite">
           <span data-collab-roles></span>
-          <button type="button" class="com-sujet-bouton" data-act="collab-publier">${icone('plus', 15)}<span>Annonce</span></button>
         </div>
       </div>
       <div data-hote="composer" class="com-hote-composer" hidden></div>
@@ -6532,7 +6546,7 @@ function majCoque(){
   const actif = {
     accueil: 'accueil', sujet: 'accueil', tag: 'accueil', post: 'accueil',
     explorer: 'explorer', recherche: 'explorer',
-    collabs: 'collabs', messages: 'messages', notifications: 'notifications', favoris: 'favoris'
+    collabs: 'explorer', messages: 'messages', notifications: 'notifications', favoris: 'favoris'
   }[route.nom] || null;
 
   const monProfil = route.nom === 'membre' && u && route.param.toLowerCase() === u.pseudo.toLowerCase();
@@ -6582,7 +6596,6 @@ function navItemHtml(cle, ic, libelle, badge, vers, classe){
 const ELEMENTS_NAV = [
   ['accueil', 'accueil', 'Accueil', null, ''],
   ['explorer', 'explorer', 'Explorer', null, 'explorer'],
-  ['collabs', 'collabs', 'Collabs', null, 'collabs'],
   ['messages', 'messages', 'Messages', 'messages', 'messages'],
   ['notifications', 'cloche', 'Alertes', 'notifications', 'notifications'],
   ['favoris', 'signet', 'Enregistrés', null, 'favoris']
