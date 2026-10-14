@@ -161,6 +161,7 @@ const ICONES = {
   loupe:     '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   croix:     '<path d="M6 6l12 12M18 6 6 18"/>',
   coche:     '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+  chevronBas:'<path d="m6 9 6 6 6-6"/>',
   retour:    '<path d="m15 18-6-6 6-6"/>',
   tendance:  '<path d="m3 17 6-6 4 4 8-8M15 7h6v6"/>',
   epingle:   '<path d="M12 17v5M8 3h8l-1 7 3 3v2H6v-2l3-3z"/>',
@@ -647,8 +648,9 @@ function ouvrirMenu(ancre, items){
 
   boite.innerHTML = items.filter(Boolean).map((it, i) => `
     ${it.separe ? '<div class="com-menu-sep" role="separator"></div>' : ''}
-    <button type="button" role="menuitem" class="com-menu-item${it.danger ? ' danger' : ''}" data-i="${i}">
-      ${it.icone ? icone(it.icone, 18) : ''}<span>${esc(it.libelle)}</span>
+    <button type="button" role="menuitem" class="com-menu-item${it.danger ? ' danger' : ''}${it.actif ? ' actif' : ''}" data-i="${i}">
+      ${it.point ? `<i class="com-pt" style="--sj:${attr(it.point)}" aria-hidden="true"></i>` : it.icone ? icone(it.icone, 18) : ''}<span>${esc(it.libelle)}</span>
+      ${it.actif ? `<span class="com-menu-coche" aria-hidden="true">${icone('coche', 16)}</span>` : ''}
     </button>`).join('');
 
   fond.appendChild(boite);
@@ -2933,17 +2935,31 @@ function listeDe(element){
 
 const VUES = {};
 
-function rangSujets(actif, fixe){
-  const sujets = S.ref.sujets;
+// Le sujet du fil se choisit dans un petit menu, à droite des onglets : un bouton qui dit le sujet courant.
+function rangSujets(actif){
+
+  const sujet = actif ? S.ref.sujets.find(x => x.cle === actif) : null;
+
   return `
-    <div class="com-sujets" role="group" aria-label="Filtrer par sujet">
-      <button type="button" class="com-chip${!actif ? ' actif' : ''}" data-act="sujet-filtre" data-cle="">Tout</button>
-      ${sujets.map(s => `
-        <button type="button" class="com-chip sujet${actif === s.cle ? ' actif' : ''}" data-act="sujet-filtre" data-cle="${attr(s.cle)}"
-                style="--sj:${attr(couleurSujet(s.cle))}">
-          <i class="com-pt" aria-hidden="true"></i>${esc(s.libelle)}
-        </button>`).join('')}
-    </div>`;
+    <button type="button" class="com-sujet-bouton${sujet ? ' filtre' : ''}" data-act="sujet-menu" aria-haspopup="menu"
+            aria-label="Filtrer par sujet : ${attr(sujet ? sujet.libelle : 'tous les sujets')}">
+      ${sujet ? `<i class="com-pt" style="--sj:${attr(couleurSujet(sujet.cle))}" aria-hidden="true"></i>` : ''}
+      <span>${esc(sujet ? sujet.libelle : 'Tous les sujets')}</span>
+      ${icone('chevronBas', 15)}
+    </button>`;
+}
+
+function menuSujets(ancre, V){
+
+  const actif = V.etat.sujet;
+
+  ouvrirMenu(ancre, [
+    { libelle: 'Tous les sujets', actif: !actif, action: () => VUES.accueil.changerSujet(V, null) },
+    ...S.ref.sujets.map(s => ({
+      libelle: s.libelle, point: couleurSujet(s.cle), actif: actif === s.cle,
+      action: () => VUES.accueil.changerSujet(V, s.cle)
+    }))
+  ]);
 }
 
 // --- Accueil : le fil -------------------------------------------------
@@ -3012,8 +3028,10 @@ VUES.accueil = {
       <div data-hote="onboarding"></div>
       <div data-hote="composer" class="com-hote-composer"></div>
       <div class="com-filtres">
-        <div data-hote="onglets"></div>
-        <div data-hote="sujets"></div>
+        <div class="com-filtres-ligne">
+          <div data-hote="onglets"></div>
+          <div data-hote="sujets" class="com-sujets-hote"></div>
+        </div>
         <div data-hote="tendances" class="com-tendances-ligne" hidden></div>
       </div>
       <div class="com-liste" data-liste></div>
@@ -3239,7 +3257,7 @@ VUES.accueil = {
     if(V.etat.sujet === sujet) return;
 
     V.etat.sujet = sujet;
-    $$('.com-chip', V.hotes.sujets).forEach(b => b.classList.toggle('actif', (b.dataset.cle || null) === sujet));
+    V.hotes.sujets.innerHTML = rangSujets(sujet);
     V.liste.recharger();
   }
 };
@@ -7065,8 +7083,8 @@ function agir(act, cible, e){
       return;
     }
 
-    case 'sujet-filtre':
-      if(V && V.nom === 'accueil') VUES.accueil.changerSujet(V, cible.dataset.cle);
+    case 'sujet-menu':
+      if(V && V.nom === 'accueil') menuSujets(cible, V);
       return;
 
     // --- Membres ---
@@ -7778,16 +7796,6 @@ const FEUILLE = String.raw`
   transition:transform .45s var(--ease), width .45s var(--ease);
 }
 
-.com-sujets{
-  display:flex; gap:8px; overflow-x:auto; padding:2px 2px 14px; margin:0 -2px;
-  scrollbar-width:none; -webkit-overflow-scrolling:touch;
-  mask-image:linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%);
-  -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%);
-}
-.com-sujets::-webkit-scrollbar{display:none;}
-@media (min-width:761px){
-  .com-sujets{flex-wrap:wrap; overflow:visible; gap:2px 4px; padding-bottom:10px; mask-image:none; -webkit-mask-image:none;}
-}
 .com-defile{
   display:flex; gap:8px; overflow-x:auto; padding:2px; margin:0 -2px; scrollbar-width:none; -webkit-overflow-scrolling:touch;
 }
@@ -8571,12 +8579,6 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   display:flex; align-items:center; justify-content:center;
   margin:0 0 22px; padding:4px 0;
 }
-/* Pas d'encadré : seules les icônes se voient. Un léger voile, du fond de la page vers le transparent,
-   garde les icônes lisibles quand le fil défile dessous. */
-.com-haut::before{
-  content:''; position:absolute; z-index:-1; inset:-12px -24px -22px; pointer-events:none;
-  background:linear-gradient(to bottom, rgba(5,7,10,0.9) 50%, transparent);
-}
 .com-dock{position:relative; display:flex; gap:2px; flex:none;}
 .com-dock .com-onglet-barre{
   top:0; bottom:0; left:0; height:auto; width:0; border-radius:var(--radius-pill);
@@ -8646,12 +8648,20 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 }
 
 .com-pt{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--sj, var(--blue-bright)); flex:none; opacity:.85;}
-/* Les sujets : du texte, un point de couleur ; rien d'autre ne se dessine tant qu'on ne les touche pas. */
-.com-chip.sujet, .com-sujets .com-chip{
-  gap:7px; padding:6px 11px; border-color:transparent; background:none; color:var(--muted); font-size:13px;
+.com-filtres-ligne{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px 14px; margin-bottom:14px;}
+.com-filtres-ligne .com-onglets{margin:0;}
+.com-sujet-bouton{
+  display:inline-flex; align-items:center; gap:8px; padding:9px 12px 9px 15px; border-radius:var(--radius-pill);
+  border:1px solid transparent; background:none; color:var(--muted); font-size:13.5px; font-weight:500; cursor:pointer;
+  transition:background .25s var(--ease), color .25s var(--ease), border-color .25s var(--ease);
 }
-.com-chip.sujet:hover, .com-sujets .com-chip:hover{background:rgba(255,255,255,0.06); color:var(--ink);}
-.com-chip.sujet.actif, .com-sujets .com-chip.actif{background:rgba(255,255,255,0.1); border-color:transparent; color:#fff;}
+.com-sujet-bouton svg{opacity:.7; transition:transform .3s var(--ease);}
+.com-sujet-bouton:hover{background:rgba(255,255,255,0.06); color:var(--ink);}
+.com-sujet-bouton:hover svg{transform:translateY(1px);}
+.com-sujet-bouton.filtre{color:#fff; background:rgba(255,255,255,0.08);}
+.com-menu-item .com-pt{width:8px; height:8px; margin:0 5px; opacity:1;}
+.com-menu-item.actif{color:#fff;}
+.com-menu-coche{margin-left:auto; display:inline-flex; color:var(--blue-bright);}
 
 .com-tendances-ligne{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:2px;}
 .com-tendances-lib{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);}
