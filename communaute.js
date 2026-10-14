@@ -8361,6 +8361,7 @@ const FEUILLE = String.raw`
 .com-trio-zone.seule .com-fleche{display:none;}
 .com-trio-zone.seule + .com-trio-barre{visibility:hidden;}
 @media (max-width:520px){
+  .com-trio-zone{overflow-x:clip;}
   .com-trio-page{gap:4px;}
   .com-pf{padding:14px 2px 10px;}
   .com-pf-photo .com-av-xl{width:72px; height:72px; font-size:26px;}
