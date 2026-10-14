@@ -1106,6 +1106,19 @@ function placerBarreOnglets(conteneur, animer, selecteurActif){
   }
 }
 
+// Six onglets sur un écran étroit : la barre défile, et l'onglet actif se remet au centre.
+function centrerOngletActif(conteneur){
+
+  const actif = $('.com-onglet.actif', conteneur);
+
+  if(!actif || conteneur.scrollWidth <= conteneur.clientWidth) return;
+
+  conteneur.scrollTo({
+    left: Math.max(0, actif.offsetLeft - (conteneur.clientWidth - actif.offsetWidth) / 2),
+    behavior: mouvementReduit() ? 'auto' : 'smooth'
+  });
+}
+
 // Fait entrer des éléments les uns après les autres.
 function entrerEnCascade(elements, pas){
 
@@ -4746,8 +4759,10 @@ function profilEnteteHtml(V){
     .map(([url, libelle]) => `<a class="com-reseau" href="${attr(url)}" target="_blank" rel="noopener noreferrer nofollow">${esc(libelle)}${icone('sortie', 12)}</a>`)
     .join('');
 
+  const banniere = safeUrl(p.banniere_url);
+
   const actions = soi
-    ? `<button type="button" class="com-btn com-btn-fantome com-pleine" data-act="profil-modifier">${icone('crayon', 15)} Modifier mon profil</button>`
+    ? `<button type="button" class="com-btn com-btn-fantome com-pleine" data-act="profil-modifier">${icone('crayon', 15)} Modifier mes recherches</button>`
     : bloque
       ? `<button type="button" class="com-btn com-btn-fantome com-pleine" data-act="debloquer" data-id="${attr(p.id)}">Débloquer</button>`
       : `${boutonSuivre(p, !!rel.suit)}
@@ -4758,8 +4773,15 @@ function profilEnteteHtml(V){
 
   return `
     <div class="com-carte com-profil" data-membre="${attr(p.id)}" style="--rc:${attr(r.color)}">
-      <div class="com-profil-banniere" style="--h:${h}">
-        <span class="com-profil-ondes" aria-hidden="true">${icone('ondes', 120)}</span>
+      <div class="com-profil-banniere${banniere ? ' avec-image' : ''}" style="--h:${h}">
+        ${banniere
+          ? `<img src="${attr(banniere)}" alt="">`
+          : `<span class="com-profil-ondes" aria-hidden="true">${icone('ondes', 120)}</span>`}
+        ${soi ? `
+          <button type="button" class="com-profil-engrenage" data-act="reglages" aria-label="Paramètres du profil" title="Paramètres">${icone('rouage', 20)}</button>
+          <button type="button" class="com-ban-btn" data-act="banniere-modifier" aria-label="Changer ma bannière" title="Changer ma bannière">${icone('image', 17)}</button>
+          ${banniere ? `<button type="button" class="com-ban-btn retirer" data-act="banniere-retirer" aria-label="Retirer ma bannière" title="Retirer ma bannière">${icone('croix', 14)}</button>` : ''}
+          <input type="file" data-c-banniere accept="image/jpeg,image/png,image/webp" hidden>` : ''}
       </div>
       <div class="com-profil-corps">
         <div class="com-profil-avatar">
@@ -4776,7 +4798,11 @@ function profilEnteteHtml(V){
         </div>
         <div class="com-profil-sous">
           <span>Membre depuis ${esc(moisAnnee(p.cree_le))}</span>
-          ${badge ? `<span>${esc(badge.icon)} ${esc(badge.name)} · niveau ${niveau}</span>` : ''}
+          ${badge
+            ? (soi
+                ? `<button type="button" class="com-niveau" data-act="onglet-profil" data-onglet="succes" title="Voir mes succès">${esc(badge.icon)} ${esc(badge.name)} · niveau ${niveau}</button>`
+                : `<span>${esc(badge.icon)} ${esc(badge.name)} · niveau ${niveau}</span>`)
+            : ''}
         </div>
 
         <div class="com-profil-actions">${actions}</div>
@@ -4808,6 +4834,7 @@ function profilEnteteHtml(V){
 
         <div class="com-profil-stats">
           <div><b>${compact(s.posts)}</b><span>message${s.posts > 1 ? 's' : ''}</span></div>
+          <div><b data-ecoutees>${compact(nbEcoutees(p.id))}</b><span>écoutée${nbEcoutees(p.id) > 1 ? 's' : ''}</span></div>
           <div><b data-abonnes data-pour="${attr(p.id)}">${compact(s.abonnes)}</b><span>abonné${s.abonnes > 1 ? 's' : ''}</span></div>
           <div><b>${compact(s.abonnements)}</b><span>abonnement${s.abonnements > 1 ? 's' : ''}</span></div>
         </div>
@@ -4817,7 +4844,24 @@ function profilEnteteHtml(V){
             ${icone('casque', 16)} Voir sa page artiste <span>${esc(p.artiste_nom || p.artiste)}</span> ${icone('sortie', 14)}
           </button>` : ''}
       </div>
-    </div>`;
+    </div>
+    ${soi ? '<div id="profilVerification"></div>' : ''}`;
+}
+
+// Les sorties que ce membre a écoutées : lues dans la mémoire du site (le catalogue et ses notes se chargent avec lui).
+function nbEcoutees(userId){
+
+  if(typeof toutesLesNotes === 'undefined' || typeof catalogueData === 'undefined') return 0;
+
+  return toutesLesNotes.filter(n => n.user_id === userId && n.saved && catalogueData.some(c => c.id === n.release_id)).length;
+}
+
+// Le catalogue et les notes, indispensables à la collection ; chargés d'abord si la communauté est ouverte la première.
+async function preparerCollection(){
+
+  if(typeof catalogueData !== 'undefined' && !catalogueData.length && typeof renderCatalogue === 'function') await renderCatalogue();
+
+  if(typeof chargerProfil === 'function') await chargerProfil();
 }
 
 VUES.membre = {
@@ -4829,6 +4873,7 @@ VUES.membre = {
 
     V.cle = route.param;
     V.etat = { onglet: 'messages' };
+
 
     // Deux colonnes sur grand écran : la carte du membre reste en vue pendant
     // qu'on parcourt ses messages.
@@ -4922,18 +4967,42 @@ VUES.membre = {
       V.hotes.entete.innerHTML = profilEnteteHtml(V);
 
       if(!silencieux){
+
         const onglets = [{ cle: 'messages', libelle: 'Messages' }, { cle: 'annonces', libelle: 'Annonces' }];
-        if(typeof collectionHtml === 'function') onglets.push({ cle: 'collection', libelle: 'Collection' });
+
+        // La collection est dans un fichier à part : on la charge avant de dessiner les onglets.
+        try{
+          await preparerCollection();
+          window.Profil.poserFeuille();
+          onglets.push(...window.Profil.onglets(!!V.rel.soi));
+        }catch(erreur){
+          console.warn('⚠️ Collection indisponible :', erreur);
+        }
+
+        // Chez soi, on arrive sur sa collection : c'est elle que « Mon profil » montrait.
+        if(V.rel.soi && !V.dejaOuvert && V.etat.onglet === 'messages') V.etat.onglet = 'collection';
+        V.dejaOuvert = true;
+
+        // Un onglet réservé à soi n'existe pas chez les autres.
+        if(!onglets.some(o => o.cle === V.etat.onglet)) V.etat.onglet = 'messages';
+
         V.hotes.onglets.innerHTML = ongletsHtml(onglets, V.etat.onglet);
         placerBarreOnglets(V.hotes.onglets, false);
+        centrerOngletActif(V.hotes.onglets);
         entrerEnCascade($$('.com-carte', V.hotes.entete), 0);
 
         // La liste se montre ou se cache selon le blocage (et se relit si besoin).
         const zoneListe = $('[data-liste]', V.el);
-        const surCollection = V.etat.onglet === 'collection';
+        const surCollection = !!window.Profil && window.Profil.estUnOnglet(V.etat.onglet);
         zoneListe.hidden = !!V.rel.bloque || surCollection;
         V.hotes.collection.hidden = !surCollection || !!V.rel.bloque;
+        if(surCollection && !V.rel.bloque){
+          V.hotes.collection.innerHTML = window.Profil.panneau(V.etat.onglet, V.profil.id, !!V.rel.soi);
+          window.Profil.apres();
+        }
         if(!V.rel.bloque && !surCollection) V.liste.recharger();
+
+        if(V.rel.soi && typeof rendreCarteVerification === 'function') rendreCarteVerification();
 
         majTitreCourant();
       }
@@ -4957,13 +5026,15 @@ VUES.membre = {
       b.setAttribute('aria-selected', actif ? 'true' : 'false');
     });
     placerBarreOnglets(V.hotes.onglets, true);
+    centrerOngletActif(V.hotes.onglets);
 
     const liste = $('[data-liste]', V.el);
 
-    if(onglet === 'collection'){
+    if(window.Profil && window.Profil.estUnOnglet(onglet)){
       liste.hidden = true;
       V.hotes.collection.hidden = false;
-      V.hotes.collection.innerHTML = `<div class="com-carte" style="padding:18px">${collectionHtml(V.profil.id, { grande: true })}</div>`;
+      V.hotes.collection.innerHTML = window.Profil.panneau(onglet, V.profil.id, !!V.rel.soi);
+      window.Profil.apres();
       return;
     }
 
@@ -4994,6 +5065,101 @@ function choisirAvatar(champ){
   };
 
   lecteur.readAsDataURL(f);
+}
+
+// Les paramètres du compte (pseudo, bio, rôle, réseaux) : un tiroir, posé par profil.js, sur le profil de la personne.
+async function ouvrirReglagesProfil(){
+
+  try{
+
+    const u = moi();
+
+    // Hors de son profil, on y revient : le tiroir s'ouvre par-dessus sa propre page.
+    if(u && !location.hash.toLowerCase().startsWith('#community/membre/' + encodeURIComponent(u.pseudo).toLowerCase())){
+      await window.Com.profil(u.id);
+    }
+
+    await chargerProfil();
+    window.Profil.ouvrirReglages();
+
+  }catch(e){
+    toastErreur(e);
+  }
+}
+
+// Changer sa bannière : le recadrage du site (en bandeau) fait le reste.
+function choisirBanniere(champ){
+
+  const f = champ.files && champ.files[0];
+
+  champ.value = '';
+
+  if(!f) return;
+
+  if(!/^image\/(jpeg|png|webp)$/.test(f.type)){
+    toast('Seules les images JPG, PNG ou WEBP sont acceptées.', { type: 'erreur', icone: '🖼️' });
+    return;
+  }
+
+  const lecteur = new FileReader();
+
+  lecteur.onload = (e) => {
+    if(typeof openCropModal === 'function') openCropModal(e.target.result, 'com-banniere');
+  };
+
+  lecteur.readAsDataURL(f);
+}
+
+// Enregistre l'adresse de la bannière (ou la retire : null) et redessine le profil.
+async function poserBanniere(url){
+
+  const u = moi();
+
+  await saveCurrentProfile({ banniere_url: url });
+
+  u.banniere = url || '';
+
+  const v = S.vues.get('membre:' + u.pseudo.toLowerCase());
+  if(v){
+    if(v.profil) v.profil.banniere_url = url;
+    if(v.hotes && v.profil) v.hotes.entete.innerHTML = profilEnteteHtml(v);
+    if(v.hotes && typeof rendreCarteVerification === 'function') rendreCarteVerification();
+  }
+}
+
+// Appelé par le recadrage du site quand la bannière est validée.
+async function banniereRecadree(dataUrl){
+
+  const u = moi();
+
+  if(!u) return;
+
+  try{
+
+    toast('Envoi de la bannière…', { type: 'info', icone: '🖼️', duree: 1800 });
+
+    const url = await uploadCoverDataUrl(dataUrl, 'banniere', u.pseudo);
+
+    await poserBanniere(url);
+
+    toast('Bannière mise à jour', { icone: '🖼️' });
+
+  }catch(e){
+    toastErreur(e);
+  }
+}
+
+async function retirerBanniere(){
+
+  try{
+
+    await poserBanniere(null);
+
+    toast('Bannière retirée', { icone: '🖼️', duree: 2000 });
+
+  }catch(e){
+    toastErreur(e);
+  }
 }
 
 // Appelé par le recadrage du site quand la photo est validée.
@@ -5109,7 +5275,7 @@ async function modifierMonProfil(V){
         if(sug){ ajouterGenre(sug.dataset.genre); return; }
 
         const lien = e.target.closest('[data-act="reglages"]');
-        if(lien){ e.preventDefault(); fermerCalque(); goTo('profile'); }
+        if(lien){ e.preventDefault(); fermerCalque(); ouvrirReglagesProfil(); }
       });
 
       const saisie = $('[data-d="genre-saisie"]', boite);
@@ -6498,7 +6664,7 @@ function menuMoi(ancre){
     { libelle: 'Mon profil', icone: 'profil', action: () => aller('membre/' + encodeURIComponent(u.pseudo)) },
     { libelle: 'Enregistrés', icone: 'signet', action: () => aller('favoris') },
     { libelle: "L'espace des waveurs", icone: 'jeu', action: () => goTo('waveurs') },
-    { libelle: 'Réglages du compte', icone: 'rouage', separe: true, action: () => goTo('profile') }
+    { libelle: 'Réglages du compte', icone: 'rouage', separe: true, action: () => ouvrirReglagesProfil() }
   ]);
 }
 
@@ -6677,8 +6843,9 @@ function agir(act, cible, e){
       goTo('waveurs');
       return;
 
+    // L'engrenage du profil, et tout lien « réglages » : les paramètres du compte s'ouvrent dans un tiroir.
     case 'reglages':
-      goTo('profile');
+      ouvrirReglagesProfil();
       return;
 
     case 'page-artiste':
@@ -6725,7 +6892,7 @@ function agir(act, cible, e){
     }
 
     case 'onb-reglages':
-      goTo('profile');
+      ouvrirReglagesProfil();
       return;
 
     case 'onb-post':
@@ -6942,6 +7109,20 @@ function agir(act, cible, e){
       return;
     }
 
+    case 'banniere-modifier': {
+      const champ = $('input[data-c-banniere]', cible.parentElement);
+      if(champ) champ.click();
+      return;
+    }
+
+    case 'banniere-retirer':
+      retirerBanniere();
+      return;
+
+    case 'onglet-profil':
+      if(V && V.nom === 'membre') VUES.membre.changerOnglet(V, cible.dataset.onglet);
+      return;
+
     // --- Explorer ---
 
     case 'ex-role':
@@ -7096,6 +7277,7 @@ function brancherEvenements(){
 
     if(c.matches && c.matches('select[data-ex]') && V) { VUES.explorer.saisir(V, c); return; }
     if(c.matches && c.matches('input[data-c-avatar]')) { choisirAvatar(c); return; }
+    if(c.matches && c.matches('input[data-c-banniere]')) { choisirBanniere(c); return; }
   });
 
   racine.addEventListener('keydown', (e) => {
@@ -7343,10 +7525,37 @@ async function ouvrirReel(){
 
 window.Com = {
   ouvrir,
+  reglages: ouvrirReglagesProfil,
   avatarRecadre,
+  banniereRecadree,
   majCompteurs,
   // Appelé quand la page Communauté est quittée : tout se met en pause.
   quitter(){ fermerCalque(); },
+
+  // Le profil de la personne connectée vient de changer (paramètres enregistrés) : ses pages se relisent, et
+  // l'adresse suit son pseudo s'il a changé.
+  profilMisAJour(){
+
+    const u = moi();
+
+    if(!u) return;
+
+    S.vues.forEach((v) => {
+      if(v.nom === 'membre' && v.profil && v.profil.id === u.id) v.charge = false;
+    });
+
+    const v = S.courante;
+
+    if(!v || v.nom !== 'membre' || !v.profil || v.profil.id !== u.id) return;
+
+    if(v.cle.toLowerCase() !== u.pseudo.toLowerCase()){
+      history.replaceState({ com: 1 }, '', '#community/membre/' + encodeURIComponent(u.pseudo));
+      goTo('community', { sansAdresse: true });
+      return;
+    }
+
+    VUES.membre.charger(v, false);
+  },
 
   // L'encart « Pour bien démarrer » se redessine quand une étape se coche.
   majOnboarding(){
@@ -7357,7 +7566,7 @@ window.Com = {
   // Ouvre le profil d'un membre, par pseudo ou par identifiant, et renvoie vrai
   // si la communauté a pu l'afficher (faux : elle n'est pas activée ou le
   // membre n'existe pas — l'appelant peut alors se rabattre sur autre chose).
-  async profil(cle){
+  async profil(cle, options){
 
     if(!cle) return false;
 
@@ -7371,7 +7580,12 @@ window.Com = {
         pseudo = r.profil.pseudo;
       }
 
-      history.pushState({ com: 1 }, '', '#community/membre/' + encodeURIComponent(pseudo));
+      const adresse = '#community/membre/' + encodeURIComponent(pseudo);
+
+      // « Mon profil » prend la place de #profile dans l'historique au lieu de s'y ajouter.
+      if(options && options.remplacer) history.replaceState({ com: 1 }, '', adresse);
+      else history.pushState({ com: 1 }, '', adresse);
+
       goTo('community', { sansAdresse: true });
 
       return true;
@@ -8582,13 +8796,39 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 .com-profil-grille{display:grid; grid-template-columns:350px minmax(0, 1fr); gap:24px; align-items:start;}
 .com-profil-gauche{position:sticky; top:170px;}
 .com-profil-droite{min-width:0;}
+/* Les onglets du profil sont six : sur un écran étroit, la barre défile au lieu de déborder de la page. */
+.com-profil-droite [data-hote="onglets"]{max-width:100%; overflow-x:auto; scrollbar-width:none;}
+.com-profil-droite [data-hote="onglets"]::-webkit-scrollbar{display:none;}
 .com-profil{overflow:hidden; margin-bottom:0;}
 .com-profil-banniere{
-  position:relative; overflow:hidden; height:112px;
+  position:relative; overflow:hidden; aspect-ratio:3 / 1;
   background:
     radial-gradient(120% 140% at 85% 0%, hsl(calc(var(--h,210) + 50) 70% 38% / .55), transparent 60%),
     linear-gradient(135deg, hsl(var(--h,210) 60% 30%), hsl(calc(var(--h,210) + 46) 62% 16%));
 }
+.com-profil-banniere > img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;}
+.com-profil-banniere.avec-image{background:#0b0f15;}
+.com-profil-banniere.avec-image::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(to bottom, rgba(5,7,10,0.28), transparent 38%, transparent 62%, rgba(5,7,10,0.34));
+}
+.com-profil-engrenage, .com-ban-btn{
+  position:absolute; z-index:2; width:40px; height:40px; padding:0; border-radius:50%;
+  display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer;
+  background:rgba(8,11,16,0.55); border:1px solid rgba(255,255,255,0.22);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+  transition:transform .5s var(--ease), background .25s var(--ease), border-color .25s var(--ease);
+}
+.com-profil-engrenage{top:10px; right:10px;}
+.com-profil-engrenage:hover{transform:rotate(70deg); background:rgba(8,11,16,0.78); border-color:rgba(255,255,255,0.4);}
+.com-profil-engrenage svg{width:20px; height:20px;}
+.com-ban-btn{bottom:10px; right:10px; width:34px; height:34px;}
+.com-ban-btn.retirer{right:52px;}
+.com-ban-btn:hover{background:rgba(8,11,16,0.78); border-color:rgba(255,255,255,0.4);}
+.com-niveau{
+  padding:0; border:0; background:none; font:inherit; color:var(--blue-bright); cursor:pointer;
+}
+.com-niveau:hover{text-decoration:underline;}
 .com-profil-ondes{position:absolute; right:-6px; bottom:-14px; color:#fff; opacity:0.2; display:flex;}
 .com-profil-corps{padding:0 22px 22px;}
 .com-profil-avatar{position:relative; width:max-content; margin-top:-50px;}
@@ -8607,10 +8847,10 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 .com-profil-bloc-chips{display:flex; flex-wrap:wrap; gap:6px;}
 .com-profil-bloc-chips em{font-style:normal; font-size:13px; color:var(--muted); font-weight:300;}
 .com-profil-styles{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
-.com-profil-stats{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:18px;}
+.com-profil-stats{display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-top:18px;}
 .com-profil-stats > div{text-align:center; padding:11px 6px; border-radius:14px; background:rgba(255,255,255,0.04);}
 .com-profil-stats b{display:block; font-size:19px; font-weight:700; color:var(--ink); margin:0;}
-.com-profil-stats span{font-size:12px; color:var(--muted);}
+.com-profil-stats span{font-size:11.5px; color:var(--muted);}
 
 .com-messages{height:calc(100vh - 236px);}
 
@@ -8751,7 +8991,6 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-collabs-tete{padding:18px 16px;}
   .com-membre{padding:14px;}
   .com-profil-corps{padding:0 16px 18px;}
-  .com-profil-banniere{height:100px;}
   .com-profil-nom{font-size:22px;}
 
   /* Messages : la liste, ou la discussion, jamais les deux. */

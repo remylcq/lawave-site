@@ -2927,6 +2927,10 @@
     transition:box-shadow .3s var(--ease);
   }
   .crop-viewport.square{border-radius:18px;}
+  /* La bannière d'un profil : un bandeau trois fois plus large que haut. */
+  #cropModal.bandeau .crop-boite{max-width:600px;}
+  #cropModal.bandeau .crop-viewport{width:min(560px, 88vw); aspect-ratio:3/1;}
+  #cropModal.bandeau .crop-zoom{width:min(560px, 88vw);}
   .crop-viewport.deplace{cursor:grabbing;}
   .crop-viewport:focus-visible{
     box-shadow:0 0 0 2px var(--blue-bright), 0 24px 70px rgba(0,0,0,0.6);
@@ -4549,10 +4553,9 @@
         </div>
       </div>
 
-      <div id="profileConnecte" style="display:none;">
-        <!-- Rempli par profil.js : l'identité avec l'engrenage des paramètres, puis les onglets Collection,
-             Journal, À écouter et Succès. -->
-        <div class="pf-corps" id="pfCorps"></div>
+      <!-- Il n'y a qu'un profil, celui de la communauté (communaute.js) : cette page y renvoie (voir renderProfileForm). -->
+      <div id="profileConnecte" class="empty-state" style="padding:40px 24px; display:none;">
+        Ouverture de ton profil…
       </div>
     </section>
 
@@ -5655,7 +5658,6 @@
       <button type="button" class="btn btn-primary" onclick="saveProfile()">Enregistrer</button>
       <div class="form-msg" id="profileMsg"></div>
       <div class="pf-tiroir-liens">
-        <button type="button" class="lien-discret" onclick="Profil.fermerReglages(); viewProfile(currentUser.id)">Voir mon profil public</button>
         <button type="button" class="lien-discret" onclick="Profil.fermerReglages(); logoutUser()">Se déconnecter</button>
       </div>
     </div>
@@ -8201,7 +8203,7 @@ function verifierAccesSoumission(){
 
   actions.innerHTML = `
     <button type="button" class="btn btn-primary"
-            onclick="goTo('profile')">Modifier mon rôle</button>`;
+            onclick="ouvrirMesReglages()">Modifier mon rôle</button>`;
 }
 
 // ---------------- ACCRÉDITATIONS ----------------
@@ -8374,7 +8376,7 @@ function verifierAccesAccreditations(){
 
   actions.innerHTML = `
     <button type="button" class="btn btn-primary"
-            onclick="goTo('profile')">Modifier mon rôle</button>`;
+            onclick="ouvrirMesReglages()">Modifier mon rôle</button>`;
 }
 
 // Ferme le voile des accréditations sans quitter la page (le dialogue de vérification s'ouvre par-dessus).
@@ -10135,6 +10137,7 @@ function profileToUser(row){
     id: row.id,
     pseudo: row.pseudo,
     avatar: row.avatar_url || '',
+    banniere: row.banniere_url || '',
     bio: row.bio || '',
     role: roleNom(row.role),
     socials: row.socials || {},
@@ -10397,9 +10400,7 @@ function refreshAccountUI(){
   // se dessine alors pour la première fois.
   majStatutsTuiles();
 
-  const corpsProfil = document.getElementById('pfCorps');
-  if(currentUser && corpsProfil && !corpsProfil.firstChild &&
-     document.getElementById('page-profile').classList.contains('active')){
+  if(currentUser && document.getElementById('page-profile').classList.contains('active')){
     renderProfileForm();
   }
 
@@ -10798,9 +10799,20 @@ function nombreDeSucces(user){
 
 // ---------------- PAGE PROFIL ----------------
 //
-// « Mon profil » (profil.js, chargé à la demande) : l'identité avec l'engrenage des paramètres, puis la collection
-// comme un journal d'écoute. Les paramètres sont un tiroir : son formulaire est rempli ici (remplirReglages) et
-// enregistré par saveProfile.
+// Il n'y a qu'un profil : celui de la communauté, qu'on retrouve en cliquant sur n'importe quel membre. « Mon profil »
+// y renvoie, et y ajoute l'engrenage des paramètres (un tiroir, posé par profil.js), la bannière et la collection
+// complète. Les paramètres sont un formulaire que remplirReglages garnit et que saveProfile enregistre.
+
+// Les paramètres du compte, d'où que l'on vienne : on arrive sur son profil et le tiroir s'ouvre.
+async function ouvrirMesReglages(){
+
+  try{
+    await chargerCommunaute();
+    await window.Com.reglages();
+  }catch(erreur){
+    goTo('profile');
+  }
+}
 
 const PROFIL_FICHIER = 'profil.js?v=1';
 
@@ -10824,24 +10836,15 @@ async function renderProfileForm(){
   deconnecte.style.display = 'none';
   connecte.style.display = 'block';
 
-  // Le catalogue porte les pochettes, les notes portent la collection.
-  if(!catalogueData.length) await renderCatalogue();
-
+  // Le profil prend la place de #profile dans l'historique : Précédent ne ramène pas ici pour repartir aussitôt.
   try{
-    profilNbPosts = await nombreDePostsCommunaute(currentUser.id);
-  }catch(e){
-    profilNbPosts = 0;
-  }
-
-  try{
-    await chargerProfil();
+    await chargerCommunaute();
+    if(window.Com && await window.Com.profil(currentUser.id, { remplacer: true })) return;
   }catch(erreur){
-    document.getElementById('pfCorps').innerHTML = `<div class="form-msg err">${escapeHtml(erreur.message)}</div>`;
-    return;
+    // La communauté n'a pas pu s'ouvrir : le message ci-dessous le dit.
   }
 
-  window.Profil.monter();
-  remplirReglages();
+  connecte.textContent = "Ton profil n'a pas pu s'ouvrir pour le moment. Réessaie dans un instant.";
 }
 
 // Les champs du tiroir de paramètres reprennent ce que le profil dit déjà.
@@ -10981,7 +10984,9 @@ document.getElementById('profilePhotoInput').addEventListener('change', (e)=>{
 // plutôt que de la supposer. C'est elle qui relie ce que l'on voit à
 // ce qui est enregistré (voir confirmCrop).
 const CROP_OUTPUT = 480;
-let CROP_SIZE = 260;
+let CROP_SIZE = 260;   // largeur du cadre ; sa hauteur est CROP_H (la même, sauf pour un bandeau)
+let CROP_H = 260;
+let cropRatio = 1;     // largeur / hauteur du cadre : 1 pour un carré ou un cercle, 3 pour une bannière
 let cropScale0 = 1, cropScale = 1, cropOffsetX = 0, cropOffsetY = 0;
 let cropDragging = false, cropDragStartX = 0, cropDragStartY = 0, cropStartOffsetX = 0, cropStartOffsetY = 0;
 let cropTarget = 'profile'; // 'profile' | 'cover'
@@ -11000,7 +11005,10 @@ function openCropModal(dataUrl, target){
     cropTarget === 'admin-cover' ||
     cropTarget === 'release-cover'
   );
-  cropViewportEl.classList.toggle('square', isSquare);
+  const isBandeau = cropTarget === 'com-banniere';
+  cropRatio = isBandeau ? 3 : 1;
+  cropModalEl.classList.toggle('bandeau', isBandeau);
+  cropViewportEl.classList.toggle('square', isSquare || isBandeau);
   cropImageEl.onload = ()=>{
     // La fenêtre doit être affichée pour que le cadre ait une taille à
     // mesurer ; l'image n'est posée qu'ensuite, avant tout affichage.
@@ -11008,11 +11016,12 @@ function openCropModal(dataUrl, target){
     cropModalEl.classList.remove('sortie');
     cropModalEl.classList.add('open');
     CROP_SIZE = cropViewportEl.clientWidth || 260;
+    CROP_H = cropViewportEl.clientHeight || CROP_SIZE / cropRatio;
     const w = cropImageEl.naturalWidth, h = cropImageEl.naturalHeight;
-    cropScale0 = Math.max(CROP_SIZE / w, CROP_SIZE / h);
+    cropScale0 = Math.max(CROP_SIZE / w, CROP_H / h);
     cropScale = cropScale0;
     cropOffsetX = (CROP_SIZE - w * cropScale) / 2;
-    cropOffsetY = (CROP_SIZE - h * cropScale) / 2;
+    cropOffsetY = (CROP_H - h * cropScale) / 2;
     cropZoomEl.value = 1;
     majCurseurZoom();
     applyCropTransform();
@@ -11040,7 +11049,7 @@ function zoomerCrop(facteur){
 function clampCropOffsets(){
   const w = cropImageEl.naturalWidth * cropScale, h = cropImageEl.naturalHeight * cropScale;
   cropOffsetX = Math.min(0, Math.max(CROP_SIZE - w, cropOffsetX));
-  cropOffsetY = Math.min(0, Math.max(CROP_SIZE - h, cropOffsetY));
+  cropOffsetY = Math.min(0, Math.max(CROP_H - h, cropOffsetY));
 }
 
 function applyCropTransform(){
@@ -11062,9 +11071,9 @@ cropZoomEl.addEventListener('input', ()=>{
 
   if(ancienne > 0){
     const rapport = nouvelle / ancienne;
-    const centre = CROP_SIZE / 2;
-    cropOffsetX = centre - (centre - cropOffsetX) * rapport;
-    cropOffsetY = centre - (centre - cropOffsetY) * rapport;
+    const centreX = CROP_SIZE / 2, centreY = CROP_H / 2;
+    cropOffsetX = centreX - (centreX - cropOffsetX) * rapport;
+    cropOffsetY = centreY - (centreY - cropOffsetY) * rapport;
   }
 
   cropScale = nouvelle;
@@ -11119,6 +11128,7 @@ window.addEventListener('resize', ()=>{
   if(!nouvelle || nouvelle === CROP_SIZE) return;
   const k = nouvelle / CROP_SIZE;
   CROP_SIZE = nouvelle;
+  CROP_H *= k;
   cropScale0 *= k; cropScale *= k; cropOffsetX *= k; cropOffsetY *= k;
   clampCropOffsets();
   applyCropTransform();
@@ -11168,12 +11178,11 @@ function confirmCrop(){
   // Un second clic pendant la fermeture ne doit pas valider deux fois.
   if(cropModalEl.classList.contains('sortie')) return;
   const canvas = document.createElement('canvas');
-  canvas.width = CROP_OUTPUT; canvas.height = CROP_OUTPUT;
+  canvas.width = Math.round(CROP_OUTPUT * cropRatio); canvas.height = CROP_OUTPUT;
   const ctx = canvas.getContext('2d');
   const sx = -cropOffsetX / cropScale;
   const sy = -cropOffsetY / cropScale;
-  const sSize = CROP_SIZE / cropScale;
-  ctx.drawImage(cropImageEl, sx, sy, sSize, sSize, 0, 0, CROP_OUTPUT, CROP_OUTPUT);
+  ctx.drawImage(cropImageEl, sx, sy, CROP_SIZE / cropScale, CROP_H / cropScale, 0, 0, canvas.width, canvas.height);
   const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
 
   if(cropTarget === 'cover'){
@@ -11201,6 +11210,9 @@ function confirmCrop(){
   } else if(cropTarget === 'parcours-avatar'){
     // Photo de profil choisie dans l'assistant d'inscription : il l'envoie et l'enregistre.
     if(window.Parcours) window.Parcours.avatarRecadre(dataUrl);
+  } else if(cropTarget === 'com-banniere'){
+    // Bannière du profil : envoyée aussitôt, comme la photo.
+    if(window.Com) window.Com.banniereRecadree(dataUrl);
   } else if(cropTarget === 'com-avatar'){
     // Photo de profil changée depuis la page Communauté : envoyée aussitôt.
     if(window.Com) window.Com.avatarRecadre(dataUrl);
@@ -11370,6 +11382,9 @@ async function saveProfile(){
     // Le tiroir se referme de lui-même : le profil mis à jour est derrière.
     setTimeout(() => window.Profil.fermerReglages(), 700);
   }
+
+  // Le profil de la communauté se relit : nouveau pseudo, photo, description, réseaux.
+  if(window.Com && window.Com.profilMisAJour) window.Com.profilMisAJour();
 }
 
 // ---- Communauté : XP, défis, forum ----
