@@ -6532,9 +6532,6 @@ function majCoque(){
     if(est) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
 
-  const moiLien = $('.com-moi-lien', S.coque);
-  if(moiLien) moiLien.classList.toggle('actif', !!monProfil);
-
   // Le trait qui glisse sous la page active du dock.
   const dock = $('.com-dock', S.coque);
   if(dock) placerBarreOnglets(dock, !!S.dockPlace, '.com-dock-item.actif');
@@ -6625,11 +6622,8 @@ function puceMoiHtml(){
     return `<button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="connexion" data-mode="login">Se connecter</button>`;
   }
 
-  return `
-    <a class="com-moi-lien" href="#community/membre/${attr(encodeURIComponent(u.pseudo))}" data-act="membre" data-cle="${attr(u.pseudo)}"
-       title="${attr(u.pseudo)}" aria-label="Mon profil">
-      ${avatarHtml({ pseudo: u.pseudo, avatar_url: u.avatar }, 'm')}
-    </a>`;
+  // Connecté : le profil s'ouvre par le menu du compte, en haut de la page ; le dock reste épuré.
+  return '';
 }
 
 function majPuceMoi(){
@@ -7446,7 +7440,7 @@ function demarrerMinuteurs(){
 
   if(S.minuteurs.compteurs) return;
 
-  S.minuteurs.compteurs = setInterval(majCompteurs, 40000);
+  S.minuteurs.compteurs = setInterval(majCompteurs, 20000);
   S.minuteurs.temps = setInterval(() => { if(!inactif()) rafraichirTemps(); }, 60000);
 
   document.addEventListener('visibilitychange', () => {
@@ -8592,7 +8586,20 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   color:var(--ink-soft); font-size:14px; font-weight:600; text-decoration:none; white-space:nowrap;
   transition:color .3s var(--ease), transform .25s var(--ease);
 }
+.com-dock-item{padding:11px 16px;}
 .com-dock-item:hover{color:var(--ink);}
+/* Le titre se dévoile sous l'icône, de gauche à droite, sans pousser les autres. */
+.com-dock-item .com-nav-lib{
+  position:absolute; left:50%; top:calc(100% + 10px); z-index:5; pointer-events:none;
+  padding:6px 13px; border-radius:var(--radius-pill); font-size:12.5px; font-weight:600; color:#fff;
+  background:rgba(9,12,17,0.97); border:1px solid var(--line-strong); box-shadow:var(--ombre-2);
+  clip-path:inset(0 100% 0 0 round 99px); opacity:0; transform:translate(-50%, -4px);
+  transition:clip-path .22s var(--ease), opacity .15s var(--ease), transform .22s var(--ease);
+}
+.com-dock-item:hover .com-nav-lib, .com-dock-item:focus-visible .com-nav-lib{
+  clip-path:inset(0 0 0 0 round 99px); opacity:1; transform:translate(-50%, 0);
+  transition-duration:.42s, .25s, .42s; transition-delay:.12s;
+}
 .com-dock-item:active{transform:scale(.96);}
 .com-dock-item.actif{color:#fff;}
 .com-dock-item.actif .com-ic{color:var(--blue-bright);}
@@ -8602,15 +8609,14 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 .com-rapide{position:relative; width:44px; height:44px; flex:none;}
 /* Le champ grandit par-dessus le dock sans le pousser. */
 .com-rapide .com-recherche-champ{position:absolute; right:0; top:0; width:44px; height:44px; z-index:2; transition:width .4s var(--ease);}
-.com-rapide .com-recherche-champ input{height:44px; padding:0 14px 0 44px; font-size:14px; cursor:pointer; background:rgba(255,255,255,0.05);}
+.com-rapide .com-recherche-champ input{width:100%; min-width:0; box-sizing:border-box; height:44px; padding:0; font-size:14px; cursor:pointer; background:rgba(255,255,255,0.05);}
 .com-rapide .com-recherche-champ > .com-ic{left:14px; color:var(--ink-soft);}
 .com-rapide:focus-within .com-recherche-champ{width:300px;}
+.com-rapide .com-recherche-champ input::placeholder{color:transparent; transition:color .3s var(--ease);}
+.com-rapide:focus-within .com-recherche-champ input::placeholder{color:var(--muted);}
+.com-rapide:focus-within .com-recherche-champ input{padding:0 14px 0 44px;}
 .com-rapide:focus-within .com-recherche-champ input{cursor:text; background:rgba(15,20,28,0.99); border-color:var(--blue-bright);}
 .com-publier{padding:11px 20px; font-size:14px; width:auto; margin:0;}
-.com-moi-lien{display:inline-flex; border-radius:50%; padding:2px; border:2px solid transparent; transition:border-color .3s var(--ease), transform .3s var(--ease);}
-.com-moi-lien:hover{transform:scale(1.06);}
-.com-moi-lien.actif{border-color:var(--blue-bright);}
-.com-moi-lien .com-av-m{width:36px; height:36px; font-size:15px;}
 .com-puce-hote{display:flex; align-items:center;}
 .com-bouton-waveurs{color:var(--blue-bright);}
 
@@ -8925,8 +8931,6 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 
 /* Portable étroit : le dock ne garde que ses icônes. */
 @media (max-width:1060px){
-  .com-dock-item{padding:11px 14px;}
-  .com-dock-item .com-nav-lib{display:none;}
   .com-profil-grille{grid-template-columns:320px minmax(0, 1fr); gap:18px;}
 }
 
