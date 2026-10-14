@@ -761,67 +761,165 @@
   }
 
   /* ---------- NOTES ET COLLECTION ---------- */
-  .note-moyenne{font-size:12px; color:var(--muted); margin-bottom:10px;}
-  .note-moyenne strong{color:var(--ink); font-size:14px;}
-  .etoiles{display:inline-flex; gap:2px; vertical-align:middle;}
-  .etoile{
-    background:none; border:none; padding:0 1px; font-size:24px; line-height:1;
-    color:var(--line); cursor:pointer; transition:color .12s, transform .12s;
+
+  /* Le tiroir des paramètres du profil : caché dès le départ (le reste de son style vient de profil.js). */
+  .pf-tiroir{position:fixed; inset:0; z-index:170; visibility:hidden; pointer-events:none;}
+
+  /* Les étoiles : une police, trois remplissages par étoile (0, 50 ou 100 %, variable --p). */
+  .st{display:inline-flex; gap:1px; font-size:16px; line-height:1; vertical-align:middle;}
+  .st i{position:relative; display:inline-block; font-style:normal; color:rgba(255,255,255,0.16);}
+  .st i::before{
+    content:'★'; position:absolute; left:0; top:0; width:var(--p,0%); overflow:hidden;
+    color:#f5b301; white-space:nowrap;
   }
-  .etoile.pleine{color:#f5b301;}
-  .etoile:hover{transform:scale(1.15);}
-  .etoiles.lecture .etoile{cursor:default; font-size:15px;}
-  .etoiles.lecture .etoile:hover{transform:none;}
-  .note-actions{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:10px;}
-  .btn-enregistrer{
-    display:inline-flex; align-items:center; gap:7px; white-space:nowrap;
-    font-size:13px; font-weight:600; padding:9px 15px;
-    border:1px solid var(--line); border-radius:var(--radius-pill);
-    background:var(--bg-alt); color:var(--ink-soft);
+  .st.petite{font-size:12px; gap:0;}
+  .st.saisie{
+    font-size:34px; gap:3px; cursor:pointer; touch-action:none; border-radius:8px;
+    user-select:none; -webkit-user-select:none;
   }
-  .btn-enregistrer:hover{border-color:var(--blue); color:var(--ink);}
-  .btn-enregistrer.actif{border-color:var(--blue); color:var(--blue); background:rgba(20,137,222,0.12);}
+  .st.saisie:focus-visible{outline:2px solid var(--blue-bright); outline-offset:6px;}
+  .st.saisie i{transition:transform .15s var(--ease);}
+  .st.saisie:hover i{transform:scale(1.06);}
+
+  .lien-discret{
+    background:none; border:0; padding:0; font:inherit; font-size:13px; color:var(--ink-soft);
+    text-decoration:underline; text-underline-offset:3px; cursor:pointer;
+  }
+  .lien-discret:hover{color:#fff;}
   .note-invite{font-size:13px; color:var(--muted);}
   .note-invite button{
     background:none; border:none; color:var(--blue); font:inherit;
     text-decoration:underline; padding:0; cursor:pointer;
   }
-  /* Compacte dans la fiche profil, généreuse sur la page dédiée. */
-  .collection-grid{
-    display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr));
-    gap:10px; margin-top:12px;
+
+  /* La fiche d'une sortie : ce qu'en pense la communauté, puis le geste du membre. */
+  .note-moyenne{margin-bottom:16px;}
+  .fiche-communaute{display:flex; align-items:flex-end; justify-content:space-between; gap:20px;}
+  .fiche-communaute-vide{margin:0; font-size:13px; color:var(--muted);}
+  .fiche-moyenne{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .fiche-moyenne strong{font-size:34px; font-weight:700; letter-spacing:-.02em; color:var(--ink); line-height:1;}
+  .fiche-moyenne > span{font-size:12px; color:var(--muted);}
+  .fiche-histo{display:flex; align-items:flex-end; gap:6px; height:46px;}
+  .fiche-histo .barre{display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:3px; width:14px;}
+  .fiche-histo .barre i{
+    display:block; width:100%; height:calc(var(--h) * 0.3px + 3px); border-radius:3px;
+    background:rgba(255,255,255,0.22);
   }
-  .collection-grid.grande{
-    grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px;
+  .fiche-histo .barre em{font-style:normal; font-size:9px; color:var(--muted); line-height:1;}
+
+  .fiche-statuts{display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;}
+  .fiche-statut{
+    flex:1 1 130px; display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    padding:12px 16px; font-size:14px; font-weight:600; border-radius:var(--radius-pill);
+    background:var(--glass); border:1px solid var(--line-strong); color:var(--ink);
+    transition:background .25s var(--ease), border-color .25s var(--ease), color .25s var(--ease), transform .25s var(--ease);
   }
-  @media (max-width:620px){
-    .collection-grid.grande{grid-template-columns:repeat(2,1fr); gap:10px;}
+  .fiche-statut svg{width:18px; height:18px;}
+  .fiche-statut:hover{background:var(--glass-hi); border-color:rgba(255,255,255,0.3);}
+  .fiche-statut:active{transform:scale(.97);}
+  .fiche-statut.actif{background:var(--blue); border-color:transparent; color:#fff;}
+  .fiche-statut.or.actif{background:rgba(233,196,106,0.16); border-color:var(--gold-favori); color:var(--gold-favori);}
+  .fiche-statut.or.actif svg{fill:currentColor;}
+  .fiche-note{display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:18px 0 6px;}
+  .fiche-note-val{font-size:13px; color:var(--ink-soft);}
+  .fiche-jour{display:flex; align-items:center; gap:10px; margin:12px 0 0; font-size:13px; color:var(--ink-soft);}
+  .fiche-jour input{
+    background:rgba(0,0,0,0.26); border:1px solid var(--line); border-radius:10px; color:var(--ink);
+    padding:6px 10px; font:inherit; font-size:13px; color-scheme:dark;
   }
-  .collection-item{cursor:pointer; text-align:left; position:relative;}
-  .collection-item img{
-    width:100%; aspect-ratio:1/1; object-fit:cover; display:block;
-    border:1px solid var(--line); border-radius:var(--radius-sm);
-    transition:transform .18s ease, border-color .18s ease;
-  }
-  .collection-item:hover img{transform:translateY(-3px); border-color:var(--blue);}
-  .collection-item .note{font-size:11px; color:#f5b301; margin-top:4px; display:block;}
-  .collection-grid.grande .collection-item .note{font-size:15px;}
-  .collection-grid.grande .c-titre{
-    display:block; font-size:14px; font-weight:600; margin-top:8px;
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  }
-  .collection-grid.grande .c-artiste{
-    display:block; font-size:12px; color:var(--muted);
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  }
-  /* Repère discret sur les sorties enregistrées : les notées et les
-     enregistrées cohabitent dans une seule liste. */
-  .c-marque{
-    position:absolute; top:8px; right:8px; font-size:14px;
-    width:28px; height:28px; border-radius:50%;
+  .avis-bloc{margin-top:14px;}
+  .avis-apercu{margin:0 0 8px; font-size:14px; color:var(--ink-soft); white-space:pre-wrap; padding-left:12px; border-left:2px solid var(--line-strong);}
+  .avis-corps{margin-top:10px;}
+  .fiche-avis{margin-top:22px; padding-top:16px; border-top:1px solid var(--line);}
+  .fiche-avis h4{margin:0 0 12px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  .fiche-avis-item{display:flex; gap:12px; margin-bottom:14px;}
+  .fiche-avis-photo{
+    width:34px; height:34px; flex-shrink:0; border-radius:50%; overflow:hidden;
     display:flex; align-items:center; justify-content:center;
-    background:rgba(5,7,10,0.7); backdrop-filter:blur(6px);
+    background:rgba(255,255,255,0.08); font-size:14px; font-weight:600; color:var(--ink-soft);
   }
+  .fiche-avis-photo img{width:100%; height:100%; object-fit:cover;}
+  .fiche-avis-tete{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .fiche-avis-tete button{background:none; border:0; padding:0; font:inherit; font-size:13px; font-weight:600; color:var(--ink); cursor:pointer;}
+  .fiche-avis-tete button:hover{text-decoration:underline;}
+  .fiche-avis-item p{margin:3px 0 0; font-size:13.5px; color:var(--ink-soft); white-space:pre-wrap; overflow-wrap:anywhere;}
+
+  /* Sur les pochettes : ce qu'on en a fait, et un « + » pour agir sans ouvrir la fiche. */
+  .tile-statut-zone{position:absolute; left:8px; top:8px; z-index:2; pointer-events:none;}
+  .tile-statut{
+    display:inline-flex; align-items:center; gap:3px; min-width:26px; height:26px; padding:0 8px;
+    justify-content:center; border-radius:var(--radius-pill); font-size:12px; font-weight:700; color:#fff;
+    background:rgba(5,7,10,0.72); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,0.18); animation:tilePop .35s var(--ease);
+  }
+  .tile-statut svg{width:14px; height:14px;}
+  .tile-statut.ecoute{color:#8fe3ab; border-color:rgba(111,220,154,0.4);}
+  .tile-statut.note{color:#f5b301; border-color:rgba(245,179,1,0.45);}
+  .tile-statut.aecouter{color:var(--blue-bright); border-color:rgba(79,180,255,0.45);}
+  .tile-plus{
+    position:absolute; right:8px; bottom:8px; z-index:2; width:34px; height:34px; padding:0;
+    display:flex; align-items:center; justify-content:center; border-radius:50%; color:#fff;
+    background:rgba(5,7,10,0.72); border:1px solid rgba(255,255,255,0.28);
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+    opacity:0; transform:scale(.85);
+    transition:opacity .25s var(--ease), transform .25s var(--ease), background .2s var(--ease);
+  }
+  .tile-plus svg{width:18px; height:18px;}
+  .cat-tile:hover .tile-plus, .cat-tile:focus-within .tile-plus, .tile-plus:focus-visible{opacity:1; transform:none;}
+  .tile-plus:hover{background:var(--blue);}
+  @media (hover:none){ .tile-plus{opacity:1; transform:none; width:30px; height:30px;} }
+  @keyframes tilePop{from{opacity:0; transform:scale(.7);} to{opacity:1; transform:none;}}
+
+  .ajout-rapide{
+    position:fixed; z-index:180; width:272px; padding:14px; border-radius:var(--radius);
+    background:rgba(13,17,22,0.96); border:1px solid var(--line-strong);
+    box-shadow:var(--ombre-3), var(--reflet-int);
+    -webkit-backdrop-filter:blur(var(--glass-blur)); backdrop-filter:blur(var(--glass-blur));
+    opacity:0; transform:translateY(6px) scale(.98); pointer-events:none;
+    transition:opacity .2s var(--ease), transform .25s var(--ease);
+  }
+  .ajout-rapide.ouvert{opacity:1; transform:none; pointer-events:auto;}
+  .ajout-tete{display:flex; gap:10px; align-items:center; margin-bottom:12px;}
+  .ajout-tete img{width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0;}
+  .ajout-tete div{flex:1; min-width:0;}
+  .ajout-tete b{display:block; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ajout-tete span{display:block; font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ajout-fermer{width:28px; height:28px; padding:0; border-radius:50%; border:0; background:rgba(255,255,255,0.06); color:var(--ink-soft); font-size:12px;}
+  .ajout-note{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  .ajout-note .st.saisie{font-size:30px;}
+  .ajout-note > span{font-size:12px; color:var(--muted);}
+  .ajout-boutons{display:flex; gap:8px;}
+  .ajout-boutons .fiche-statut{flex:1 1 0; padding:10px 8px; font-size:13px;}
+  .ajout-fiche{display:block; margin:12px auto 0;}
+  @media (max-width:620px){
+    .ajout-rapide{
+      left:0; right:0; bottom:0; top:auto; width:auto;
+      padding:16px 18px calc(18px + env(safe-area-inset-bottom, 0px));
+      border-radius:var(--radius-lg) var(--radius-lg) 0 0; transform:translateY(100%);
+    }
+    .ajout-rapide.ouvert{transform:none;}
+    .ajout-note .st.saisie{font-size:38px;}
+  }
+
+  /* La collection d'un membre en pochettes (profils visités, page de la communauté, profil). */
+  .coll-grille{display:grid; grid-template-columns:repeat(auto-fill,minmax(96px,1fr)); gap:14px 10px; margin-top:12px;}
+  .coll-grille.grande{grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:18px 14px;}
+  .coll-pochette-case{display:block; padding:0; background:none; border:0; text-align:left; color:inherit; cursor:pointer;}
+  .coll-img{
+    position:relative; display:block; aspect-ratio:1/1; overflow:hidden; border-radius:var(--radius-sm);
+    border:1px solid var(--line); background:rgba(255,255,255,0.06);
+    transition:transform .35s var(--ease), box-shadow .35s var(--ease);
+  }
+  .coll-img img{width:100%; height:100%; object-fit:cover; display:block;}
+  .coll-pochette-case:hover .coll-img{transform:translateY(-4px); box-shadow:var(--ombre-2);}
+  .coll-coeur{
+    position:absolute; right:6px; top:6px; width:22px; height:22px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; background:rgba(5,7,10,0.72); color:var(--gold-favori);
+  }
+  .coll-coeur svg{width:12px; height:12px; fill:currentColor;}
+  .coll-pochette-case .st{display:flex; margin-top:6px;}
+  .coll-titre-case{display:block; margin-top:8px; font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .coll-artiste-case{display:block; font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 
   /* ---------- PAGE ARTISTE ---------- */
   .artiste-entete{
@@ -1600,45 +1698,6 @@
   .post-canvas-wrap{text-align:center; margin-top:14px;}
   #postCanvas{border:1px solid var(--line); max-width:260px; width:100%;}
 
-  /* ---------- PROFIL ---------- */
-  .profil-entete{
-    display:flex; align-items:center; gap:22px; flex-wrap:wrap; margin-bottom:24px;
-  }
-  .profil-photo{
-    width:96px; height:96px; border-radius:50%; overflow:hidden; flex-shrink:0;
-    border:1px solid var(--line-strong); background:rgba(255,255,255,0.06);
-    display:flex; align-items:center; justify-content:center;
-    font-size:34px; font-weight:600; color:var(--ink-soft);
-    box-shadow:var(--ombre-1), var(--reflet-int);
-  }
-  .profil-photo img{width:100%; height:100%; object-fit:cover;}
-  .profil-identite{min-width:0;}
-  .profil-identite h2{font-size:clamp(24px,4vw,34px); margin-bottom:10px;}
-  .profil-etiquettes{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
-  .profil-bio{
-    color:var(--ink-soft); font-size:14px; margin:12px 0 0; max-width:60ch;
-  }
-  .profil-section{margin-top:44px;}
-
-  /* Réglages repliés : on vient sur cette page pour regarder sa
-     collection, pas pour remplir un formulaire. */
-  .profil-reglages{
-    margin-top:52px; border-radius:var(--radius);
-    background:var(--glass); position:relative; overflow:hidden;
-    box-shadow:var(--ombre-1), var(--reflet-int);
-  }
-  .profil-reglages summary{
-    list-style:none; cursor:pointer; padding:18px 20px;
-    display:flex; align-items:center; justify-content:space-between;
-    font-size:14px; font-weight:600; color:var(--ink-soft);
-    -webkit-tap-highlight-color:transparent;
-  }
-  .profil-reglages summary::-webkit-details-marker{display:none;}
-  .profil-reglages summary:hover{color:var(--ink);}
-  .profil-reglages .chevron{color:var(--muted); transition:transform .2s var(--ease);}
-  .profil-reglages[open] .chevron{transform:rotate(180deg);}
-  .profil-reglages .profile-form{padding:0 20px 22px; max-width:none;}
-
   /* ---------- SUCCÈS ---------- */
   .succes-grille{
     display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:10px;
@@ -1667,90 +1726,6 @@
   .succes-texte strong{font-size:14px;}
   .succes-desc{font-size:12px; color:var(--muted); line-height:1.4;}
 
-  /* ---------- PODIUM DES FAVORITES ---------- */
-  .favoris-podium{
-    display:grid; grid-template-columns:repeat(3,1fr); gap:14px;
-  }
-  @media (max-width:560px){ .favoris-podium{gap:8px;} }
-  .favori-case{
-    border-radius:var(--radius-sm); overflow:hidden; position:relative;
-    display:flex; flex-direction:column;
-  }
-  .favori-case.remplie{cursor:pointer;}
-  .favori-case img{width:100%; aspect-ratio:1/1; object-fit:cover; display:block;}
-  .favori-case.remplie img{transition:transform .4s var(--ease);}
-  .favori-case.remplie:hover img{transform:scale(1.05);}
-  .favori-titre{
-    display:block; font-size:13px; font-weight:600; margin-top:8px;
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  }
-  .favori-artiste{
-    display:block; font-size:12px; color:var(--muted);
-    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-  }
-  .favori-case.vide{
-    aspect-ratio:1/1; border:1px dashed var(--line);
-    align-items:center; justify-content:center; gap:6px;
-    color:var(--muted);
-  }
-  .favori-rang{font-size:28px; font-weight:700; opacity:.5;}
-  .favori-invite{font-size:12px;}
-  .favori-compte{font-size:11px; color:var(--muted); margin-left:4px;}
-  .btn-enregistrer.favori{border-color:var(--gold-favori); color:var(--gold-favori); background:rgba(233,196,106,0.12);}
-
-  /* ---------- COLLECTION DÉTAILLÉE ---------- */
-  .coll-ligne{
-    display:flex; gap:16px; padding:16px 0;
-    border-top:1px solid var(--line);
-  }
-  .coll-ligne:first-child{border-top:none; padding-top:0;}
-  .coll-pochette{
-    width:88px; height:88px; flex-shrink:0; position:relative; cursor:pointer;
-    border-radius:var(--radius-sm); overflow:hidden;
-  }
-  .coll-pochette img{width:100%; height:100%; object-fit:cover; display:block;}
-  .coll-favori{
-    position:absolute; top:6px; right:6px;
-    width:22px; height:22px; border-radius:50%;
-    display:flex; align-items:center; justify-content:center;
-    font-size:12px; color:var(--gold-favori);
-    background:rgba(5,7,10,0.72); backdrop-filter:blur(6px);
-  }
-  .coll-corps{min-width:0; display:flex; flex-direction:column; gap:3px;}
-  .coll-titre{font-size:15px; cursor:pointer;}
-  .coll-titre:hover{color:var(--blue-bright);}
-  .coll-artiste{font-size:13px; color:var(--ink-soft);}
-  .coll-meta{
-    display:flex; gap:12px; flex-wrap:wrap; align-items:center;
-    font-size:12px; color:var(--muted); margin-top:4px;
-  }
-  .coll-note{color:var(--gold-favori); letter-spacing:1px;}
-  /* Le podium se compose ici, où l'on voit ce qu'on possède déjà. */
-  .coll-favori-btn{
-    font-size:12px; font-weight:600; white-space:nowrap;
-    padding:5px 11px; border-radius:var(--radius-pill);
-    border:1px solid var(--line-strong);
-    background:transparent; color:var(--muted);
-    transition:color .2s var(--ease), border-color .2s var(--ease);
-  }
-  .coll-favori-btn:hover{color:var(--ink); border-color:rgba(255,255,255,0.3);}
-  .coll-favori-btn.actif{
-    color:var(--gold-favori); border-color:rgba(233,196,106,0.5);
-    background:rgba(233,196,106,0.10);
-  }
-  .coll-avis{
-    font-size:13px; color:var(--ink-soft); line-height:1.55;
-    margin:10px 0 0; padding-left:12px;
-    border-left:2px solid var(--line-strong);
-    white-space:pre-wrap; word-break:break-word;
-  }
-
-  /* ---------- AVIS DANS LA FICHE ---------- */
-  .avis-bloc{margin-top:16px;}
-  .avis-bloc label{
-    display:block; font-size:12px; font-weight:600; text-transform:uppercase;
-    letter-spacing:.06em; color:var(--ink-soft); margin-bottom:8px;
-  }
   .avis-bloc textarea{
     width:100%; padding:12px 14px; border-radius:var(--radius-sm);
     border:1px solid rgba(255,255,255,0.09); background:rgba(0,0,0,0.26);
@@ -1758,7 +1733,6 @@
     box-shadow:inset 0 1px 3px rgba(0,0,0,0.34);
     margin-bottom:12px;
   }
-  .note-date{font-size:12px; color:var(--muted); margin:10px 0 0;}
 
   /* ---------- PAGE ARTISTE : PROPRIÉTÉ ---------- */
   .artiste-propriete{
@@ -1911,24 +1885,6 @@
   .modal-entete .modal-artist{margin:8px 0 0;}
   .modal-body{padding:0 22px 22px;}
 
-  /* Volet d'avis replié : ouvert par défaut, il ajoutait 156 px à une
-     fiche déjà longue, pour un geste que peu de visiteurs font. */
-  .avis-bascule{
-    display:inline-flex; align-items:center; gap:8px;
-    font-size:13px; font-weight:600;
-    padding:9px 15px; border-radius:var(--radius-pill);
-    border:1px solid var(--line-strong);
-    background:var(--glass); color:var(--ink-soft);
-    transition:color .2s var(--ease), background .2s var(--ease);
-  }
-  .avis-bascule:hover{color:var(--ink); background:var(--glass-hi);}
-  .avis-corps{margin-top:14px;}
-  .avis-apercu{
-    font-size:13px; color:var(--ink-soft); line-height:1.5;
-    margin:12px 0 0; padding-left:12px;
-    border-left:2px solid var(--line-strong);
-    white-space:pre-wrap; word-break:break-word;
-  }
 
   /* ---------- CLIP ---------- */
   .clip-affiche{
@@ -4594,121 +4550,12 @@
       </div>
 
       <div id="profileConnecte" style="display:none;">
-
-        <!-- Identité : ce qu'on voit avant tout le reste. -->
-        <div class="profil-entete" id="profilEntete"></div>
-
-        <!-- Termine ton profil, vérifie ton profil : rempli par rendreCarteVerification. -->
-        <div id="profilVerification"></div>
-
-        <div class="xp-card" id="profilXp"></div>
-
-        <div class="profil-section">
-          <div class="section-head" style="margin-bottom:18px;">
-            <div>
-              <span class="eyebrow mono">Trophées</span>
-              <h3 style="font-size:19px;">Mes succès</h3>
-            </div>
-            <span class="mono" id="profilSuccesCompte"
-                  style="color:var(--muted); font-size:13px;"></span>
-          </div>
-          <div id="profilSucces"></div>
-        </div>
-
-        <div class="profil-section">
-          <span class="eyebrow mono">Podium</span>
-          <h3 style="font-size:19px; margin-bottom:6px;">Mes trois favorites</h3>
-          <p class="desc" style="margin-bottom:18px;">
-            Les sorties que tu mets au-dessus des autres. Trois places,
-            pas une de plus — le choix se fait depuis la fiche d'une sortie.
-          </p>
-          <div id="profilFavoris"></div>
-        </div>
-
-        <div class="profil-section">
-          <span class="eyebrow mono">Collection</span>
-          <h3 style="font-size:19px; margin-bottom:6px;">Mes sorties</h3>
-          <p class="mono" id="profilCollectionResume"
-             style="color:var(--muted); font-size:13px; margin:0 0 18px;"></p>
-          <div id="profilCollection"></div>
-        </div>
-
-        <!-- Les réglages passent derrière : on vient ici pour regarder
-             sa collection, pas pour remplir un formulaire. -->
-        <details class="profil-reglages">
-          <summary>
-            <span>Modifier mon profil</span>
-            <span class="chevron">⌄</span>
-          </summary>
-          <div class="profile-form form-anim" id="profileFormWrap">
-        <div class="field">
-          <label>Photo de profil</label>
-          <div class="cover-drop" id="profilePhotoDrop">
-            <span id="profilePhotoText">Cliquer pour choisir une image</span>
-          </div>
-          <input type="file" id="profilePhotoInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
-        </div>
-        <div class="field">
-          <label>Pseudo</label>
-          <input type="text" id="profilePseudo" maxlength="40">
-        </div>
-        <div class="field">
-          <label>Description</label>
-          <textarea id="profileBio" rows="3" maxlength="280"></textarea>
-        </div>
-        <div class="field">
-          <label>Je suis...</label>
-          <!-- Options générées depuis MEMBER_ROLES pour rester
-               alignées avec les badges affichés partout ailleurs. -->
-          <select id="profileRole"></select>
-          <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
-            Ton rôle s'affiche à côté de ton pseudo partout sur le site,
-            et permet aux autres membres de te repérer dans l'annuaire.
-          </p>
-        </div>
-        <!-- Pour les photographes : le lien vers leur travail. Il se
-             retrouve dans leur profil public et pré-remplit leurs
-             inscriptions aux accréditations. Le champ n'apparaît que
-             pour ce rôle (majChampPortfolio). -->
-        <div class="field" id="champPortfolio" hidden>
-          <label for="socialPortfolio">Portfolio</label>
-          <input type="text" id="socialPortfolio" placeholder="Site, Instagram, Behance…">
-          <p class="aide-champ">
-            Il apparaît sur ton profil, et se remplit tout seul quand tu
-            t'inscris à un tirage.
-          </p>
-        </div>
-        <div class="field">
-          <label>Instagram</label>
-          <input type="text" id="socialInstagram" placeholder="@pseudo">
-        </div>
-        <div class="field">
-          <label>X / Twitter</label>
-          <input type="text" id="socialTwitter" placeholder="@pseudo">
-        </div>
-        <div class="field">
-          <label>TikTok</label>
-          <input type="text" id="socialTiktok" placeholder="@pseudo">
-        </div>
-        <div class="field">
-          <label>Spotify</label>
-          <input type="text" id="socialSpotify" placeholder="Lien de profil">
-        </div>
-        <div class="field">
-          <label>Apple Music</label>
-          <input type="text" id="socialAppleMusic" placeholder="Lien de profil">
-        </div>
-        <div class="field">
-          <label>Deezer</label>
-          <input type="text" id="socialDeezer" placeholder="Lien de profil">
-        </div>
-        <button class="btn btn-primary" onclick="saveProfile()">Enregistrer mon profil</button>
-        <div class="form-msg" id="profileMsg"></div>
-          </div>
-        </details>
-
+        <!-- Rempli par profil.js : l'identité avec l'engrenage des paramètres, puis les onglets Collection,
+             Journal, À écouter et Succès. -->
+        <div class="pf-corps" id="pfCorps"></div>
       </div>
     </section>
+
   </section>
 
   <!-- ================= SIGNALER UN PROBLÈME ================= -->
@@ -5727,6 +5574,92 @@
     <button class="modal-close" onclick="fermerPreuve()" aria-label="Fermer">✕</button>
     <img id="vfLightboxImg" alt="Capture envoyée par le membre">
   </div>
+</div>
+
+<!-- Les paramètres du profil : un tiroir qui s'ouvre avec l'engrenage, en haut à droite de la page « Mon profil »
+     (profil.js). Enfant direct du body : dans <main>, son z-index resterait prisonnier du contexte d'empilement
+     et la barre du haut passerait par-dessus. Le formulaire est celui d'avant : saveProfile le lit tel quel. -->
+<div class="pf-tiroir" id="profilReglages" aria-hidden="true">
+  <div class="pf-tiroir-fond" onclick="Profil.fermerReglages()"></div>
+  <aside class="pf-tiroir-panneau" role="dialog" aria-modal="true" aria-labelledby="pf-tiroir-titre">
+    <div class="pf-tiroir-tete">
+      <h3 id="pf-tiroir-titre">Paramètres</h3>
+      <button type="button" class="pf-tiroir-fermer" onclick="Profil.fermerReglages()" aria-label="Fermer">✕</button>
+    </div>
+    <div class="pf-tiroir-corps">
+      <div class="profile-form form-anim" id="profileFormWrap">
+    <div class="field">
+      <label>Photo de profil</label>
+      <div class="cover-drop" id="profilePhotoDrop">
+        <span id="profilePhotoText">Cliquer pour choisir une image</span>
+      </div>
+      <input type="file" id="profilePhotoInput" accept="image/png,image/jpeg,image/webp" style="display:none;">
+    </div>
+    <div class="field">
+      <label>Pseudo</label>
+      <input type="text" id="profilePseudo" maxlength="40">
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <textarea id="profileBio" rows="3" maxlength="280"></textarea>
+    </div>
+    <div class="field">
+      <label>Je suis...</label>
+      <!-- Options générées depuis MEMBER_ROLES pour rester
+           alignées avec les badges affichés partout ailleurs. -->
+      <select id="profileRole"></select>
+      <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">
+        Ton rôle s'affiche à côté de ton pseudo partout sur le site,
+        et permet aux autres membres de te repérer dans l'annuaire.
+      </p>
+    </div>
+    <!-- Pour les photographes : le lien vers leur travail. Il se
+         retrouve dans leur profil public et pré-remplit leurs
+         inscriptions aux accréditations. Le champ n'apparaît que
+         pour ce rôle (majChampPortfolio). -->
+    <div class="field" id="champPortfolio" hidden>
+      <label for="socialPortfolio">Portfolio</label>
+      <input type="text" id="socialPortfolio" placeholder="Site, Instagram, Behance…">
+      <p class="aide-champ">
+        Il apparaît sur ton profil, et se remplit tout seul quand tu
+        t'inscris à un tirage.
+      </p>
+    </div>
+    <div class="field">
+      <label>Instagram</label>
+      <input type="text" id="socialInstagram" placeholder="@pseudo">
+    </div>
+    <div class="field">
+      <label>X / Twitter</label>
+      <input type="text" id="socialTwitter" placeholder="@pseudo">
+    </div>
+    <div class="field">
+      <label>TikTok</label>
+      <input type="text" id="socialTiktok" placeholder="@pseudo">
+    </div>
+    <div class="field">
+      <label>Spotify</label>
+      <input type="text" id="socialSpotify" placeholder="Lien de profil">
+    </div>
+    <div class="field">
+      <label>Apple Music</label>
+      <input type="text" id="socialAppleMusic" placeholder="Lien de profil">
+    </div>
+    <div class="field">
+      <label>Deezer</label>
+      <input type="text" id="socialDeezer" placeholder="Lien de profil">
+    </div>
+      </div>
+    </div>
+    <div class="pf-tiroir-pied">
+      <button type="button" class="btn btn-primary" onclick="saveProfile()">Enregistrer</button>
+      <div class="form-msg" id="profileMsg"></div>
+      <div class="pf-tiroir-liens">
+        <button type="button" class="lien-discret" onclick="Profil.fermerReglages(); viewProfile(currentUser.id)">Voir mon profil public</button>
+        <button type="button" class="lien-discret" onclick="Profil.fermerReglages(); logoutUser()">Se déconnecter</button>
+      </div>
+    </div>
+  </aside>
 </div>
 
 <div class="modal-overlay" id="authModal" onclick="if(event.target===this) closeAuthModal()">
@@ -10427,6 +10360,16 @@ function refreshAccountUI(){
   // Le bouton flottant des défis suit la session : visible connecté, caché sinon.
   majDefisFlottant();
 
+  // Les pochettes disent ce que le membre en a fait ; la page profil, ouverte avant que la session ne revienne,
+  // se dessine alors pour la première fois.
+  majStatutsTuiles();
+
+  const corpsProfil = document.getElementById('pfCorps');
+  if(currentUser && corpsProfil && !corpsProfil.firstChild &&
+     document.getElementById('page-profile').classList.contains('active')){
+    renderProfileForm();
+  }
+
   // La session arrive après l'adresse : un rechargement direct sur #waveurs
   // ou #community a dessiné la page en invité, et personne ne la
   // redessinerait. La salle, si elle est ouverte, n'est pas touchée : seule
@@ -10754,9 +10697,9 @@ const SUCCES = [
   { cle:'note-1',       rang:'bronze', nom:'Premier verdict',  desc:'Noter une sortie',                       test: s => s.notes >= 1 },
   { cle:'note-10',      rang:'argent', nom:'Oreille affûtée',  desc:'Noter dix sorties',                      test: s => s.notes >= 10 },
   { cle:'note-30',      rang:'or',     nom:'Juge de paix',     desc:'Noter trente sorties',                   test: s => s.notes >= 30 },
-  { cle:'coll-5',       rang:'bronze', nom:'Étagère',          desc:'Enregistrer cinq sorties',               test: s => s.enregistrees >= 5 },
-  { cle:'coll-25',      rang:'argent', nom:'Discothèque',      desc:'Enregistrer vingt-cinq sorties',         test: s => s.enregistrees >= 25 },
-  { cle:'coll-60',      rang:'or',     nom:'Archiviste',       desc:'Enregistrer soixante sorties',           test: s => s.enregistrees >= 60 },
+  { cle:'coll-5',       rang:'bronze', nom:'Étagère',          desc:'Écouter cinq sorties',                  test: s => s.enregistrees >= 5 },
+  { cle:'coll-25',      rang:'argent', nom:'Discothèque',      desc:'Écouter vingt-cinq sorties',            test: s => s.enregistrees >= 25 },
+  { cle:'coll-60',      rang:'or',     nom:'Archiviste',       desc:'Écouter soixante sorties',              test: s => s.enregistrees >= 60 },
   { cle:'avis-1',       rang:'bronze', nom:'Chroniqueur',      desc:'Rédiger un avis',                        test: s => s.avis >= 1 },
   { cle:'avis-10',      rang:'or',     nom:'Plume de La Wave', desc:'Rédiger dix avis',                       test: s => s.avis >= 10 },
   { cle:'podium',       rang:'argent', nom:'Podium complet',   desc:'Choisir ses trois favorites',            test: s => s.favoris >= MAX_FAVORIS },
@@ -10783,7 +10726,7 @@ function statsUtilisateur(user){
     enregistrees: miennes.filter(n => n.saved).length,
     avis:         miennes.filter(n => n.avis && String(n.avis).trim()).length,
     favoris:      miennes.filter(n => n.favori).length,
-    cinqEtoiles:  miennes.filter(n => n.rating === 5).length,
+    cinqEtoiles:  miennes.filter(n => n.rating === 10).length,
     posts:        profilNbPosts,
     niveau:       levelForXP(user.xp),
     profilComplet: !!(user.avatar && user.bio && user.role)
@@ -10820,104 +10763,17 @@ function nombreDeSucces(user){
 }
 
 
-// ---------------- COLLECTION DÉTAILLÉE ----------------
-//
-// Version longue de la collection : chaque ligne porte la pochette, la
-// note, la date d'ajout et l'avis écrit. La version compacte en
-// vignettes reste utilisée sur les profils visités.
-function collectionDetailleeHtml(userId){
-
-  const lignes = toutesLesNotes.filter(n =>
-    n.user_id === userId && (n.rating || n.saved || n.avis)
-  );
-
-  if(!lignes.length){
-    return `<p class="carte-invite">
-              Aucune sortie enregistrée pour l'instant. Ouvre une fiche
-              du catalogue pour la noter, l'enregistrer ou en écrire un
-              avis.
-            </p>`;
-  }
-
-  // Les plus récemment ajoutées d'abord : c'est l'ordre dans lequel on
-  // se souvient de sa propre collection.
-  const triees = [...lignes].sort((a, b) =>
-    String(b.created_at || b.updated_at || '').localeCompare(
-      String(a.created_at || a.updated_at || ''))
-  );
-
-  const cartes = triees.map(ligne => {
-
-    const sortie = catalogueData.find(s => s.id === ligne.release_id);
-    if(!sortie) return '';
-
-    const date = ligne.created_at || ligne.updated_at;
-
-    return `
-      <div class="coll-ligne">
-        <div class="coll-pochette" onclick="openCatalogueModal('${sortie.id}')">
-          <img src="${escapeAttribute(safeUrl(sortie.cover))}"
-               alt="${escapeAttribute(sortie.title)}" loading="lazy">
-          ${ligne.favori ? `<span class="coll-favori" title="Favorite">★</span>` : ''}
-        </div>
-        <div class="coll-corps">
-          <strong class="coll-titre" onclick="openCatalogueModal('${sortie.id}')">
-            ${escapeHtml(sortie.title)}
-          </strong>
-          <span class="coll-artiste">${escapeHtml(sortie.artist)}</span>
-          <span class="coll-meta">
-            ${ligne.rating ? `<span class="coll-note">${'★'.repeat(ligne.rating)}</span>` : ''}
-            ${date ? `<span>Ajoutée le ${formatFrDate(String(date).slice(0,10))}</span>` : ''}
-            <button type="button"
-                    class="coll-favori-btn${ligne.favori ? ' actif' : ''}"
-                    onclick="basculerFavori('${ligne.release_id}')">
-              ${ligne.favori ? '★ Retirer du podium' : '☆ Mettre au podium'}
-            </button>
-          </span>
-          ${
-            ligne.avis
-              ? `<p class="coll-avis">${escapeHtml(ligne.avis)}</p>`
-              : ''
-          }
-        </div>
-      </div>`;
-  }).filter(Boolean).join('');
-
-  return cartes || `<p class="carte-invite">Ces sorties ne sont plus au catalogue.</p>`;
-}
-
-
-function favorisHtml(userId){
-
-  const favoris = toutesLesNotes.filter(n => n.user_id === userId && n.favori);
-
-  const cases = [];
-
-  for(let i = 0; i < MAX_FAVORIS; i++){
-
-    const ligne = favoris[i];
-    const sortie = ligne && catalogueData.find(s => s.id === ligne.release_id);
-
-    cases.push(
-      sortie
-        ? `<div class="favori-case remplie" onclick="openCatalogueModal('${sortie.id}')">
-             <img src="${escapeAttribute(safeUrl(sortie.cover))}"
-                  alt="${escapeAttribute(sortie.title)}" loading="lazy">
-             <span class="favori-titre">${escapeHtml(sortie.title)}</span>
-             <span class="favori-artiste">${escapeHtml(sortie.artist)}</span>
-           </div>`
-        : `<div class="favori-case vide">
-             <span class="favori-rang">${i + 1}</span>
-             <span class="favori-invite">Libre</span>
-           </div>`
-    );
-  }
-
-  return `<div class="favoris-podium">${cases.join('')}</div>`;
-}
-
-
 // ---------------- PAGE PROFIL ----------------
+//
+// « Mon profil » (profil.js, chargé à la demande) : l'identité avec l'engrenage des paramètres, puis la collection
+// comme un journal d'écoute. Les paramètres sont un tiroir : son formulaire est rempli ici (remplirReglages) et
+// enregistré par saveProfile.
+
+const PROFIL_FICHIER = 'profil.js?v=1';
+
+function chargerProfil(){
+  return chargerModuleSite(PROFIL_FICHIER, 'Profil', 'de la page profil (profil.js)');
+}
 
 async function renderProfileForm(){
 
@@ -10944,59 +10800,28 @@ async function renderProfileForm(){
     profilNbPosts = 0;
   }
 
-  const badge = badgeForXP(currentUser.xp);
-  const niveau = levelForXP(currentUser.xp);
-  const xp = currentUser.xp || 0;
-  const dansLeNiveau = xp % 100;
-  const photo = safeUrl(currentUser.avatar);
+  try{
+    await chargerProfil();
+  }catch(erreur){
+    document.getElementById('pfCorps').innerHTML = `<div class="form-msg err">${escapeHtml(erreur.message)}</div>`;
+    return;
+  }
 
-  document.getElementById('profilEntete').innerHTML = `
-    <div class="profil-photo">
-      ${
-        photo
-          ? `<img src="${escapeAttribute(photo)}" alt="">`
-          : escapeHtml(artistInitial(currentUser.pseudo))
-      }
-    </div>
-    <div class="profil-identite">
-      <h2>${escapeHtml(currentUser.pseudo)}</h2>
-      <div class="profil-etiquettes">
-        <span class="badge-pill">${badge.icon} ${badge.name}</span>
-        ${roleBadgeHtml(currentUser.role, 'small')}
-        ${badgeVerifieHtml(currentUser, 'small')}
-      </div>
-      ${currentUser.bio ? `<p class="profil-bio">${escapeHtml(currentUser.bio)}</p>` : ''}
-    </div>`;
+  window.Profil.monter();
+  remplirReglages();
+}
 
-  majCarteXpProfil();
-  rendreCarteVerification();
+// Les champs du tiroir de paramètres reprennent ce que le profil dit déjà.
+function remplirReglages(){
 
-  const obtenus = nombreDeSucces(currentUser);
+  if(!currentUser) return;
 
-  document.getElementById('profilSuccesCompte').textContent =
-    obtenus + ' / ' + SUCCES.length;
-
-  document.getElementById('profilSucces').innerHTML = succesHtml(currentUser);
-  document.getElementById('profilFavoris').innerHTML = favorisHtml(currentUser.id);
-
-  const miennes = toutesLesNotes.filter(n => n.user_id === currentUser.id);
-  const enregistrees = miennes.filter(n => n.saved).length;
-  const notees = miennes.filter(n => n.rating).length;
-
-  document.getElementById('profilCollectionResume').textContent =
-    enregistrees + ' enregistrée' + (enregistrees > 1 ? 's' : '') +
-    ' · ' + notees + ' notée' + (notees > 1 ? 's' : '');
-
-  document.getElementById('profilCollection').innerHTML =
-    collectionDetailleeHtml(currentUser.id);
-
-  // ---- Formulaire de réglages, replié par défaut ----
   document.getElementById('profilePseudo').value = currentUser.pseudo || '';
   document.getElementById('profileBio').value = currentUser.bio || '';
   document.getElementById('profileRole').value = roleNom(currentUser.role);
-  document.getElementById('socialInstagram').value = (currentUser.socials || {}).instagram || '';
-  document.getElementById('socialTwitter').value = (currentUser.socials || {}).twitter || '';
-  document.getElementById('socialTiktok').value = (currentUser.socials || {}).tiktok || '';
+  document.getElementById('socialInstagram').value = saisieReseau((currentUser.socials || {}).instagram);
+  document.getElementById('socialTwitter').value = saisieReseau((currentUser.socials || {}).twitter);
+  document.getElementById('socialTiktok').value = saisieReseau((currentUser.socials || {}).tiktok);
   document.getElementById('socialSpotify').value = (currentUser.socials || {}).spotify || '';
   document.getElementById('socialAppleMusic').value = (currentUser.socials || {}).appleMusic || '';
   document.getElementById('socialDeezer').value = (currentUser.socials || {}).deezer || '';
@@ -11387,10 +11212,6 @@ function majChampPortfolio(){
 
 document.getElementById('profileRole').addEventListener('change', majChampPortfolio);
 
-// À l'ouverture des réglages, les champs du profil entrent un à un.
-document.querySelector('.profil-reglages').addEventListener('toggle', (e) => {
-  if(e.target.open) jouerEntreeFormulaire(document.getElementById('profileFormWrap'));
-});
 
 // Un portfolio se tape comme on le dit : « camille.photo » ou
 // « @camille ». Le profil public en fait un lien — il lui faut une
@@ -11414,6 +11235,38 @@ function normaliserPortfolio(valeur){
   return brut;
 }
 
+// Un réseau se tape comme on le dit : « @pseudo ». Le profil public en fait un lien, et il lui faut une adresse complète.
+function normaliserReseau(cle, valeur){
+
+  const brut = String(valeur || '').trim();
+
+  if(!brut) return '';
+
+  if(/^https?:\/\//i.test(brut)) return brut;
+
+  const hotes = { instagram: 'instagram.com/', twitter: 'x.com/', tiktok: 'tiktok.com/@' };
+
+  if(hotes[cle]){
+
+    if(/^(www\.)?(instagram|x|twitter|tiktok)\.com\//i.test(brut)) return 'https://' + brut.replace(/^www\./i, '');
+
+    const identifiant = brut.replace(/^@+/, '');
+
+    return /^[A-Za-z0-9._]{1,40}$/.test(identifiant) ? 'https://' + hotes[cle] + identifiant : brut;
+  }
+
+  // Un nom de domaine, sans espace : on y met le https qui manque.
+  return /^[^\s]+\.[a-z]{2,}(\/.*)?$/i.test(brut) ? 'https://' + brut : brut;
+}
+
+// Et on le relit comme on l'a tapé : l'adresse d'un profil redevient « @pseudo ».
+function saisieReseau(valeur){
+
+  const m = /^https?:\/\/(?:www\.)?(?:instagram\.com|x\.com|twitter\.com|tiktok\.com)\/@?([^/?#]+)/i.exec(String(valeur || ''));
+
+  return m ? '@' + m[1] : String(valeur || '');
+}
+
 async function saveProfile(){
   if(!currentUser) return;
 
@@ -11431,12 +11284,12 @@ async function saveProfile(){
     : normaliserPortfolio(document.getElementById('socialPortfolio').value);
 
   const socials = {
-    instagram: document.getElementById('socialInstagram').value.trim(),
-    twitter: document.getElementById('socialTwitter').value.trim(),
-    tiktok: document.getElementById('socialTiktok').value.trim(),
-    spotify: document.getElementById('socialSpotify').value.trim(),
-    appleMusic: document.getElementById('socialAppleMusic').value.trim(),
-    deezer: document.getElementById('socialDeezer').value.trim(),
+    instagram: normaliserReseau('instagram', document.getElementById('socialInstagram').value),
+    twitter: normaliserReseau('twitter', document.getElementById('socialTwitter').value),
+    tiktok: normaliserReseau('tiktok', document.getElementById('socialTiktok').value),
+    spotify: normaliserReseau('spotify', document.getElementById('socialSpotify').value),
+    appleMusic: normaliserReseau('appleMusic', document.getElementById('socialAppleMusic').value),
+    deezer: normaliserReseau('deezer', document.getElementById('socialDeezer').value),
     portfolio
   };
 
@@ -11478,6 +11331,12 @@ async function saveProfile(){
   await awardXP('updateProfile', 5);
   msg.textContent = 'Profil enregistré.';
   msg.className = 'form-msg ok';
+
+  if(window.Profil){
+    window.Profil.rafraichir();
+    // Le tiroir se referme de lui-même : le profil mis à jour est derrière.
+    setTimeout(() => window.Profil.fermerReglages(), 700);
+  }
 }
 
 // ---- Communauté : XP, défis, forum ----
@@ -13226,14 +13085,17 @@ function onRechercheCatalogue(){
 // <div> avec un simple onclick n'était ni atteignable ni annoncée.
 function tileHtml(item){
   return `
-    <div class="cat-tile" role="button" tabindex="0"
+    <div class="cat-tile" role="button" tabindex="0" data-id="${item.id}"
          aria-label="${escapeAttribute(item.title + ' — ' + item.artist)}"
          onclick="openCatalogueModal('${item.id}')"
-         onkeydown="if(event.key === 'Enter' || event.key === ' '){ event.preventDefault(); openCatalogueModal('${item.id}'); }">
+         onkeydown="if(event.target === this && (event.key === 'Enter' || event.key === ' ')){ event.preventDefault(); openCatalogueModal('${item.id}'); }">
       <div class="cat-cover">
         <img src="${escapeAttribute(safeUrl(item.cover))}"
              alt="${escapeAttribute(item.title)}" loading="lazy">
       </div>
+      <span class="tile-statut-zone">${statutTuileHtml(item.id)}</span>
+      <button type="button" class="tile-plus" aria-label="Ajouter à ma collection"
+              onclick="event.stopPropagation(); ouvrirAjoutRapide('${item.id}', this)">${iconeCollection('plus')}</button>
     </div>`;
 }
 
@@ -13673,10 +13535,16 @@ function proposerBienvenue(){
 
 // ---------------- NOTES ET COLLECTION ----------------
 //
-// Chaque membre peut noter une sortie de 1 à 5 étoiles et l'enregistrer
-// dans sa collection. Une seule ligne par membre et par sortie porte
-// les deux : on peut donc enregistrer sans noter, ou noter sans
-// enregistrer.
+// La collection est ce qu'un membre tient au quotidien, comme un journal d'écoute : ce qu'il a écouté (avec une note à
+// la demi-étoile et, s'il veut, un avis), ce qu'il veut écouter, ses trois favorites, et le jour de chaque écoute.
+// Une seule ligne par membre et par sortie (release_ratings, voir sql/collection.sql) porte tout :
+//
+//   saved      la sortie est écoutée : elle est dans la collection
+//   ecoute_le  le jour de l'écoute (le journal)
+//   a_ecouter  mise de côté, pas encore écoutée (jamais avec saved)
+//   rating     la note en demi-étoiles : 1 (½ étoile) à 10 (cinq étoiles)
+//   avis       un avis écrit, public
+//   favori     l'une des trois favorites (le podium)
 
 let toutesLesNotes = [];
 
@@ -13692,17 +13560,14 @@ async function chargerNotes(){
   toutesLesNotes = data || [];
 }
 
-function moyenneDeLaSortie(releaseId){
-  const notes = toutesLesNotes
-    .filter(n => n.release_id === releaseId && n.rating)
-    .map(n => n.rating);
+// Aujourd'hui à l'heure de la personne (le journal compte ses jours, pas ceux d'UTC), au format AAAA-MM-JJ.
+function jourLocal(){
+  return new Date().toLocaleDateString('sv-SE');
+}
 
-  if(!notes.length) return null;
-
-  return {
-    moyenne: notes.reduce((a, b) => a + b, 0) / notes.length,
-    nombre: notes.length
-  };
+// Une note en demi-étoiles, dite en étoiles : 9 → « 4,5 », 10 → « 5 ».
+function noteTexte(demi){
+  return String(demi / 2).replace('.', ',');
 }
 
 function maNoteSur(releaseId){
@@ -13712,118 +13577,364 @@ function maNoteSur(releaseId){
   ) || null;
 }
 
-// Étoiles en lecture seule, pour les moyennes et les collections.
-function etoilesLectureHtml(valeur){
-  let html = '<span class="etoiles lecture">';
-  for(let i = 1; i <= 5; i++){
-    html += `<span class="etoile${i <= Math.round(valeur) ? ' pleine' : ''}">★</span>`;
-  }
-  return html + '</span>';
+// Où en est cette sortie pour le membre connecté ?
+function etatSortie(releaseId){
+
+  const n = maNoteSur(releaseId);
+
+  return {
+    ecoute:   !!(n && n.saved),
+    aEcouter: !!(n && n.a_ecouter && !n.saved),
+    note:     (n && n.rating) || 0,
+    favori:   !!(n && n.favori),
+    avis:     (n && n.avis) || '',
+    jour:     (n && n.saved && (n.ecoute_le || String(n.created_at || '').slice(0, 10))) || null
+  };
 }
 
-// Bloc de notation affiché dans la fiche d'une sortie.
-// Trois favorites au maximum : au-delà, le podium ne veut plus rien
-// dire. La limite est aussi rappelée dans le message d'erreur, parce
-// qu'un bouton qui refuse sans explication passe pour un bug.
-const MAX_FAVORIS = 3;
+// La moyenne des membres (en étoiles, 0,5 à 5), leur nombre, et la répartition par étoile entière (une note à
+// 3,5 compte dans les quatre étoiles).
+function moyenneDeLaSortie(releaseId){
 
+  const notes = toutesLesNotes
+    .filter(n => n.release_id === releaseId && n.rating)
+    .map(n => n.rating);
+
+  if(!notes.length) return null;
+
+  const repartition = [0, 0, 0, 0, 0];
+  notes.forEach(demi => { repartition[Math.ceil(demi / 2) - 1]++; });
+
+  return {
+    moyenne: notes.reduce((a, b) => a + b, 0) / notes.length / 2,
+    nombre: notes.length,
+    repartition
+  };
+}
+
+
+// ---- Les étoiles, à la demi-étoile ----
+//
+// `demi` va de 0 à 10. Chaque étoile se remplit à 0, 50 ou 100 % (variable --p) : une seule police, aucune image.
+
+function remplissageEtoile(demi, rang){
+  return Math.max(0, Math.min(2, demi - 2 * rang)) * 50;
+}
+
+function etoilesHtml(demi, classe){
+
+  let html = '';
+
+  for(let k = 0; k < 5; k++){
+    html += `<i style="--p:${remplissageEtoile(demi, k)}%">★</i>`;
+  }
+
+  return `<span class="st${classe ? ' ' + classe : ''}" role="img"
+                aria-label="${demi ? noteTexte(demi) + ' sur 5' : 'Pas de note'}">${html}</span>`;
+}
+
+// Les étoiles de saisie : un toucher ou un clic note, on peut aussi glisser le doigt ou la souris d'une étoile à
+// l'autre, et le clavier règle la note (flèches, Suppr pour l'effacer). Retoucher la même note l'efface.
+function etoilesSaisieHtml(releaseId, demi){
+
+  let html = '';
+
+  for(let k = 0; k < 5; k++){
+    html += `<i style="--p:${remplissageEtoile(demi, k)}%">★</i>`;
+  }
+
+  return `<span class="st saisie" data-release="${escapeAttribute(releaseId)}" data-valeur="${demi}"
+                role="slider" tabindex="0" aria-label="Ta note" aria-valuemin="0" aria-valuemax="10"
+                aria-valuenow="${demi}" aria-valuetext="${demi ? noteTexte(demi) + ' sur 5' : 'Pas de note'}">${html}</span>`;
+}
+
+(function(){
+
+  let enCours = null;
+
+  const valeurSous = (widget, x) => {
+    const r = widget.getBoundingClientRect();
+    return Math.max(1, Math.min(10, Math.ceil(((x - r.left) / r.width) * 10)));
+  };
+
+  const peindre = (widget, demi) => {
+    widget.querySelectorAll('i').forEach((etoile, k) => {
+      etoile.style.setProperty('--p', remplissageEtoile(demi, k) + '%');
+    });
+  };
+
+  const valeurDe = (widget) => Number(widget.dataset.valeur) || 0;
+
+  document.addEventListener('pointerdown', (e) => {
+
+    const w = e.target.closest && e.target.closest('.st.saisie');
+    if(!w) return;
+
+    enCours = w;
+    try{ w.setPointerCapture(e.pointerId); }catch(erreur){ /* sans effet */ }
+    peindre(w, valeurSous(w, e.clientX));
+    e.preventDefault();
+  });
+
+  document.addEventListener('pointermove', (e) => {
+
+    if(enCours){
+      peindre(enCours, valeurSous(enCours, e.clientX));
+      return;
+    }
+
+    // Au survol à la souris, la note se devine avant le clic.
+    if(e.pointerType !== 'mouse') return;
+
+    const w = e.target.closest && e.target.closest('.st.saisie');
+    if(w) peindre(w, valeurSous(w, e.clientX));
+  });
+
+  document.addEventListener('pointerout', (e) => {
+
+    if(enCours) return;
+
+    const w = e.target.closest && e.target.closest('.st.saisie');
+
+    if(w && !w.contains(e.relatedTarget)) peindre(w, valeurDe(w));
+  });
+
+  document.addEventListener('pointerup', (e) => {
+
+    if(!enCours) return;
+
+    const w = enCours;
+    enCours = null;
+
+    const v = valeurSous(w, e.clientX);
+
+    definirNote(w.dataset.release, v === valeurDe(w) ? 0 : v);
+  });
+
+  document.addEventListener('pointercancel', () => {
+    if(!enCours) return;
+    peindre(enCours, valeurDe(enCours));
+    enCours = null;
+  });
+
+  document.addEventListener('keydown', (e) => {
+
+    const w = e.target.closest && e.target.closest('.st.saisie');
+    if(!w) return;
+
+    const v = valeurDe(w);
+    let suite = null;
+
+    if(e.key === 'ArrowRight' || e.key === 'ArrowUp') suite = Math.min(10, v + 1);
+    else if(e.key === 'ArrowLeft' || e.key === 'ArrowDown') suite = Math.max(0, v - 1);
+    else if(e.key === 'Delete' || e.key === 'Backspace') suite = 0;
+    else return;
+
+    e.preventDefault();
+    definirNote(w.dataset.release, suite);
+  });
+
+})();
+
+
+// Trois favorites au maximum : au-delà, le podium ne veut plus rien dire. La limite est aussi rappelée dans le message
+// d'erreur, parce qu'un bouton qui refuse sans explication passe pour un bug.
+const MAX_FAVORIS = 3;
 
 function mesFavoris(){
   if(!currentUser) return [];
   return toutesLesNotes.filter(n => n.user_id === currentUser.id && n.favori);
 }
 
+// Les petits pictogrammes de la collection. Une fonction (et non une constante) : goTo peut dessiner une page avant que
+// le script n'atteigne cet endroit.
+function iconeCollection(nom){
 
+  const traits = {
+    coche:  '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+    signet: '<path d="M7 4h10a1 1 0 0 1 1 1v15l-6-4-6 4V5a1 1 0 0 1 1-1z"/>',
+    coeur:  '<path d="M12 20.5s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.9c0 5.4-7.5 10-7.5 10z"/>',
+    plus:   '<path d="M12 5v14M5 12h14"/>'
+  };
+
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+               stroke-linejoin="round" aria-hidden="true">${traits[nom] || ''}</svg>`;
+}
+
+
+// ---- Les membres qui ont noté : de quoi montrer leur nom à côté de leur avis ----
+
+let membresResumes = null;
+
+async function chargerResumesMembres(){
+
+  if(membresResumes) return;
+
+  const { data } = await BD.profilsResumes();
+
+  membresResumes = new Map((data || []).map(p => [p.id, p]));
+}
+
+// La moyenne des membres et la répartition des notes.
+function communauteNotesHtml(releaseId){
+
+  const stats = moyenneDeLaSortie(releaseId);
+
+  if(!stats){
+    return `<p class="fiche-communaute-vide">Pas encore de note : sois le premier.</p>`;
+  }
+
+  const max = Math.max(...stats.repartition);
+
+  return `
+    <div class="fiche-communaute">
+      <div class="fiche-moyenne">
+        <strong>${stats.moyenne.toFixed(1).replace('.', ',')}</strong>
+        ${etoilesHtml(Math.round(stats.moyenne * 2))}
+        <span>${stats.nombre} note${stats.nombre > 1 ? 's' : ''}</span>
+      </div>
+      <div class="fiche-histo" aria-hidden="true">
+        ${stats.repartition.map((n, i) => `
+          <span class="barre" title="${i + 1} étoile${i ? 's' : ''} : ${n}">
+            <i style="--h:${max ? Math.round((n / max) * 100) : 0}"></i><em>${i + 1}</em>
+          </span>`).join('')}
+      </div>
+    </div>`;
+}
+
+// Les avis des autres membres sur cette sortie (le tien se lit dans ton bloc).
+function avisCommunauteHtml(releaseId){
+
+  const avis = toutesLesNotes
+    .filter(n => n.release_id === releaseId && n.avis && String(n.avis).trim() &&
+                 !(currentUser && n.user_id === currentUser.id))
+    .sort((a, b) => String(b.updated_at || '').localeCompare(String(a.updated_at || '')))
+    .slice(0, 6);
+
+  if(!avis.length) return '';
+
+  if(!membresResumes){
+    chargerResumesMembres().then(() => {
+      const bloc = document.getElementById('modalNoteBloc');
+      if(bloc && bloc.dataset.release === releaseId) renderNoteBloc(releaseId);
+    }).catch(() => {});
+    return '';
+  }
+
+  return `
+    <div class="fiche-avis">
+      <h4>Avis</h4>
+      ${avis.map(n => {
+        const membre = membresResumes.get(n.user_id) || {};
+        const photo = safeUrl(membre.avatar_url);
+        return `
+          <article class="fiche-avis-item">
+            <span class="fiche-avis-photo">${photo
+              ? `<img src="${escapeAttribute(photo)}" alt="" loading="lazy">`
+              : escapeHtml(artistInitial(membre.pseudo))}</span>
+            <div>
+              <div class="fiche-avis-tete">
+                <button type="button" onclick="closeCatalogueModal(); viewProfile('${escapeAttribute(n.user_id)}')">${escapeHtml(membre.pseudo || 'Membre')}</button>
+                ${n.rating ? etoilesHtml(n.rating, 'petite') : ''}
+              </div>
+              <p>${escapeHtml(n.avis)}</p>
+            </div>
+          </article>`;
+      }).join('')}
+    </div>`;
+}
+
+
+// Le bloc de la fiche d'une sortie : l'état de la sortie pour le membre (écoutée, à écouter, podium), sa note, le
+// jour d'écoute, son avis, puis ce qu'en pense la communauté.
 function renderNoteBloc(releaseId){
 
   const moyenneEl = document.getElementById('modalNoteMoyenne');
   const blocEl = document.getElementById('modalNoteBloc');
   if(!moyenneEl || !blocEl) return;
 
-  const stats = moyenneDeLaSortie(releaseId);
+  // Ce que le membre est en train d'écrire survit à un changement d'état (une note posée, un statut basculé).
+  const ancienChamp = document.getElementById('avis-' + releaseId);
+  const brouillon = ancienChamp && blocEl.dataset.release === releaseId ? ancienChamp.value : null;
+  const ancienCorps = document.getElementById('avis-corps-' + releaseId);
+  const volet = !!(ancienCorps && !ancienCorps.hidden);
 
-  moyenneEl.innerHTML = stats
-    ? `${etoilesLectureHtml(stats.moyenne)}
-       <strong>${stats.moyenne.toFixed(1)}</strong> · ${stats.nombre} avis`
-    : `Aucune note pour l'instant.`;
+  blocEl.dataset.release = releaseId;
+  moyenneEl.innerHTML = communauteNotesHtml(releaseId);
 
   if(!currentUser){
     blocEl.innerHTML = `
       <p class="note-invite">
         <button type="button" onclick="closeCatalogueModal(); openAuthModal('login')">
           Connecte-toi
-        </button> pour noter cette sortie et l'enregistrer.
-      </p>`;
+        </button> pour noter cette sortie, la garder dans ta collection et écrire un avis.
+      </p>
+      ${avisCommunauteHtml(releaseId)}`;
     return;
   }
 
-  const mienne = maNoteSur(releaseId);
-  const note = (mienne && mienne.rating) || 0;
-  const enregistre = !!(mienne && mienne.saved);
-  const favori = !!(mienne && mienne.favori);
-  const avis = (mienne && mienne.avis) || '';
-
-  let etoiles = '<span class="etoiles">';
-  for(let i = 1; i <= 5; i++){
-    etoiles += `<button type="button" class="etoile${i <= note ? ' pleine' : ''}"
-                  title="${i} sur 5"
-                  onclick="noterSortie('${releaseId}', ${i})">★</button>`;
-  }
-  etoiles += '</span>';
-
-  const nbFavoris = mesFavoris().length;
+  const e = etatSortie(releaseId);
+  const id = escapeAttribute(releaseId);
 
   blocEl.innerHTML = `
-    <div class="note-actions">
-      ${etoiles}
-      ${note ? `<button type="button" class="note-invite"
-                        style="border:none; background:none;"
-                        onclick="noterSortie('${releaseId}', 0)">Retirer ma note</button>` : ''}
-      <button type="button"
-              class="btn-enregistrer${enregistre ? ' actif' : ''}"
-              onclick="basculerEnregistrement('${releaseId}')">
-        ${enregistre ? '✓ Enregistrée' : '＋ Enregistrer'}
+    <div class="fiche-statuts">
+      <button type="button" class="fiche-statut${e.ecoute ? ' actif' : ''}" aria-pressed="${e.ecoute}"
+              onclick="basculerEcoute('${id}')">
+        ${iconeCollection('coche')}<span>${e.ecoute ? 'Écouté' : "J'ai écouté"}</span>
       </button>
-      <!-- Les favorites se choisissent depuis le profil, où le podium
-           est visible : ici, rien ne montrait combien de places
-           restaient ni lesquelles étaient déjà prises. -->
-      <button type="button" class="btn-enregistrer"
-              onclick="basculerVoletAvis('${releaseId}')">
-        ${avis ? 'Modifier mon avis' : 'Écrire un avis'}
-      </button>
+      ${e.ecoute ? `
+      <button type="button" class="fiche-statut or${e.favori ? ' actif' : ''}" aria-pressed="${e.favori}"
+              onclick="basculerFavori('${id}')">
+        ${iconeCollection('coeur')}<span>Podium</span>
+      </button>` : `
+      <button type="button" class="fiche-statut${e.aEcouter ? ' actif' : ''}" aria-pressed="${e.aEcouter}"
+              onclick="basculerAEcouter('${id}')">
+        ${iconeCollection('signet')}<span>À écouter</span>
+      </button>`}
     </div>
 
-    ${
-      mienne && mienne.created_at
-        ? `<p class="note-date">Dans ta collection depuis le ${formatFrDate(String(mienne.created_at).slice(0,10))}.</p>`
-        : ''
-    }
+    <div class="fiche-note">
+      ${etoilesSaisieHtml(releaseId, e.note)}
+      <span class="fiche-note-val">${e.note ? noteTexte(e.note) + ' / 5' : 'Touche une étoile pour noter'}</span>
+      ${e.note ? `<button type="button" class="lien-discret" onclick="definirNote('${id}', 0)">Retirer</button>` : ''}
+    </div>
+
+    ${e.ecoute ? `
+    <label class="fiche-jour">Écouté le
+      <input type="date" value="${escapeAttribute(e.jour || '')}" max="${jourLocal()}"
+             onchange="definirJourEcoute('${id}', this.value)">
+    </label>` : ''}
 
     <div class="avis-bloc">
-      ${
-        avis
-          ? `<p class="avis-apercu" id="avis-apercu-${releaseId}">${escapeHtml(avis)}</p>`
-          : ''
-      }
+      ${e.avis ? `<p class="avis-apercu" id="avis-apercu-${id}">${escapeHtml(e.avis)}</p>` : ''}
+      <button type="button" class="lien-discret avis-ouvrir" onclick="basculerVoletAvis('${id}')">
+        ${e.avis ? 'Modifier mon avis' : 'Écrire un avis'}
+      </button>
 
-      <div class="avis-corps" id="avis-corps-${releaseId}" hidden>
-        <textarea id="avis-${releaseId}" rows="3" maxlength="600"
-                  placeholder="Ce que tu en as pensé — visible sur ton profil.">${escapeHtml(avis)}</textarea>
+      <div class="avis-corps" id="avis-corps-${id}" hidden>
+        <textarea id="avis-${id}" rows="3" maxlength="800"
+                  placeholder="Ce que tu en as pensé — visible par tous."></textarea>
         <div class="inline-actions">
           <button type="button" class="btn btn-primary" style="padding:9px 16px; font-size:13px;"
-                  onclick="enregistrerAvis('${releaseId}')">
-            Enregistrer
-          </button>
-          ${
-            avis
-              ? `<button type="button" class="btn btn-ghost" style="padding:9px 16px; font-size:13px;"
-                         onclick="effacerAvis('${releaseId}')">Effacer</button>`
-              : ''
-          }
+                  onclick="enregistrerAvis('${id}')">Publier</button>
+          ${e.avis ? `<button type="button" class="btn btn-ghost" style="padding:9px 16px; font-size:13px;"
+                              onclick="effacerAvis('${id}')">Effacer</button>` : ''}
         </div>
-        <div class="form-msg" id="avis-msg-${releaseId}"></div>
+        <div class="form-msg" id="avis-msg-${id}"></div>
       </div>
-    </div>`;
+    </div>
+
+    ${avisCommunauteHtml(releaseId)}`;
+
+  // Le texte de l'avis passe par la propriété (pas par le HTML) : aucun caractère ne s'y interprète.
+  const champ = document.getElementById('avis-' + releaseId);
+  if(champ) champ.value = brouillon !== null ? brouillon : e.avis;
+
+  if(volet && champ){
+    document.getElementById('avis-corps-' + releaseId).hidden = false;
+    const apercu = document.getElementById('avis-apercu-' + releaseId);
+    if(apercu) apercu.hidden = true;
+  }
 }
 
 
@@ -13848,14 +13959,111 @@ function basculerVoletAvis(releaseId){
 }
 
 
+// ---- Les gestes de la collection ----
+
+async function definirNote(releaseId, demi){
+
+  if(!currentUser){
+    openAuthModal('login');
+    return;
+  }
+
+  // Noter, c'est avoir écouté : la sortie entre dans la collection sans second geste. Retirer sa note ne l'en sort pas.
+  await enregistrerMaNote(releaseId, demi ? { rating: demi, saved: true } : { rating: null });
+
+  // Pas de notification ici : les étoiles changent sous les yeux de la personne. Seul le gain d'XP, qui n'est pas
+  // visible autrement, en déclenche une.
+  if(demi) await awardXP('noterSortie', 5);
+}
+
+// « J'ai écouté » : la sortie entre dans la collection, avec la date du jour. Pour une sortie notée ou commentée, la
+// retirer emporte la note, l'avis et le podium : on demande avant.
+async function basculerEcoute(releaseId){
+
+  if(!currentUser){
+    openAuthModal('login');
+    return;
+  }
+
+  const e = etatSortie(releaseId);
+  const sortie = catalogueData.find(s => s.id === releaseId);
+
+  if(!e.ecoute){
+    await enregistrerMaNote(releaseId, { saved: true });
+    notifier('Dans ta collection', { type: 'succes', icone: '✓', detail: sortie ? sortie.title : '' });
+    animerEnregistrement('✓');
+    await awardXP('enregistrerSortie', 5);
+    return;
+  }
+
+  if(e.note || e.avis || e.favori){
+    notifier('Retirer de ta collection ?', {
+      persistant: true,
+      icone: '?',
+      detail: 'Ta note, ton avis et ta place au podium seront supprimés.',
+      actions: [
+        { label: 'Retirer', primaire: true, action: () => retirerDeLaCollection(releaseId) },
+        { label: 'Garder' }
+      ]
+    });
+    return;
+  }
+
+  await retirerDeLaCollection(releaseId);
+}
+
+async function retirerDeLaCollection(releaseId){
+
+  await enregistrerMaNote(releaseId, { saved: false, rating: null, avis: null, favori: false, a_ecouter: false });
+
+  const sortie = catalogueData.find(s => s.id === releaseId);
+
+  notifier('Retirée de ta collection', { type: 'info', icone: '−', detail: sortie ? sortie.title : '' });
+}
+
+// « À écouter » : mise de côté pour plus tard. Écoutée, une sortie n'est plus « à écouter ».
+async function basculerAEcouter(releaseId){
+
+  if(!currentUser){
+    openAuthModal('login');
+    return;
+  }
+
+  const e = etatSortie(releaseId);
+
+  if(e.ecoute) return;
+
+  await enregistrerMaNote(releaseId, { a_ecouter: !e.aEcouter });
+
+  const sortie = catalogueData.find(s => s.id === releaseId);
+
+  notifier(e.aEcouter ? 'Retirée de ta liste' : 'À écouter', {
+    type: e.aEcouter ? 'info' : 'succes',
+    icone: e.aEcouter ? '−' : '🔖',
+    detail: sortie ? sortie.title : ''
+  });
+}
+
+async function definirJourEcoute(releaseId, jour){
+
+  if(!currentUser) return;
+
+  // Une date valide, pas dans le futur : sans cela, le journal se brouille.
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(jour || '') || jour > jourLocal()){
+    renderNoteBloc(releaseId);
+    return;
+  }
+
+  await enregistrerMaNote(releaseId, { ecoute_le: jour });
+}
+
 async function basculerFavori(releaseId){
 
   if(!currentUser) return;
 
-  const mienne = maNoteSur(releaseId);
-  const dejaFavori = !!(mienne && mienne.favori);
+  const e = etatSortie(releaseId);
 
-  if(!dejaFavori && mesFavoris().length >= MAX_FAVORIS){
+  if(!e.favori && mesFavoris().length >= MAX_FAVORIS){
     notifier('Déjà trois favorites', {
       type: 'erreur',
       detail: 'Retires-en une avant d\'en ajouter une autre.'
@@ -13863,50 +14071,35 @@ async function basculerFavori(releaseId){
     return;
   }
 
-  // Une favorite fait forcément partie de la collection : sans cela
-  // elle disparaîtrait de la liste où elle doit s'afficher.
-  await enregistrerMaNote(releaseId, {
-    favori: !dejaFavori,
-    saved: dejaFavori ? (mienne && mienne.saved) : true
-  });
+  // Une favorite fait forcément partie de la collection : sans cela elle disparaîtrait de la liste où elle doit
+  // s'afficher.
+  await enregistrerMaNote(releaseId, { favori: !e.favori, saved: true });
 
-  notifier(dejaFavori ? 'Retirée de tes favorites' : 'Ajoutée à tes favorites', {
-    type: dejaFavori ? 'info' : 'succes',
-    icone: dejaFavori ? '☆' : '★'
+  notifier(e.favori ? 'Retirée de ton podium' : 'Au podium', {
+    type: e.favori ? 'info' : 'succes',
+    icone: e.favori ? '♡' : '♥'
   });
-
-  // Le geste se fait depuis le profil : c'est lui qu'il faut redessiner
-  // pour que le podium et la collection reflètent le changement.
-  if(document.getElementById('page-profile').classList.contains('active')){
-    await renderProfileForm();
-  } else {
-    renderNoteBloc(releaseId);
-  }
 }
-
 
 async function enregistrerAvis(releaseId){
 
   if(!currentUser) return;
 
   const champ = document.getElementById('avis-' + releaseId);
-  const msg = document.getElementById('avis-msg-' + releaseId);
   if(!champ) return;
 
   const texte = champ.value.trim();
 
-  // Écrire un avis vaut mise en collection : autrement le texte
-  // n'aurait nulle part où s'afficher.
+  // Écrire un avis vaut mise en collection : autrement le texte n'aurait nulle part où s'afficher.
   await enregistrerMaNote(releaseId, { avis: texte || null, saved: true });
 
+  const msg = document.getElementById('avis-msg-' + releaseId);
+
   if(msg){
-    msg.textContent = texte ? '✅ Avis enregistré.' : 'Avis effacé.';
+    msg.textContent = texte ? '✅ Avis publié.' : 'Avis effacé.';
     msg.className = 'form-msg ok';
   }
-
-  renderNoteBloc(releaseId);
 }
-
 
 async function effacerAvis(releaseId){
   const champ = document.getElementById('avis-' + releaseId);
@@ -13915,7 +14108,8 @@ async function effacerAvis(releaseId){
 }
 
 
-// Écrit la note, met à jour l'affichage, puis recharge en arrière-plan.
+// Le seul endroit qui écrit : la ligne du membre pour cette sortie. Les gestes ci-dessus ne disent que ce qui change ;
+// ici se règlent les liens entre les champs (écoutée ou à écouter, le jour d'écoute) et le reste suit.
 async function enregistrerMaNote(releaseId, champs){
 
   if(!currentUser) return;
@@ -13926,45 +14120,62 @@ async function enregistrerMaNote(releaseId, champs){
     rating: null,
     saved: false,
     avis: null,
-    favori: false
+    favori: false,
+    a_ecouter: false,
+    ecoute_le: null
   };
 
   const nouvelle = { ...mienne, ...champs };
 
-  // Plus rien à garder : ni note, ni enregistrement, ni avis, ni
-  // favori. La ligne n'a alors plus de raison d'exister.
-  if(!nouvelle.rating && !nouvelle.saved && !nouvelle.avis && !nouvelle.favori){
+  // Une note, un avis ou une favorite sont des écoutes.
+  if(nouvelle.rating || nouvelle.avis || nouvelle.favori) nouvelle.saved = true;
+
+  // Écoutée ou à écouter, jamais les deux ; le jour d'écoute suit l'écoute.
+  if(nouvelle.saved){
+    nouvelle.a_ecouter = false;
+    if(!nouvelle.ecoute_le) nouvelle.ecoute_le = jourLocal();
+  } else {
+    nouvelle.ecoute_le = null;
+  }
+
+  // Plus rien à garder : la ligne n'a plus de raison d'exister.
+  if(!nouvelle.rating && !nouvelle.saved && !nouvelle.avis && !nouvelle.favori && !nouvelle.a_ecouter){
+
     const { error } = await BD.supprimerNote(currentUser.id, releaseId);
+
     if(error){
       console.warn('⚠️ Note non supprimée :', error.message);
       return;
     }
+
     toutesLesNotes = toutesLesNotes.filter(
       n => !(n.release_id === releaseId && n.user_id === currentUser.id)
     );
-    renderNoteBloc(releaseId);
+
+    rafraichirApresNote(releaseId);
     return;
   }
 
   const { data, error } = await BD.enregistrerNote({
     user_id: currentUser.id,
     release_id: releaseId,
-    rating: nouvelle.rating,
-    saved: nouvelle.saved,
+    rating: nouvelle.rating || null,
+    saved: !!nouvelle.saved,
     avis: nouvelle.avis || null,
-    favori: !!nouvelle.favori
+    favori: !!nouvelle.favori,
+    a_ecouter: !!nouvelle.a_ecouter,
+    ecoute_le: nouvelle.ecoute_le || null
   });
 
   if(error){
 
-    // Les colonnes avis et favori sont récentes : sans elles, la base
-    // rejette l'écriture entière, note comprise.
+    // Les colonnes de la collection sont récentes : sans elles, la base rejette l'écriture entière, note comprise.
     const detail = String(error.message || '').toLowerCase();
 
-    if(detail.includes('column') || detail.includes('schema cache')){
+    if(detail.includes('column') || detail.includes('schema cache') || detail.includes('check constraint')){
       notifier('Base à mettre à jour', {
         type: 'erreur',
-        detail: "La table des notes n'a pas encore les colonnes avis et favori."
+        detail: "La table des notes n'a pas encore la collection à la demi-étoile (sql/collection.sql)."
       });
     }
 
@@ -13983,60 +14194,26 @@ async function enregistrerMaNote(releaseId, champs){
   );
   toutesLesNotes.push(data[0]);
 
-  renderNoteBloc(releaseId);
+  rafraichirApresNote(releaseId);
+}
+
+// Tout ce qui montre cette sortie se met à jour : la fiche, les pochettes, la fenêtre d'ajout rapide, le profil.
+function rafraichirApresNote(releaseId){
+
+  const bloc = document.getElementById('modalNoteBloc');
+
+  if(bloc && bloc.dataset.release === releaseId) renderNoteBloc(releaseId);
+
+  majStatutsTuiles(releaseId);
+  majAjoutRapide(releaseId);
+
+  if(window.Profil && window.Profil.actif && window.Profil.actif()) window.Profil.rafraichir();
 }
 
 
-async function noterSortie(releaseId, valeur){
-
-  // Noter, c'est déjà dire que la sortie compte : elle rejoint la
-  // collection sans qu'il faille cliquer une seconde fois. Retirer sa
-  // note ne l'en sort pas pour autant — l'enregistrement se défait au
-  // bouton dédié.
-  await enregistrerMaNote(releaseId, {
-    rating: valeur || null,
-    ...(valeur ? { saved: true } : {})
-  });
-
-  // Pas de notification ici : les étoiles changent sous les yeux de
-  // la personne, le message ferait doublon. Seul le gain d'XP, qui
-  // n'est pas visible autrement, en déclenche une.
-  if(valeur){
-    // L'étoile choisie tressaute pour confirmer le clic.
-    const etoiles = document.querySelectorAll('#modalNoteBloc .etoile');
-    if(etoiles[valeur - 1]) etoiles[valeur - 1].classList.add('choisie');
-
-    await awardXP('noterSortie', 5);
-  }
-}
-
-
-async function basculerEnregistrement(releaseId){
-
-  const mienne = maNoteSur(releaseId);
-  const nouvelEtat = !(mienne && mienne.saved);
-
-  await enregistrerMaNote(releaseId, { saved: nouvelEtat });
-
-  const sortie = catalogueData.find(s => s.id === releaseId);
-
-  notifier(nouvelEtat ? 'Ajoutée à ta collection' : 'Retirée de ta collection', {
-    type: nouvelEtat ? 'succes' : 'info',
-    icone: nouvelEtat ? '✓' : '−',
-    detail: sortie ? sortie.title : ''
-  });
-
-  if(nouvelEtat){
-    animerEnregistrement();
-    await awardXP('enregistrerSortie', 5);
-  }
-}
-
-
-// Confirmation visuelle de l'enregistrement : la pochette de la fiche
-// pulse et un repère s'envole vers le haut, pour que le geste se voie
+// Confirmation visuelle : la pochette de la fiche pulse et un repère s'envole vers le haut, pour que le geste se voie
 // même sans lire la notification.
-function animerEnregistrement(){
+function animerEnregistrement(symbole){
 
   const cover = document.querySelector('#catalogueModal .modal-cover');
   if(!cover) return;
@@ -14047,58 +14224,190 @@ function animerEnregistrement(){
 
   const repere = document.createElement('span');
   repere.className = 'repere-envol';
-  repere.textContent = '🔖';
+  repere.textContent = symbole || '✓';
   cover.appendChild(repere);
 
   setTimeout(() => repere.remove(), 900);
 }
 
 
-// Collection d'un membre : une seule liste réunissant les sorties
-// notées et les sorties enregistrées. Les séparer obligeait à
-// chercher dans deux endroits une même sortie souvent présente dans
-// les deux. Un repère signale celles qui sont enregistrées.
-//
-// « grande » réserve l'affichage généreux à la page dédiée : dans la
-// fiche profil, la place est comptée.
+// ---- Sur les pochettes : ce qu'on en a fait, et un « + » pour agir sans ouvrir la fiche ----
+
+// Le repère d'une pochette : la note si elle est notée, une coche si elle est écoutée, un signet si elle est à écouter.
+function statutTuileHtml(id){
+
+  if(!currentUser) return '';
+
+  const e = etatSortie(id);
+
+  if(e.ecoute){
+    return e.note
+      ? `<span class="tile-statut ecoute note" title="Ta note : ${noteTexte(e.note)} sur 5"><b>${noteTexte(e.note)}</b>★</span>`
+      : `<span class="tile-statut ecoute" title="Dans ta collection">${iconeCollection('coche')}</span>`;
+  }
+
+  if(e.aEcouter){
+    return `<span class="tile-statut aecouter" title="À écouter">${iconeCollection('signet')}</span>`;
+  }
+
+  return '';
+}
+
+function majStatutsTuiles(releaseId){
+
+  const tuiles = document.querySelectorAll(releaseId ? `.cat-tile[data-id="${releaseId}"]` : '.cat-tile[data-id]');
+
+  tuiles.forEach(tuile => {
+    const zone = tuile.querySelector('.tile-statut-zone');
+    if(zone) zone.innerHTML = statutTuileHtml(tuile.dataset.id);
+  });
+}
+
+let ajoutRapideId = null;
+
+// La fenêtre d'ajout rapide : noter, « j'ai écouté », « à écouter », sans quitter la page. Une fenêtre près du « + »
+// sur ordinateur, un volet en bas de l'écran sur téléphone.
+function ouvrirAjoutRapide(id, bouton){
+
+  if(!currentUser){
+    openAuthModal('login');
+    return;
+  }
+
+  const sortie = catalogueData.find(s => s.id === id);
+  if(!sortie) return;
+
+  const dejaLa = ajoutRapideId === id;
+
+  fermerAjoutRapide();
+
+  if(dejaLa) return;
+
+  ajoutRapideId = id;
+
+  const fenetre = document.createElement('div');
+  fenetre.id = 'ajoutRapide';
+  fenetre.className = 'ajout-rapide';
+  fenetre.setAttribute('role', 'dialog');
+  fenetre.setAttribute('aria-label', 'Ajouter à ma collection');
+  fenetre.innerHTML = contenuAjoutRapide(id);
+
+  document.body.appendChild(fenetre);
+
+  if(window.innerWidth > 620){
+
+    const r = bouton.getBoundingClientRect();
+    const largeur = 272;
+    const gauche = Math.max(10, Math.min(window.innerWidth - largeur - 10, r.right - largeur));
+    const dessous = r.bottom + 8 + 210 < window.innerHeight;
+
+    fenetre.style.left = gauche + 'px';
+    fenetre.style.top = (dessous ? r.bottom + 8 : Math.max(10, r.top - 8 - 190)) + 'px';
+  }
+
+  requestAnimationFrame(() => fenetre.classList.add('ouvert'));
+}
+
+function contenuAjoutRapide(id){
+
+  const sortie = catalogueData.find(s => s.id === id);
+  const e = etatSortie(id);
+  const ident = escapeAttribute(id);
+
+  return `
+    <div class="ajout-tete">
+      <img src="${escapeAttribute(safeUrl(sortie.cover))}" alt="">
+      <div><b>${escapeHtml(sortie.title)}</b><span>${escapeHtml(sortie.artist)}</span></div>
+      <button type="button" class="ajout-fermer" onclick="fermerAjoutRapide()" aria-label="Fermer">✕</button>
+    </div>
+    <div class="ajout-note">
+      ${etoilesSaisieHtml(id, e.note)}
+      <span>${e.note ? noteTexte(e.note) + ' / 5' : 'Note'}</span>
+    </div>
+    <div class="ajout-boutons">
+      <button type="button" class="fiche-statut${e.ecoute ? ' actif' : ''}" aria-pressed="${e.ecoute}"
+              onclick="basculerEcoute('${ident}')">${iconeCollection('coche')}<span>${e.ecoute ? 'Écouté' : "J'ai écouté"}</span></button>
+      ${e.ecoute ? '' : `
+      <button type="button" class="fiche-statut${e.aEcouter ? ' actif' : ''}" aria-pressed="${e.aEcouter}"
+              onclick="basculerAEcouter('${ident}')">${iconeCollection('signet')}<span>À écouter</span></button>`}
+    </div>
+    <button type="button" class="lien-discret ajout-fiche" onclick="fermerAjoutRapide(); openCatalogueModal('${ident}')">
+      Ouvrir la fiche
+    </button>`;
+}
+
+function majAjoutRapide(releaseId){
+
+  const fenetre = document.getElementById('ajoutRapide');
+
+  if(!fenetre || ajoutRapideId !== releaseId) return;
+
+  fenetre.innerHTML = contenuAjoutRapide(releaseId);
+}
+
+function fermerAjoutRapide(){
+
+  const fenetre = document.getElementById('ajoutRapide');
+
+  ajoutRapideId = null;
+
+  if(!fenetre) return;
+
+  fenetre.classList.remove('ouvert');
+  setTimeout(() => fenetre.remove(), 200);
+}
+
+document.addEventListener('pointerdown', (e) => {
+  if(ajoutRapideId && !e.target.closest('#ajoutRapide') && !e.target.closest('.tile-plus')) fermerAjoutRapide();
+});
+
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape' && ajoutRapideId) fermerAjoutRapide();
+});
+
+window.addEventListener('scroll', () => { if(ajoutRapideId && window.innerWidth > 620) fermerAjoutRapide(); }, { passive: true });
+
+
+// Collection d'un membre, en pochettes : les sorties écoutées, la plus récente d'abord, chacune avec sa note. Les
+// profils visités l'utilisent (en compact, ou en grand sur la page de la communauté).
 function collectionHtml(userId, options){
 
   const opt = options || {};
 
-  const lignes = toutesLesNotes.filter(n =>
-    n.user_id === userId && (n.rating || n.saved)
-  );
+  const lignes = toutesLesNotes.filter(n => n.user_id === userId && n.saved);
 
   if(!lignes.length){
-    return `<p style="color:var(--muted); font-size:13px;">
-              Aucune sortie dans la collection pour l'instant.
-            </p>`;
+    return `<p class="carte-invite">Aucune sortie dans la collection pour l'instant.</p>`;
   }
 
-  // Les mieux notées d'abord, puis les enregistrées sans note.
-  const triees = [...lignes].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+  const triees = [...lignes].sort((a, b) =>
+    String(b.ecoute_le || b.created_at || '').localeCompare(String(a.ecoute_le || a.created_at || ''))
+  );
 
   const cartes = triees.map(ligne => {
+
     const sortie = catalogueData.find(s => s.id === ligne.release_id);
+
     // Une sortie retirée du catalogue n'a plus de fiche à montrer.
     if(!sortie) return '';
+
     return `
-      <div class="collection-item" onclick="openCatalogueModal('${sortie.id}')">
-        <img src="${escapeAttribute(safeUrl(sortie.cover))}"
-             alt="${escapeAttribute(sortie.title)}" loading="lazy">
-        ${ligne.saved ? `<span class="c-marque" title="Enregistrée">🔖</span>` : ''}
+      <button type="button" class="coll-pochette-case" onclick="openCatalogueModal('${sortie.id}')"
+              aria-label="${escapeAttribute(sortie.title + ' — ' + sortie.artist)}">
+        <span class="coll-img">
+          <img src="${escapeAttribute(safeUrl(sortie.cover))}" alt="" loading="lazy">
+          ${ligne.favori ? `<span class="coll-coeur" title="Au podium">${iconeCollection('coeur')}</span>` : ''}
+        </span>
         ${opt.grande ? `
-          <span class="c-titre">${escapeHtml(sortie.title)}</span>
-          <span class="c-artiste">${escapeHtml(sortie.artist)}</span>` : ''}
-        ${ligne.rating ? `<span class="note">${'★'.repeat(ligne.rating)}</span>` : ''}
-      </div>`;
+          <span class="coll-titre-case">${escapeHtml(sortie.title)}</span>
+          <span class="coll-artiste-case">${escapeHtml(sortie.artist)}</span>` : ''}
+        ${ligne.rating ? etoilesHtml(ligne.rating, 'petite') : ''}
+      </button>`;
   }).filter(Boolean).join('');
 
   return cartes
-    ? `<div class="collection-grid${opt.grande ? ' grande' : ''}">${cartes}</div>`
-    : `<p style="color:var(--muted); font-size:13px;">
-         Ces sorties ne sont plus au catalogue.
-       </p>`;
+    ? `<div class="coll-grille${opt.grande ? ' grande' : ''}">${cartes}</div>`
+    : `<p class="carte-invite">Ces sorties ne sont plus au catalogue.</p>`;
 }
 
 
