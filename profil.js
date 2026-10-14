@@ -1,19 +1,19 @@
 /* =====================================================================
-   La Wave — la page « Mon profil »
+   La Wave — la collection d'un membre
 
-   Une page claire : qui je suis en haut (avec l'engrenage des paramètres à droite), puis
-   ma collection, comme un journal d'écoute. Quatre onglets :
+   Il n'y a qu'un profil : celui de la communauté (communaute.js). Ce fichier fournit ce qui s'y ajoute
+   pour parler de musique, en quatre onglets :
 
-     Collection   le podium (trois favorites), puis tout ce que j'ai écouté, avec ma note
-     Journal      mes écoutes jour après jour, mois par mois, et ce que j'explore
-     À écouter    les sorties mises de côté
-     Succès       le niveau, l'XP et les trophées
+     Collection   le podium (trois favorites), puis tout ce que le membre a écouté, avec sa note
+     Journal      ses écoutes jour après jour, mois par mois
+     À écouter    les sorties mises de côté           (réservé à soi)
+     Succès       le niveau, l'XP et les trophées      (réservé à soi)
 
-   Les paramètres (photo, pseudo, description, rôle, réseaux) s'ouvrent dans un tiroir : le
-   formulaire reste celui d'index.html (saveProfile), seul son emplacement a changé.
+   Il porte aussi le tiroir des paramètres (photo, pseudo, description, rôle, réseaux) que l'engrenage du
+   profil ouvre : le formulaire reste celui d'index.html (saveProfile), seul son emplacement a changé.
 
-   Chargé à la demande (voir renderProfileForm dans index.html). Les données viennent de la
-   mémoire du site : toutesLesNotes et catalogueData, déjà chargés avec le catalogue.
+   Chargé à la demande (chargerProfil dans index.html). Les données viennent de la mémoire du site :
+   toutesLesNotes et catalogueData, déjà chargés avec le catalogue.
    ===================================================================== */
 
 (function(){
@@ -28,54 +28,8 @@
   // ---------------------------------------------------------------------
 
   const FEUILLE = `
-  .pf-corps{max-width:980px; margin:0 auto;}
-
-  /* ----- l'identité ----- */
-  .pf-entete{position:relative; padding-top:4px; animation:fondu .5s var(--ease) both;}
-  .pf-engrenage{
-    position:absolute; top:0; right:0; z-index:2; width:44px; height:44px; padding:0; border-radius:50%;
-    display:flex; align-items:center; justify-content:center; color:var(--ink-soft);
-    background:var(--glass); border:1px solid var(--line);
-    -webkit-backdrop-filter:blur(var(--glass-blur-sm)); backdrop-filter:blur(var(--glass-blur-sm));
-    transition:transform .6s var(--ease), color .25s var(--ease), background .25s var(--ease), border-color .25s var(--ease);
-  }
-  .pf-engrenage:hover{transform:rotate(70deg); color:#fff; background:var(--glass-hi); border-color:var(--line-strong);}
-  .pf-engrenage svg{width:22px; height:22px;}
-  .pf-identite{display:flex; align-items:center; gap:20px; padding-right:58px;}
-  .pf-photo{
-    width:104px; height:104px; flex-shrink:0; border-radius:50%; overflow:hidden;
-    display:flex; align-items:center; justify-content:center; font-size:40px; font-weight:700;
-    color:var(--blue-bright); text-transform:uppercase; background:rgba(255,255,255,.06);
-    box-shadow:0 0 0 1px var(--line-strong), 0 18px 44px rgba(0,0,0,.45);
-  }
-  .pf-photo img{width:100%; height:100%; object-fit:cover; display:block;}
-  .pf-nom{min-width:0;}
-  .pf-nom h2{
-    display:flex; align-items:center; gap:8px; margin:0; font-size:clamp(26px,5vw,36px);
-    letter-spacing:-.025em; line-height:1.08; overflow-wrap:anywhere;
-  }
-  .pf-meta{margin:8px 0 0; display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:14px; color:var(--ink-soft);}
-  .pf-niveau{
-    padding:3px 11px; border-radius:var(--radius-pill); border:0; font-size:12px; font-weight:600;
-    color:var(--blue-bright); background:rgba(79,180,255,.12); transition:background .25s var(--ease);
-  }
-  .pf-niveau:hover{background:rgba(79,180,255,.22);}
-  .pf-bio{margin:18px 0 0; max-width:62ch; font-size:15px; line-height:1.6; color:var(--ink-soft); white-space:pre-wrap; overflow-wrap:anywhere;}
-  .pf-liens{display:flex; gap:8px; flex-wrap:wrap; margin-top:16px;}
-  .pf-lien{
-    padding:6px 14px; border-radius:var(--radius-pill); font-size:12.5px; font-weight:600; color:var(--ink-soft);
-    background:rgba(255,255,255,.05); border:1px solid var(--line);
-    transition:color .2s var(--ease), border-color .2s var(--ease), background .2s var(--ease);
-  }
-  .pf-lien:hover{color:#fff; border-color:var(--line-strong); background:rgba(255,255,255,.09);}
-  .pf-stats{display:flex; gap:36px; flex-wrap:wrap; margin:26px 0 0;}
-  .pf-stats div{display:flex; flex-direction:column-reverse; gap:2px;}
-  .pf-stats dd{margin:0; font-size:26px; font-weight:700; letter-spacing:-.02em; line-height:1; font-variant-numeric:tabular-nums;}
-  .pf-stats dt{font-size:12.5px; color:var(--muted);}
-  .pf-public{display:inline-block; margin-top:18px; font-size:13px;}
-
   /* « Termine ton profil », « Fais vérifier ton profil » : des bandeaux discrets. */
-  #profilVerification{margin-top:22px;}
+  #profilVerification{margin-top:14px;}
   #profilVerification:empty{display:none;}
   #profilVerification .vf-carte-profil{margin:0 0 10px; padding:12px 16px; box-shadow:none; background:rgba(255,255,255,.035);}
   #profilVerification .vf-carte-profil .vf-ic{width:36px; height:36px; font-size:16px;}
@@ -85,25 +39,7 @@
   #profilVerification .vf-carte-profil .vf-texte span{display:none;}
   #profilVerification .vf-carte-profil{gap:12px;}
 
-  /* ----- les onglets ----- */
-  .pf-onglets{
-    display:flex; gap:4px; margin-top:30px; overflow-x:auto; scrollbar-width:none;
-    border-bottom:1px solid var(--line);
-  }
-  .pf-onglets::-webkit-scrollbar{display:none;}
-  .pf-onglet{
-    position:relative; padding:13px 14px; background:none; border:0; white-space:nowrap;
-    font-size:14.5px; font-weight:600; color:var(--muted); transition:color .25s var(--ease);
-  }
-  .pf-onglet:hover{color:var(--ink-soft);}
-  .pf-onglet em{margin-left:6px; font-style:normal; font-size:12px; font-weight:500; color:var(--muted);}
-  .pf-onglet[aria-selected="true"]{color:#fff;}
-  .pf-onglet::after{
-    content:""; position:absolute; left:14px; right:14px; bottom:-1px; height:2px; border-radius:2px;
-    background:var(--blue-bright); transform:scaleX(0); transition:transform .4s var(--ease);
-  }
-  .pf-onglet[aria-selected="true"]::after{transform:scaleX(1);}
-  .pf-panneau{padding-top:26px; animation:fondu .45s var(--ease) both;}
+  .pf-panneau{padding-top:4px; animation:fondu .45s var(--ease) both;}
 
   /* ----- le podium ----- */
   .pf-titre-petit{margin:0 0 12px; font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
@@ -249,10 +185,6 @@
   @keyframes pfGrandit{from{height:3px;}}
 
   @media (max-width:640px){
-    .pf-identite{gap:14px; padding-right:52px;}
-    .pf-photo{width:80px; height:80px; font-size:30px;}
-    .pf-stats{gap:26px;}
-    .pf-stats dd{font-size:22px;}
     .pf-grille{grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px 10px;}
     .pf-aecouter{grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px 12px;}
     .pf-podium-grille{gap:10px;}
@@ -260,9 +192,8 @@
     .pf-tiroir-panneau{border-left:0;}
   }
   @media (prefers-reduced-motion:reduce){
-    .pf-entete, .pf-panneau, .pf-marche, .pf-pochette, .pf-carte, .pf-mois-barres i{animation:none;}
-    .pf-engrenage, .pf-tiroir-panneau, .pf-tiroir-fond, .pf-onglet::after{transition:none;}
-    .pf-engrenage:hover{transform:none;}
+    .pf-panneau, .pf-marche, .pf-pochette, .pf-carte, .pf-mois-barres i{animation:none;}
+    .pf-tiroir-panneau, .pf-tiroir-fond{transition:none;}
   }
   `;
 
@@ -280,18 +211,17 @@
   // Ce que le profil lit
   // ---------------------------------------------------------------------
 
-  let ongletCourant = 'collection';
+  // De qui parle le panneau, et est-ce moi ? (À écouter et Succès ne regardent que soi.)
+  const ctx = { uid: null, soi: false, onglet: 'collection' };
   let tri = 'recentes';
-  let social = null;          // { abonnes, abonnements } : la communauté, quand elle répond
-  let socialPour = null;
 
   const sortieDe = (ligne) => catalogueData.find(s => s.id === ligne.release_id);
 
-  const mesLignes = () => toutesLesNotes.filter(n => n.user_id === currentUser.id);
+  const sesLignes = () => toutesLesNotes.filter(n => n.user_id === ctx.uid);
 
-  const ecoutees = () => mesLignes().filter(n => n.saved && sortieDe(n));
+  const ecoutees = () => sesLignes().filter(n => n.saved && sortieDe(n));
 
-  const aEcouter = () => mesLignes().filter(n => n.a_ecouter && !n.saved && sortieDe(n));
+  const aEcouter = () => sesLignes().filter(n => n.a_ecouter && !n.saved && sortieDe(n));
 
   const jourDe = (ligne) => ligne.ecoute_le || String(ligne.created_at || '').slice(0, 10);
 
@@ -313,74 +243,7 @@
   }
 
   function actif(){
-    const page = document.getElementById('page-profile');
-    return !!(currentUser && page && page.classList.contains('active') && document.getElementById('pfCorps'));
-  }
-
-  // ---------------------------------------------------------------------
-  // L'identité
-  // ---------------------------------------------------------------------
-
-  const ENGRENAGE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
-
-  function enteteHtml(){
-
-    const u = currentUser;
-    const photo = safeUrl(u.avatar);
-    const niveau = levelForXP(u.xp);
-    const role = roleInfo(u.role);
-    const liens = Object.entries({
-      portfolio: 'Portfolio', instagram: 'Instagram', twitter: 'X', tiktok: 'TikTok',
-      spotify: 'Spotify', appleMusic: 'Apple Music', deezer: 'Deezer'
-    }).map(([cle, libelle]) => [safeUrl((u.socials || {})[cle]), libelle])
-      .filter(([url]) => url)
-      .map(([url, libelle]) => `<a class="pf-lien" href="${attr(url)}" target="_blank" rel="noopener noreferrer">${esc(libelle)}</a>`)
-      .join('');
-
-    const nbEcoutees = ecoutees().length;
-
-    return `
-      <button type="button" class="pf-engrenage" onclick="Profil.ouvrirReglages()" aria-label="Paramètres du profil" title="Paramètres">${ENGRENAGE}</button>
-      <div class="pf-identite">
-        <span class="pf-photo">${photo ? `<img src="${attr(photo)}" alt="">` : esc(artistInitial(u.pseudo))}</span>
-        <div class="pf-nom">
-          <h2>${esc(u.pseudo)}${u.verifie && typeof cocheVerifieHtml === 'function'
-            ? cocheVerifieHtml('Profil vérifié' + (u.verifieRole ? ' · ' + u.verifieRole : '')) : ''}</h2>
-          <p class="pf-meta">
-            <span>${esc(role.icon)} ${esc(role.name)}</span>
-            <button type="button" class="pf-niveau" onclick="Profil.onglet('succes')" title="Voir mes succès">Niveau ${niveau}</button>
-          </p>
-        </div>
-      </div>
-      ${u.bio ? `<p class="pf-bio">${esc(u.bio)}</p>` : ''}
-      ${liens ? `<div class="pf-liens">${liens}</div>` : ''}
-      <dl class="pf-stats">
-        <div><dd>${nbEcoutees}</dd><dt>écoutée${nbEcoutees > 1 ? 's' : ''}</dt></div>
-        ${social ? `
-        <div><dd>${social.abonnes}</dd><dt>abonné${social.abonnes > 1 ? 's' : ''}</dt></div>
-        <div><dd>${social.abonnements}</dd><dt>abonnement${social.abonnements > 1 ? 's' : ''}</dt></div>` : ''}
-      </dl>
-      ${social ? `<a class="pf-public lien-discret" href="javascript:void(0)" onclick="viewProfile('${attr(u.id)}')">Voir mon profil public</a>` : ''}`;
-  }
-
-  // ---------------------------------------------------------------------
-  // Les onglets
-  // ---------------------------------------------------------------------
-
-  function ongletsHtml(){
-
-    const liste = [
-      ['collection', 'Collection', ecoutees().length],
-      ['journal', 'Journal', null],
-      ['aecouter', 'À écouter', aEcouter().length],
-      ['succes', 'Succès', null]
-    ];
-
-    return liste.map(([cle, libelle, n]) => `
-      <button type="button" class="pf-onglet" role="tab" id="pf-onglet-${cle}" data-onglet="${cle}"
-              aria-selected="${cle === ongletCourant}" aria-controls="pfPanneau" tabindex="${cle === ongletCourant ? 0 : -1}">
-        ${libelle}${n ? `<em>${n}</em>` : ''}
-      </button>`).join('');
+    return !!(currentUser && document.querySelector('[data-pf-uid]'));
   }
 
   // ---------------------------------------------------------------------
@@ -398,9 +261,9 @@
 
   function podiumHtml(){
 
-    const favoris = mesLignes().filter(n => n.favori && sortieDe(n));
+    const favoris = sesLignes().filter(n => n.favori && sortieDe(n));
 
-    if(!favoris.length && !ecoutees().length) return '';
+    if(!favoris.length && !(ctx.soi && ecoutees().length)) return '';
 
     const marches = [];
 
@@ -408,6 +271,8 @@
 
       const ligne = favoris[i];
       const sortie = ligne && sortieDe(ligne);
+
+      if(!sortie && !ctx.soi) continue;
 
       marches.push(sortie
         ? `<button type="button" class="pf-marche" style="--k:${i}" onclick="openCatalogueModal('${sortie.id}')"
@@ -421,7 +286,7 @@
       <div class="pf-podium" role="group" aria-label="Podium">
         <h3 class="pf-titre-petit">Podium</h3>
         <div class="pf-podium-grille">${marches.join('')}</div>
-        ${favoris.length < MAX_FAVORIS ? `<p class="pf-indice">Ajoute une favorite depuis la fiche d'une sortie : « Podium ».</p>` : ''}
+        ${ctx.soi && favoris.length < MAX_FAVORIS ? `<p class="pf-indice">Ajoute une favorite depuis la fiche d'une sortie : « Podium ».</p>` : ''}
       </div>`;
   }
 
@@ -430,11 +295,13 @@
     const lignes = ecoutees();
 
     if(!lignes.length){
-      return videHtml(
-        'Ta collection est vide',
-        "Touche le « + » d'une pochette du catalogue, ou « J'ai écouté » sur une fiche : tes sorties s'ajoutent ici, avec ta note.",
-        ['Parcourir le catalogue', "goTo('catalogue')"]
-      );
+      return ctx.soi
+        ? videHtml(
+            'Ta collection est vide',
+            "Touche le « + » d'une pochette du catalogue, ou « J'ai écouté » sur une fiche : tes sorties s'ajoutent ici, avec ta note.",
+            ['Parcourir le catalogue', "goTo('catalogue')"]
+          )
+        : videHtml('Rien dans sa collection', "Les sorties qu'il a écoutées apparaîtront ici, avec sa note.");
     }
 
     const pochettes = trier(lignes).map((ligne, k) => {
@@ -480,11 +347,13 @@
       jourDe(b).localeCompare(jourDe(a)) || String(b.updated_at || '').localeCompare(String(a.updated_at || '')));
 
     if(!lignes.length){
-      return videHtml(
-        'Ton journal est vide',
-        "Chaque sortie que tu écoutes s'y inscrit avec son jour : tu verras combien tu en explores chaque mois.",
-        ['Parcourir le catalogue', "goTo('catalogue')"]
-      );
+      return ctx.soi
+        ? videHtml(
+            'Ton journal est vide',
+            "Chaque sortie que tu écoutes s'y inscrit avec son jour : tu verras combien tu en explores chaque mois.",
+            ['Parcourir le catalogue', "goTo('catalogue')"]
+          )
+        : videHtml('Journal vide', "Ses écoutes apparaîtront ici, jour après jour.");
     }
 
     const aujourdhui = jourLocal();
@@ -515,7 +384,7 @@
       <dl class="pf-resume">
         <div><dd>${ceMois}</dd><dt>ce mois-ci</dt></div>
         <div><dd>${cetteAnnee}</dd><dt>cette année</dt></div>
-        ${moyenne !== null ? `<div><dd>${moyenne.toFixed(1).replace('.', ',')}</dd><dt>ta note moyenne</dt></div>` : ''}
+        ${moyenne !== null ? `<div><dd>${moyenne.toFixed(1).replace('.', ',')}</dd><dt>${ctx.soi ? 'ta' : 'sa'} note moyenne</dt></div>` : ''}
         <div class="pf-mois-barres" aria-hidden="true">
           ${barres.map(b => `
             <span class="${b.cle === moisCourant ? 'courant' : ''}" title="${b.n} écoute${b.n > 1 ? 's' : ''}">
@@ -618,106 +487,63 @@
   // L'affichage
   // ---------------------------------------------------------------------
 
+  // Les onglets que le profil ajoute à ceux de la communauté.
+  function onglets(soi){
+
+    const liste = [['collection', 'Collection'], ['journal', 'Journal']];
+
+    if(soi) liste.push(['aecouter', 'À écouter'], ['succes', 'Succès']);
+
+    return liste.map(([cle, libelle]) => ({ cle, libelle }));
+  }
+
+  function estUnOnglet(cle){
+    return ['collection', 'journal', 'aecouter', 'succes'].includes(cle);
+  }
+
   function panneauHtml(){
 
-    if(ongletCourant === 'journal') return journalHtml();
-    if(ongletCourant === 'aecouter') return aEcouterPanneauHtml();
-    if(ongletCourant === 'succes') return succesPanneauHtml();
+    if(ctx.onglet === 'journal') return journalHtml();
+    if(ctx.onglet === 'aecouter' && ctx.soi) return aEcouterPanneauHtml();
+    if(ctx.onglet === 'succes' && ctx.soi) return succesPanneauHtml();
 
     return collectionPanneauHtml();
   }
 
-  function dessinerPanneau(animer){
+  // Un hôte se redessine d'après ce qu'il porte : de qui, quel onglet. Plusieurs profils peuvent exister
+  // dans la page (ceux déjà visités) : chacun garde ses propres réponses.
+  function dessiner(hote){
 
-    const zone = document.getElementById('pfPanneau');
-    if(!zone) return;
+    ctx.uid = hote.dataset.pfUid;
+    ctx.soi = hote.dataset.pfSoi === '1';
+    ctx.onglet = hote.dataset.pfOnglet;
 
-    zone.innerHTML = panneauHtml();
-    zone.setAttribute('aria-labelledby', 'pf-onglet-' + ongletCourant);
+    hote.innerHTML = panneauHtml();
 
-    // Le panneau ne rejoue son entrée que quand on change d'onglet, pas à chaque note donnée.
-    if(animer){
-      zone.style.animation = 'none';
-      void zone.offsetWidth;
-      zone.style.animation = '';
-    }
-
-    if(ongletCourant === 'succes' && typeof majCarteXpProfil === 'function') majCarteXpProfil();
+    if(ctx.onglet === 'succes' && typeof majCarteXpProfil === 'function') majCarteXpProfil();
   }
 
-  function dessinerEntete(){
-
-    const entete = document.getElementById('pfEntete');
-    const onglets = document.getElementById('pfOnglets');
-
-    if(entete) entete.innerHTML = enteteHtml();
-    if(onglets) onglets.innerHTML = ongletsHtml();
-  }
-
-  // Les chiffres de la communauté : une lecture par membre, sans bloquer la page.
-  async function chargerSocial(){
-
-    if(socialPour === currentUser.id) return;
-
-    socialPour = currentUser.id;
-
-    try{
-      const { data, error } = await supabaseClient.rpc('com_profil', { p_cle: currentUser.id });
-
-      if(!error && data && data.stats){
-        social = { abonnes: data.stats.abonnes || 0, abonnements: data.stats.abonnements || 0 };
-        if(actif()) dessinerEntete();
-      }
-    }catch(erreur){
-      // La communauté n'est pas là : seul le nombre d'écoutes s'affiche.
-    }
-  }
-
-  function monter(){
+  // Le panneau d'un onglet, à poser dans la page : il se redessine seul quand une note change (rafraichir).
+  function panneau(cle, uid, soi){
 
     poserFeuille();
 
-    const racine = document.getElementById('pfCorps');
-    if(!racine) return;
+    ctx.uid = uid;
+    ctx.soi = !!soi;
+    ctx.onglet = estUnOnglet(cle) ? cle : 'collection';
 
-    racine.innerHTML = `
-      <header class="pf-entete" id="pfEntete"></header>
-      <div id="profilVerification"></div>
-      <nav class="pf-onglets" id="pfOnglets" role="tablist" aria-label="Mon profil"></nav>
-      <div class="pf-panneau" id="pfPanneau" role="tabpanel"></div>`;
+    return `<div class="pf-panneau" data-pf-uid="${attr(uid)}" data-pf-soi="${soi ? 1 : 0}" data-pf-onglet="${ctx.onglet}">${panneauHtml()}</div>`;
+  }
 
-    if(socialPour !== currentUser.id) social = null;
+  // À appeler une fois le panneau posé dans la page : le niveau et la barre d'XP se remplissent alors.
+  function apres(){
 
-    dessinerEntete();
-    dessinerPanneau(false);
-
-    if(typeof rendreCarteVerification === 'function') rendreCarteVerification();
-
-    chargerSocial();
+    if(typeof majCarteXpProfil === 'function') majCarteXpProfil();
   }
 
   function rafraichir(){
 
-    if(!actif()) return;
-
-    dessinerEntete();
-    dessinerPanneau(false);
-  }
-
-  function onglet(cle){
-
-    if(!['collection', 'journal', 'aecouter', 'succes'].includes(cle)) return;
-
-    const change = cle !== ongletCourant;
-
-    ongletCourant = cle;
-
-    const onglets = document.getElementById('pfOnglets');
-    if(onglets) onglets.innerHTML = ongletsHtml();
-
-    dessinerPanneau(change);
-
-    if(onglets && change) onglets.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    document.querySelectorAll('[data-pf-uid]').forEach(dessiner);
   }
 
   // ---------------------------------------------------------------------
@@ -726,33 +552,13 @@
 
   document.addEventListener('click', (ev) => {
 
-    const o = ev.target.closest && ev.target.closest('.pf-onglet');
-
-    if(o){ onglet(o.dataset.onglet); return; }
-
     const t = ev.target.closest && ev.target.closest('.pf-chip');
 
     if(t && t.dataset.tri){
       tri = t.dataset.tri;
-      dessinerPanneau(false);
+      const hote = t.closest('[data-pf-uid]');
+      if(hote) dessiner(hote);
     }
-  });
-
-  document.addEventListener('keydown', (ev) => {
-
-    const o = ev.target.closest && ev.target.closest('.pf-onglet');
-
-    if(!o || (ev.key !== 'ArrowRight' && ev.key !== 'ArrowLeft')) return;
-
-    const cles = ['collection', 'journal', 'aecouter', 'succes'];
-    const i = cles.indexOf(o.dataset.onglet);
-    const suivant = cles[(i + (ev.key === 'ArrowRight' ? 1 : cles.length - 1)) % cles.length];
-
-    ev.preventDefault();
-    onglet(suivant);
-
-    const bouton = document.getElementById('pf-onglet-' + suivant);
-    if(bouton) bouton.focus();
   });
 
   // ---------------------------------------------------------------------
@@ -804,6 +610,6 @@
     if(tiroir && tiroir.classList.contains('ouvert')) fermerReglages();
   });
 
-  window.Profil = { monter, rafraichir, actif, onglet, ouvrirReglages, fermerReglages };
+  window.Profil = { poserFeuille, panneau, apres, onglets, estUnOnglet, rafraichir, actif, ouvrirReglages, fermerReglages };
 
 })();

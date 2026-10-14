@@ -239,11 +239,14 @@
   }
   .pc-etape{
     width:min(620px,100%); margin:auto 0; padding:30px 0 44px; display:flex; flex-direction:column;
-    animation:pcEntre .6s var(--ease) both;
+    animation:fondu .3s ease-out both;
   }
   .pc-etape.large{width:min(780px,100%);}
   .pc-etape.sort{animation:pcSort .2s cubic-bezier(.5,0,.75,0) forwards;}
-  .pc-etape > *{animation:pcMonte .6s var(--ease) both; animation-delay:calc(var(--i,0) * 65ms + 90ms);}
+  /* Une étape qui arrive doit se lire tout de suite : le texte reste dans une couche animée (donc un peu pâle et
+     flou) tant qu'une animation tourne. Le conteneur ne fait que se fondre, chaque bloc monte de 10 px, et la
+     cascade s'arrête au sixième : tout est posé en moins d'une seconde, plus de deux avant. */
+  .pc-etape > *{animation:pcMonte .4s var(--ease) both; animation-delay:calc(min(var(--i,0), 6) * 40ms);}
 
   .pc-surtitre{margin:0 0 12px; font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--blue-bright);}
   .pc-titre{margin:0 0 12px; font-size:clamp(28px,5.4vw,42px); line-height:1.08; letter-spacing:-.025em; outline:none;}
@@ -523,9 +526,8 @@
   .pc-confirme-carte .pc-actions .btn{padding:12px 22px; font-size:14px;}
 
   @keyframes pcDerive{from{transform:translate3d(0,0,0) scale(1);} to{transform:translate3d(7vmax,5vmax,0) scale(1.14);}}
-  @keyframes pcEntre{from{opacity:0; transform:translateX(var(--dx,24px));} to{opacity:1; transform:none;}}
   @keyframes pcSort{to{opacity:0; transform:translateX(var(--dx-sortie,-24px));}}
-  @keyframes pcMonte{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:none;}}
+  @keyframes pcMonte{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;}}
   @keyframes pcPop{0%{opacity:0; transform:scale(.8);} 60%{transform:scale(1.07);} 100%{opacity:1; transform:none;}}
   @keyframes pcTourne{to{transform:rotate(360deg);}}
   @keyframes pcTrace{to{stroke-dashoffset:0;}}
@@ -2095,7 +2097,6 @@
 
     el.className = 'pc-etape' + (def.large ? ' large' : '') + (def.classe ? ' ' + def.classe : '');
     el.dataset.etape = nom;
-    el.style.setProperty('--dx', (26 * sens) + 'px');
     el.innerHTML = def.html();
 
     Array.from(el.children).forEach((enfant, i) => enfant.style.setProperty('--i', i));
