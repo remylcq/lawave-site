@@ -4211,40 +4211,24 @@ function membreHtml(m){
 
   const suit = !!(m.moi && m.moi.suit);
   const r = roleInfo(m.role);
-  const cherche = (m.cherche || []).map(libelleMetier).join(', ');
-  const propose = (m.propose || []).map(libelleMetier).join(', ');
 
   return `
-    <article class="com-profil-carte" data-membre="${attr(m.id)}" data-act="membre" data-cle="${attr(m.pseudo)}" tabindex="0" aria-label="Profil de ${attr(m.pseudo)}">
-      ${avatarHtml(m, 'xl')}
-      <div class="com-pc-nom">${nomHtml(m, { sansLien: true })}</div>
-      <div class="com-pc-sous">
-        <span>${esc(r.icon)} ${esc(r.name)}</span>
-        ${m.ville ? `<span class="com-sep">·</span><span class="com-ville">${esc(m.ville)}</span>` : ''}
-      </div>
-      ${m.bio ? `<p class="com-pc-bio">${esc(m.bio)}</p>` : ''}
-      ${cherche || propose ? `
-        <dl class="com-pc-metiers">
-          ${cherche ? `<div><dt>Cherche</dt><dd>${esc(cherche)}</dd></div>` : ''}
-          ${propose ? `<div><dt>Propose</dt><dd>${esc(propose)}</dd></div>` : ''}
-        </dl>` : ''}
-      <div class="com-pc-actions">${boutonSuivre(m, suit)}</div>
+    <article class="com-pf" data-membre="${attr(m.id)}" data-act="membre" data-cle="${attr(m.pseudo)}" tabindex="0" aria-label="Profil de ${attr(m.pseudo)}">
+      <span class="com-pf-photo">${avatarHtml(m, 'xl')}</span>
+      <b class="com-pf-nom">${nomHtml(m, { sansLien: true })}</b>
+      <span class="com-pf-sous">${esc(r.icon)} ${esc(r.name)}${m.ville ? ' · ' + esc(m.ville) : ''}</span>
+      <span class="com-pf-suivre">${boutonSuivre(m, suit)}</span>
     </article>`;
 }
 
-// Des cartes vides pendant le chargement du défilé de profils.
-function squeletteProfils(n){
-  let html = '';
-  for(let k = 0; k < (n || 3); k++){
-    html += `
-      <div class="com-profil-carte" aria-hidden="true">
-        <span class="com-sq com-sq-rond" style="width:84px;height:84px"></span>
-        <span class="com-sq" style="width:55%;margin-top:6px"></span>
-        <span class="com-sq" style="width:75%"></span>
-        <span class="com-sq" style="width:90%;margin-top:14px"></span>
-      </div>`;
-  }
-  return html;
+// Trois visages vides pendant le chargement.
+function squeletteProfils(){
+  return `<div class="com-trio-page">${[0, 1, 2].map(() => `
+    <div class="com-pf" aria-hidden="true">
+      <span class="com-sq com-sq-rond" style="width:112px;height:112px"></span>
+      <span class="com-sq" style="width:60%;margin-top:6px"></span>
+      <span class="com-sq" style="width:80%"></span>
+    </div>`).join('')}</div>`;
 }
 
 // Les suggestions sont gardées une minute : le fil, l'explorateur et la
@@ -4369,6 +4353,9 @@ function menuMetiers(ancre, actif, libelleTous, choisir){
   ]);
 }
 
+// Les profils d'Explorer défilent d'eux-mêmes, trois par trois.
+const TRIO = { taille: 3, periode: 6000 };
+
 const TRIS = [
   { cle: 'actifs', libelle: 'Les plus actifs' },
   { cle: 'recents', libelle: 'Les plus récents' },
@@ -4414,14 +4401,12 @@ VUES.explorer = {
       </div>
       <div class="com-explorer-resultats">
         <div class="com-resultats-tete" data-ex-compte></div>
-        <div class="com-carrousel">
-          <button type="button" class="com-fleche gauche" data-act="ex-defiler" data-sens="-1" aria-label="Profils précédents" hidden>${icone('retour', 20)}</button>
-          <div class="com-defile-profils" data-ex-defile tabindex="0" aria-label="Profils">
-            <div class="com-defile-liste" data-ex-liste></div>
-            <span class="com-sentinelle-h" data-ex-sentinelle></span>
-          </div>
-          <button type="button" class="com-fleche droite" data-act="ex-defiler" data-sens="1" aria-label="Profils suivants" hidden>${icone('chevronDroite', 20)}</button>
+        <div class="com-trio-zone" data-ex-defile>
+          <button type="button" class="com-fleche gauche" data-act="ex-defiler" data-sens="-1" aria-label="Profils précédents">${icone('retour', 20)}</button>
+          <div class="com-trio" data-ex-liste aria-live="off"></div>
+          <button type="button" class="com-fleche droite" data-act="ex-defiler" data-sens="1" aria-label="Profils suivants">${icone('chevronDroite', 20)}</button>
         </div>
+        <span class="com-trio-barre" data-ex-barre aria-hidden="true"></span>
         <div class="com-bas-etat" data-ex-bas></div>
       </div>`;
 
@@ -4431,6 +4416,7 @@ VUES.explorer = {
       actifs: $('[data-ex-actifs]', V.el),
       compte: $('[data-ex-compte]', V.el),
       defile: $('[data-ex-defile]', V.el),
+      barre: $('[data-ex-barre]', V.el),
       liste: $('[data-ex-liste]', V.el),
       bas: $('[data-ex-bas]', V.el),
       sentinelle: $('[data-ex-sentinelle]', V.el)
@@ -4438,31 +4424,118 @@ VUES.explorer = {
 
     VUES.explorer.dessinerRoles(V);
 
-    // La suite se charge quand on approche de la fin du défilé.
-    V.observateur = ('IntersectionObserver' in window)
-      ? new IntersectionObserver((es) => { if(es.some(x => x.isIntersecting)) VUES.explorer.plus(V); }, { root: V.hotes.defile, rootMargin: '0px 500px 0px 0px' })
-      : null;
+    V.page = 0;
+    V.minuteur = null;
+    V.reste = TRIO.periode;
+    V.debut = 0;
+    V.fige = false;
 
-    if(V.observateur) V.observateur.observe(V.hotes.sentinelle);
-
-    V.hotes.defile.addEventListener('scroll', () => VUES.explorer.majFleches(V), { passive: true });
+    // Le défilé s'arrête au survol et au focus : on ne vise pas un visage qui s'en va.
+    V.hotes.defile.addEventListener('pointerenter', () => VUES.explorer.figer(V));
+    V.hotes.defile.addEventListener('pointerleave', () => VUES.explorer.reprendre(V));
+    V.hotes.defile.addEventListener('focusin', () => VUES.explorer.figer(V));
+    V.hotes.defile.addEventListener('focusout', () => VUES.explorer.reprendre(V));
   },
 
-  // Les flèches n'apparaissent que là où il y a encore à voir.
-  majFleches(V){
-
-    const d = V.hotes.defile;
-    const pas = d.scrollWidth - d.clientWidth;
-
-    $('.com-fleche.gauche', V.el).hidden = d.scrollLeft < 8;
-    $('.com-fleche.droite', V.el).hidden = pas < 8 || d.scrollLeft > pas - 8;
+  nbPages(V){
+    return Math.max(1, Math.ceil(V.membres.length / TRIO.taille));
   },
 
-  defiler(V, sens){
+  // Affiche la page i (trois profils) ; l'ancienne s'efface pendant que la nouvelle arrive.
+  dessinerPage(V, i){
 
-    const d = V.hotes.defile;
+    const trio = V.hotes.liste;
+    const page = document.createElement('div');
 
-    d.scrollBy({ left: sens * Math.max(240, d.clientWidth * 0.8), behavior: mouvementReduit() ? 'auto' : 'smooth' });
+    page.className = 'com-trio-page';
+    page.innerHTML = V.membres.slice(i * TRIO.taille, (i + 1) * TRIO.taille).map(m => membreHtml(m)).join('');
+
+    const anciennes = $$('.com-trio-page', trio);
+
+    if(mouvementReduit() || !anciennes.length){
+      trio.replaceChildren(page);
+    } else {
+      anciennes.forEach(a => { a.classList.add('sortante'); setTimeout(() => a.remove(), 480); });
+      page.classList.add('entrante');
+      trio.appendChild(page);
+    }
+
+    V.page = i;
+    V.hotes.defile.classList.toggle('seule', VUES.explorer.nbPages(V) < 2);
+  },
+
+  changerPage(V, sens){
+
+    const n = VUES.explorer.nbPages(V);
+
+    if(n < 2) return;
+
+    const i = (V.page + sens + n) % n;
+
+    // On approche de la fin : la suite se charge pendant qu'on regarde.
+    if(sens > 0 && i >= n - 2) VUES.explorer.plus(V);
+
+    VUES.explorer.dessinerPage(V, i);
+    VUES.explorer.relancerBarre(V);
+    VUES.explorer.planifier(V, TRIO.periode);
+  },
+
+  // La barre fine dit combien de temps il reste à ces trois-là ; elle repart de zéro à chaque page.
+  relancerBarre(V){
+
+    const trait = document.createElement('i');
+
+    trait.style.animationDuration = TRIO.periode + 'ms';
+    V.hotes.barre.classList.remove('en-pause');
+    V.hotes.barre.replaceChildren(trait);
+  },
+
+  planifier(V, ms){
+
+    clearTimeout(V.minuteur);
+
+    if(mouvementReduit() || VUES.explorer.nbPages(V) < 2) return;
+
+    V.debut = Date.now();
+    V.reste = ms;
+
+    V.minuteur = setTimeout(() => {
+
+      // Page cachée ou onglet en arrière-plan : on attend sans tourner.
+      if(V.el.hidden || inactif()){
+        VUES.explorer.planifier(V, 1500);
+        return;
+      }
+
+      VUES.explorer.changerPage(V, 1);
+
+    }, ms);
+  },
+
+  figer(V){
+
+    if(V.fige) return;
+
+    V.fige = true;
+    clearTimeout(V.minuteur);
+    V.reste = Math.max(0, V.reste - (Date.now() - V.debut));
+    V.hotes.barre.classList.add('en-pause');
+  },
+
+  reprendre(V){
+
+    if(!V.fige) return;
+
+    V.fige = false;
+    V.hotes.barre.classList.remove('en-pause');
+    VUES.explorer.planifier(V, Math.max(250, V.reste));
+  },
+
+  // La vue est (re)montrée : le défilé repart.
+  demarrer(V){
+
+    VUES.explorer.relancerBarre(V);
+    VUES.explorer.planifier(V, TRIO.periode);
   },
 
   // Le métier cherché se choisit dans un petit menu, comme le sujet du fil.
@@ -4493,10 +4566,15 @@ VUES.explorer = {
     if(!V.charge){
       V.charge = true;
       VUES.explorer.charger(V, true);
+      return;
     }
+
+    if(V.membres.length) VUES.explorer.demarrer(V);
   },
 
-  pause(){},
+  pause(V){
+    clearTimeout(V.minuteur);
+  },
 
   args(V, decalage){
     const e = V.etat;
@@ -4521,8 +4599,9 @@ VUES.explorer = {
     if(premiere){
       V.membres = [];
       V.fin = false;
-      V.hotes.liste.innerHTML = squeletteProfils(3);
-      V.hotes.defile.scrollLeft = 0;
+      clearTimeout(V.minuteur);
+      V.hotes.liste.innerHTML = squeletteProfils();
+      V.hotes.defile.classList.add('seule');
       V.hotes.compte.textContent = '';
     }
 
@@ -4542,16 +4621,17 @@ VUES.explorer = {
       V.enCours = false;
 
       if(premiere){
-        V.hotes.liste.innerHTML = neufs.length
-          ? neufs.map(m => membreHtml(m)).join('')
-          : VUES.explorer.vide(V);
-        entrerEnCascade($$('.com-profil-carte', V.hotes.liste), 40);
+        if(neufs.length){
+          V.hotes.liste.replaceChildren();
+          VUES.explorer.dessinerPage(V, 0);
+          VUES.explorer.demarrer(V);
+        } else {
+          V.hotes.liste.innerHTML = VUES.explorer.vide(V);
+          V.hotes.defile.classList.add('seule');
+        }
       } else {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = neufs.map(m => membreHtml(m)).join('');
-        const cartes = Array.from(tmp.children);
-        cartes.forEach(c => V.hotes.liste.appendChild(c));
-        entrerEnCascade(cartes, 30);
+        // Des profils de plus : les pages suivantes existent, le défilé n'est pas dérangé.
+        V.hotes.defile.classList.toggle('seule', VUES.explorer.nbPages(V) < 2);
       }
 
       V.hotes.compte.textContent = V.total
@@ -4559,7 +4639,6 @@ VUES.explorer = {
         : '';
 
       V.hotes.bas.innerHTML = '';
-      VUES.explorer.majFleches(V);
 
     }catch(e){
 
@@ -4567,7 +4646,10 @@ VUES.explorer = {
 
       V.enCours = false;
 
-      if(premiere) V.hotes.liste.innerHTML = etatErreur(e, true);
+      if(premiere){
+        V.hotes.liste.innerHTML = etatErreur(e, true);
+        V.hotes.defile.classList.add('seule');
+      }
       else V.hotes.bas.innerHTML = `<button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="ex-plus">Réessayer</button>`;
     }
   },
@@ -7171,7 +7253,7 @@ function agir(act, cible, e){
       return;
 
     case 'ex-defiler':
-      VUES.explorer.defiler(V, Number(cible.dataset.sens));
+      VUES.explorer.changerPage(V, Number(cible.dataset.sens));
       return;
 
     case 'ex-plus':
@@ -8235,35 +8317,56 @@ const FEUILLE = String.raw`
 .com-puce.bouton.retirable{padding:4px 10px; cursor:pointer; background:rgba(20,137,222,0.16); border-color:rgba(79,180,255,0.35); color:var(--ink);}
 
 .com-resultats-tete{font-size:13px; color:var(--muted); font-weight:300; margin:2px 4px 10px; min-height:18px;}
-.com-carrousel{position:relative;}
-.com-defile-profils{
-  display:flex; gap:12px; overflow-x:auto; padding:4px 2px 14px; margin:0 -2px;
-  scroll-snap-type:x proximity; scrollbar-width:none; -webkit-overflow-scrolling:touch; outline:0;
+/* Trois profils à la fois, comme la carte : un visage, un nom, une ligne. */
+.com-trio-zone{position:relative; padding:8px 0 0;}
+.com-trio{display:grid;}
+.com-trio-page{grid-area:1 / 1; display:flex; justify-content:center; gap:10px;}
+.com-trio-page.entrante{animation:comTrioEntre .6s var(--ease) both;}
+.com-trio-page.sortante{pointer-events:none; animation:comTrioSort .45s var(--ease) both;}
+@keyframes comTrioEntre{from{opacity:0; transform:translateY(12px) scale(.98);} to{opacity:1; transform:none;}}
+@keyframes comTrioSort{to{opacity:0; transform:translateY(-8px) scale(.98);}}
+.com-trio .com-vide{flex:1;}
+.com-pf{
+  flex:1 1 0; max-width:230px; min-width:0; display:flex; flex-direction:column; align-items:center; gap:5px;
+  padding:20px 8px 16px; text-align:center; cursor:pointer; border-radius:26px; transition:background .3s var(--ease);
 }
-.com-defile-profils::-webkit-scrollbar{display:none;}
-.com-defile-liste{display:contents;}
-.com-defile-profils .com-vide{flex:1 0 100%;}
-.com-sentinelle-h{flex:none; width:1px;}
-.com-profil-carte{
-  flex:none; width:268px; min-height:330px; padding:26px 22px 20px; display:flex; flex-direction:column; align-items:center;
-  text-align:center; gap:4px; cursor:pointer; scroll-snap-align:start; border-radius:24px;
-  background:rgba(255,255,255,0.035); border:1px solid var(--line);
-  transition:background .3s var(--ease), border-color .3s var(--ease), transform .4s var(--ease);
+.com-pf:hover{background:rgba(255,255,255,0.04);}
+.com-pf:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+.com-pf-photo{position:relative; display:flex; margin-bottom:8px; transition:transform .5s var(--ease);}
+.com-pf-photo .com-av-xl{width:112px; height:112px; font-size:40px; box-shadow:var(--ombre-2);}
+/* Un anneau de lumière autour du visage, qui s'éveille au survol. */
+.com-pf-photo::before{
+  content:''; position:absolute; inset:-6px; border-radius:50%; pointer-events:none;
+  background:conic-gradient(from 0deg, var(--blue-bright), transparent 30%, var(--blue) 58%, transparent 82%, var(--blue-bright));
+  -webkit-mask:radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  mask:radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+  opacity:.4; animation:comAnneau 10s linear infinite; transition:opacity .4s var(--ease);
 }
-.com-profil-carte:hover{background:rgba(255,255,255,0.06); border-color:var(--line-strong);}
-.com-profil-carte:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
-.com-profil-carte .com-av-xl{margin-bottom:10px;}
-.com-pc-nom{font-size:18px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-wrap:wrap;}
-.com-pc-sous{display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:0 6px; font-size:13px; color:var(--muted);}
-.com-pc-bio{
-  margin:10px 0 0; font-size:13.5px; line-height:1.5; color:var(--ink-soft); font-weight:300;
-  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;
+@keyframes comAnneau{to{transform:rotate(360deg);}}
+.com-pf:hover .com-pf-photo{transform:scale(1.045);}
+.com-pf:hover .com-pf-photo::before{opacity:1;}
+.com-pf-nom{max-width:100%; font-size:17px; font-weight:600; display:flex; align-items:center; justify-content:center; flex-wrap:wrap;}
+.com-pf-sous{max-width:100%; font-size:12.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.com-pf-suivre{margin-top:6px; opacity:0; transform:translateY(5px); transition:opacity .35s var(--ease), transform .35s var(--ease);}
+.com-pf:hover .com-pf-suivre, .com-pf:focus-within .com-pf-suivre{opacity:1; transform:none;}
+.com-pf-suivre .com-btn{padding:6px 16px; font-size:12.5px;}
+@media (hover:none){ .com-pf-suivre{opacity:.9; transform:none;} }
+.com-trio-barre{display:block; width:120px; height:2px; margin:12px auto 0; border-radius:2px; background:rgba(255,255,255,0.08); overflow:hidden;}
+.com-trio-barre i{
+  display:block; width:100%; height:100%; transform-origin:left center;
+  background:linear-gradient(90deg, var(--blue), var(--blue-bright)); animation:comTrioBarre 6000ms linear both;
 }
-.com-pc-metiers{margin:12px 0 0; display:flex; flex-direction:column; gap:6px; width:100%; text-align:left;}
-.com-pc-metiers > div{display:flex; flex-direction:column; gap:1px;}
-.com-pc-metiers dt{font-size:11px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);}
-.com-pc-metiers dd{margin:0; font-size:13px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.com-pc-actions{margin-top:auto; padding-top:16px;}
+.com-trio-barre.en-pause i{animation-play-state:paused;}
+@keyframes comTrioBarre{from{transform:scaleX(0);} to{transform:scaleX(1);}}
+.com-trio-zone.seule .com-fleche{display:none;}
+.com-trio-zone.seule + .com-trio-barre{visibility:hidden;}
+@media (max-width:520px){
+  .com-trio-page{gap:4px;}
+  .com-pf{padding:14px 2px 10px;}
+  .com-pf-photo .com-av-xl{width:72px; height:72px; font-size:26px;}
+  .com-pf-nom{font-size:14px;}
+  .com-pf-sous{font-size:11px;}
+}
 .com-fleche{
   position:absolute; top:calc(50% - 22px); z-index:3; width:44px; height:44px; padding:0; border-radius:50%;
   display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer;
@@ -8271,7 +8374,6 @@ const FEUILLE = String.raw`
   -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
   transition:transform .3s var(--ease), background .25s var(--ease);
 }
-.com-fleche[hidden]{display:none;}
 .com-fleche:hover{background:rgba(20,26,36,0.95); transform:scale(1.06);}
 .com-fleche.gauche{left:-14px;}
 .com-fleche.droite{right:-14px;}
