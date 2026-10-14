@@ -6595,8 +6595,6 @@ function coqueHtml(){
             </label>
             <div class="com-rapide-res" data-rapide-res hidden></div>
           </div>
-          <button type="button" class="com-btn com-btn-plein com-publier" data-act="publier">${icone('plus', 16)}<span>Publier</span></button>
-          <button type="button" class="com-icone-btn bordure com-bouton-waveurs" data-act="waveurs" aria-label="L'espace des waveurs" title="L'espace des waveurs">${icone('jeu', 19)}</button>
           <div data-puce-moi class="com-puce-hote"></div>
         </div>
       </div>
@@ -7787,6 +7785,9 @@ const FEUILLE = String.raw`
   -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%);
 }
 .com-sujets::-webkit-scrollbar{display:none;}
+@media (min-width:761px){
+  .com-sujets{flex-wrap:wrap; overflow:visible; gap:2px 4px; padding-bottom:10px; mask-image:none; -webkit-mask-image:none;}
+}
 .com-defile{
   display:flex; gap:8px; overflow-x:auto; padding:2px; margin:0 -2px; scrollbar-width:none; -webkit-overflow-scrolling:touch;
 }
@@ -8567,14 +8568,16 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 
 .com-haut{
   position:sticky; top:94px; z-index:70;
-  display:flex; align-items:center; gap:14px;
-  margin:0 0 22px; padding:7px 8px 7px 7px;
-  border-radius:var(--radius-pill);
-  background:rgba(9,12,17,0.82);
-  backdrop-filter:blur(26px) saturate(170%); -webkit-backdrop-filter:blur(26px) saturate(170%);
-  border:1px solid var(--line); box-shadow:var(--ombre-2), var(--reflet-int);
+  display:flex; align-items:center; justify-content:center;
+  margin:0 0 22px; padding:4px 0;
 }
-.com-dock{position:relative; display:flex; gap:2px; flex:1; min-width:0;}
+/* Pas d'encadré : seules les icônes se voient. Un léger voile, du fond de la page vers le transparent,
+   garde les icônes lisibles quand le fil défile dessous. */
+.com-haut::before{
+  content:''; position:absolute; z-index:-1; inset:-12px -24px -22px; pointer-events:none;
+  background:linear-gradient(to bottom, rgba(5,7,10,0.9) 50%, transparent);
+}
+.com-dock{position:relative; display:flex; gap:2px; flex:none;}
 .com-dock .com-onglet-barre{
   top:0; bottom:0; left:0; height:auto; width:0; border-radius:var(--radius-pill);
   background:linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.07));
@@ -8605,20 +8608,18 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 .com-dock-item.actif .com-ic{color:var(--blue-bright);}
 .com-dock-item .com-badge-nb{top:-7px; right:-9px;}
 
-.com-haut-droite{display:flex; align-items:center; gap:10px; flex:none;}
+.com-haut-droite{position:absolute; right:0; top:50%; transform:translateY(-50%); display:flex; align-items:center; gap:10px;}
 .com-rapide{position:relative; width:44px; height:44px; flex:none;}
 /* Le champ grandit par-dessus le dock sans le pousser. */
 .com-rapide .com-recherche-champ{position:absolute; right:0; top:0; width:44px; height:44px; z-index:2; transition:width .4s var(--ease);}
-.com-rapide .com-recherche-champ input{width:100%; min-width:0; box-sizing:border-box; height:44px; padding:0; font-size:14px; cursor:pointer; background:rgba(255,255,255,0.05);}
+.com-rapide .com-recherche-champ input{width:100%; min-width:0; box-sizing:border-box; height:44px; padding:0; font-size:14px; cursor:pointer; background:transparent; border-color:transparent;}
 .com-rapide .com-recherche-champ > .com-ic{left:14px; color:var(--ink-soft);}
-.com-rapide:focus-within .com-recherche-champ{width:300px;}
+.com-rapide:focus-within .com-recherche-champ{width:280px;}
 .com-rapide .com-recherche-champ input::placeholder{color:transparent; transition:color .3s var(--ease);}
 .com-rapide:focus-within .com-recherche-champ input::placeholder{color:var(--muted);}
 .com-rapide:focus-within .com-recherche-champ input{padding:0 14px 0 44px;}
 .com-rapide:focus-within .com-recherche-champ input{cursor:text; background:rgba(15,20,28,0.99); border-color:var(--blue-bright);}
-.com-publier{padding:11px 20px; font-size:14px; width:auto; margin:0;}
 .com-puce-hote{display:flex; align-items:center;}
-.com-bouton-waveurs{color:var(--blue-bright);}
 
 .com-rapide-res{
   position:absolute; right:0; top:calc(100% + 10px); z-index:80; width:330px; padding:8px;
@@ -8644,11 +8645,13 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   background:var(--blue); box-shadow:var(--ombre-1), var(--reflet-int);
 }
 
-.com-pt{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--sj, var(--blue-bright)); flex:none;}
-.com-chip.sujet{gap:8px;}
-.com-chip.sujet.actif{
-  background:color-mix(in srgb, var(--sj) 22%, transparent); border-color:var(--sj); color:#fff;
+.com-pt{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--sj, var(--blue-bright)); flex:none; opacity:.85;}
+/* Les sujets : du texte, un point de couleur ; rien d'autre ne se dessine tant qu'on ne les touche pas. */
+.com-chip.sujet, .com-sujets .com-chip{
+  gap:7px; padding:6px 11px; border-color:transparent; background:none; color:var(--muted); font-size:13px;
 }
+.com-chip.sujet:hover, .com-sujets .com-chip:hover{background:rgba(255,255,255,0.06); color:var(--ink);}
+.com-chip.sujet.actif, .com-sujets .com-chip.actif{background:rgba(255,255,255,0.1); border-color:transparent; color:#fff;}
 
 .com-tendances-ligne{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:2px;}
 .com-tendances-lib{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted);}
@@ -8669,16 +8672,21 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 .com-type-rapide span{overflow:hidden; text-overflow:ellipsis;}
 .com-type-rapide{
   display:flex; align-items:center; justify-content:center; gap:8px; height:44px; padding:0 10px;
-  border-radius:14px; border:1px solid var(--line); background:rgba(255,255,255,0.04);
-  color:var(--ink); font-size:13.5px; font-weight:600; cursor:pointer; white-space:nowrap;
+  border-radius:14px; border:1px solid transparent; background:none;
+  color:var(--ink-soft); font-size:13.5px; font-weight:500; cursor:pointer; white-space:nowrap;
   transition:background .3s var(--ease), border-color .3s var(--ease), transform .25s var(--ease);
 }
-.com-type-rapide svg{color:var(--tc); flex:none;}
-.com-type-rapide:hover{background:color-mix(in srgb, var(--tc) 15%, transparent); border-color:color-mix(in srgb, var(--tc) 50%, transparent);}
+.com-type-rapide svg{color:var(--tc); flex:none; opacity:.7; transition:opacity .25s var(--ease);}
+.com-type-rapide:hover{background:rgba(255,255,255,0.06); color:#fff;}
+.com-type-rapide:hover svg{opacity:1;}
 .com-type-rapide:active{transform:scale(.97);}
 .t-message{--tc:#4fb4ff;} .t-son{--tc:#3ecf8e;} .t-question{--tc:#f5a524;} .t-collab{--tc:#b79cff;}
-.com-comp-types .com-chip svg{color:var(--tc);}
-.com-comp-types .com-chip.actif{background:color-mix(in srgb, var(--tc) 24%, transparent); border-color:var(--tc); color:#fff;}
+.com-comp-types .com-chip{border-color:transparent; background:none; color:var(--muted);}
+.com-comp-types .com-chip svg{color:var(--tc); opacity:.7; transition:opacity .25s var(--ease);}
+.com-comp-types .com-chip:hover{background:rgba(255,255,255,0.06); color:var(--ink);}
+.com-comp-types .com-chip:hover svg{opacity:1;}
+.com-comp-types .com-chip.actif{background:color-mix(in srgb, var(--tc) 14%, transparent); border-color:transparent; color:#fff;}
+.com-comp-types .com-chip.actif svg{opacity:1;}
 
 /* ---------- UN MESSAGE ---------- */
 
@@ -8934,14 +8942,16 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-profil-grille{grid-template-columns:320px minmax(0, 1fr); gap:18px;}
 }
 
+/* Dock au centre, recherche à droite : quand la page se resserre, le champ ouvert reste court pour ne pas couvrir les icônes. */
+@media (max-width:1100px){
+  .com-rapide:focus-within .com-recherche-champ{width:200px;}
+}
+
 @media (max-width:900px){
   .com-vue[data-vue="collabs"] .com-liste{grid-template-columns:1fr;}
   .com-liste-membres{grid-template-columns:1fr;}
   .com-profil-grille{grid-template-columns:1fr;}
   .com-profil-gauche{position:static;}
-  .com-rapide:focus-within .com-recherche-champ{width:240px;}
-  .com-publier span{display:none;}
-  .com-publier{width:42px; height:42px; padding:0;}
 }
 
 /* Téléphone : la barre du bas remplace le dock. */
