@@ -7580,6 +7580,37 @@ function demarrerMinuteurs(){
       rafraichirTemps();
     }
   });
+
+  // La barre d'icônes reste en haut quand on remonte, et s'efface quand on descend : elle ne gêne pas la lecture.
+  let y0 = window.scrollY;
+  let cumul = 0;
+
+  window.addEventListener('scroll', () => {
+
+    const haut = S.coque && $('.com-haut', S.coque);
+
+    const y = window.scrollY;
+    const d = y - y0;
+
+    y0 = y;
+
+    if(!haut || inactif()) return;
+
+    // Tout en haut de la page : la barre est toujours là.
+    if(y < 80){
+      cumul = 0;
+      haut.classList.remove('cache');
+      return;
+    }
+
+    // Un changement de sens repart de zéro ; un petit geste ne suffit pas à la faire bouger.
+    if(Math.sign(d) !== Math.sign(cumul)) cumul = 0;
+    cumul += d;
+
+    if(cumul > 28) haut.classList.add('cache');
+    else if(cumul < -28) haut.classList.remove('cache');
+
+  }, { passive: true });
 }
 
 // Les ouvertures se font l'une après l'autre : le menu, la reprise de session
@@ -8728,7 +8759,12 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   position:sticky; top:94px; z-index:70;
   display:flex; align-items:center; justify-content:center;
   margin:0 0 22px; padding:4px 0;
+  transition:transform .4s var(--ease), opacity .3s var(--ease);
 }
+/* On descend dans la page : la barre s'efface vers le haut ; on remonte, elle revient. */
+.com-haut.cache{transform:translateY(-130%); opacity:0; pointer-events:none;}
+.com-haut.cache:focus-within{transform:none; opacity:1; pointer-events:auto;}
+@media (prefers-reduced-motion:reduce){ .com-haut{transition:none;} }
 .com-dock{position:relative; display:flex; gap:2px; flex:none;}
 .com-dock .com-onglet-barre{
   top:0; bottom:0; left:0; height:auto; width:0; border-radius:var(--radius-pill);
