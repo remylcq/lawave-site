@@ -68,6 +68,10 @@
     'Relation presse':      'Je fais rayonner des projets.',
     'Média / Presse':       "J'écris et je raconte la scène.",
     'Photographe':          'Je capture la scène en images.',
+    'Musicien / Musicienne': "Je joue d'un instrument.",
+    'Ingénieur son':        'Je mixe, je masterise, je capte le son.',
+    'Danseur / Danseuse':   'Je mets la musique en mouvement.',
+    'Graphiste':            "Je dessine l'image des projets.",
     'Autre':                'Autre chose, tout simplement.'
   };
 
@@ -81,6 +85,10 @@
     'Relation presse':      ["Relations presse musique.", "J'aide les artistes à se faire entendre.", "Dossiers de presse, sorties, interviews."],
     'Média / Presse':       ["Journaliste musique.", "Je suis la scène de près et je la raconte.", "Chroniques, interviews et reportages."],
     'Photographe':          ["Photographe de concerts.", "Je couvre la scène rap en live.", "Portrait et reportage musical."],
+    'Musicien / Musicienne': ["Musicien, toujours un instrument sous la main.", "Guitare, piano, basse : je joue pour les projets qui m'inspirent.", "Disponible pour des sessions et des lives."],
+    'Ingénieur son':        ["Ingénieur son : enregistrement, mix et master.", "Je donne du relief à vos sons.", "Studio, live, post-prod : je m'occupe du son."],
+    'Danseur / Danseuse':   ["Danseur, la musique se vit aussi avec le corps.", "Chorégraphies, clips et scène.", "Disponible pour des clips et des shows."],
+    'Graphiste':            ["Graphiste : pochettes, visuels, identités.", "Je mets en images les projets musicaux.", "Direction artistique et design."],
     'Autre':                ["Passionné de musique.", "Curieux de toute la scène.", "Ici pour découvrir et partager."]
   };
 
@@ -961,9 +969,11 @@
 
       // Un compte déjà créé (reprise) : les rôles changent tout de suite, sur le profil.
       const autres = (etat.autres || []).filter(r => r !== etat.role);
-      const memes = JSON.stringify(autres) === JSON.stringify(currentUser.rolesSupp || []);
+      // Pas de reprise = pas encore de compte : `currentUser` est vide, il n'y a rien à comparer.
+      const memes = !etat.reprise || !currentUser ||
+        JSON.stringify(autres) === JSON.stringify(currentUser.rolesSupp || []);
 
-      if(etat.reprise && (roleNom(currentUser.role) !== etat.role || !memes)){
+      if(etat.reprise && currentUser && (roleNom(currentUser.role) !== etat.role || !memes)){
 
         try{
           await saveCurrentProfile({ role: etat.role, roles_supp: autres });

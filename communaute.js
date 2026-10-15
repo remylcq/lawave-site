@@ -211,7 +211,9 @@ const ROLE_VERS_METIER = {
   'Artiste': 'artiste', 'Beatmaker': 'beatmaker', 'DJ': 'dj',
   'Photographe': 'photographe', 'Manager': 'manager',
   "Membre d'un label": 'label', 'Relation presse': 'media',
-  'Média / Presse': 'media', 'Autre': 'autre'
+  'Média / Presse': 'media', 'Autre': 'autre',
+  'Musicien / Musicienne': 'musicien', 'Ingénieur son': 'ingenieur',
+  'Danseur / Danseuse': 'danse', 'Graphiste': 'da'
 };
 
 function metierDuRole(role){
