@@ -3367,7 +3367,7 @@ VUES.favoris = {
 
 
 
-// La boutique des coffres de cartes et les classeurs : dessinée par boutique.js, chargé à la première visite.
+// La boutique des boosters de cartes et les classeurs : dessinée par boutique.js, chargé à la première visite.
 VUES.boutique = {
 
   titre: () => 'Boutique',
@@ -3381,7 +3381,7 @@ VUES.boutique = {
     const hote = $('[data-boutique]', V.el);
 
     if(!moi()){
-      hote.innerHTML = etatVide({ icone: 'boutique', titre: 'Connecte-toi', texte: 'Pour acheter des coffres et collectionner des cartes, il faut un compte.',
+      hote.innerHTML = etatVide({ icone: 'boutique', titre: 'Connecte-toi', texte: 'Pour acheter des boosters et collectionner des cartes, il faut un compte.',
         bouton: { libelle: 'Se connecter', attrs: 'data-act="connexion" data-mode="login"' } });
       return;
     }
