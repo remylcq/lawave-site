@@ -472,15 +472,13 @@
   // Succès : le niveau, l'XP, les trophées
   // ---------------------------------------------------------------------
 
+  // Deux emplacements que xp.js remplit (majCarteXpProfil) : la fiche de niveau, puis les succès. Tout vient de
+  // la base (sql/xp-refonte.sql).
   function succesPanneauHtml(){
 
     return `
       <div class="xp-card" id="profilXp"></div>
-      <div class="pf-succes-tete">
-        <h3 class="pf-titre-petit">Succès</h3>
-        <span>${nombreDeSucces(currentUser)} / ${SUCCES.length}</span>
-      </div>
-      ${succesHtml(currentUser)}`;
+      <div id="xpSuccesHote"></div>`;
   }
 
   // ---------------------------------------------------------------------

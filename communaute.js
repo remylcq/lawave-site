@@ -5089,9 +5089,9 @@ VUES.membre = {
 
       regMembre(Object.assign({}, r.profil, { moi: { suit: !!V.rel.suit } }));
 
-      // Regarder le profil de quelqu'un d'autre compte pour le défi du jour.
+      // Regarder le profil de quelqu'un d'autre est un petit geste de découverte (une quête du jour le demande).
       if(!silencieux && moi() && r.profil.id !== moi().id){
-        try{ awardXP('decouvrirMembre', 5); }catch(e){}
+        try{ if(typeof xpAction === 'function') xpAction('visite_profil', r.profil.id); }catch(e){}
       }
 
       V.hotes.entete.innerHTML = profilEnteteHtml(V);
@@ -7722,6 +7722,29 @@ window.Com = {
   majOnboarding(){
     const v = S.vues.get('accueil');
     if(v && v.hotes) VUES.accueil.onboarding(v);
+  },
+
+  // Son propre profil, ouvert sur un onglet précis (le panneau d'XP envoie sur les succès). Attend que la page
+  // du profil soit dessinée avant de changer d'onglet.
+  async profilSurOnglet(onglet){
+
+    const u = moi();
+
+    if(!u || !await this.profil(u.id)) return false;
+
+    for(let i = 0; i < 50; i++){
+
+      const v = S.courante;
+
+      if(v && v.nom === 'membre' && v.profil && v.profil.id === u.id && v.hotes && v.hotes.onglets){
+        VUES.membre.changerOnglet(v, onglet);
+        return true;
+      }
+
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    return true;
   },
 
   // Ouvre le profil d'un membre, par pseudo ou par identifiant, et renvoie vrai
