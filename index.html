@@ -18981,6 +18981,523 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
 }
 
 
+// ---------------- LA SÉLECTION DE L'ACCUEIL ----------------
+//
+// L'équipe choisit des sorties du catalogue (onglet « Sélection » de l'espace équipe, table selection_accueil) ;
+// l'accueil les montre en grandes pochettes, une à la fois. La piste défile d'elle-même (toutes les 5 secondes) sauf
+// au survol, au focus, au toucher ou avec « réduire les animations ».
+
+var selectionAccueil = { ids: [], index: 0, minuteur: null, pause: false, scroll: null };
+
+const SELECTION_MAX = 12;
+const SELECTION_PERIODE = 5000;
+
+async function chargerSelectionAccueil(){
+
+  const section = document.getElementById('homeSelection');
+
+  if(!section) return;
+
+  const { data, error } = await BD.selectionAccueil();
+
+  if(error || !data || !data.length){
+    selectionAccueil.ids = [];
+    section.hidden = true;
+    arreterDefileSelection();
+    return;
+  }
+
+  const ids = data.map(l => l.release_id);
+
+  await assurerSorties(ids);
+
+  const co = new Map(data.map(l => [l.release_id, Array.isArray(l.co_artistes) ? l.co_artistes : []]));
+
+  const elements = ids
+    .map(id => catalogueData.find(s => s.id === id))
+    .filter(Boolean)
+    .map(s => ({ s, co: co.get(s.id) || [] }));
+
+  if(!elements.length){
+    selectionAccueil.ids = [];
+    section.hidden = true;
+    arreterDefileSelection();
+    return;
+  }
+
+  dessinerSelectionAccueil(elements);
+}
+
+// « A », « A & B », « A, B & C » : l'artiste de la sortie, puis ceux que l'équipe a marqués aussi principaux.
+function nomsDeLaSortie(sortie, co){
+
+  const noms = [sortie.artist].concat((co || []).map(c => nomAfficheDuFeat(c))).filter(Boolean);
+
+  return noms.length > 1
+    ? noms.slice(0, -1).join(', ') + ' & ' + noms[noms.length - 1]
+    : (noms[0] || '');
+}
+
+// La boucle : la piste porte trois fois la même suite (copie, suite réelle, copie). On démarre sur la suite du milieu ;
+// dès qu'on arrive sur une copie, la piste se replace, sans qu'on le voie, sur la même pochette de la suite du milieu.
+function dessinerSelectionAccueil(elements){
+
+  const section = document.getElementById('homeSelection');
+  const piste = document.getElementById('selectionPiste');
+  const points = document.getElementById('selectionPoints');
+
+  const n = elements.length;
+  const boucle = n > 1;
+
+  selectionAccueil.ids = elements.map(e => e.s.id);
+  selectionAccueil.n = n;
+  selectionAccueil.boucle = boucle;
+  selectionAccueil.index = 0;
+
+  let html = '';
+
+  for(let k = 0; k < (boucle ? 3 : 1); k++){
+
+    const copie = boucle && k !== 1;
+
+    elements.forEach(({ s, co }, rang) => {
+
+      const noms = nomsDeLaSortie(s, co);
+
+      html += `
+        <article class="sel-slide" ${copie ? 'aria-hidden="true"' : ''}
+                 aria-roledescription="diapositive" aria-label="${escapeAttribute(s.title + ' — ' + noms)}">
+          <button type="button" class="sel-cover" onclick="openCatalogueModal('${escapeAttribute(s.id)}')"
+                  ${copie ? 'tabindex="-1"' : ''} aria-label="Ouvrir ${escapeAttribute(s.title)}">
+            <img src="${escapeAttribute(safeUrl(s.cover))}" alt="${copie ? '' : escapeAttribute(s.title)}"
+                 ${k === (boucle ? 1 : 0) && rang === 0 ? '' : 'loading="lazy"'}>
+          </button>
+          <div class="sel-legende">
+            <strong>${escapeHtml(s.title)}</strong>
+            <span>${escapeHtml(noms)}</span>
+          </div>
+        </article>`;
+    });
+  }
+
+  piste.innerHTML = html;
+
+  points.innerHTML = boucle
+    ? elements.map((e, i) => `<button type="button" class="sel-point" onclick="allerAuPointSelection(${i})"
+                                       aria-label="Sortie ${i + 1} sur ${n}"></button>`).join('')
+    : '';
+
+  section.querySelectorAll('.sel-fleche').forEach(b => { b.hidden = !boucle; });
+
+  section.hidden = false;
+
+  if(!piste.dataset.branche){
+
+    piste.dataset.branche = '1';
+
+    piste.addEventListener('scroll', () => {
+      if(selectionAccueil.scroll) return;
+      selectionAccueil.scroll = requestAnimationFrame(() => {
+        selectionAccueil.scroll = null;
+        majSelectionActive();
+      });
+    }, { passive: true });
+
+    // Pause pendant qu'on regarde : survol, focus, toucher.
+    const mettreEnPause = (oui) => () => { selectionAccueil.pause = oui; };
+    section.addEventListener('pointerenter', mettreEnPause(true));
+    section.addEventListener('pointerleave', mettreEnPause(false));
+    section.addEventListener('focusin', mettreEnPause(true));
+    section.addEventListener('focusout', mettreEnPause(false));
+    section.addEventListener('touchstart', mettreEnPause(true), { passive: true });
+    section.addEventListener('touchend', () => { setTimeout(() => { selectionAccueil.pause = false; }, 6000); }, { passive: true });
+
+    piste.addEventListener('keydown', (e) => {
+      if(e.key === 'ArrowRight'){ e.preventDefault(); defilerSelection(1); }
+      if(e.key === 'ArrowLeft'){ e.preventDefault(); defilerSelection(-1); }
+    });
+
+    // Une fenêtre redimensionnée change la largeur des pochettes : on recentre.
+    let redim = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(redim);
+      redim = setTimeout(() => allerALaSelection(selectionAccueil.index, true), 160);
+    });
+  }
+
+  // On démarre sur la première pochette de la suite du milieu.
+  allerALaSelection(boucle ? n : 0, true);
+
+  demarrerDefileSelection();
+}
+
+// La diapositive la plus proche du centre de la piste est « active ». Quand le défilement s'arrête sur une copie, on
+// se replace sur la suite du milieu.
+function majSelectionActive(){
+
+  const piste = document.getElementById('selectionPiste');
+
+  if(!piste) return;
+
+  const centre = piste.scrollLeft + piste.clientWidth / 2;
+  const slides = [...piste.querySelectorAll('.sel-slide')];
+
+  let meilleur = 0;
+  let ecart = Infinity;
+
+  slides.forEach((slide, i) => {
+    const d = Math.abs(slide.offsetLeft + slide.offsetWidth / 2 - centre);
+    if(d < ecart){ ecart = d; meilleur = i; }
+  });
+
+  marquerSelection(meilleur);
+
+  clearTimeout(selectionAccueil.rebond);
+  selectionAccueil.rebond = setTimeout(rebondirSelection, 160);
+}
+
+function rebondirSelection(){
+
+  const n = selectionAccueil.n;
+
+  if(!selectionAccueil.boucle) return;
+
+  const g = selectionAccueil.index;
+
+  if(g >= n && g < 2 * n) return;
+
+  allerALaSelection(g < n ? g + n : g - n, true);
+}
+
+// La diapositive « active » : la pochette en pleine lumière, le point allumé, l'index retenu (de 0 à 3n - 1 en boucle).
+function marquerSelection(i){
+
+  selectionAccueil.index = i;
+
+  const n = selectionAccueil.n || 1;
+
+  document.querySelectorAll('#selectionPiste .sel-slide').forEach((slide, k) => slide.classList.toggle('actif', k === i));
+  document.querySelectorAll('#selectionPoints .sel-point').forEach((p, k) => p.classList.toggle('on', k === i % n));
+}
+
+function allerALaSelection(i, instantane){
+
+  const piste = document.getElementById('selectionPiste');
+  const slide = piste && piste.querySelectorAll('.sel-slide')[i];
+
+  if(!slide) return;
+
+  // L'index suit tout de suite la demande : deux clics rapides avancent de deux pochettes, sans attendre la fin du
+  // défilement.
+  marquerSelection(i);
+
+  piste.scrollTo({
+    left: slide.offsetLeft - (piste.clientWidth - slide.offsetWidth) / 2,
+    behavior: instantane || selectionMouvementReduit() ? 'auto' : 'smooth'
+  });
+}
+
+// Un point : la pochette correspondante de la suite où l'on se trouve.
+function allerAuPointSelection(i){
+
+  const n = selectionAccueil.n;
+
+  allerALaSelection(Math.floor(selectionAccueil.index / n) * n + i);
+}
+
+// Une flèche, un point, le clavier ou le défilé automatique : toujours plus loin, la sélection n'a ni début ni fin.
+function defilerSelection(sens){
+
+  if(!selectionAccueil.boucle) return;
+
+  allerALaSelection(selectionAccueil.index + sens);
+}
+
+function selectionMouvementReduit(){
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+function demarrerDefileSelection(){
+
+  arreterDefileSelection();
+
+  if(selectionAccueil.ids.length < 2 || selectionMouvementReduit()) return;
+
+  selectionAccueil.minuteur = setInterval(() => {
+
+    const section = document.getElementById('homeSelection');
+
+    // Page quittée, onglet masqué ou regard posé dessus : on ne bouge pas.
+    if(!section || !section.offsetParent || document.hidden || selectionAccueil.pause) return;
+
+    defilerSelection(1);
+  }, SELECTION_PERIODE);
+}
+
+function arreterDefileSelection(){
+  clearInterval(selectionAccueil.minuteur);
+  selectionAccueil.minuteur = null;
+}
+
+
+// ---- Espace équipe : choisir et ordonner la sélection ----
+
+var selectionEquipe = [];        // les sorties choisies, dans l'ordre : { id, titre, artiste, cover }
+var selectionEquipeMinuteur = null;
+
+function selectionLigneDepuis(sortie, co){
+
+  const feats = (Array.isArray(sortie.featuring) ? sortie.featuring : [])
+    .filter(f => f && f.handle && f.nom)
+    .map(f => ({ nom: f.nom, handle: f.handle }));
+
+  return {
+    id: sortie.id,
+    titre: sortie.title || sortie.track_title || '',
+    artiste: sortie.artist || sortie.artist_name || '',
+    cover: sortie.cover || sortie.cover_url || '',
+    feats,
+    co: Array.isArray(co) ? co : []
+  };
+}
+
+async function chargerSelectionEquipe(){
+
+  const liste = document.getElementById('selectionListe');
+
+  if(!liste) return;
+
+  liste.innerHTML = `<div class="empty-state chargement">Chargement de la sélection...</div>`;
+
+  const { data, error } = await BD.selectionAccueil();
+
+  if(error){
+    liste.innerHTML = /Could not find the table|schema cache|relation|column/i.test(error.message)
+      ? `<div class="empty-state">La sélection n'est pas encore à jour : les fichiers selection-accueil.sql et selection-co-artistes.sql n'ont pas été passés dans Supabase.</div>`
+      : `<div class="form-msg err">${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  const ids = (data || []).map(l => l.release_id);
+  const co = new Map((data || []).map(l => [l.release_id, l.co_artistes]));
+
+  const { data: lignes } = ids.length ? await BD.sortiesParIds(ids) : { data: [] };
+
+  const parId = new Map((lignes || []).map(l => [l.id, l]));
+
+  selectionEquipe = ids.filter(id => parId.has(id)).map(id => selectionLigneDepuis(parId.get(id), co.get(id)));
+
+  renderSelectionEquipe();
+}
+
+function renderSelectionEquipe(){
+
+  const liste = document.getElementById('selectionListe');
+  const nb = document.getElementById('selectionNb');
+
+  if(!liste) return;
+
+  if(nb) nb.textContent = '(' + selectionEquipe.length + ' / ' + SELECTION_MAX + ')';
+
+  setAdminTabCount('selection', selectionEquipe.length);
+
+  if(!selectionEquipe.length){
+    liste.innerHTML = `<div class="empty-state">Aucune sortie dans la sélection : la section n'apparaît pas à l'accueil. Ajoute-en ci-dessous.</div>`;
+    return;
+  }
+
+  liste.innerHTML = selectionEquipe.map((s, i) => `
+    <div class="admin-row sel-ligne">
+      <span class="sel-rang">${i + 1}</span>
+      <img src="${escapeAttribute(safeUrl(s.cover))}" alt="" loading="lazy">
+      <div class="sel-texte">
+        <strong>${escapeHtml(s.titre)}</strong>
+        <span>${escapeHtml(s.artiste)}</span>
+      </div>
+      <div class="sel-actions">
+        <button type="button" class="btn btn-ghost" onclick="deplacerSelection(${i}, -1)" ${i === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
+        <button type="button" class="btn btn-ghost" onclick="deplacerSelection(${i}, 1)" ${i === selectionEquipe.length - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
+        <button type="button" class="btn btn-ghost" onclick="retirerDeLaSelection('${escapeAttribute(s.id)}')">Retirer</button>
+      </div>
+      ${s.feats.length ? `
+      <div class="sel-co">
+        <span>Aussi artiste principal (projet en commun) :</span>
+        ${s.feats.map(f => `
+          <label><input type="checkbox" ${s.co.some(c => c.handle === f.handle) ? 'checked' : ''}
+                        onchange="basculerCoArtiste('${escapeAttribute(s.id)}', '${escapeAttribute(f.handle)}', this.checked)">
+            ${escapeHtml(f.nom)}</label>`).join('')}
+      </div>` : ''}
+    </div>`).join('');
+}
+
+// L'équipe marque un artiste d'une sortie comme AUSSI principal : le défilé affiche alors « A & B ».
+async function basculerCoArtiste(id, handle, coche){
+
+  const s = selectionEquipe.find(x => x.id === id);
+
+  if(!s) return;
+
+  const feat = s.feats.find(f => f.handle === handle);
+
+  if(!feat) return;
+
+  const liste = coche
+    ? s.co.filter(c => c.handle !== handle).concat({ nom: feat.nom, handle: feat.handle })
+    : s.co.filter(c => c.handle !== handle);
+
+  const { error } = await BD.majCoArtistes(id, liste);
+
+  if(error){
+    selectionMessage('Impossible d\u2019enregistrer : ' + error.message, 'err');
+    renderSelectionEquipe();
+    return;
+  }
+
+  s.co = liste;
+  selectionMessage('✅ Enregistré.', 'ok');
+  chargerSelectionAccueil();
+}
+
+function selectionMessage(texte, type){
+  setRowMessage('selectionMsg', texte, type);
+}
+
+async function deplacerSelection(i, sens){
+
+  const j = i + sens;
+
+  if(j < 0 || j >= selectionEquipe.length) return;
+
+  const copie = selectionEquipe.slice();
+  [copie[i], copie[j]] = [copie[j], copie[i]];
+
+  const { error } = await BD.ordonnerSelection(copie.map((s, rang) => ({ release_id: s.id, ordre: rang + 1 })));
+
+  if(error){
+    selectionMessage('Impossible de changer l’ordre : ' + error.message, 'err');
+    return;
+  }
+
+  selectionEquipe = copie;
+  renderSelectionEquipe();
+  selectionMessage('✅ Ordre enregistré.', 'ok');
+  chargerSelectionAccueil();
+}
+
+async function retirerDeLaSelection(id){
+
+  const { error } = await BD.retirerSelection(id);
+
+  if(error){
+    selectionMessage('Impossible de retirer : ' + error.message, 'err');
+    return;
+  }
+
+  selectionEquipe = selectionEquipe.filter(s => s.id !== id);
+
+  // L'ordre se resserre (1, 2, 3…) pour ne pas laisser de trous.
+  if(selectionEquipe.length){
+    await BD.ordonnerSelection(selectionEquipe.map((s, rang) => ({ release_id: s.id, ordre: rang + 1 })));
+  }
+
+  renderSelectionEquipe();
+  chargerPourSelectionResultats();
+  selectionMessage('✅ Retirée de la sélection.', 'ok');
+  chargerSelectionAccueil();
+}
+
+async function ajouterALaSelection(id){
+
+  if(selectionEquipe.length >= SELECTION_MAX){
+    selectionMessage('La sélection est pleine (' + SELECTION_MAX + ' au plus) : retire une sortie d’abord.', 'err');
+    return;
+  }
+
+  if(selectionEquipe.some(s => s.id === id)) return;
+
+  const { error } = await BD.ajouterSelection(id, selectionEquipe.length + 1);
+
+  if(error){
+    selectionMessage('Impossible d’ajouter : ' + error.message, 'err');
+    return;
+  }
+
+  const trouvee = selectionResultatsEquipe.find(s => s.id === id);
+
+  if(trouvee) selectionEquipe.push(selectionLigneDepuis(trouvee, []));
+
+  renderSelectionEquipe();
+  chargerPourSelectionResultats();
+  selectionMessage('✅ Ajoutée à la sélection.', 'ok');
+  chargerSelectionAccueil();
+}
+
+var selectionResultatsEquipe = [];
+
+function chercherPourSelection(){
+
+  clearTimeout(selectionEquipeMinuteur);
+
+  selectionEquipeMinuteur = setTimeout(async () => {
+
+    const zone = document.getElementById('selectionResultats');
+    const champ = document.getElementById('selectionRecherche');
+
+    if(!zone || !champ) return;
+
+    const q = champ.value.trim();
+
+    if(texteNu(q).length < 2){
+      selectionResultatsEquipe = [];
+      zone.innerHTML = '';
+      return;
+    }
+
+    const { data, error } = await BD.catalogueChercher(q, 12, 0);
+
+    if(error){
+      zone.innerHTML = `<div class="form-msg err">${escapeHtml(error.message)}</div>`;
+      return;
+    }
+
+    selectionResultatsEquipe = data || [];
+    chargerPourSelectionResultats();
+  }, 250);
+}
+
+function chargerPourSelectionResultats(){
+
+  const zone = document.getElementById('selectionResultats');
+
+  if(!zone) return;
+
+  const choisies = new Set(selectionEquipe.map(s => s.id));
+
+  const lignes = selectionResultatsEquipe.filter(s => !choisies.has(s.id));
+
+  if(!selectionResultatsEquipe.length){
+    zone.innerHTML = document.getElementById('selectionRecherche').value.trim()
+      ? `<div class="empty-state">Aucune sortie trouvée.</div>` : '';
+    return;
+  }
+
+  zone.innerHTML = lignes.length
+    ? lignes.map(s => `
+      <div class="admin-row sel-ligne">
+        <img src="${escapeAttribute(safeUrl(s.cover_url))}" alt="" loading="lazy">
+        <div class="sel-texte">
+          <strong>${escapeHtml(s.track_title)}</strong>
+          <span>${escapeHtml(s.artist_name)}${s.release_date ? ' · ' + escapeHtml(String(s.release_date).slice(0, 4)) : ''}</span>
+        </div>
+        <div class="sel-actions">
+          <button type="button" class="btn btn-primary" onclick="ajouterALaSelection('${escapeAttribute(s.id)}')">Ajouter</button>
+        </div>
+      </div>`).join('')
+    : `<div class="empty-state">Ces sorties sont déjà dans la sélection.</div>`;
+}
+
+
+
 // ---------------- ARTISTE VÉRIFIÉ ----------------
 //
 // Un membre peut demander à gérer la page d'un artiste. L'équipe
