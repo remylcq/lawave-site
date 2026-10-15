@@ -560,6 +560,67 @@
     .cat-seg{flex:1 1 100%; justify-content:center;}
   }
 
+  /* ---------- LA SÉLECTION DE L'ACCUEIL ----------
+     De grandes pochettes, une à la fois : la piste défile en s'arrêtant sur chacune (scroll-snap), les voisines
+     dépassent de part et d'autre, atténuées. */
+  .sel{margin-top:48px;}
+  .sel[hidden]{display:none;}
+  .sel-cadre{position:relative;}
+  .sel-piste{
+    --sel-w:min(460px, 76vw);
+    position:relative; display:flex; gap:28px; overflow-x:auto; padding:8px calc(50% - var(--sel-w) / 2) 14px;
+    scroll-snap-type:x mandatory; scrollbar-width:none; -webkit-overflow-scrolling:touch;
+  }
+  .sel-piste::-webkit-scrollbar{display:none;}
+  .sel-piste:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px; border-radius:var(--radius);}
+  .sel-slide{
+    flex:0 0 var(--sel-w); scroll-snap-align:center; text-align:center;
+    opacity:.45; transform:scale(.9); transition:opacity .4s var(--ease), transform .5s var(--ease);
+  }
+  .sel-slide.actif{opacity:1; transform:none;}
+  .sel-cover{
+    display:block; width:100%; aspect-ratio:1/1; padding:0; border:0; overflow:hidden; cursor:pointer;
+    border-radius:var(--radius); background:rgba(255,255,255,0.06);
+    box-shadow:var(--ombre-3);
+  }
+  .sel-cover img{width:100%; height:100%; object-fit:cover; display:block;}
+  .sel-cover:focus-visible{outline:2px solid var(--blue-bright); outline-offset:3px;}
+  .sel-legende{margin-top:16px; display:flex; flex-direction:column; gap:3px;}
+  .sel-legende strong{font-size:17px; font-weight:600; color:var(--ink);}
+  .sel-legende span{font-size:13px; color:var(--muted);}
+  .sel-fleche{
+    position:absolute; top:calc(50% - 40px); z-index:3; width:46px; height:46px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:26px; line-height:1; padding:0 0 3px;
+    color:var(--ink); background:rgba(10,13,18,0.7); border:1px solid var(--line-strong);
+    transition:background .2s var(--ease), border-color .2s var(--ease);
+  }
+  .sel-fleche:hover{background:rgba(20,137,222,0.55); border-color:transparent;}
+  .sel-fleche.gauche{left:8px;}
+  .sel-fleche.droite{right:8px;}
+  .sel-points{display:flex; justify-content:center; gap:8px; margin-top:6px;}
+  .sel-point{
+    width:8px; height:8px; padding:0; border:0; border-radius:50%; cursor:pointer;
+    background:rgba(255,255,255,0.22); transition:background .25s var(--ease), transform .25s var(--ease);
+  }
+  .sel-point.on{background:var(--blue-bright); transform:scale(1.25);}
+  @media (max-width:620px){
+    .sel-piste{gap:16px;}
+    .sel-fleche{width:40px; height:40px; font-size:22px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .sel-slide{transition:none;}
+  }
+
+  /* L'onglet « Sélection » de l'espace équipe. */
+  .sel-ligne{display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  .sel-ligne img{width:56px; height:56px; border-radius:var(--radius-sm); object-fit:cover; flex-shrink:0; background:rgba(255,255,255,0.06);}
+  .sel-ligne .sel-texte{flex:1; min-width:140px; display:flex; flex-direction:column; gap:2px;}
+  .sel-ligne .sel-texte strong{font-size:14px;}
+  .sel-ligne .sel-texte span{font-size:12px; color:var(--muted);}
+  .sel-ligne .sel-actions{display:flex; gap:8px;}
+  .sel-ligne .sel-actions .btn{padding:8px 12px; font-size:13px;}
+  .sel-rang{width:26px; text-align:center; font-size:13px; color:var(--muted); flex-shrink:0;}
+
   /* Un titre pour les lecteurs d'écran, sans rien changer à l'aspect. */
   .sr-only{
     position:absolute; width:1px; height:1px; margin:-1px; padding:0;
@@ -4126,6 +4187,23 @@
       </div>
     </section>
 
+    <!-- La sélection de l'équipe : de grandes pochettes, une à la fois (onglet « Sélection » de l'espace équipe). Cachée
+         tant qu'elle est vide. -->
+    <section id="homeSelection" class="sel" hidden aria-label="La sélection">
+      <div class="section-head">
+        <div>
+          <span class="eyebrow mono">Sélection</span>
+          <h2>Notre sélection</h2>
+        </div>
+      </div>
+      <div class="sel-cadre">
+        <button type="button" class="sel-fleche gauche" onclick="defilerSelection(-1)" aria-label="Sortie précédente">‹</button>
+        <div class="sel-piste" id="selectionPiste" tabindex="0" role="group" aria-roledescription="carrousel"></div>
+        <button type="button" class="sel-fleche droite" onclick="defilerSelection(1)" aria-label="Sortie suivante">›</button>
+      </div>
+      <div class="sel-points" id="selectionPoints"></div>
+    </section>
+
     <section>
       <div class="section-head">
         <div>
@@ -4832,6 +4910,7 @@
       <symbol id="eq-disque" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 8.66 5"/></symbol>
       <symbol id="eq-artistes" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
       <symbol id="eq-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></symbol>
+      <symbol id="eq-etoile" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></symbol>
       <symbol id="eq-film" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="3"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5"/></symbol>
       <symbol id="eq-reglages" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
       <symbol id="eq-bulle" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
@@ -4897,6 +4976,13 @@
         role="tab" onclick="switchAdminTab('content')" title="Vidéos et publications affichées">
         <svg class="eq-ic" aria-hidden="true"><use href="#eq-film"/></svg>
         <span class="admin-tab-label">Contenu</span>
+      </button>
+
+      <button type="button" class="admin-tab" id="adminTab-selection"
+        role="tab" onclick="switchAdminTab('selection')" title="Les sorties mises en avant à l'accueil">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-etoile"/></svg>
+        <span class="admin-tab-label">Sélection</span>
+        <span class="admin-tab-count" id="adminCount-selection"></span>
       </button>
 
       <button type="button" class="admin-tab" id="adminTab-accreditations"
@@ -5265,6 +5351,38 @@
       </div>
       <div class="form-msg" id="statsMsg" style="display:none; margin:16px 0 0;"></div>
     </div>
+
+  </div>
+
+
+  <!-- ================= SÉLECTION DE L'ACCUEIL ================= -->
+
+  <div class="admin-section" id="adminSection-selection">
+
+    <div class="section-head">
+      <div>
+        <span class="eyebrow mono">Accueil</span>
+        <h3>Sélection de l'accueil</h3>
+        <p class="desc">
+          Les sorties du catalogue mises en avant à l'accueil, dans un défilé de grandes pochettes, une à la fois.
+          Ajoute-en, retire-en, change leur ordre : le site se met à jour tout de suite. Douze au plus.
+        </p>
+      </div>
+      <button type="button" class="btn btn-ghost" onclick="chargerSelectionEquipe()">Actualiser</button>
+    </div>
+
+    <div class="form-msg" id="selectionMsg" style="margin-top:16px;"></div>
+
+    <h4 style="margin:28px 0 12px; font-size:15px;">Dans la sélection <span id="selectionNb" class="mono" style="color:var(--muted);"></span></h4>
+    <div id="selectionListe" class="admin-list"></div>
+
+    <h4 style="margin:32px 0 12px; font-size:15px;">Ajouter une sortie</h4>
+    <div class="eq-outils">
+      <input type="text" id="selectionRecherche" autocomplete="off"
+             placeholder="Chercher un titre ou un artiste du catalogue"
+             oninput="chercherPourSelection()">
+    </div>
+    <div id="selectionResultats" class="admin-list" style="margin-top:12px;"></div>
 
   </div>
 
@@ -6416,6 +6534,30 @@ const BD = {
   // à télécharger. { pseudo: { n, d, f, emails } }
   comptesArtistesEquipe(){
     return supabaseClient.rpc('equipe_comptes_artistes');
+  },
+
+  // ---------- LA SÉLECTION DE L'ACCUEIL (sql/selection-accueil.sql) ----------
+
+  selectionAccueil(){
+    return supabaseClient.from('selection_accueil')
+      .select('release_id, ordre')
+      .order('ordre', { ascending: true });
+  },
+
+  ajouterSelection(releaseId, ordre){
+    return supabaseClient.from('selection_accueil')
+      .insert({ release_id: releaseId, ordre, ajoute_par: currentUser ? currentUser.id : null });
+  },
+
+  retirerSelection(releaseId){
+    return supabaseClient.from('selection_accueil')
+      .delete().eq('release_id', releaseId).select();
+  },
+
+  // [{ release_id, ordre }, …] : l'ordre de tout le monde d'un coup.
+  ordonnerSelection(lignes){
+    return supabaseClient.from('selection_accueil')
+      .upsert(lignes, { onConflict: 'release_id' }).select();
   },
 
   creerSortie(champs){
@@ -14055,6 +14197,9 @@ const list = (data || [])
     catalogueTrie = sorted;
     catalogueRafraichir();
 
+    // La sélection de l'accueil se lit à part : elle ne retarde pas le reste.
+    chargerSelectionAccueil();
+
 
     // ==========================================
     // DERNIÈRES SORTIES — ACCUEIL
@@ -19021,6 +19166,407 @@ async function definirNoteArtiste(handle, demi){
   await sauverNoteArtiste(handle, demi || null);
 }
 
+// ---------------- LA SÉLECTION DE L'ACCUEIL ----------------
+//
+// L'équipe choisit des sorties du catalogue (onglet « Sélection » de l'espace équipe, table selection_accueil) ;
+// l'accueil les montre en grandes pochettes, une à la fois. La piste défile d'elle-même (toutes les 5 secondes) sauf
+// au survol, au focus, au toucher ou avec « réduire les animations ».
+
+var selectionAccueil = { ids: [], index: 0, minuteur: null, pause: false, scroll: null };
+
+const SELECTION_MAX = 12;
+const SELECTION_PERIODE = 5000;
+
+async function chargerSelectionAccueil(){
+
+  const section = document.getElementById('homeSelection');
+
+  if(!section) return;
+
+  const { data, error } = await BD.selectionAccueil();
+
+  if(error || !data || !data.length){
+    selectionAccueil.ids = [];
+    section.hidden = true;
+    arreterDefileSelection();
+    return;
+  }
+
+  const ids = data.map(l => l.release_id);
+
+  await assurerSorties(ids);
+
+  const sorties = ids
+    .map(id => catalogueData.find(s => s.id === id))
+    .filter(Boolean);
+
+  if(!sorties.length){
+    selectionAccueil.ids = [];
+    section.hidden = true;
+    arreterDefileSelection();
+    return;
+  }
+
+  dessinerSelectionAccueil(sorties);
+}
+
+function dessinerSelectionAccueil(sorties){
+
+  const section = document.getElementById('homeSelection');
+  const piste = document.getElementById('selectionPiste');
+  const points = document.getElementById('selectionPoints');
+
+  selectionAccueil.ids = sorties.map(s => s.id);
+  selectionAccueil.index = 0;
+
+  piste.innerHTML = sorties.map((s, i) => `
+    <article class="sel-slide${i === 0 ? ' actif' : ''}" data-id="${escapeAttribute(s.id)}"
+             aria-roledescription="diapositive" aria-label="${escapeAttribute(s.title + ' — ' + s.artist)}">
+      <button type="button" class="sel-cover" onclick="openCatalogueModal('${escapeAttribute(s.id)}')"
+              aria-label="Ouvrir ${escapeAttribute(s.title)}">
+        <img src="${escapeAttribute(safeUrl(s.cover))}" alt="${escapeAttribute(s.title)}"
+             ${i === 0 ? '' : 'loading="lazy"'}>
+      </button>
+      <div class="sel-legende">
+        <strong>${escapeHtml(s.title)}</strong>
+        <span>${escapeHtml(s.artist)}</span>
+      </div>
+    </article>`).join('');
+
+  points.innerHTML = sorties.length > 1
+    ? sorties.map((s, i) => `<button type="button" class="sel-point${i === 0 ? ' on' : ''}" onclick="allerALaSelection(${i})"
+                                      aria-label="Sortie ${i + 1} sur ${sorties.length}"></button>`).join('')
+    : '';
+
+  section.querySelectorAll('.sel-fleche').forEach(b => { b.hidden = sorties.length < 2; });
+
+  section.hidden = false;
+
+  if(!piste.dataset.branche){
+
+    piste.dataset.branche = '1';
+
+    piste.addEventListener('scroll', () => {
+      if(selectionAccueil.scroll) return;
+      selectionAccueil.scroll = requestAnimationFrame(() => {
+        selectionAccueil.scroll = null;
+        majSelectionActive();
+      });
+    }, { passive: true });
+
+    // Pause pendant qu'on regarde : survol, focus, toucher.
+    const mettreEnPause = (oui) => () => { selectionAccueil.pause = oui; };
+    section.addEventListener('pointerenter', mettreEnPause(true));
+    section.addEventListener('pointerleave', mettreEnPause(false));
+    section.addEventListener('focusin', mettreEnPause(true));
+    section.addEventListener('focusout', mettreEnPause(false));
+    section.addEventListener('touchstart', mettreEnPause(true), { passive: true });
+    section.addEventListener('touchend', () => { setTimeout(() => { selectionAccueil.pause = false; }, 6000); }, { passive: true });
+
+    piste.addEventListener('keydown', (e) => {
+      if(e.key === 'ArrowRight'){ e.preventDefault(); defilerSelection(1); }
+      if(e.key === 'ArrowLeft'){ e.preventDefault(); defilerSelection(-1); }
+    });
+  }
+
+  // La piste repart du début à chaque redessin.
+  piste.scrollLeft = 0;
+
+  demarrerDefileSelection();
+}
+
+// La diapositive la plus proche du centre de la piste est « active » : la pochette pleine, les points, l'index.
+function majSelectionActive(){
+
+  const piste = document.getElementById('selectionPiste');
+
+  if(!piste) return;
+
+  const centre = piste.scrollLeft + piste.clientWidth / 2;
+  const slides = [...piste.querySelectorAll('.sel-slide')];
+
+  let meilleur = 0;
+  let ecart = Infinity;
+
+  slides.forEach((slide, i) => {
+    const d = Math.abs(slide.offsetLeft + slide.offsetWidth / 2 - centre);
+    if(d < ecart){ ecart = d; meilleur = i; }
+  });
+
+  marquerSelection(meilleur);
+}
+
+// La diapositive « active » : la pochette en pleine lumière, le point allumé, l'index retenu.
+function marquerSelection(i){
+
+  selectionAccueil.index = i;
+
+  document.querySelectorAll('#selectionPiste .sel-slide').forEach((slide, k) => slide.classList.toggle('actif', k === i));
+  document.querySelectorAll('#selectionPoints .sel-point').forEach((p, k) => p.classList.toggle('on', k === i));
+}
+
+function allerALaSelection(i, instantane){
+
+  const piste = document.getElementById('selectionPiste');
+  const slide = piste && piste.querySelectorAll('.sel-slide')[i];
+
+  if(!slide) return;
+
+  // L'index suit tout de suite la demande : deux clics rapides avancent de deux pochettes, sans attendre la fin du
+  // défilement.
+  marquerSelection(i);
+
+  piste.scrollTo({
+    left: slide.offsetLeft - (piste.clientWidth - slide.offsetWidth) / 2,
+    behavior: instantane || selectionMouvementReduit() ? 'auto' : 'smooth'
+  });
+}
+
+// Une flèche, un point ou le clavier : la sélection fait le tour (après la dernière, la première).
+function defilerSelection(sens){
+
+  const n = selectionAccueil.ids.length;
+
+  if(n < 2) return;
+
+  allerALaSelection((selectionAccueil.index + sens + n) % n);
+}
+
+function selectionMouvementReduit(){
+  return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+}
+
+function demarrerDefileSelection(){
+
+  arreterDefileSelection();
+
+  if(selectionAccueil.ids.length < 2 || selectionMouvementReduit()) return;
+
+  selectionAccueil.minuteur = setInterval(() => {
+
+    const section = document.getElementById('homeSelection');
+
+    // Page quittée, onglet masqué ou regard posé dessus : on ne bouge pas.
+    if(!section || !section.offsetParent || document.hidden || selectionAccueil.pause) return;
+
+    defilerSelection(1);
+  }, SELECTION_PERIODE);
+}
+
+function arreterDefileSelection(){
+  clearInterval(selectionAccueil.minuteur);
+  selectionAccueil.minuteur = null;
+}
+
+
+// ---- Espace équipe : choisir et ordonner la sélection ----
+
+var selectionEquipe = [];        // les sorties choisies, dans l'ordre : { id, titre, artiste, cover }
+var selectionEquipeMinuteur = null;
+
+function selectionLigneDepuis(sortie){
+  return { id: sortie.id, titre: sortie.title || sortie.track_title || '', artiste: sortie.artist || sortie.artist_name || '', cover: sortie.cover || sortie.cover_url || '' };
+}
+
+async function chargerSelectionEquipe(){
+
+  const liste = document.getElementById('selectionListe');
+
+  if(!liste) return;
+
+  liste.innerHTML = `<div class="empty-state chargement">Chargement de la sélection...</div>`;
+
+  const { data, error } = await BD.selectionAccueil();
+
+  if(error){
+    liste.innerHTML = /Could not find the table|schema cache|relation/i.test(error.message)
+      ? `<div class="empty-state">La sélection n'est pas encore activée : le fichier selection-accueil.sql n'a pas été passé dans Supabase.</div>`
+      : `<div class="form-msg err">${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  const ids = (data || []).map(l => l.release_id);
+
+  const { data: lignes } = ids.length ? await BD.sortiesParIds(ids) : { data: [] };
+
+  const parId = new Map((lignes || []).map(l => [l.id, l]));
+
+  selectionEquipe = ids.filter(id => parId.has(id)).map(id => selectionLigneDepuis(parId.get(id)));
+
+  renderSelectionEquipe();
+}
+
+function renderSelectionEquipe(){
+
+  const liste = document.getElementById('selectionListe');
+  const nb = document.getElementById('selectionNb');
+
+  if(!liste) return;
+
+  if(nb) nb.textContent = '(' + selectionEquipe.length + ' / ' + SELECTION_MAX + ')';
+
+  setAdminTabCount('selection', selectionEquipe.length);
+
+  if(!selectionEquipe.length){
+    liste.innerHTML = `<div class="empty-state">Aucune sortie dans la sélection : la section n'apparaît pas à l'accueil. Ajoute-en ci-dessous.</div>`;
+    return;
+  }
+
+  liste.innerHTML = selectionEquipe.map((s, i) => `
+    <div class="admin-row sel-ligne">
+      <span class="sel-rang">${i + 1}</span>
+      <img src="${escapeAttribute(safeUrl(s.cover))}" alt="" loading="lazy">
+      <div class="sel-texte">
+        <strong>${escapeHtml(s.titre)}</strong>
+        <span>${escapeHtml(s.artiste)}</span>
+      </div>
+      <div class="sel-actions">
+        <button type="button" class="btn btn-ghost" onclick="deplacerSelection(${i}, -1)" ${i === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
+        <button type="button" class="btn btn-ghost" onclick="deplacerSelection(${i}, 1)" ${i === selectionEquipe.length - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
+        <button type="button" class="btn btn-ghost" onclick="retirerDeLaSelection('${escapeAttribute(s.id)}')">Retirer</button>
+      </div>
+    </div>`).join('');
+}
+
+function selectionMessage(texte, type){
+  setRowMessage('selectionMsg', texte, type);
+}
+
+async function deplacerSelection(i, sens){
+
+  const j = i + sens;
+
+  if(j < 0 || j >= selectionEquipe.length) return;
+
+  const copie = selectionEquipe.slice();
+  [copie[i], copie[j]] = [copie[j], copie[i]];
+
+  const { error } = await BD.ordonnerSelection(copie.map((s, rang) => ({ release_id: s.id, ordre: rang + 1 })));
+
+  if(error){
+    selectionMessage('Impossible de changer l’ordre : ' + error.message, 'err');
+    return;
+  }
+
+  selectionEquipe = copie;
+  renderSelectionEquipe();
+  selectionMessage('✅ Ordre enregistré.', 'ok');
+  chargerSelectionAccueil();
+}
+
+async function retirerDeLaSelection(id){
+
+  const { error } = await BD.retirerSelection(id);
+
+  if(error){
+    selectionMessage('Impossible de retirer : ' + error.message, 'err');
+    return;
+  }
+
+  selectionEquipe = selectionEquipe.filter(s => s.id !== id);
+
+  // L'ordre se resserre (1, 2, 3…) pour ne pas laisser de trous.
+  if(selectionEquipe.length){
+    await BD.ordonnerSelection(selectionEquipe.map((s, rang) => ({ release_id: s.id, ordre: rang + 1 })));
+  }
+
+  renderSelectionEquipe();
+  chargerPourSelectionResultats();
+  selectionMessage('✅ Retirée de la sélection.', 'ok');
+  chargerSelectionAccueil();
+}
+
+async function ajouterALaSelection(id){
+
+  if(selectionEquipe.length >= SELECTION_MAX){
+    selectionMessage('La sélection est pleine (' + SELECTION_MAX + ' au plus) : retire une sortie d’abord.', 'err');
+    return;
+  }
+
+  if(selectionEquipe.some(s => s.id === id)) return;
+
+  const { error } = await BD.ajouterSelection(id, selectionEquipe.length + 1);
+
+  if(error){
+    selectionMessage('Impossible d’ajouter : ' + error.message, 'err');
+    return;
+  }
+
+  const trouvee = selectionResultatsEquipe.find(s => s.id === id);
+
+  if(trouvee) selectionEquipe.push(selectionLigneDepuis(trouvee));
+
+  renderSelectionEquipe();
+  chargerPourSelectionResultats();
+  selectionMessage('✅ Ajoutée à la sélection.', 'ok');
+  chargerSelectionAccueil();
+}
+
+var selectionResultatsEquipe = [];
+
+function chercherPourSelection(){
+
+  clearTimeout(selectionEquipeMinuteur);
+
+  selectionEquipeMinuteur = setTimeout(async () => {
+
+    const zone = document.getElementById('selectionResultats');
+    const champ = document.getElementById('selectionRecherche');
+
+    if(!zone || !champ) return;
+
+    const q = champ.value.trim();
+
+    if(texteNu(q).length < 2){
+      selectionResultatsEquipe = [];
+      zone.innerHTML = '';
+      return;
+    }
+
+    const { data, error } = await BD.catalogueChercher(q, 12, 0);
+
+    if(error){
+      zone.innerHTML = `<div class="form-msg err">${escapeHtml(error.message)}</div>`;
+      return;
+    }
+
+    selectionResultatsEquipe = data || [];
+    chargerPourSelectionResultats();
+  }, 250);
+}
+
+function chargerPourSelectionResultats(){
+
+  const zone = document.getElementById('selectionResultats');
+
+  if(!zone) return;
+
+  const choisies = new Set(selectionEquipe.map(s => s.id));
+
+  const lignes = selectionResultatsEquipe.filter(s => !choisies.has(s.id));
+
+  if(!selectionResultatsEquipe.length){
+    zone.innerHTML = document.getElementById('selectionRecherche').value.trim()
+      ? `<div class="empty-state">Aucune sortie trouvée.</div>` : '';
+    return;
+  }
+
+  zone.innerHTML = lignes.length
+    ? lignes.map(s => `
+      <div class="admin-row sel-ligne">
+        <img src="${escapeAttribute(safeUrl(s.cover_url))}" alt="" loading="lazy">
+        <div class="sel-texte">
+          <strong>${escapeHtml(s.track_title)}</strong>
+          <span>${escapeHtml(s.artist_name)}${s.release_date ? ' · ' + escapeHtml(String(s.release_date).slice(0, 4)) : ''}</span>
+        </div>
+        <div class="sel-actions">
+          <button type="button" class="btn btn-primary" onclick="ajouterALaSelection('${escapeAttribute(s.id)}')">Ajouter</button>
+        </div>
+      </div>`).join('')
+    : `<div class="empty-state">Ces sorties sont déjà dans la sélection.</div>`;
+}
+
+
 // ---------------- ARTISTE VÉRIFIÉ ----------------
 //
 // Un membre peut demander à gérer la page d'un artiste. L'équipe
@@ -21333,6 +21879,7 @@ const ADMIN_TABS = [
   'accreditations',
   'support',
   'profils',
+  'selection',
   'membres',
   'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
@@ -21425,6 +21972,10 @@ function switchAdminTab(nom){
 
   if(nom === 'membres'){
     chargerMembres();
+  }
+
+  if(nom === 'selection'){
+    chargerSelectionEquipe();
   }
 
   // ACCÈS TESTEURS (TEMPORAIRE)
