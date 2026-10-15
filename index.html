@@ -1879,6 +1879,37 @@
     transition:border-color .2s var(--ease), color .2s var(--ease);
   }
   .vf-motif:hover{border-color:var(--line-strong); color:var(--ink);}
+  /* ---------- Espace équipe, onglet Membres ---------- */
+  .mb-recherche{
+    width:100%; margin-top:20px; padding:12px 16px; border-radius:var(--radius-pill);
+    font:inherit; font-size:14px; color:var(--ink);
+    background:rgba(255,255,255,0.05); border:1px solid var(--line);
+    transition:border-color .2s var(--ease), background .2s var(--ease);
+  }
+  .mb-recherche:focus{outline:none; border-color:var(--blue); background:rgba(255,255,255,0.08);}
+  .mb-carte{
+    display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px 16px; align-items:center;
+    padding:14px 18px; margin-bottom:10px; border-radius:var(--radius);
+    background:var(--glass); border:1px solid var(--line);
+    box-shadow:var(--ombre-1), var(--reflet-int);
+    animation:fondu .4s var(--ease) both;
+  }
+  .mb-carte.sortie{opacity:0; transform:translateY(-6px); transition:opacity .3s var(--ease), transform .3s var(--ease);}
+  .mb-carte .vf-membre, .mb-carte .vf-actions{grid-area:auto;}
+  .mb-carte .vf-membre{align-items:center;}
+  .mb-carte .vf-actions{justify-content:flex-end;}
+  .mb-carte .vf-photo{width:44px; height:44px;}
+  .mb-carte .vf-infos h4{font-size:15px;}
+  .mb-pastille{
+    display:inline-block; padding:1px 8px; border-radius:var(--radius-pill); font-size:11px; font-weight:600;
+    color:var(--ink-soft); background:rgba(255,255,255,0.08);
+  }
+  .mb-pastille.equipe{color:var(--blue); background:rgba(79,180,255,0.14);}
+  .mb-panneau{grid-column:1 / -1;}
+  @media (max-width:720px){
+    .mb-carte{grid-template-columns:1fr;}
+  }
+
   .vf-lightbox{position:relative; max-width:92vw; max-height:90vh;}
   .vf-lightbox img{display:block; max-width:92vw; max-height:88vh; border-radius:var(--radius-sm); object-fit:contain; background:#000;}
   .vf-lightbox .modal-close{top:-14px; right:-14px; z-index:2;}
@@ -4715,6 +4746,7 @@
       <symbol id="eq-bouee" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></symbol>
       <symbol id="eq-cle" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M16 7l3 3M14 9l2 2"/></symbol>
       <symbol id="eq-sortie" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
+      <symbol id="eq-membres" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.6 6-5.6s6 2.3 6 5.6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.6c1.8.7 3 2.6 3 5.4"/></symbol>
       <symbol id="eq-verifie" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.7 7 9 4-1.3 7-4.6 7-9V6z"/><path d="m9 12 2.2 2.2L15.4 10"/></symbol>
       <symbol id="eq-actualiser" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
     </defs>
@@ -4794,6 +4826,13 @@
         <svg class="eq-ic" aria-hidden="true"><use href="#eq-verifie"/></svg>
         <span class="admin-tab-label">Profils</span>
         <span class="admin-tab-count" id="adminCount-profils"></span>
+      </button>
+
+      <button type="button" class="admin-tab" id="adminTab-membres"
+        role="tab" onclick="switchAdminTab('membres')" title="Tous les comptes créés">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-membres"/></svg>
+        <span class="admin-tab-label">Membres</span>
+        <span class="admin-tab-count" id="adminCount-membres"></span>
       </button>
 
       <button type="button" class="admin-tab" id="adminTab-support"
@@ -5485,6 +5524,33 @@
 
   </div>
   <!-- ACCÈS TESTEURS (TEMPORAIRE) — fin (section) -->
+
+
+  <!-- ================= MEMBRES ================= -->
+
+  <div class="admin-section" id="adminSection-membres">
+
+    <div class="section-head">
+      <div>
+        <span class="eyebrow mono">Membres</span>
+        <h3>Tous les comptes</h3>
+        <p class="desc">
+          Chaque compte créé sur le site, du plus récent au plus ancien. Supprime les comptes de test : le compte et tout
+          ce qu'il a publié (messages, notes, suivis, demandes) disparaissent. Les comptes de l'équipe ne se suppriment pas d'ici.
+        </p>
+      </div>
+
+      <button type="button" class="btn btn-ghost" onclick="chargerMembres()">Actualiser</button>
+    </div>
+
+    <input type="search" id="membresRecherche" class="mb-recherche" placeholder="Chercher un pseudo, un e-mail, un rôle…"
+           autocomplete="off" aria-label="Chercher un membre">
+
+    <div class="form-msg" id="membresActionMsg" style="margin-top:16px;"></div>
+
+    <div id="membresListe" class="admin-list" style="margin-top:16px;"></div>
+
+  </div>
 
 
   <!-- ================= PROFILS À VÉRIFIER ================= -->
@@ -20721,6 +20787,7 @@ const ADMIN_TABS = [
   'accreditations',
   'support',
   'profils',
+  'membres',
   'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
 
@@ -20808,6 +20875,10 @@ function switchAdminTab(nom){
 
   if(nom === 'profils'){
     chargerProfilsAVerifier();
+  }
+
+  if(nom === 'membres'){
+    chargerMembres();
   }
 
   // ACCÈS TESTEURS (TEMPORAIRE)
@@ -27074,6 +27145,148 @@ async function traiterVerification(id, action){
     'ok'
   );
 }
+
+
+// =========================================================
+// ESPACE ÉQUIPE — MEMBRES
+// =========================================================
+//
+// Tous les comptes créés, avec de quoi reconnaître un compte de test (pseudo, e-mail, ce qu'il a publié), et la
+// suppression. Tout passe par deux fonctions de la base réservées à l'équipe (sql/membres-equipe.sql) : l'adresse
+// e-mail n'est lisible que par elles.
+
+let membresLignes = [];
+
+function membreLigneHtml(m){
+
+  const id = escapeAttribute(m.id);
+  const photo = safeUrl(m.avatar_url);
+  const date = (iso) => iso ? formatFrDate(String(iso).slice(0, 10)) : '';
+  const moi = currentUser && currentUser.id === m.id;
+
+  const usage = [
+    m.nb_posts ? m.nb_posts + (m.nb_posts > 1 ? ' messages' : ' message') : '',
+    m.nb_notes ? m.nb_notes + (m.nb_notes > 1 ? ' notes' : ' note') : ''
+  ].filter(Boolean).join(' · ') || 'Rien publié';
+
+  return `
+    <article class="mb-carte" id="mb-${id}">
+
+      <div class="vf-membre">
+        <span class="vf-photo">${
+          photo
+            ? `<img src="${escapeAttribute(photo)}" alt="">`
+            : escapeHtml(artistInitial(m.pseudo || '?'))
+        }</span>
+        <div class="vf-infos">
+          <h4>
+            ${escapeHtml(m.pseudo || 'Sans pseudo')}
+            ${m.role ? `<span class="mb-pastille">${escapeHtml(m.role)}</span>` : ''}
+            ${m.is_admin ? `<span class="mb-pastille equipe">Équipe</span>` : ''}
+            ${m.verifie ? `<span class="mb-pastille">Vérifié</span>` : ''}
+          </h4>
+          <span class="vf-meta">${escapeHtml(m.email || 'Adresse inconnue')}</span>
+          <span class="vf-meta">
+            Inscrit le ${escapeHtml(date(m.cree_le))}${m.connecte_le ? ' · vu le ' + escapeHtml(date(m.connecte_le)) : ''} · ${escapeHtml(usage)}
+          </span>
+        </div>
+      </div>
+
+      <div class="vf-actions">
+        <button type="button" class="btn btn-ghost" onclick="viewProfile('${id}')">Voir le profil</button>
+        ${
+          m.is_admin || moi
+            ? ''
+            : `<button type="button" class="btn btn-ghost" onclick="openConfirmPanel('mb-suppr-${id}')">Supprimer</button>`
+        }
+      </div>
+
+      ${
+        m.is_admin || moi
+          ? ''
+          : `<div class="confirm-panel danger mb-panneau" id="mb-suppr-${id}">
+               <p>Supprimer le compte de ${escapeHtml(m.pseudo || 'ce membre')} ? Son profil, ses messages, ses notes et ses
+               demandes disparaissent pour de bon. Il ne pourra plus se connecter.</p>
+               <div class="inline-actions">
+                 <button type="button" class="btn btn-primary" onclick="supprimerMembre('${id}')">Oui, supprimer le compte</button>
+                 <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('mb-suppr-${id}')">Annuler</button>
+               </div>
+             </div>`
+      }
+
+    </article>`;
+}
+
+function afficherMembres(){
+
+  const zone = document.getElementById('membresListe');
+  if(!zone) return;
+
+  const champ = document.getElementById('membresRecherche');
+  const requete = champ ? champ.value.trim().toLowerCase() : '';
+
+  const lignes = !requete ? membresLignes : membresLignes.filter(m =>
+    [m.pseudo, m.email, m.role].some(t => String(t || '').toLowerCase().includes(requete))
+  );
+
+  if(!lignes.length){
+    zone.innerHTML = `<div class="empty-state">${requete ? 'Aucun membre ne correspond.' : 'Aucun compte.'}</div>`;
+    return;
+  }
+
+  zone.innerHTML = lignes.map(membreLigneHtml).join('');
+}
+
+async function chargerMembres(){
+
+  const zone = document.getElementById('membresListe');
+  if(!zone) return;
+
+  zone.innerHTML = `<div class="empty-state chargement">Chargement des membres...</div>`;
+
+  const { data, error } = await supabaseClient.rpc('membres_liste');
+
+  if(error){
+    zone.innerHTML = /Could not find the function|schema cache/i.test(error.message)
+      ? `<div class="empty-state">La liste des membres n'est pas encore activée : le fichier membres-equipe.sql n'a pas été passé dans Supabase.</div>`
+      : `<div class="form-msg err">${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  membresLignes = data || [];
+
+  setAdminTabCount('membres', membresLignes.length);
+
+  afficherMembres();
+}
+
+async function supprimerMembre(id){
+
+  const m = membresLignes.find(x => x.id === id);
+
+  const { error } = await supabaseClient.rpc('membre_supprimer', { p_id: id });
+
+  if(error){
+    setRowMessage('membresActionMsg', 'Suppression impossible : ' + error.message, 'err');
+    return;
+  }
+
+  // La carte s'efface en douceur avant que la liste ne soit relue.
+  const carte = document.getElementById('mb-' + id);
+  if(carte){
+    carte.classList.add('sortie');
+    await new Promise(resolve => setTimeout(resolve, 260));
+  }
+
+  await chargerMembres();
+
+  setRowMessage('membresActionMsg', 'Compte de ' + ((m && m.pseudo) || 'ce membre') + ' supprimé.', 'ok');
+}
+
+(function(){
+  const champ = document.getElementById('membresRecherche');
+  if(champ) champ.addEventListener('input', afficherMembres);
+})();
 
 
 function generatePostVisual(sub, catalogNum){
