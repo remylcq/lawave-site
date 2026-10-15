@@ -408,18 +408,11 @@
     background:rgba(255,255,255,0.06); flex-shrink:0;
     transition:transform .5s var(--ease), box-shadow .5s var(--ease);
   }
-  /* La pochette du moment se soulève et respire au survol : c'est le
-     seul élément de l'accueil qui bouge, donc il attire l'œil sans
-     que la page s'agite. */
-  .news-cover:hover{
-    transform:translateY(-6px);
-    box-shadow:var(--ombre-3), var(--reflet-int);
-  }
+  /* La pochette du moment ne réagit pas au survol : elle n'est pas
+     cliquable, un zoom ferait croire le contraire. */
   .news-cover img{
     width:100%; height:100%; object-fit:cover;
-    transition:transform .7s var(--ease);
   }
-  .news-cover:hover img{transform:scale(1.06);}
   .news-platforms{display:flex; flex-direction:row; gap:16px;}
   .platform-icon{
     width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
@@ -2362,7 +2355,7 @@
   .carte-defile-barre i{
     display:block; width:100%; height:100%; transform-origin:left center;
     background:linear-gradient(90deg, var(--blue), var(--blue-bright));
-    animation:carteBarre 3000ms linear both;
+    animation:carteBarre 4500ms linear both;
   }
   .carte-defile-barre.en-pause i{animation-play-state:paused;}
   @keyframes carteBarre{
@@ -2956,6 +2949,21 @@
      s'arrêtait à 650 px alors qu'elle en demandait 808, et le bouton
      d'envoi de l'avis était hors d'atteinte. */
   .modal-box{overflow-y:auto; overflow-x:hidden;}
+
+  /* Une fenêtre qui défile ne peut pas porter son arête et son reflet en
+     pseudo-éléments : ils sont posés « dans » la fenêtre et partent avec le
+     texte, si bien qu'au défilement le cadre se coupait en plein milieu du
+     formulaire. L'arête redevient la bordure, le reflet un fond fixe. Plus
+     de flou d'arrière-plan sur la fenêtre elle-même (le voile derrière elle
+     est déjà flouté) : le défilement ne le recalcule plus à chaque image. */
+  .modal-box{
+    background:
+      linear-gradient(152deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 42%),
+      rgba(12,15,21,0.95);
+    backdrop-filter:none; -webkit-backdrop-filter:none;
+    border-color:rgba(255,255,255,0.16);
+  }
+  .modal-box::before, .modal-box::after{content:none;}
 
   /* Surfaces réellement translucides. Le flou d'arrière-plan coûte
      cher à composer : on le réserve aux panneaux peu nombreux à
@@ -12255,12 +12263,27 @@ const GENERIC_LISTEN_SVG =
 // renseignées, dans l'ordre défini ci-dessus.
 function listenLinksFrom(submission){
 
+  // Une sortie importée de Deezer n'a que son lien Deezer. Pour Spotify et Apple Music, la fiche propose alors une
+  // recherche « artiste + titre » sur la plateforme, plutôt que de ne rien montrer.
+  const recherche = submission.source === 'deezer'
+    ? encodeURIComponent([submission.artist_name, submission.track_title].filter(Boolean).join(' '))
+    : '';
+
+  const rechercheParPlateforme = {
+    spotify: 'https://open.spotify.com/search/' + recherche,
+    apple: 'https://music.apple.com/fr/search?term=' + recherche
+  };
+
   const liens = LISTEN_PLATFORMS
-    .map(plateforme => ({
-      label: plateforme.label,
-      svg: plateforme.svg,
-      url: String(submission[plateforme.column] || '').trim()
-    }))
+    .map(plateforme => {
+      const url = String(submission[plateforme.column] || '').trim();
+      const secours = !url && recherche ? rechercheParPlateforme[plateforme.key] : '';
+      return {
+        label: secours ? plateforme.label + ' (recherche)' : plateforme.label,
+        svg: plateforme.svg,
+        url: url || secours || ''
+      };
+    })
     .filter(lien => lien.url);
 
   if(liens.length === 0 && submission.listen_url){
@@ -17340,7 +17363,7 @@ const ICONE_RETOUR_CARTE =
   'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
   '<path d="m15 18-6-6 6-6"/></svg>';
 
-const CARTE_DEFILE = { periode: 3000 };
+const CARTE_DEFILE = { periode: 4500 };
 
 // Le total de l'accueil du panneau compte jusqu'à sa valeur, et passe
 // d'un pays à l'autre en comptant — de 299 à 12 sans que le chiffre ne
