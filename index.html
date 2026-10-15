@@ -6824,6 +6824,28 @@ const BD = {
     return supabaseClient.rpc('xp_succes_liste', { p_user: userId || null });
   },
 
+  // Les Waves Coins, les coffres et les cartes (sql/coffres-cartes.sql) : tout se passe dans la base,
+  // boutique.js ne fait que lire et dessiner.
+  wcSolde(){
+    return supabaseClient.rpc('wc_solde');
+  },
+
+  boutiqueListe(){
+    return supabaseClient.rpc('boutique_liste');
+  },
+
+  classeurCollection(collection){
+    return supabaseClient.rpc('classeur_collection', { p_collection: collection });
+  },
+
+  coffreAcheter(collection, quantite){
+    return supabaseClient.rpc('coffre_acheter', { p_collection: collection, p_quantite: quantite || 1 });
+  },
+
+  coffreOuvrir(collection){
+    return supabaseClient.rpc('coffre_ouvrir', { p_collection: collection });
+  },
+
   waveursReclamerDefi(id){
     return supabaseClient.rpc('waveurs_defi_reclamer', { p_defi: id });
   },
@@ -11910,6 +11932,26 @@ async function saveProfile(){
 // fonction et non dans une constante : cette fonction peut servir avant que le script n'ait fini de se lire.
 function chargerXp(){
   return chargerModuleSite('xp.js?v=1', 'Xp', "de l'XP (xp.js)");
+}
+
+// La boutique des coffres et les classeurs (onglet « Boutique » de la communauté). Même principe : le numéro reçoit
+// l'empreinte du fichier à la mise en ligne, et le nom est écrit dans la fonction.
+function chargerBoutique(){
+  return chargerModuleSite('boutique.js?v=1', 'Boutique', 'de la boutique (boutique.js)');
+}
+
+// Ouvre l'onglet Boutique de la communauté (le panneau d'XP y envoie).
+async function ouvrirBoutique(){
+
+  if(!currentUser){
+    openAuthModal('login');
+    return;
+  }
+
+  try{
+    await chargerCommunaute();
+    if(window.Com && window.Com.boutique) window.Com.boutique();
+  }catch(erreur){}
 }
 
 // Un membre est connecté : on lit son état et on annonce ce qui l'attend. Sans effet s'il est déjà lu.
