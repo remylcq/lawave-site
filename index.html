@@ -12337,7 +12337,8 @@ const LISTEN_PLATFORMS = [
     key: 'deezer',
     column: 'deezer_url',
     label: 'Deezer',
-    svg: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="17.6" y="3" width="5.4" height="3.1" rx=".5"/><rect x="17.6" y="7.6" width="5.4" height="3.1" rx=".5"/><rect x="11" y="7.6" width="5.4" height="3.1" rx=".5"/><rect x="17.6" y="12.2" width="5.4" height="3.1" rx=".5"/><rect x="11" y="12.2" width="5.4" height="3.1" rx=".5"/><rect x="4.4" y="12.2" width="5.4" height="3.1" rx=".5"/><rect x="17.6" y="16.8" width="5.4" height="3.1" rx=".5"/><rect x="11" y="16.8" width="5.4" height="3.1" rx=".5"/><rect x="4.4" y="16.8" width="5.4" height="3.1" rx=".5"/><rect x="-2.2" y="16.8" width="5.4" height="3.1" rx=".5" transform="translate(3.2)"/></svg>'
+    // Le logo actuel de Deezer : un cœur fait de neuf barres arrondies.
+    svg: '<svg viewBox="240 240 1520 1520" fill="currentColor"><ellipse cx="286" cy="698" rx="43" ry="176"/><ellipse cx="430" cy="737.5" rx="85" ry="394.5"/><ellipse cx="588" cy="803" rx="125" ry="559"/><ellipse cx="784" cy="946.5" rx="107" ry="609.5"/><ellipse cx="1000" cy="1150.5" rx="150" ry="603.5"/><ellipse cx="1214" cy="946.5" rx="107" ry="609.5"/><ellipse cx="1408" cy="803" rx="125" ry="559"/><ellipse cx="1568" cy="737.5" rx="85" ry="394.5"/><ellipse cx="1712" cy="698" rx="43" ry="176"/></svg>'
   },
   {
     key: 'apple',
@@ -12361,13 +12362,25 @@ const GENERIC_LISTEN_SVG =
 
 // Prend une ligne Supabase et renvoie les plateformes réellement
 // renseignées, dans l'ordre défini ci-dessus.
+// YouTube Music n'a pas de colonne ni de champ de formulaire : sa place sur la fiche est une recherche « artiste +
+// titre », pour toutes les sorties. Une fonction (et non une constante) : goTo peut dessiner une fiche avant que le
+// script n'atteigne cet endroit.
+function plateformeYoutubeMusic(){
+  return {
+    key: 'ytmusic',
+    label: 'YouTube Music',
+    // Un disque et un triangle de lecture, comme son logo.
+    svg: '<svg viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 2.6a7.4 7.4 0 1 1 0 14.8 7.4 7.4 0 0 1 0-14.8zM9.9 8.1v7.8l6.4-3.9z"/></svg>'
+  };
+}
+
 function listenLinksFrom(submission){
+
+  const motsDeRecherche = encodeURIComponent([submission.artist_name, submission.track_title].filter(Boolean).join(' '));
 
   // Une sortie importée de Deezer n'a que son lien Deezer. Pour Spotify et Apple Music, la fiche propose alors une
   // recherche « artiste + titre » sur la plateforme, plutôt que de ne rien montrer.
-  const recherche = submission.source === 'deezer'
-    ? encodeURIComponent([submission.artist_name, submission.track_title].filter(Boolean).join(' '))
-    : '';
+  const recherche = submission.source === 'deezer' ? motsDeRecherche : '';
 
   const rechercheParPlateforme = {
     spotify: 'https://open.spotify.com/search/' + recherche,
@@ -12379,6 +12392,7 @@ function listenLinksFrom(submission){
       const url = String(submission[plateforme.column] || '').trim();
       const secours = !url && recherche ? rechercheParPlateforme[plateforme.key] : '';
       return {
+        cle: plateforme.key,
         label: secours ? plateforme.label + ' (recherche)' : plateforme.label,
         svg: plateforme.svg,
         url: url || secours || ''
@@ -12386,12 +12400,28 @@ function listenLinksFrom(submission){
     })
     .filter(lien => lien.url);
 
+  // Les sorties d'avant la séparation par plateforme n'ont qu'un lien générique.
   if(liens.length === 0 && submission.listen_url){
     liens.push({
       label: 'Écouter',
       svg: GENERIC_LISTEN_SVG,
       url: submission.listen_url
     });
+  }
+
+  // YouTube Music, juste après Apple Music (ou à défaut avant YouTube, ou en dernier).
+  if(motsDeRecherche){
+    const ytm = plateformeYoutubeMusic();
+    const lienYtm = {
+      cle: ytm.key,
+      label: ytm.label + ' (recherche)',
+      svg: ytm.svg,
+      url: 'https://music.youtube.com/search?q=' + motsDeRecherche
+    };
+    const apres = liens.map(l => l.cle).lastIndexOf('apple');
+    const avantYoutube = liens.map(l => l.cle).indexOf('youtube');
+    const place = apres >= 0 ? apres + 1 : (avantYoutube >= 0 ? avantYoutube : liens.length);
+    liens.splice(place, 0, lienYtm);
   }
 
   return liens;
