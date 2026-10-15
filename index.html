@@ -6861,7 +6861,7 @@ const BD = {
 
   notesArtiste(handle){
     return supabaseClient.from('artist_ratings')
-      .select('user_id, rating, avis, updated_at')
+      .select('user_id, rating, updated_at')
       .eq('artist_handle', handle)
       .order('updated_at', { ascending: false })
       .limit(500);
@@ -6871,7 +6871,7 @@ const BD = {
     return supabaseClient.from('artist_ratings')
       .upsert({ ...champs, updated_at: new Date().toISOString() },
               { onConflict: 'user_id,artist_handle' })
-      .select('user_id, rating, avis, updated_at');
+      .select('user_id, rating, updated_at');
   },
 
   supprimerNoteArtiste(userId, handle){
@@ -18920,11 +18920,6 @@ function renderNotesArtiste(){
     return;
   }
 
-  // Ce que le membre est en train d'écrire survit à un changement de note.
-  const ancienChamp = document.getElementById('avis-artiste');
-  const brouillon = ancienChamp ? ancienChamp.value : null;
-  const volet = !!(ancienChamp && !document.getElementById('avis-corps-artiste').hidden);
-
   const lignes = notesArtisteCourantes.lignes;
   const demis = lignes.filter(n => n.rating).map(n => n.rating);
 
@@ -18956,7 +18951,6 @@ function renderNotesArtiste(){
 
   const moi = maNoteArtiste();
   const note = (moi && moi.rating) || 0;
-  const monAvis = (moi && moi.avis) || '';
 
   let saisie;
 
@@ -18964,7 +18958,7 @@ function renderNotesArtiste(){
     saisie = `
       <p class="note-invite">
         <button type="button" onclick="openAuthModal('login')">Connecte-toi</button>
-        pour noter cet artiste et écrire un avis.
+        pour noter cet artiste.
       </p>`;
   } else {
     saisie = `
@@ -18972,25 +18966,6 @@ function renderNotesArtiste(){
         ${etoilesSaisieHtml('artiste:' + handle, note)}
         <span class="fiche-note-val">${note ? noteTexte(note) + ' / 5' : 'Touche une étoile pour noter'}</span>
         ${note ? `<button type="button" class="lien-discret" onclick="definirNoteArtiste('${escapeAttribute(handle)}', 0)">Retirer</button>` : ''}
-      </div>
-
-      <div class="avis-bloc">
-        ${monAvis ? `<p class="avis-apercu" id="avis-apercu-artiste">${escapeHtml(monAvis)}</p>` : ''}
-        <button type="button" class="lien-discret avis-ouvrir" onclick="basculerVoletAvisArtiste()">
-          ${monAvis ? 'Modifier mon avis' : 'Écrire un avis'}
-        </button>
-
-        <div class="avis-corps" id="avis-corps-artiste" hidden>
-          <textarea id="avis-artiste" rows="3" maxlength="800"
-                    placeholder="Ce que tu penses de cet artiste — visible par tous."></textarea>
-          <div class="inline-actions">
-            <button type="button" class="btn btn-primary" style="padding:9px 16px; font-size:13px;"
-                    onclick="enregistrerAvisArtiste('${escapeAttribute(handle)}')">Publier</button>
-            ${monAvis ? `<button type="button" class="btn btn-ghost" style="padding:9px 16px; font-size:13px;"
-                                 onclick="effacerAvisArtiste('${escapeAttribute(handle)}')">Effacer</button>` : ''}
-          </div>
-          <div class="form-msg" id="avis-msg-artiste"></div>
-        </div>
       </div>`;
   }
 
@@ -18998,84 +18973,14 @@ function renderNotesArtiste(){
     <span class="eyebrow mono">La communauté</span>
     <h3 class="artiste-notes-titre">Ce qu'on en pense</h3>
     ${communaute}
-    ${saisie}
-    ${avisArtisteAutresHtml()}`;
-
-  // Le texte passe par la propriété (pas par le HTML) : aucun caractère ne s'y interprète.
-  const champ = document.getElementById('avis-artiste');
-
-  if(champ){
-    champ.value = brouillon !== null ? brouillon : monAvis;
-
-    if(volet){
-      document.getElementById('avis-corps-artiste').hidden = false;
-      const apercu = document.getElementById('avis-apercu-artiste');
-      if(apercu) apercu.hidden = true;
-    }
-  }
+    ${saisie}`;
 }
 
-// Les avis des autres membres (le sien se lit dans son bloc).
-function avisArtisteAutresHtml(){
+// Écrit la note du membre, ou la retire quand il la reprend. Renvoie vrai si tout s'est bien passé. (Il n'y a plus
+// d'avis écrits sur les artistes : la colonne `avis` de artist_ratings n'est ni lue ni écrite.)
+async function sauverNoteArtiste(handle, rating){
 
-  const avis = notesArtisteCourantes.lignes
-    .filter(n => n.avis && String(n.avis).trim() && !(currentUser && n.user_id === currentUser.id))
-    .slice(0, 8);
-
-  if(!avis.length) return '';
-
-  if(!membresResumes){
-    chargerResumesMembres().then(() => renderNotesArtiste()).catch(() => {});
-    return '';
-  }
-
-  return `
-    <div class="fiche-avis">
-      <h4>Avis</h4>
-      ${avis.map(n => {
-        const membre = membresResumes.get(n.user_id) || {};
-        const photo = safeUrl(membre.avatar_url);
-        return `
-          <article class="fiche-avis-item">
-            <span class="fiche-avis-photo">${photo
-              ? `<img src="${escapeAttribute(photo)}" alt="" loading="lazy">`
-              : escapeHtml(artistInitial(membre.pseudo))}</span>
-            <div>
-              <div class="fiche-avis-tete">
-                <button type="button" onclick="viewProfile('${escapeAttribute(n.user_id)}')">${escapeHtml(membre.pseudo || 'Membre')}</button>
-                ${n.rating ? etoilesHtml(n.rating, 'petite') : ''}
-              </div>
-              <p>${escapeHtml(n.avis)}</p>
-            </div>
-          </article>`;
-      }).join('')}
-    </div>`;
-}
-
-function basculerVoletAvisArtiste(){
-
-  const corps = document.getElementById('avis-corps-artiste');
-  const apercu = document.getElementById('avis-apercu-artiste');
-
-  if(!corps) return;
-
-  corps.hidden = !corps.hidden;
-
-  if(apercu) apercu.hidden = !corps.hidden;
-
-  if(!corps.hidden){
-    const champ = document.getElementById('avis-artiste');
-    if(champ) champ.focus();
-  }
-}
-
-// Écrit la ligne du membre (note et/ou avis), ou la retire quand il n'en reste rien. Renvoie vrai si tout s'est bien
-// passé.
-async function sauverNoteArtiste(handle, rating, avis){
-
-  const propre = String(avis || '').trim();
-
-  if(!rating && !propre){
+  if(!rating){
 
     const { error } = await BD.supprimerNoteArtiste(currentUser.id, handle);
 
@@ -19089,13 +18994,12 @@ async function sauverNoteArtiste(handle, rating, avis){
   const { data, error } = await BD.enregistrerNoteArtiste({
     user_id: currentUser.id,
     artist_handle: handle,
-    rating: rating || null,
-    avis: propre || null
+    rating
   });
 
   if(error) return erreurNoteArtiste(error);
 
-  const ligne = (data && data[0]) || { user_id: currentUser.id, rating: rating || null, avis: propre || null, updated_at: new Date().toISOString() };
+  const ligne = (data && data[0]) || { user_id: currentUser.id, rating, updated_at: new Date().toISOString() };
 
   notesArtisteCourantes.lignes = [ligne].concat(notesArtisteCourantes.lignes.filter(n => n.user_id !== currentUser.id));
   renderNotesArtiste();
@@ -19114,55 +19018,8 @@ async function definirNoteArtiste(handle, demi){
     return;
   }
 
-  const moi = maNoteArtiste();
-
-  await sauverNoteArtiste(handle, demi || null, moi && moi.avis);
+  await sauverNoteArtiste(handle, demi || null);
 }
-
-async function enregistrerAvisArtiste(handle){
-
-  if(!currentUser){
-    openAuthModal('login');
-    return;
-  }
-
-  const champ = document.getElementById('avis-artiste');
-  const msg = document.getElementById('avis-msg-artiste');
-  const moi = maNoteArtiste();
-
-  const texte = champ ? champ.value.trim() : '';
-
-  if(!texte){
-    if(msg){ msg.textContent = 'Écris quelques mots avant de publier.'; msg.className = 'form-msg err'; }
-    return;
-  }
-
-  // Le brouillon est publié : le champ repart de l'avis enregistré.
-  if(champ) champ.value = texte;
-
-  const ok = await sauverNoteArtiste(handle, moi && moi.rating, texte);
-
-  if(ok){
-    const corps = document.getElementById('avis-corps-artiste');
-    if(corps) corps.hidden = true;
-    const apercu = document.getElementById('avis-apercu-artiste');
-    if(apercu) apercu.hidden = false;
-    notifier('Avis publié', { type: 'succes', icone: '✓' });
-  }
-}
-
-async function effacerAvisArtiste(handle){
-
-  if(!currentUser) return;
-
-  const moi = maNoteArtiste();
-
-  const ancien = document.getElementById('avis-artiste');
-  if(ancien) ancien.value = '';
-
-  await sauverNoteArtiste(handle, moi && moi.rating, '');
-}
-
 
 // ---------------- ARTISTE VÉRIFIÉ ----------------
 //
