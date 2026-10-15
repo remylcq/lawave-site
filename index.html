@@ -6117,17 +6117,38 @@ async function toutesLesPages(construire){
 
   const lignes = [];
 
-  for(let debut = 0; ; debut += PAGE_SUPABASE){
+  // Les pages se demandent par groupes de quatre, en même temps : une à une, sept mille profils (huit pages)
+  // attendaient huit allers-retours de suite. On lit les réponses dans l'ordre et on s'arrête à la première page
+  // incomplète ; au pire, trois pages vides ont été demandées pour rien.
+  const GROUPE = 4;
 
-    const { data, error } = await construire()
-      .range(debut, debut + PAGE_SUPABASE - 1);
+  for(let debut = 0; ; debut += PAGE_SUPABASE * GROUPE){
 
-    if(error) return { data: null, error };
+    const demandes = [];
 
-    const page = data || [];
-    lignes.push(...page);
+    for(let k = 0; k < GROUPE; k++){
+      const d = debut + k * PAGE_SUPABASE;
+      demandes.push(construire().range(d, d + PAGE_SUPABASE - 1));
+    }
 
-    if(page.length < PAGE_SUPABASE) break;
+    const reponses = await Promise.all(demandes);
+
+    let fini = false;
+
+    for(const { data, error } of reponses){
+
+      if(error) return { data: null, error };
+
+      const page = data || [];
+      lignes.push(...page);
+
+      if(page.length < PAGE_SUPABASE){
+        fini = true;
+        break;
+      }
+    }
+
+    if(fini) break;
 
     // Garde-fou : une pagination qui ne se termine pas vaut mieux
     // arrêtée que bouclée à l'infini.
@@ -6389,6 +6410,12 @@ const BD = {
     return toutesLesPages(() => supabaseClient.from('submissions')
       .select('artist_handle, status, contact_email, featuring, source')
       .order('catalog_number', { ascending: true, nullsFirst: false }));
+  },
+
+  // Les comptes par artiste, déjà calculés par la base (sql/equipe-comptes-artistes.sql) : 22 000 lignes de moins
+  // à télécharger. { pseudo: { n, d, f, emails } }
+  comptesArtistesEquipe(){
+    return supabaseClient.rpc('equipe_comptes_artistes');
   },
 
   creerSortie(champs){
@@ -21318,14 +21345,24 @@ async function openAdminPanel(){
   renderAdminGreeting(currentAdminName);
   showAdminError('');
 
-  await loadStatsIntoForm();
-  renderForumModeration();
-  await loadArtistSubmissions();
-  await loadApprovedReleases();
-  await loadArtistProfiles();
+  // Les trois listes (soumissions, catalogue, artistes) ont besoin des profils : ils ne sont lus qu'une fois, et les
+  // listes se chargent en même temps au lieu de l'une après l'autre (trois lectures des 7 000 profils de suite).
+  artistesPartages = loadArtists();
+
+  try{
+    await loadStatsIntoForm();
+    renderForumModeration();
+    await Promise.all([loadArtistSubmissions(), loadApprovedReleases(), loadArtistProfiles()]);
+  } finally {
+    artistesPartages = null;
+  }
+
   await loadBugReports();
   chargerCompteVerifications();
 }
+
+// `var` : openAdminPanel peut être appelée avant que le script n'atteigne cette ligne.
+var artistesPartages = null;
 
 async function tryAdminLogin(){
 
@@ -22791,8 +22828,8 @@ async function loadArtistSubmissions(){
 
   try{
 
-    // Les vignettes d'artiste viennent des profils.
-    await loadArtists();
+    // Les vignettes d'artiste viennent des profils (une lecture partagée quand l'espace équipe s'ouvre).
+    await (artistesPartages || loadArtists());
 
     const { data, error } = await BD.sortiesEnAttente();
 
@@ -24196,8 +24233,8 @@ async function loadApprovedReleases(){
 
   try{
 
-    // Les vignettes d'artiste viennent des profils.
-    await loadArtists();
+    // Les vignettes d'artiste viennent des profils (une lecture partagée quand l'espace équipe s'ouvre).
+    await (artistesPartages || loadArtists());
 
     const { data, error, total } = await BD.sortiesValidees();
 
@@ -24667,47 +24704,64 @@ async function loadArtistProfiles(){
 
   try{
 
-    const profils = await loadArtists();
-
-    // Nombre de sorties par artiste, pour situer chaque profil.
-    const { data: sorties } = await BD.sortiesParArtiste();
+    // Les profils (une lecture partagée quand l'espace équipe s'ouvre) et, pour situer chaque profil, le nombre de ses
+    // sorties : les deux se demandent en même temps.
+    const [profils, comptesEquipe] = await Promise.all([
+      artistesPartages || loadArtists(),
+      BD.comptesArtistesEquipe()
+    ]);
 
     artistProfilesComptes = {};
     artistProfilesEmails = {};
     artistProfilesFeats = {};
     artistProfilesDeezer = {};
 
-    (sorties || []).forEach(sortie => {
+    if(!comptesEquipe.error && comptesEquipe.data){
 
-      (Array.isArray(sortie.featuring) ? sortie.featuring : [])
-        .forEach(feat => {
-          if(feat && feat.handle){
-            artistProfilesFeats[feat.handle] =
-              (artistProfilesFeats[feat.handle] || 0) + 1;
+      Object.entries(comptesEquipe.data).forEach(([handle, c]) => {
+        if(c.n) artistProfilesComptes[handle] = c.n;
+        if(c.d) artistProfilesDeezer[handle] = c.d;
+        if(c.f) artistProfilesFeats[handle] = c.f;
+        if(c.emails && c.emails.length) artistProfilesEmails[handle] = c.emails;
+      });
+
+    } else {
+
+      // La fonction n'existe pas encore dans la base : l'ancien calcul, en relisant toutes les sorties (lent).
+      const { data: sorties } = await BD.sortiesParArtiste();
+
+      (sorties || []).forEach(sortie => {
+
+        (Array.isArray(sortie.featuring) ? sortie.featuring : [])
+          .forEach(feat => {
+            if(feat && feat.handle){
+              artistProfilesFeats[feat.handle] =
+                (artistProfilesFeats[feat.handle] || 0) + 1;
+            }
+          });
+
+        if(!sortie.artist_handle) return;
+
+        artistProfilesComptes[sortie.artist_handle] =
+          (artistProfilesComptes[sortie.artist_handle] || 0) + 1;
+
+        if(sortie.source === 'deezer'){
+          artistProfilesDeezer[sortie.artist_handle] =
+            (artistProfilesDeezer[sortie.artist_handle] || 0) + 1;
+        }
+
+        const email = String(sortie.contact_email || '').trim();
+
+        if(email){
+          if(!artistProfilesEmails[sortie.artist_handle]){
+            artistProfilesEmails[sortie.artist_handle] = [];
           }
-        });
-
-      if(!sortie.artist_handle) return;
-
-      artistProfilesComptes[sortie.artist_handle] =
-        (artistProfilesComptes[sortie.artist_handle] || 0) + 1;
-
-      if(sortie.source === 'deezer'){
-        artistProfilesDeezer[sortie.artist_handle] =
-          (artistProfilesDeezer[sortie.artist_handle] || 0) + 1;
-      }
-
-      const email = String(sortie.contact_email || '').trim();
-
-      if(email){
-        if(!artistProfilesEmails[sortie.artist_handle]){
-          artistProfilesEmails[sortie.artist_handle] = [];
+          if(!artistProfilesEmails[sortie.artist_handle].includes(email)){
+            artistProfilesEmails[sortie.artist_handle].push(email);
+          }
         }
-        if(!artistProfilesEmails[sortie.artist_handle].includes(email)){
-          artistProfilesEmails[sortie.artist_handle].push(email);
-        }
-      }
-    });
+      });
+    }
 
 
     chargerBannis();
