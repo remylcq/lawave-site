@@ -469,7 +469,7 @@
      fine sous la loupe, qui s'éclaircit quand on s'y trouve. */
   .cat-page{padding-top:8px;}
   .cat-recherche{
-    position:relative; max-width:340px; margin:0 auto 40px; color:var(--muted);
+    position:relative; max-width:340px; margin:0 auto 22px; color:var(--muted);
   }
   .cat-recherche svg{
     position:absolute; left:2px; top:50%; width:16px; height:16px;
@@ -499,20 +499,66 @@
     transition:background-color 600000s 0s, color 600000s 0s;
   }
 
-  /* Le bouton qui charge des sorties plus anciennes : petit, sans
-     remplissage, pour rester derrière les pochettes. */
-  .cat-reste{margin-top:32px; text-align:center;}
+  /* Les filtres : des pastilles sobres, sur une ligne qui passe à la suivante quand la place manque. */
+  .cat-filtres{
+    display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center;
+    margin:0 auto 14px; scroll-margin-top:96px;
+  }
+  .cat-seg{display:inline-flex; border:1px solid var(--line); border-radius:999px; padding:3px; gap:2px;}
+  .cat-seg button{
+    padding:7px 14px; border:0; border-radius:999px; background:transparent;
+    font-size:13px; font-weight:500; color:var(--muted);
+    transition:color .2s var(--ease), background .2s var(--ease);
+  }
+  .cat-seg button:hover{color:var(--ink);}
+  .cat-seg button.on{background:rgba(255,255,255,0.12); color:var(--ink);}
+  .cat-select{
+    -webkit-appearance:none; appearance:none; cursor:pointer;
+    padding:9px 34px 9px 14px; border-radius:999px; border:1px solid var(--line);
+    background:transparent url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a9199' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 11px center / 14px;
+    font:inherit; font-size:13px; font-weight:500; color:var(--ink-soft);
+    transition:border-color .2s var(--ease), color .2s var(--ease);
+  }
+  .cat-select:hover{border-color:rgba(255,255,255,0.28); color:var(--ink);}
+  .cat-select:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
+  .cat-select[hidden]{display:none;}
+  .cat-select option{background:#10141a; color:#F4F5F6;}
+  .cat-puce{
+    padding:9px 14px; border-radius:999px; border:1px solid var(--line); background:transparent;
+    font-size:13px; font-weight:500; color:var(--ink-soft);
+    transition:border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease);
+  }
+  .cat-puce:hover{border-color:rgba(255,255,255,0.28); color:var(--ink);}
+  .cat-puce[aria-pressed="true"]{border-color:var(--blue); color:var(--ink); background:rgba(20,137,222,0.16);}
+  .cat-reinit{padding:9px 6px; border:0; background:transparent; font-size:13px; color:var(--muted); text-decoration:underline; text-underline-offset:3px;}
+  .cat-reinit:hover{color:var(--ink);}
+  .cat-reinit[hidden]{display:none;}
+  .cat-compte{margin:0 0 18px; text-align:center; font-size:12px; color:var(--muted); min-height:18px;}
+  .cat-grid{transition:opacity .2s var(--ease);}
+  .cat-grid.charge{opacity:.45; pointer-events:none;}
+
+  /* Les pages : des numéros, la page courante pleine. */
+  .cat-pages{display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:6px; margin-top:36px;}
+  .cat-page-b{
+    min-width:38px; height:38px; padding:0 10px; border-radius:999px; border:1px solid var(--line);
+    background:transparent; font-size:13px; font-weight:500; color:var(--ink-soft);
+    transition:border-color .2s var(--ease), color .2s var(--ease), background .2s var(--ease);
+  }
+  .cat-page-b:hover:not(:disabled){border-color:rgba(255,255,255,0.28); color:var(--ink);}
+  .cat-page-b.on{background:var(--blue); border-color:var(--blue); color:#fff;}
+  .cat-page-b:disabled{opacity:.35; cursor:default;}
+  .cat-page-b:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
+  .cat-page-sep{padding:0 2px; color:var(--muted);}
+  /* « Réessayer », dans le message d'erreur du catalogue. */
   .cat-plus{
-    padding:10px 22px; border-radius:999px; border:1px solid var(--line);
-    background:transparent; color:var(--ink-soft);
-    font-size:13px; font-weight:500; letter-spacing:.02em;
-    transition:border-color .25s var(--ease), color .25s var(--ease), background .25s var(--ease);
+    margin-left:10px; padding:8px 18px; border-radius:999px; border:1px solid var(--line);
+    background:transparent; color:var(--ink-soft); font-size:13px; font-weight:500;
   }
-  .cat-plus:hover{
-    border-color:rgba(255,255,255,0.28); color:var(--ink);
-    background:rgba(255,255,255,0.04);
+  .cat-plus:hover{border-color:rgba(255,255,255,0.28); color:var(--ink);}
+  @media (max-width:620px){
+    .cat-select{flex:1 1 140px;}
+    .cat-seg{flex:1 1 100%; justify-content:center;}
   }
-  .cat-plus:focus-visible{outline:2px solid var(--blue); outline-offset:2px;}
 
   /* Un titre pour les lecteurs d'écran, sans rien changer à l'aspect. */
   .sr-only{
@@ -4106,8 +4152,10 @@
                oninput="onRechercheCatalogue()">
       </form>
 
+      <div class="cat-filtres" id="catalogueFiltres"></div>
+      <p class="cat-compte" id="catalogueCompte" aria-live="polite"></p>
       <div class="cat-grid" id="catalogueGrid"></div>
-      <div class="cat-reste" id="catalogueReste"></div>
+      <nav class="cat-pages" id="cataloguePages" aria-label="Pages du catalogue"></nav>
     </section>
   </section>
 
@@ -6223,6 +6271,22 @@ const BD = {
     return { data: Array.isArray(data) ? data : [], error };
   },
 
+  // Une page du catalogue, selon les filtres (voir sql/catalogue-filtres.sql).
+  async catalogueListe(e, limite, decalage){
+    const { data, error } = await supabaseClient.rpc('catalogue_liste', {
+      p_q: e.q || null,
+      p_type: e.type || null,
+      p_style: e.style || null,
+      p_annee: e.annee ? Number(e.annee) : null,
+      p_mois: e.mois ? Number(e.mois) : null,
+      p_origine: e.origine || null,
+      p_tri: e.tri || 'recent',
+      p_limite: limite,
+      p_decalage: decalage
+    });
+    return { data, error };
+  },
+
   comptesArtistes(){
     return supabaseClient.rpc('catalogue_comptes_artistes');
   },
@@ -6870,6 +6934,7 @@ const BD = {
   }
 
   if(pageId === 'catalogue' || pageId === 'home') renderCatalogueSiPerime();
+  if(pageId === 'catalogue') catalogueEntrer();
   if(pageId === 'admin'){ autoOpenAdminIfAllowed(); renderForumModeration(); }
   if(pageId === 'about') renderAboutStats();
   // Une vidéo lue sur place se tairait avec la page : sans cela, son
@@ -13345,166 +13410,283 @@ function artistInitial(nom){
 // ---------------- CATALOGUE RENDER ----------------
 let catalogueData = [];
 
-// Le catalogue s'affichait d'un bloc. À trente sorties c'était juste ;
-// avec un fonds importé il atteignait 350 000 pixels de haut et
-// demandait près de quatre mille images — une page qu'on ne peut ni
-// parcourir ni charger. Il s'ouvre donc sur une page ; le bouton
-// « Afficher plus » ajoute les sorties plus anciennes, et la recherche
-// donne accès à tout le reste.
+// Le catalogue ne s'affiche plus d'un bloc ni par « Afficher plus » : avec des dizaines de milliers de sorties,
+// il se parcourt par pages numérotées. Le serveur découpe la liste (catalogue_liste) selon les filtres choisis —
+// type, style, année, mois, origine, ordre — et la recherche ; seule la page affichée est lue.
 const CATALOGUE_PAR_PAGE = 60;
 
-let catalogueTrie = [];
-let catalogueVisibles = CATALOGUE_PAR_PAGE;
+let catalogueTrie = [];   // les sorties lues à l'ouverture du site : l'accueil en montre les quatre premières
+
+// Des « var » : goTo peut ouvrir le catalogue (adresse #catalogue) avant que le script n'atteigne cet endroit.
+var catalogueEtat = { q: '', type: '', style: '', annee: '', mois: '', origine: '', tri: 'recent', page: 1, total: 0, charge: false, luLe: 0 };
+var catalogueJeton = 0;
+var catalogueMinuteur = null;
+
+const CATALOGUE_STYLES = [
+  ['', 'Tous les styles'], ['rap', 'Rap & hip-hop'], ['rnb', 'R&B & soul'], ['pop', 'Pop'],
+  ['electro', 'Électro & dance'], ['afro', 'Afro'], ['reggae', 'Reggae'], ['rock', 'Rock & metal'], ['autre', 'Autres']
+];
+
+const CATALOGUE_MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+const CATALOGUE_TRIS = [['recent', 'Plus récentes'], ['ancien', 'Plus anciennes'], ['az', 'Titre A → Z']];
 
 
-// Sans tenir compte des accents : « cherie » doit retrouver « Chérie »,
-// et l'import peut y verser des milliers de titres français.
-function catalogueFiltre(){
+// Les filtres se dessinent une fois, à la première visite de la page.
+function catalogueDessinerFiltres(){
 
-  const requete = texteNu(texteRecherche('rechercheCataloguePublic'));
+  const zone = document.getElementById('catalogueFiltres');
 
-  if(!requete) return catalogueTrie;
+  if(!zone || zone.dataset.pret) return;
 
-  const serveur = catalogueRecherche && catalogueRecherche.q === requete ? catalogueRecherche.ids : null;
+  zone.dataset.pret = '1';
 
-  return catalogueData.filter(sortie =>
-    texteNu(sortie.title).includes(requete) ||
-    texteNu(sortie.artist).includes(requete) ||
-    (sortie.featuring || []).some(feat =>
-      texteNu(feat.nom).includes(requete)) ||
-    (serveur && serveur.has(sortie.id))
-  ).sort(comparerSorties);
-}
+  const annees = [];
+  for(let a = new Date().getFullYear(); a >= 2000; a--) annees.push(a);
 
+  zone.innerHTML = `
+    <div class="cat-seg" role="group" aria-label="Type de sortie">
+      <button type="button" class="on" data-cat-type="">Tout</button>
+      <button type="button" data-cat-type="Single">Singles</button>
+      <button type="button" data-cat-type="Projet">Projets</button>
+    </div>
+    <select class="cat-select" data-cat="style" aria-label="Style">
+      ${CATALOGUE_STYLES.map(([valeur, libelle]) => `<option value="${valeur}">${escapeHtml(libelle)}</option>`).join('')}
+    </select>
+    <select class="cat-select" data-cat="annee" aria-label="Année de sortie">
+      <option value="">Toutes les années</option>
+      ${annees.map(a => `<option value="${a}">${a}</option>`).join('')}
+    </select>
+    <select class="cat-select" data-cat="mois" aria-label="Mois de sortie" hidden>
+      <option value="">Tous les mois</option>
+      ${CATALOGUE_MOIS.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('')}
+    </select>
+    <select class="cat-select" data-cat="tri" aria-label="Ordre">
+      ${CATALOGUE_TRIS.map(([valeur, libelle]) => `<option value="${valeur}">${escapeHtml(libelle)}</option>`).join('')}
+    </select>
+    <button type="button" class="cat-puce" data-cat-origine aria-pressed="false">Choisies par La Wave</button>
+    <button type="button" class="cat-reinit" data-cat-reinit hidden>Réinitialiser</button>`;
 
-// Le bouton sous la grille : présent tant qu'il reste des sorties plus
-// anciennes que celles affichées (en mémoire, ou chez le serveur).
-function renderSuiteCatalogue(total){
+  zone.addEventListener('click', ev => {
 
-  const reste = document.getElementById('catalogueReste');
+    const type = ev.target.closest('[data-cat-type]');
 
-  if(!reste) return;
-
-  const requete = texteNu(texteRecherche('rechercheCataloguePublic'));
-
-  const serveurEncore = requete
-    ? requete.length >= 2 && !(catalogueRecherche && catalogueRecherche.q === requete && catalogueRecherche.fin)
-    : !catalogueFinServeur;
-
-  const encore = total > catalogueVisibles || serveurEncore;
-  const present = !!reste.querySelector('.cat-plus');
-
-  // Le bouton n'est recréé que quand il apparaît : le remplacer à
-  // chaque clic ferait perdre le focus à qui l'actionne au clavier.
-  if(encore && !present){
-    reste.innerHTML = `<button type="button" class="cat-plus"
-               onclick="voirPlusCatalogue()">Afficher plus</button>`;
-  } else if(!encore && present){
-    reste.innerHTML = '';
-  }
-}
-
-
-// Seules les nouvelles pochettes s'ajoutent à la grille : la refaire
-// en entier rejouerait l'animation d'entrée des soixante premières.
-async function voirPlusCatalogue(){
-
-  const grid = document.getElementById('catalogueGrid');
-  const bouton = document.querySelector('#catalogueReste .cat-plus');
-  const requete = texteNu(texteRecherche('rechercheCataloguePublic'));
-
-  // Les pochettes en mémoire ne suffisent plus pour la page suivante : on lit la suite chez le serveur.
-  if(catalogueVisibles + CATALOGUE_PAR_PAGE > catalogueFiltre().length){
-
-    if(bouton) bouton.disabled = true;
-
-    try{
-      if(requete) await chercherPlusCatalogue(requete);
-      else await chargerPlusCatalogue();
-    }catch(erreur){
-      console.warn('⚠️ Suite du catalogue illisible :', erreur);
-      catalogueFinServeur = true;
+    if(type){
+      catalogueEtat.type = type.dataset.catType;
+    } else if(ev.target.closest('[data-cat-origine]')){
+      catalogueEtat.origine = catalogueEtat.origine ? '' : 'wave';
+    } else if(ev.target.closest('[data-cat-reinit]')){
+      Object.assign(catalogueEtat, { q: '', type: '', style: '', annee: '', mois: '', origine: '', tri: 'recent' });
+      const champ = document.getElementById('rechercheCataloguePublic');
+      if(champ) champ.value = '';
+    } else {
+      return;
     }
 
-    if(bouton) bouton.disabled = false;
+    catalogueEtat.page = 1;
+    catalogueMajFiltres();
+    catalogueCharger();
+  });
+
+  zone.addEventListener('change', ev => {
+
+    const liste = ev.target.closest('select[data-cat]');
+
+    if(!liste) return;
+
+    catalogueEtat[liste.dataset.cat] = liste.value;
+
+    if(liste.dataset.cat === 'annee' && !liste.value) catalogueEtat.mois = '';
+
+    catalogueEtat.page = 1;
+    catalogueMajFiltres();
+    catalogueCharger();
+  });
+
+  const pages = document.getElementById('cataloguePages');
+
+  if(pages){
+    pages.addEventListener('click', ev => {
+
+      const bouton = ev.target.closest('[data-page]');
+
+      if(!bouton || bouton.disabled) return;
+
+      catalogueAllerPage(Number(bouton.dataset.page));
+    });
   }
 
-  if(!grid || !grid.querySelector('.cat-tile')){
-    catalogueVisibles += CATALOGUE_PAR_PAGE;
-    renderCatalogueGrille();
-    return;
-  }
-
-  const trouvees = catalogueFiltre();
-  const deja = Math.min(catalogueVisibles, trouvees.length);
-
-  catalogueVisibles += CATALOGUE_PAR_PAGE;
-
-  grid.insertAdjacentHTML(
-    'beforeend',
-    trouvees.slice(deja, catalogueVisibles).map(tileHtml).join('')
-  );
-
-  renderSuiteCatalogue(trouvees.length);
+  catalogueMajFiltres();
 }
 
 
-function renderCatalogueGrille(){
+// Ce que l'on voit des filtres suit l'état : le type et l'origine allumés, le mois qui n'apparaît qu'avec une année,
+// « Réinitialiser » dès qu'un filtre s'écarte de l'état d'origine.
+function catalogueMajFiltres(){
+
+  const zone = document.getElementById('catalogueFiltres');
+
+  if(!zone || !zone.dataset.pret) return;
+
+  const e = catalogueEtat;
+
+  zone.querySelectorAll('[data-cat-type]').forEach(b => b.classList.toggle('on', b.dataset.catType === e.type));
+
+  zone.querySelectorAll('select[data-cat]').forEach(liste => {
+    liste.value = e[liste.dataset.cat];
+    if(liste.dataset.cat === 'mois') liste.hidden = !e.annee;
+  });
+
+  const puce = zone.querySelector('[data-cat-origine]');
+  puce.setAttribute('aria-pressed', e.origine ? 'true' : 'false');
+
+  zone.querySelector('[data-cat-reinit]').hidden =
+    !(e.q || e.type || e.style || e.annee || e.mois || e.origine || e.tri !== 'recent');
+}
+
+
+// La page demandée, lue chez le serveur. Les réponses qui arrivent dans le désordre (on tape vite, on clique vite)
+// sont écartées : seule la dernière demande compte.
+async function catalogueCharger(){
 
   const grid = document.getElementById('catalogueGrid');
 
   if(!grid) return;
 
-  if(!catalogueTrie.length){
+  const jeton = ++catalogueJeton;
+  const e = catalogueEtat;
+
+  grid.classList.add('charge');
+
+  const { data, error } = await BD.catalogueListe(e, CATALOGUE_PAR_PAGE, (e.page - 1) * CATALOGUE_PAR_PAGE);
+
+  if(jeton !== catalogueJeton) return;
+
+  grid.classList.remove('charge');
+
+  if(error || !data){
     grid.innerHTML = `
       <div class="empty-state">
-        Aucune sortie publiée pour l'instant.
-        Les prochaines validations apparaîtront ici.
+        Le catalogue ne répond pas pour le moment.
+        <button type="button" class="cat-plus" onclick="catalogueCharger()">Réessayer</button>
       </div>`;
-    renderSuiteCatalogue(0);
+    document.getElementById('cataloguePages').innerHTML = '';
+    document.getElementById('catalogueCompte').textContent = '';
     return;
   }
 
-  const trouvees = catalogueFiltre();
+  e.total = data.total || 0;
+  e.charge = true;
+  e.luLe = Date.now();
 
-  if(!trouvees.length){
+  // Un filtre a réduit la liste pendant qu'on était loin dans les pages : on revient à la dernière.
+  const nbPages = Math.max(1, Math.ceil(e.total / CATALOGUE_PAR_PAGE));
 
-    const requete = texteNu(texteRecherche('rechercheCataloguePublic'));
-    const enAttente = requete.length >= 2 && !(catalogueRecherche && catalogueRecherche.q === requete);
-
-    grid.innerHTML = `
-      <div class="empty-state">
-        ${enAttente ? 'Recherche…' : 'Aucune sortie ne correspond à cette recherche.'}
-      </div>`;
-    renderSuiteCatalogue(0);
-    return;
+  if(e.page > nbPages){
+    e.page = nbPages;
+    return catalogueCharger();
   }
 
-  grid.innerHTML = trouvees.slice(0, catalogueVisibles).map(tileHtml).join('');
+  const sorties = fusionnerSorties(data.lignes, true);
 
-  renderSuiteCatalogue(trouvees.length);
+  grid.innerHTML = sorties.length
+    ? sorties.map(tileHtml).join('')
+    : `<div class="empty-state">
+         Aucune sortie ne correspond${e.q ? ' à cette recherche' : ' à ces filtres'}.
+       </div>`;
+
+  document.getElementById('catalogueCompte').textContent = e.total
+    ? e.total.toLocaleString('fr-FR') + (e.total > 1 ? ' sorties' : ' sortie')
+    : '';
+
+  catalogueRendrePages();
 }
 
 
-// La recherche repart de la première page : sinon, chercher après
-// avoir déroulé tout le catalogue affichait d'emblée mille résultats.
-function onRechercheCatalogue(){
+// « ‹ 1 … 4 5 6 … 388 › » : la première, la dernière, et ce qui entoure la page courante.
+function catalogueRendrePages(){
 
-  catalogueVisibles = CATALOGUE_PAR_PAGE;
-  renderCatalogueGrille();
+  const zone = document.getElementById('cataloguePages');
 
-  // Le serveur cherche dans tout le catalogue, un instant après la dernière touche.
-  clearTimeout(catalogueRechercheMinuteur);
+  if(!zone) return;
 
-  const brut = texteRecherche('rechercheCataloguePublic');
+  const nb = Math.max(1, Math.ceil(catalogueEtat.total / CATALOGUE_PAR_PAGE));
+  const p = catalogueEtat.page;
 
-  if(texteNu(brut).length < 2){
-    catalogueRechercheJeton++;
-    catalogueRecherche = null;
+  if(nb < 2){
+    zone.innerHTML = '';
     return;
   }
 
-  catalogueRechercheMinuteur = setTimeout(() => chercherCatalogue(brut), 260);
+  const numeros = [...new Set([1, nb, p - 2, p - 1, p, p + 1, p + 2])]
+    .filter(n => n >= 1 && n <= nb)
+    .sort((a, b) => a - b);
+
+  let html = `<button type="button" class="cat-page-b" data-page="${p - 1}" aria-label="Page précédente"${p <= 1 ? ' disabled' : ''}>‹</button>`;
+  let precedent = 0;
+
+  numeros.forEach(n => {
+    if(n - precedent > 1) html += '<span class="cat-page-sep" aria-hidden="true">…</span>';
+    html += `<button type="button" class="cat-page-b${n === p ? ' on' : ''}" data-page="${n}"${n === p ? ' aria-current="page"' : ''}>${n}</button>`;
+    precedent = n;
+  });
+
+  html += `<button type="button" class="cat-page-b" data-page="${p + 1}" aria-label="Page suivante"${p >= nb ? ' disabled' : ''}>›</button>`;
+
+  zone.innerHTML = html;
+}
+
+
+function catalogueAllerPage(n){
+
+  const nb = Math.max(1, Math.ceil(catalogueEtat.total / CATALOGUE_PAR_PAGE));
+
+  if(!(n >= 1 && n <= nb) || n === catalogueEtat.page) return;
+
+  catalogueEtat.page = n;
+
+  // On revient en haut de la liste : la nouvelle page se lit depuis ses premières pochettes.
+  const haut = document.getElementById('catalogueFiltres');
+  if(haut) haut.scrollIntoView({ block: 'start' });
+
+  catalogueCharger();
+}
+
+
+// La recherche repart de la première page, un instant après la dernière touche.
+function onRechercheCatalogue(){
+
+  catalogueEtat.q = texteRecherche('rechercheCataloguePublic');
+  catalogueEtat.page = 1;
+  catalogueMajFiltres();
+
+  clearTimeout(catalogueMinuteur);
+  catalogueMinuteur = setTimeout(catalogueCharger, 260);
+}
+
+
+// À l'ouverture de la page : la première lecture, si aucune n'est en route.
+function catalogueEntrer(){
+
+  // goTo peut passer ici avant que le script n'ait défini l'état : la lecture se fera à la fin du chargement.
+  if(!catalogueEtat) return;
+
+  catalogueDessinerFiltres();
+
+  if(!catalogueEtat.charge && !catalogueEnCours) catalogueCharger();
+}
+
+
+// Les sorties de l'ouverture du site ont été relues (validation de l'équipe, nouvelle sortie…) : la page affichée
+// aussi, si on la regarde ; sinon elle se relira à la prochaine visite.
+function catalogueRafraichir(){
+
+  catalogueDessinerFiltres();
+
+  const page = document.getElementById('page-catalogue');
+
+  if(page && page.classList.contains('active')) catalogueCharger();
+  else catalogueEtat.charge = false;
 }
 
 // La pochette s'ouvre aussi au clavier (Tab puis Entrée ou Espace) : une
@@ -13627,12 +13809,6 @@ function sortieDepuisLigne(submission){
 }
 
 const CATALOGUE_AMORCE = 240;          // sorties lues à l'ouverture (les plus récentes)
-const CATALOGUE_PAGE_SERVEUR = 120;    // sorties lues à chaque « Afficher plus » au-delà de la mémoire
-let catalogueDecalageServeur = 0;      // combien de sorties du catalogue, dans l'ordre, ont déjà été lues
-let catalogueFinServeur = false;       // le serveur n'en a plus de plus anciennes
-let catalogueRecherche = null;         // { q, ids, fin, decalage } : la dernière recherche faite au serveur
-let catalogueRechercheMinuteur = null;
-let catalogueRechercheJeton = 0;
 
 // Date de sortie, la plus récente d'abord, puis numéro de catalogue.
 function comparerSorties(a, b){
@@ -13674,10 +13850,6 @@ function fusionnerSorties(lignes, extra){
   return rendues;
 }
 
-function reconstruireCatalogueTrie(){
-  catalogueTrie = catalogueData.filter(sortie => !sortie.extra).sort(comparerSorties);
-}
-
 // Ces sorties sont-elles en mémoire ? Sinon on les lit (collection d'un membre, fiche ouverte par son adresse...).
 async function assurerSorties(ids){
 
@@ -13706,63 +13878,6 @@ async function assurerSortiesArtiste(handle){
 
   const { data } = await BD.sortiesDeLArtiste(handle);
   fusionnerSorties(data, true);
-}
-
-// Les sorties plus anciennes que celles déjà lues : la suite d'« Afficher plus ».
-async function chargerPlusCatalogue(){
-
-  if(catalogueFinServeur) return;
-
-  const { data, error } = await BD.sortiesPage(catalogueDecalageServeur, CATALOGUE_PAGE_SERVEUR);
-
-  if(error) throw error;
-
-  catalogueDecalageServeur += (data || []).length;
-  catalogueFinServeur = (data || []).length < CATALOGUE_PAGE_SERVEUR;
-
-  fusionnerSorties(data, false);
-  reconstruireCatalogueTrie();
-}
-
-// La recherche : sur ce qui est en mémoire tout de suite, puis sur tout le catalogue dès que le serveur répond.
-async function chercherCatalogue(brut){
-
-  const q = texteNu(brut);
-  const jeton = ++catalogueRechercheJeton;
-
-  if(q.length < 2) return;
-
-  const { data, error } = await BD.catalogueChercher(brut, 120, 0);
-
-  if(jeton !== catalogueRechercheJeton) return;
-
-  // La fonction n'existe pas (sql/catalogue-pagine.sql pas encore passé) : la mémoire suffit.
-  if(error){
-    catalogueRecherche = { q, ids: new Set(), fin: true, decalage: 0 };
-    renderCatalogueGrille();
-    return;
-  }
-
-  const trouvees = fusionnerSorties(data, true);
-
-  catalogueRecherche = { q, ids: new Set(trouvees.map(sortie => sortie.id)), fin: data.length < 120, decalage: data.length };
-  renderCatalogueGrille();
-}
-
-async function chercherPlusCatalogue(q){
-
-  const r = catalogueRecherche;
-
-  if(!r || r.q !== q || r.fin) return;
-
-  const { data, error } = await BD.catalogueChercher(texteRecherche('rechercheCataloguePublic'), 120, r.decalage);
-
-  if(error){ r.fin = true; return; }
-
-  fusionnerSorties(data, true).forEach(sortie => r.ids.add(sortie.id));
-
-  r.decalage += data.length;
-  r.fin = data.length < 120;
 }
 
 async function chargerEtAfficherCatalogue(){
@@ -13820,8 +13935,6 @@ const list = (data || [])
     // « catalogue » est remplacée par cette lecture.
     const lues = new Set(list.map(sortie => sortie.id));
     catalogueData = list.concat(catalogueData.filter(sortie => !lues.has(sortie.id)));
-    catalogueDecalageServeur = decalage || 0;
-    catalogueFinServeur = !!fin;
     catalogueLuLe = Date.now();
 
 
@@ -13841,8 +13954,7 @@ const list = (data || [])
     // ==========================================
 
     catalogueTrie = sorted;
-    catalogueVisibles = CATALOGUE_PAR_PAGE;
-    renderCatalogueGrille();
+    catalogueRafraichir();
 
 
     // ==========================================
