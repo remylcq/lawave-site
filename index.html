@@ -4340,10 +4340,10 @@
             <input type="text" id="f-artist" maxlength="120"
                    placeholder="Nom de l'artiste">
             <input type="text" id="f-instagram"
-                   placeholder="@pseudo ou lien Instagram — facultatif">
+                   placeholder="@pseudo ou lien Instagram">
             <div class="cover-drop" id="f-artiste-photo-drop"
                  onclick="ouvrirChoixPhotoArtiste('f')">
-              <span>Photo de l'artiste — facultatif</span>
+              <span>Photo de l'artiste — obligatoire</span>
             </div>
             <p style="font-size:12px; color:var(--muted); margin:8px 0 12px;">
               Elle sera proposée à l'équipe, qui la validera avec la sortie.
@@ -6290,7 +6290,6 @@ const BD = {
     const { data, error } = await supabaseClient.rpc('catalogue_liste', {
       p_q: e.q || null,
       p_type: e.type || null,
-      p_style: e.style || null,
       p_annee: e.annee ? Number(e.annee) : null,
       p_mois: e.mois ? Number(e.mois) : null,
       p_origine: e.origine || null,
@@ -12605,6 +12604,8 @@ function poserPhotoNouvelArtiste(ctx, dataUrl){
       `<img class="cover-preview" style="border-radius:50%; max-width:96px;"
             src="${escapeAttribute(dataUrl)}">Cliquer pour remplacer`;
   }
+
+  if(ctx === 'f' && typeof updateSubmitButtonState === 'function') updateSubmitButtonState();
 }
 
 
@@ -12616,8 +12617,11 @@ function effacerPhotoNouvelArtiste(ctx){
 
   if(drop){
     drop.classList.remove('has-file');
-    drop.innerHTML = `<span>Photo de l'artiste — facultatif</span>`;
+    // Obligatoire pour le formulaire public ; facultative pour l'ajout manuel de l'équipe.
+    drop.innerHTML = `<span>Photo de l'artiste — ${ctx === 'f' ? 'obligatoire' : 'facultatif'}</span>`;
   }
+
+  if(ctx === 'f' && typeof updateSubmitButtonState === 'function') updateSubmitButtonState();
 }
 
 
@@ -12827,7 +12831,7 @@ function choisirArtiste(handle, ctx){
                         autocomplete="off"
                         oninput="document.getElementById('${config.insta}').value = this.value; apresChoixArtiste('${ctx}');">
                  <p style="font-size:12px; color:var(--muted); margin:8px 0 0;">
-                   Facultatif. Si tu le connais, il complétera son
+                   On ne l'a pas encore. Renseigne-le : il complétera son
                    profil une fois la sortie validée.
                  </p>
                </div>`
@@ -12898,15 +12902,23 @@ function validerNouvelArtiste(ctx){
   const url = normalizeInstagramUrl(document.getElementById(config.insta).value);
 
   // L'Instagram est facultatif : sans lui, le pseudo du profil se déduit du nom.
-  const handle = instagramHandle(url) || handleDepuisNom(nom);
+  // Formulaire public : l'Instagram et la photo sont obligatoires. L'ajout manuel de l'équipe, lui, s'en passe (le
+  // pseudo se déduit alors du nom).
+  const public_ = ctx === 'f';
+  const handle = instagramHandle(url) || (public_ ? null : handleDepuisNom(nom));
   const msg = document.getElementById(config.msg);
 
-  if(!nom || !handle){
+  const manque = !nom ? "Il faut le nom de l'artiste."
+    : !handle ? "Il faut l'Instagram de l'artiste : c'est son pseudo qui sert de clé à son profil."
+    : (public_ && !photoNouvelArtiste.f && !artistsByHandle[handle]) ? "Il faut une photo de l'artiste."
+    : '';
+
+  if(manque){
     if(msg){
-      msg.textContent = "Il faut au moins le nom de l'artiste.";
+      msg.textContent = manque;
       msg.className = 'form-msg err';
     }
-    placerLeCurseur(document.getElementById(config.nom));
+    placerLeCurseur(document.getElementById(!nom ? config.nom : config.insta));
     return;
   }
 
@@ -13454,14 +13466,9 @@ const CATALOGUE_PAR_PAGE = 60;
 let catalogueTrie = [];   // les sorties lues à l'ouverture du site : l'accueil en montre les quatre premières
 
 // Des « var » : goTo peut ouvrir le catalogue (adresse #catalogue) avant que le script n'atteigne cet endroit.
-var catalogueEtat = { q: '', type: '', style: '', annee: '', mois: '', origine: '', tri: 'recent', page: 1, total: 0, charge: false, luLe: 0 };
+var catalogueEtat = { q: '', type: '', annee: '', mois: '', origine: '', tri: 'recent', page: 1, total: 0, charge: false, luLe: 0 };
 var catalogueJeton = 0;
 var catalogueMinuteur = null;
-
-const CATALOGUE_STYLES = [
-  ['', 'Tous les styles'], ['rap', 'Rap & hip-hop'], ['rnb', 'R&B & soul'], ['pop', 'Pop'],
-  ['electro', 'Électro & dance'], ['afro', 'Afro'], ['reggae', 'Reggae'], ['rock', 'Rock & metal'], ['autre', 'Autres']
-];
 
 const CATALOGUE_MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 
@@ -13486,9 +13493,6 @@ function catalogueDessinerFiltres(){
       <button type="button" data-cat-type="Single">Singles</button>
       <button type="button" data-cat-type="Projet">Projets</button>
     </div>
-    <select class="cat-select" data-cat="style" aria-label="Style">
-      ${CATALOGUE_STYLES.map(([valeur, libelle]) => `<option value="${valeur}">${escapeHtml(libelle)}</option>`).join('')}
-    </select>
     <select class="cat-select" data-cat="annee" aria-label="Année de sortie">
       <option value="">Toutes les années</option>
       ${annees.map(a => `<option value="${a}">${a}</option>`).join('')}
@@ -13512,7 +13516,7 @@ function catalogueDessinerFiltres(){
     } else if(ev.target.closest('[data-cat-origine]')){
       catalogueEtat.origine = catalogueEtat.origine ? '' : 'wave';
     } else if(ev.target.closest('[data-cat-reinit]')){
-      Object.assign(catalogueEtat, { q: '', type: '', style: '', annee: '', mois: '', origine: '', tri: 'recent' });
+      Object.assign(catalogueEtat, { q: '', type: '', annee: '', mois: '', origine: '', tri: 'recent' });
       const champ = document.getElementById('rechercheCataloguePublic');
       if(champ) champ.value = '';
     } else {
@@ -13577,7 +13581,7 @@ function catalogueMajFiltres(){
   puce.setAttribute('aria-pressed', e.origine ? 'true' : 'false');
 
   zone.querySelector('[data-cat-reinit]').hidden =
-    !(e.q || e.type || e.style || e.annee || e.mois || e.origine || e.tri !== 'recent');
+    !(e.q || e.type || e.annee || e.mois || e.origine || e.tri !== 'recent');
 }
 
 
@@ -20462,6 +20466,16 @@ function handleSain(valeur){
 // Le pseudo d'un artiste qui n'a pas (ou pas encore) d'Instagram : son nom sans accents, espaces ni ponctuation
 // (« Devine Carama » → devinecarama), comme pour les artistes importés de Deezer. Le même nom retombe donc sur
 // la même fiche, au lieu d'en créer une seconde.
+// Formulaire public : un artiste déjà au catalogue a sa photo ; un nouvel artiste doit en proposer une. `instagram`
+// est ce que contient le champ (lien ou pseudo) : il sert à retrouver l'artiste quand rien n'a été choisi dans la liste.
+function artistePhotoOk(instagram){
+
+  const handle = artisteChoisi.f || instagramHandle(normalizeInstagramUrl(instagram));
+
+  return !!(photoNouvelArtiste.f || (handle && artistsByHandle[handle]));
+}
+
+
 function handleDepuisNom(nom){
   return handleSain(texteNu(nom).replace(/[^a-z0-9]/g, '')) || null;
 }
@@ -20621,7 +20635,7 @@ function updateSubmitButtonState(){
 
   const faites = {
     titre:   !!title,
-    artiste: !!artist,
+    artiste: !!(artist && instagram && artistePhotoOk(instagram)),
     cover:   !!coverDataUrl,
     liens:   !!link,
     date:    !!releaseDate,
@@ -20712,10 +20726,12 @@ if(
   !link ||
   !email ||
   !releaseDate ||
+  !instagram ||
+  !artistePhotoOk(instagram) ||
   !coverDataUrl
 ){
 msg.textContent =
-  "Merci de remplir le titre, l'artiste, l'e-mail et la date, d'indiquer au moins un lien d'écoute et d'ajouter une cover avant d'envoyer.";
+  "Merci de remplir le titre, l'artiste (avec son Instagram et sa photo), l'e-mail et la date, d'indiquer au moins un lien d'écoute et d'ajouter une cover avant d'envoyer.";
     msg.className = 'form-msg err';
     return;
   }
