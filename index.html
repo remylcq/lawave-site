@@ -620,6 +620,9 @@
   .sel-ligne .sel-actions{display:flex; gap:8px;}
   .sel-ligne .sel-actions .btn{padding:8px 12px; font-size:13px;}
   .sel-rang{width:26px; text-align:center; font-size:13px; color:var(--muted); flex-shrink:0;}
+  .sel-co{flex-basis:100%; display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; padding-left:40px; font-size:13px; color:var(--ink-soft);}
+  .sel-co > span{color:var(--muted);}
+  .sel-co label{display:inline-flex; align-items:center; gap:6px; cursor:pointer;}
 
   /* Un titre pour les lecteurs d'écran, sans rien changer à l'aspect. */
   .sr-only{
@@ -4193,7 +4196,7 @@
       <div class="section-head">
         <div>
           <span class="eyebrow mono">Sélection</span>
-          <h2>Notre sélection</h2>
+          <h2>Nos sorties du moment</h2>
         </div>
       </div>
       <div class="sel-cadre">
@@ -6540,7 +6543,7 @@ const BD = {
 
   selectionAccueil(){
     return supabaseClient.from('selection_accueil')
-      .select('release_id, ordre')
+      .select('release_id, ordre, co_artistes')
       .order('ordre', { ascending: true });
   },
 
@@ -6558,6 +6561,12 @@ const BD = {
   ordonnerSelection(lignes){
     return supabaseClient.from('selection_accueil')
       .upsert(lignes, { onConflict: 'release_id' }).select();
+  },
+
+  // Les artistes d'une sortie qui sont AUSSI principaux (projet en commun) : [{ nom, handle }, …].
+  majCoArtistes(releaseId, liste){
+    return supabaseClient.from('selection_accueil')
+      .update({ co_artistes: liste }).eq('release_id', releaseId).select();
   },
 
   creerSortie(champs){
@@ -19196,49 +19205,83 @@ async function chargerSelectionAccueil(){
 
   await assurerSorties(ids);
 
-  const sorties = ids
-    .map(id => catalogueData.find(s => s.id === id))
-    .filter(Boolean);
+  const co = new Map(data.map(l => [l.release_id, Array.isArray(l.co_artistes) ? l.co_artistes : []]));
 
-  if(!sorties.length){
+  const elements = ids
+    .map(id => catalogueData.find(s => s.id === id))
+    .filter(Boolean)
+    .map(s => ({ s, co: co.get(s.id) || [] }));
+
+  if(!elements.length){
     selectionAccueil.ids = [];
     section.hidden = true;
     arreterDefileSelection();
     return;
   }
 
-  dessinerSelectionAccueil(sorties);
+  dessinerSelectionAccueil(elements);
 }
 
-function dessinerSelectionAccueil(sorties){
+// « A », « A & B », « A, B & C » : l'artiste de la sortie, puis ceux que l'équipe a marqués aussi principaux.
+function nomsDeLaSortie(sortie, co){
+
+  const noms = [sortie.artist].concat((co || []).map(c => nomAfficheDuFeat(c))).filter(Boolean);
+
+  return noms.length > 1
+    ? noms.slice(0, -1).join(', ') + ' & ' + noms[noms.length - 1]
+    : (noms[0] || '');
+}
+
+// La boucle : la piste porte trois fois la même suite (copie, suite réelle, copie). On démarre sur la suite du milieu ;
+// dès qu'on arrive sur une copie, la piste se replace, sans qu'on le voie, sur la même pochette de la suite du milieu.
+function dessinerSelectionAccueil(elements){
 
   const section = document.getElementById('homeSelection');
   const piste = document.getElementById('selectionPiste');
   const points = document.getElementById('selectionPoints');
 
-  selectionAccueil.ids = sorties.map(s => s.id);
+  const n = elements.length;
+  const boucle = n > 1;
+
+  selectionAccueil.ids = elements.map(e => e.s.id);
+  selectionAccueil.n = n;
+  selectionAccueil.boucle = boucle;
   selectionAccueil.index = 0;
 
-  piste.innerHTML = sorties.map((s, i) => `
-    <article class="sel-slide${i === 0 ? ' actif' : ''}" data-id="${escapeAttribute(s.id)}"
-             aria-roledescription="diapositive" aria-label="${escapeAttribute(s.title + ' — ' + s.artist)}">
-      <button type="button" class="sel-cover" onclick="openCatalogueModal('${escapeAttribute(s.id)}')"
-              aria-label="Ouvrir ${escapeAttribute(s.title)}">
-        <img src="${escapeAttribute(safeUrl(s.cover))}" alt="${escapeAttribute(s.title)}"
-             ${i === 0 ? '' : 'loading="lazy"'}>
-      </button>
-      <div class="sel-legende">
-        <strong>${escapeHtml(s.title)}</strong>
-        <span>${escapeHtml(s.artist)}</span>
-      </div>
-    </article>`).join('');
+  let html = '';
 
-  points.innerHTML = sorties.length > 1
-    ? sorties.map((s, i) => `<button type="button" class="sel-point${i === 0 ? ' on' : ''}" onclick="allerALaSelection(${i})"
-                                      aria-label="Sortie ${i + 1} sur ${sorties.length}"></button>`).join('')
+  for(let k = 0; k < (boucle ? 3 : 1); k++){
+
+    const copie = boucle && k !== 1;
+
+    elements.forEach(({ s, co }, rang) => {
+
+      const noms = nomsDeLaSortie(s, co);
+
+      html += `
+        <article class="sel-slide" ${copie ? 'aria-hidden="true"' : ''}
+                 aria-roledescription="diapositive" aria-label="${escapeAttribute(s.title + ' — ' + noms)}">
+          <button type="button" class="sel-cover" onclick="openCatalogueModal('${escapeAttribute(s.id)}')"
+                  ${copie ? 'tabindex="-1"' : ''} aria-label="Ouvrir ${escapeAttribute(s.title)}">
+            <img src="${escapeAttribute(safeUrl(s.cover))}" alt="${copie ? '' : escapeAttribute(s.title)}"
+                 ${k === (boucle ? 1 : 0) && rang === 0 ? '' : 'loading="lazy"'}>
+          </button>
+          <div class="sel-legende">
+            <strong>${escapeHtml(s.title)}</strong>
+            <span>${escapeHtml(noms)}</span>
+          </div>
+        </article>`;
+    });
+  }
+
+  piste.innerHTML = html;
+
+  points.innerHTML = boucle
+    ? elements.map((e, i) => `<button type="button" class="sel-point" onclick="allerAuPointSelection(${i})"
+                                       aria-label="Sortie ${i + 1} sur ${n}"></button>`).join('')
     : '';
 
-  section.querySelectorAll('.sel-fleche').forEach(b => { b.hidden = sorties.length < 2; });
+  section.querySelectorAll('.sel-fleche').forEach(b => { b.hidden = !boucle; });
 
   section.hidden = false;
 
@@ -19267,15 +19310,23 @@ function dessinerSelectionAccueil(sorties){
       if(e.key === 'ArrowRight'){ e.preventDefault(); defilerSelection(1); }
       if(e.key === 'ArrowLeft'){ e.preventDefault(); defilerSelection(-1); }
     });
+
+    // Une fenêtre redimensionnée change la largeur des pochettes : on recentre.
+    let redim = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(redim);
+      redim = setTimeout(() => allerALaSelection(selectionAccueil.index, true), 160);
+    });
   }
 
-  // La piste repart du début à chaque redessin.
-  piste.scrollLeft = 0;
+  // On démarre sur la première pochette de la suite du milieu.
+  allerALaSelection(boucle ? n : 0, true);
 
   demarrerDefileSelection();
 }
 
-// La diapositive la plus proche du centre de la piste est « active » : la pochette pleine, les points, l'index.
+// La diapositive la plus proche du centre de la piste est « active ». Quand le défilement s'arrête sur une copie, on
+// se replace sur la suite du milieu.
 function majSelectionActive(){
 
   const piste = document.getElementById('selectionPiste');
@@ -19294,15 +19345,33 @@ function majSelectionActive(){
   });
 
   marquerSelection(meilleur);
+
+  clearTimeout(selectionAccueil.rebond);
+  selectionAccueil.rebond = setTimeout(rebondirSelection, 160);
 }
 
-// La diapositive « active » : la pochette en pleine lumière, le point allumé, l'index retenu.
+function rebondirSelection(){
+
+  const n = selectionAccueil.n;
+
+  if(!selectionAccueil.boucle) return;
+
+  const g = selectionAccueil.index;
+
+  if(g >= n && g < 2 * n) return;
+
+  allerALaSelection(g < n ? g + n : g - n, true);
+}
+
+// La diapositive « active » : la pochette en pleine lumière, le point allumé, l'index retenu (de 0 à 3n - 1 en boucle).
 function marquerSelection(i){
 
   selectionAccueil.index = i;
 
+  const n = selectionAccueil.n || 1;
+
   document.querySelectorAll('#selectionPiste .sel-slide').forEach((slide, k) => slide.classList.toggle('actif', k === i));
-  document.querySelectorAll('#selectionPoints .sel-point').forEach((p, k) => p.classList.toggle('on', k === i));
+  document.querySelectorAll('#selectionPoints .sel-point').forEach((p, k) => p.classList.toggle('on', k === i % n));
 }
 
 function allerALaSelection(i, instantane){
@@ -19322,14 +19391,20 @@ function allerALaSelection(i, instantane){
   });
 }
 
-// Une flèche, un point ou le clavier : la sélection fait le tour (après la dernière, la première).
+// Un point : la pochette correspondante de la suite où l'on se trouve.
+function allerAuPointSelection(i){
+
+  const n = selectionAccueil.n;
+
+  allerALaSelection(Math.floor(selectionAccueil.index / n) * n + i);
+}
+
+// Une flèche, un point, le clavier ou le défilé automatique : toujours plus loin, la sélection n'a ni début ni fin.
 function defilerSelection(sens){
 
-  const n = selectionAccueil.ids.length;
+  if(!selectionAccueil.boucle) return;
 
-  if(n < 2) return;
-
-  allerALaSelection((selectionAccueil.index + sens + n) % n);
+  allerALaSelection(selectionAccueil.index + sens);
 }
 
 function selectionMouvementReduit(){
@@ -19364,8 +19439,20 @@ function arreterDefileSelection(){
 var selectionEquipe = [];        // les sorties choisies, dans l'ordre : { id, titre, artiste, cover }
 var selectionEquipeMinuteur = null;
 
-function selectionLigneDepuis(sortie){
-  return { id: sortie.id, titre: sortie.title || sortie.track_title || '', artiste: sortie.artist || sortie.artist_name || '', cover: sortie.cover || sortie.cover_url || '' };
+function selectionLigneDepuis(sortie, co){
+
+  const feats = (Array.isArray(sortie.featuring) ? sortie.featuring : [])
+    .filter(f => f && f.handle && f.nom)
+    .map(f => ({ nom: f.nom, handle: f.handle }));
+
+  return {
+    id: sortie.id,
+    titre: sortie.title || sortie.track_title || '',
+    artiste: sortie.artist || sortie.artist_name || '',
+    cover: sortie.cover || sortie.cover_url || '',
+    feats,
+    co: Array.isArray(co) ? co : []
+  };
 }
 
 async function chargerSelectionEquipe(){
@@ -19379,19 +19466,20 @@ async function chargerSelectionEquipe(){
   const { data, error } = await BD.selectionAccueil();
 
   if(error){
-    liste.innerHTML = /Could not find the table|schema cache|relation/i.test(error.message)
-      ? `<div class="empty-state">La sélection n'est pas encore activée : le fichier selection-accueil.sql n'a pas été passé dans Supabase.</div>`
+    liste.innerHTML = /Could not find the table|schema cache|relation|column/i.test(error.message)
+      ? `<div class="empty-state">La sélection n'est pas encore à jour : les fichiers selection-accueil.sql et selection-co-artistes.sql n'ont pas été passés dans Supabase.</div>`
       : `<div class="form-msg err">${escapeHtml(error.message)}</div>`;
     return;
   }
 
   const ids = (data || []).map(l => l.release_id);
+  const co = new Map((data || []).map(l => [l.release_id, l.co_artistes]));
 
   const { data: lignes } = ids.length ? await BD.sortiesParIds(ids) : { data: [] };
 
   const parId = new Map((lignes || []).map(l => [l.id, l]));
 
-  selectionEquipe = ids.filter(id => parId.has(id)).map(id => selectionLigneDepuis(parId.get(id)));
+  selectionEquipe = ids.filter(id => parId.has(id)).map(id => selectionLigneDepuis(parId.get(id), co.get(id)));
 
   renderSelectionEquipe();
 }
@@ -19425,7 +19513,43 @@ function renderSelectionEquipe(){
         <button type="button" class="btn btn-ghost" onclick="deplacerSelection(${i}, 1)" ${i === selectionEquipe.length - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
         <button type="button" class="btn btn-ghost" onclick="retirerDeLaSelection('${escapeAttribute(s.id)}')">Retirer</button>
       </div>
+      ${s.feats.length ? `
+      <div class="sel-co">
+        <span>Aussi artiste principal (projet en commun) :</span>
+        ${s.feats.map(f => `
+          <label><input type="checkbox" ${s.co.some(c => c.handle === f.handle) ? 'checked' : ''}
+                        onchange="basculerCoArtiste('${escapeAttribute(s.id)}', '${escapeAttribute(f.handle)}', this.checked)">
+            ${escapeHtml(f.nom)}</label>`).join('')}
+      </div>` : ''}
     </div>`).join('');
+}
+
+// L'équipe marque un artiste d'une sortie comme AUSSI principal : le défilé affiche alors « A & B ».
+async function basculerCoArtiste(id, handle, coche){
+
+  const s = selectionEquipe.find(x => x.id === id);
+
+  if(!s) return;
+
+  const feat = s.feats.find(f => f.handle === handle);
+
+  if(!feat) return;
+
+  const liste = coche
+    ? s.co.filter(c => c.handle !== handle).concat({ nom: feat.nom, handle: feat.handle })
+    : s.co.filter(c => c.handle !== handle);
+
+  const { error } = await BD.majCoArtistes(id, liste);
+
+  if(error){
+    selectionMessage('Impossible d\u2019enregistrer : ' + error.message, 'err');
+    renderSelectionEquipe();
+    return;
+  }
+
+  s.co = liste;
+  selectionMessage('✅ Enregistré.', 'ok');
+  chargerSelectionAccueil();
 }
 
 function selectionMessage(texte, type){
@@ -19494,7 +19618,7 @@ async function ajouterALaSelection(id){
 
   const trouvee = selectionResultatsEquipe.find(s => s.id === id);
 
-  if(trouvee) selectionEquipe.push(selectionLigneDepuis(trouvee));
+  if(trouvee) selectionEquipe.push(selectionLigneDepuis(trouvee, []));
 
   renderSelectionEquipe();
   chargerPourSelectionResultats();
