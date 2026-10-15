@@ -6135,7 +6135,6 @@
     </svg>
     <span class="new-dot" id="dailyNewDot" aria-hidden="true">!</span>
     <span class="defis-bouton-compteur" id="defisBoutonCompteur" aria-hidden="true">0/3</span>
-    <span class="defis-serie" id="defisSerie" aria-hidden="true" hidden></span>
   </button>
   <div class="defis-panneau" id="defisPanneau" role="region" aria-label="Progression et quêtes du jour" hidden></div>
 </div>
@@ -6823,10 +6822,6 @@ const BD = {
 
   xpSuccesListe(userId){
     return supabaseClient.rpc('xp_succes_liste', { p_user: userId || null });
-  },
-
-  xpClassement(periode){
-    return supabaseClient.rpc('xp_classement', { p_periode: periode });
   },
 
   waveursReclamerDefi(id){

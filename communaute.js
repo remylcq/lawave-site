@@ -3889,7 +3889,9 @@ function brancherChampReponse(racine){
     b.disabled = !t.value.trim() || t.value.length > 1000;
   });
 
-  t.addEventListener('focus', () => racine.classList.add('actif'));
+  // Le pied (bouton « Répondre ») s'ouvre sur .com-repondre : sur la page d'un message, `racine` n'est que
+  // l'emplacement qui l'entoure, et l'y poser laissait le bouton caché.
+  t.addEventListener('focus', () => (t.closest('.com-repondre') || racine).classList.add('actif'));
 
   t.addEventListener('keydown', (e) => {
     if(e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !b.disabled){
@@ -8103,7 +8105,10 @@ const FEUILLE = String.raw`
   display:block; width:100%; resize:none; border:0; outline:0; background:transparent;
   color:var(--ink); font:inherit; font-size:17px; font-weight:400; line-height:1.5;
   padding:6px 0; min-height:56px; max-height:420px;
+  /* Pas de flèches de défilement : le champ grandit avec le texte (ajusterTexte). */
+  scrollbar-width:none;
 }
+.com-comp-texte::-webkit-scrollbar{display:none;}
 .com-comp-texte::placeholder{color:var(--muted); font-weight:300;}
 
 .com-comp-collab{
