@@ -11697,10 +11697,14 @@ function majHud(){
   const u = options.utilisateur ? options.utilisateur() : null;
 
   if(u){
-    const niveau = Math.floor((u.xp || 0) / 100) + 1;
+    // Même courbe que le site (levelForXP et xpSeuil, dans index.html ; sql/xp-refonte.sql côté base).
+    const xp = u.xp || 0;
+    const niveau = typeof levelForXP === 'function' ? levelForXP(xp) : Math.floor(xp / 100) + 1;
+    const bas = typeof xpSeuil === 'function' ? xpSeuil(niveau) : (niveau - 1) * 100;
+    const haut = typeof xpSeuil === 'function' ? xpSeuil(niveau + 1) : niveau * 100;
     H.niveau.textContent = 'Niveau ' + niveau;
-    H.xp.textContent = (u.xp || 0) + ' XP';
-    H.barre.style.width = ((u.xp || 0) % 100) + '%';
+    H.xp.textContent = xp + ' XP';
+    H.barre.style.width = Math.max(0, Math.min(100, ((xp - bas) / (haut - bas)) * 100)) + '%';
   } else {
     H.niveau.textContent = 'Visiteur';
     H.xp.textContent = 'non connecté';

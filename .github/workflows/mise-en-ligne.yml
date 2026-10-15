@@ -21,6 +21,7 @@ on:
       - verification.js
       - parcours.js
       - profil.js
+      - xp.js
       - modeles/**
       - decor/**
       - logos/**

@@ -6116,15 +6116,15 @@
   </div>
 </footer>
 
-<!-- Défis du jour : un bouton rond au coin de l'écran, sur toutes les pages,
+<!-- Progression : un bouton rond au coin de l'écran, sur toutes les pages,
      pour un membre connecté seulement (majDefisFlottant le montre et le cache).
-     Le panneau reprend #challengeList et #defisProgression : renderChallenges
-     les remplit comme avant. Ce bloc est un enfant direct du body : dans
-     <main>, son z-index resterait prisonnier du contexte d'empilement de la
-     page. -->
+     Son anneau compte les quêtes du jour ; le panneau (niveau, série, quêtes, semaine,
+     classement) est dessiné par xp.js dans #defisPanneau. Ce bloc est un enfant direct
+     du body : dans <main>, son z-index resterait prisonnier du contexte d'empilement
+     de la page. -->
 <div class="defis-flottant" id="defisFlottant" hidden>
   <button type="button" class="defis-bouton" id="defisBouton"
-          aria-label="Défis du jour" aria-expanded="false" aria-controls="defisPanneau">
+          aria-label="Progression et quêtes du jour" aria-expanded="false" aria-controls="defisPanneau">
     <svg class="defis-anneau" viewBox="0 0 48 48" aria-hidden="true">
       <circle class="fond" cx="24" cy="24" r="22"/>
       <circle class="jauge" id="defisAnneau" cx="24" cy="24" r="22" pathLength="100"/>
@@ -6134,15 +6134,10 @@
       <path d="M6 21V4"/><path d="M6 5h11l-2.5 4 2.5 4H6"/>
     </svg>
     <span class="new-dot" id="dailyNewDot" aria-hidden="true">!</span>
-    <span class="defis-bouton-compteur" id="defisBoutonCompteur" aria-hidden="true">0/1</span>
+    <span class="defis-bouton-compteur" id="defisBoutonCompteur" aria-hidden="true">0/3</span>
+    <span class="defis-serie" id="defisSerie" aria-hidden="true" hidden></span>
   </button>
-  <div class="defis-panneau" id="defisPanneau" role="region" aria-label="Défis du jour" hidden>
-    <div class="defis-panneau-tete">
-      <span class="eyebrow mono" style="margin:0;">Défis du jour</span>
-      <span class="defis-progression" id="defisProgression"></span>
-    </div>
-    <div class="challenge-list" id="challengeList"></div>
-  </div>
+  <div class="defis-panneau" id="defisPanneau" role="region" aria-label="Progression et quêtes du jour" hidden></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -6810,6 +6805,28 @@ const BD = {
   // que demander (waveurs-carnet.sql).
   waveursCarnet(){
     return supabaseClient.rpc('waveurs_carnet');
+  },
+
+  // L'XP : tout vit dans la base (sql/xp-refonte.sql), xp.js ne fait que lire et annoncer.
+  // xp_moi compte aussi la connexion du jour (série, +5 XP) et tire les trois quêtes.
+  xpMoi(){
+    return supabaseClient.rpc('xp_moi');
+  },
+
+  xpEvenements(){
+    return supabaseClient.rpc('xp_evenements_lire');
+  },
+
+  xpAction(action, ref){
+    return supabaseClient.rpc('xp_action_client', { p_action: action, p_ref: ref });
+  },
+
+  xpSuccesListe(userId){
+    return supabaseClient.rpc('xp_succes_liste', { p_user: userId || null });
+  },
+
+  xpClassement(periode){
+    return supabaseClient.rpc('xp_classement', { p_periode: periode });
   },
 
   waveursReclamerDefi(id){
@@ -10848,14 +10865,10 @@ async function getUsers(){
   return (data || []).map(profileToUser);
 }
 
+// Les défis du jour sont devenus des quêtes tirées par le serveur (xp.js) : il ne reste ici que de quoi ne pas
+// casser les appelants qui préparent encore le champ.
 function ensureDailyChallenges(user){
-  if(!user) return;
-  // La remise à zéro se déduit de DAILY_CHALLENGES : ajouter un défi
-  // à la liste suffit, sans avoir à le répéter ici.
-  if(!user.challenges || user.challenges.date !== todayStr()){
-    user.challenges = { date: todayStr() };
-    DAILY_CHALLENGES.forEach(d => { user.challenges[d.key] = false; });
-  }
+  if(user && !user.challenges) user.challenges = {};
 }
 
 function toggleAccountMenu(){
@@ -11237,82 +11250,24 @@ let profileAvatarDataUrl = null;
 
 // ---------------- SUCCÈS ----------------
 //
-// Rien n'est stocké : chaque succès est une question posée aux données
-// déjà en base. Une table dédiée aurait exigé de détecter le moment
-// exact du déclenchement, de gérer les rattrapages pour les comptes
-// existants, et de rester cohérente après une suppression. Ici, un
-// succès obtenu puis défait redevient simplement à obtenir.
-//
-// Trois rangs, comme sur une console : bronze pour ce qui s'obtient en
-// passant, argent pour ce qui demande de la régularité, or pour ce qui
-// demande d'y revenir longtemps.
-const SUCCES = [
-  { cle:'note-1',       rang:'bronze', nom:'Premier verdict',  desc:'Noter une sortie',                       test: s => s.notes >= 1 },
-  { cle:'note-10',      rang:'argent', nom:'Oreille affûtée',  desc:'Noter dix sorties',                      test: s => s.notes >= 10 },
-  { cle:'note-30',      rang:'or',     nom:'Juge de paix',     desc:'Noter trente sorties',                   test: s => s.notes >= 30 },
-  { cle:'coll-5',       rang:'bronze', nom:'Étagère',          desc:'Écouter cinq sorties',                  test: s => s.enregistrees >= 5 },
-  { cle:'coll-25',      rang:'argent', nom:'Discothèque',      desc:'Écouter vingt-cinq sorties',            test: s => s.enregistrees >= 25 },
-  { cle:'coll-60',      rang:'or',     nom:'Archiviste',       desc:'Écouter soixante sorties',              test: s => s.enregistrees >= 60 },
-  { cle:'avis-1',       rang:'bronze', nom:'Chroniqueur',      desc:'Rédiger un avis',                        test: s => s.avis >= 1 },
-  { cle:'avis-10',      rang:'or',     nom:'Plume de La Wave', desc:'Rédiger dix avis',                       test: s => s.avis >= 10 },
-  { cle:'podium',       rang:'argent', nom:'Podium complet',   desc:'Choisir ses trois favorites',            test: s => s.favoris >= MAX_FAVORIS },
-  { cle:'cinq-etoiles', rang:'bronze', nom:'Coup de cœur',     desc:'Mettre cinq étoiles à une sortie',       test: s => s.cinqEtoiles >= 1 },
-  { cle:'forum-1',      rang:'bronze', nom:'Prise de parole',  desc:'Publier un message sur le forum',        test: s => s.posts >= 1 },
-  { cle:'profil',       rang:'bronze', nom:'Carte de visite',  desc:'Renseigner photo, description et rôle',  test: s => s.profilComplet },
-  { cle:'niveau-3',     rang:'argent', nom:'Habitué',          desc:'Atteindre le niveau 3',                  test: s => s.niveau >= 3 },
-  { cle:'niveau-6',     rang:'or',     nom:'Pilier',           desc:'Atteindre le niveau 6',                  test: s => s.niveau >= 6 },
-  { cle:'niveau-10',    rang:'or',     nom:'Légende',          desc:'Atteindre le niveau 10',                 test: s => s.niveau >= 10 }
-];
+// Les succès vivent dans la base (sql/xp-refonte.sql : succes_def, succes_obtenus) : 71 succès en familles à
+// rangs bronze, argent, or, platine, des secrets, une barre de progression chacun et de l'XP à la clé. Ils se
+// débloquent côté serveur au moment du geste ; xp.js les dessine dans l'onglet « Succès » du profil.
 
+// Ouvre son profil sur l'onglet des succès (le panneau d'XP y envoie).
+async function ouvrirMesSucces(){
 
-// Nombre de messages du forum : la seule donnée qui ne soit pas déjà
-// en mémoire. Chargée une fois à l'ouverture du profil.
-let profilNbPosts = 0;
+  if(!currentUser){
+    openAuthModal('login');
+    return;
+  }
 
+  try{
+    await chargerCommunaute();
+    if(await window.Com.profilSurOnglet('succes')) return;
+  }catch(erreur){}
 
-function statsUtilisateur(user){
-
-  const miennes = toutesLesNotes.filter(n => n.user_id === user.id);
-
-  return {
-    notes:        miennes.filter(n => n.rating).length,
-    enregistrees: miennes.filter(n => n.saved).length,
-    avis:         miennes.filter(n => n.avis && String(n.avis).trim()).length,
-    favoris:      miennes.filter(n => n.favori).length,
-    cinqEtoiles:  miennes.filter(n => n.rating === 10).length,
-    posts:        profilNbPosts,
-    niveau:       levelForXP(user.xp),
-    profilComplet: !!(user.avatar && user.bio && user.role)
-  };
-}
-
-
-function succesHtml(user){
-
-  const stats = statsUtilisateur(user);
-
-  const cartes = SUCCES.map(succes => {
-
-    const obtenu = !!succes.test(stats);
-
-    return `
-      <div class="succes${obtenu ? ' obtenu rang-' + succes.rang : ''}"
-           title="${escapeAttribute(succes.desc)}">
-        <span class="succes-jeton">${obtenu ? '✦' : '·'}</span>
-        <span class="succes-texte">
-          <strong>${escapeHtml(succes.nom)}</strong>
-          <span class="succes-desc">${escapeHtml(succes.desc)}</span>
-        </span>
-      </div>`;
-  }).join('');
-
-  return `<div class="succes-grille">${cartes}</div>`;
-}
-
-
-function nombreDeSucces(user){
-  const stats = statsUtilisateur(user);
-  return SUCCES.filter(s => s.test(stats)).length;
+  goTo('profile');
 }
 
 
@@ -11951,41 +11906,42 @@ async function saveProfile(){
   if(window.Com && window.Com.profilMisAJour) window.Com.profilMisAJour();
 }
 
-// ---- Communauté : XP, défis, forum ----
-// Un seul défi est proposé par jour, tiré de la liste ci-dessous. Le
-// tirage vient de la date : tout le monde a le même, il ne change pas
-// d'un rechargement à l'autre, et il tourne d'un jour sur l'autre sans
-// qu'on ait à stocker quoi que ce soit.
+// ---- L'XP ----
 //
-// Les autres actions continuent de rapporter leur XP une fois par
-// jour — c'est le volet qui ne propose plus qu'une chose à faire,
-// pas le site qui cesse de récompenser le reste.
-function defiDuJour(){
-
-  const jour = todayStr();
-  let somme = 0;
-
-  for(let i = 0; i < jour.length; i++){
-    somme = (somme * 31 + jour.charCodeAt(i)) % 100000;
-  }
-
-  return DAILY_CHALLENGES[somme % DAILY_CHALLENGES.length];
+// Le moteur est dans la base (sql/xp-refonte.sql) : niveaux, série de jours, quêtes du jour, coffre, objectif de
+// la semaine, succès, classement. Le navigateur n'écrit plus jamais d'XP lui-même : xp.js (chargé à la demande)
+// lit l'état, annonce ce qui est arrivé et dessine le bouton, le panneau, la fiche du profil et les succès.
+// Le numéro reçoit l'empreinte du fichier à la mise en ligne (outils/deploiement/preparer.sh). Écrit dans la
+// fonction et non dans une constante : cette fonction peut servir avant que le script n'ait fini de se lire.
+function chargerXp(){
+  return chargerModuleSite('xp.js?v=1', 'Xp', "de l'XP (xp.js)");
 }
 
+// Un membre est connecté : on lit son état et on annonce ce qui l'attend. Sans effet s'il est déjà lu.
+function xpDemarrer(){
+  if(!currentUser) return;
+  chargerXp().then(() => window.Xp.demarrer()).catch(() => {});
+}
 
-const DAILY_CHALLENGES = [
-  { key: 'exploreCatalogue', label: 'Découvrir une sortie du catalogue', xp: 5, auto: true },
-  { key: 'noterSortie', label: 'Noter une sortie', xp: 5, auto: true },
-  { key: 'enregistrerSortie', label: 'Enregistrer une sortie', xp: 5, auto: true },
-  { key: 'visiterArtiste', label: 'Visiter la page d\'un artiste', xp: 5, auto: true },
-  { key: 'decouvrirMembre', label: 'Consulter le profil d\'un membre', xp: 5, auto: true },
-  { key: 'postForum', label: 'Publier un message dans la communauté', xp: 10, auto: true },
-  { key: 'commentForum', label: 'Commenter un message de la communauté', xp: 5, auto: true },
-  { key: 'reagirForum', label: 'Réagir à un message de la communauté', xp: 5, auto: true },
-  { key: 'updateProfile', label: 'Mettre à jour son profil', xp: 5, auto: true },
-  { key: 'instaComment', label: 'Commenter notre dernier post Instagram', xp: 5, auto: false }
-];
+// Après un geste qui a pu rapporter de l'XP (noter, écouter, publier, réagir…) : le serveur a déjà compté, on annonce.
+function xpApres(delai){
+  if(!currentUser) return;
+  chargerXp().then(() => window.Xp.apres(delai)).catch(() => {});
+}
 
+// Un geste de découverte que seul le navigateur voit : la fiche d'un artiste, d'une sortie, d'un membre.
+function xpAction(action, ref){
+  if(!currentUser || !ref) return;
+  chargerXp().then(() => window.Xp.action(action, ref)).catch(() => {});
+}
+
+// Ancien nom, gardé pour les appelants qui n'ont rien d'autre à dire : le gain se fait côté serveur.
+function awardXP(){
+  xpApres();
+}
+
+// Les étapes de démarrage (photo, description, réseaux, premier message). L'encart « Pour bien démarrer »
+// que dessine communaute.js les lit ici ; leur XP, elle, est versée par la base.
 const ONBOARDING_CHALLENGES = [
   { key: 'avatarSet', label: 'Ajouter une photo de profil', xp: 15 },
   { key: 'bioAdded', label: 'Rédiger sa description', xp: 10 },
@@ -12027,168 +11983,29 @@ async function checkOnboarding(){
   for(const c of ONBOARDING_CHALLENGES){
     if(!currentUser.onboarding[c.key] && checks[c.key]){
       currentUser.onboarding[c.key] = true;
-      currentUser.xp += c.xp;
       changed = true;
     }
   }
   if(changed){
-    await saveCurrentProfile({
-      xp: currentUser.xp,
-      onboarding: currentUser.onboarding
-    }).catch(()=>{});
+    await saveCurrentProfile({ onboarding: currentUser.onboarding }).catch(()=>{});
+    xpApres();
   }
 }
 
-// La carte d'XP du profil : le niveau, l'XP et ce qu'il en reste avant le
-// suivant. La page Communauté n'en montre plus ; le profil est le seul
-// endroit où elle vit, et un gain d'XP la redessine sur place.
+// La fiche de niveau du profil (niveau, titre, barre, série) et les succès : dessinés par xp.js.
 function majCarteXpProfil(){
+  if(!currentUser) return;
+  chargerXp().then(() => window.Xp.remplirProfil()).catch(() => {});
+}
 
-  const carte = document.getElementById('profilXp');
-  if(!carte || !currentUser) return;
-
-  const xp = currentUser.xp || 0;
-  const niveau = levelForXP(xp);
-  const dansLeNiveau = xp % 100;
-
-  carte.innerHTML = `
-    <div class="xp-top">
-      <span id="xpLevelLabel">Niveau ${niveau}</span>
-      <span id="xpNumberLabel">${xp} XP · ${100 - dansLeNiveau} XP avant le niveau ${niveau + 1}</span>
-    </div>
-    <div class="xp-bar-track">
-      <span class="xp-bar-fill" style="width:${dansLeNiveau}%"></span>
-    </div>`;
+// Le panneau du bouton rond (niveau, quêtes, semaine, classement) : redessiné par xp.js.
+function renderChallenges(){
+  if(window.Xp) window.Xp.dessiner();
 }
 
 // L'encart « Pour bien démarrer » (photo, description, réseaux, premier message)
 // est dessiné par communaute.js, en tête du fil : il lit ONBOARDING_CHALLENGES et
 // currentUser.onboarding, et disparaît quand les quatre étapes sont faites.
-
-function renderChallenges(){
-
-  if(!currentUser) return;
-  ensureDailyChallenges(currentUser);
-
-  const list = document.getElementById('challengeList');
-  if(!list) return;
-
-  // Un seul défi proposé : onze d'un coup se lisaient comme une liste
-  // de corvées, et rien n'y ressortait.
-  const defi = defiDuJour();
-  const fait = !!currentUser.challenges[defi.key];
-
-  const faits = fait ? 1 : 0;
-  const total = 1;
-
-  const action = fait
-    ? `<span class="c-done" title="Fait">✓</span>`
-    : (defi.auto
-        ? `<span class="c-xp">+${defi.xp} XP</span>`
-        : `<button onclick="declareChallenge('${defi.key}')">J'ai fait ce défi</button>`);
-
-  list.innerHTML = `
-    <div class="challenge-item${fait ? ' fait' : ''}">
-      <span class="c-label">${escapeHtml(defi.label)}</span>
-      ${action}
-    </div>`;
-
-  const pct = total ? Math.round((faits / total) * 100) : 0;
-  const tousFaits = faits === total && total > 0;
-
-  // Progression du jour, affichée dans l'en-tête du panneau.
-  const entete = document.getElementById('defisProgression');
-  if(entete){
-    entete.innerHTML = `
-      <span class="defis-compteur">${fait ? 'Fait' : 'À faire'}</span>
-      <span class="defis-jauge"><span style="width:${pct}%"></span></span>`;
-    entete.classList.toggle('defis-tous-faits', tousFaits);
-  }
-
-  // La même progression, en petit, sur le bouton flottant : l'anneau se
-  // remplit, le compteur suit, et l'infobulle dit le détail.
-  const bouton = document.getElementById('defisBouton');
-  if(bouton){
-    const anneau = document.getElementById('defisAnneau');
-    const compteur = document.getElementById('defisBoutonCompteur');
-    if(anneau) anneau.style.strokeDashoffset = 100 - pct;
-    if(compteur) compteur.textContent = faits + '/' + total;
-    bouton.classList.toggle('defis-tous-faits', tousFaits);
-    bouton.title = 'Défis du jour : ' + faits + '/' + total + (tousFaits ? ' (fait)' : '');
-  }
-
-  refreshChallengeDots();
-}
-
-async function declareChallenge(key){
-  const def = DAILY_CHALLENGES.find(c=>c.key===key);
-  if(!def || currentUser.challenges[key]) return;
-  await awardXP(key, def.xp);
-}
-
-async function awardXP(challengeKey, amount){
-  // Plusieurs appelants ne vérifient pas la connexion avant d'appeler.
-  if(!currentUser) return;
-
-  ensureDailyChallenges(currentUser);
-  if(currentUser.challenges[challengeKey]) return; // déjà fait aujourd'hui
-
-  const niveauAvant = levelForXP(currentUser.xp);
-  const badgeAvant = badgeForXP(currentUser.xp).name;
-
-  currentUser.challenges[challengeKey] = true;
-  currentUser.xp += amount;
-  await saveCurrentProfile({
-    xp: currentUser.xp,
-    challenges: currentUser.challenges
-  }).catch(()=>{});
-
-  // Une déconnexion pendant l'enregistrement laisserait currentUser
-  // à null : l'affichage n'a plus rien à mettre à jour.
-  if(!currentUser) return;
-
-  majCarteXpProfil();
-  renderChallenges();
-
-  // L'XP se gagnait jusqu'ici en silence : rien ne signalait le gain
-  // si la personne n'était pas sur la page Communauté.
-  const defi = DAILY_CHALLENGES.find(d => d.key === challengeKey);
-
-  notifier('+' + amount + ' XP', {
-    type: 'xp',
-    icone: '⚡',
-    detail: defi ? defi.label : 'Défi accompli'
-  });
-
-  const niveauApres = levelForXP(currentUser.xp);
-
-  if(niveauApres > niveauAvant){
-    const badge = badgeForXP(currentUser.xp);
-
-    // Le badge ne change qu'à certains paliers : annoncer un nouveau
-    // titre à chaque niveau laisserait croire à une distinction qui
-    // n'a pas bougé.
-    const nouveauBadge = badge.name !== badgeAvant;
-
-    notifier('Niveau ' + niveauApres + ' atteint', {
-      type: 'succes',
-      icone: nouveauBadge ? badge.icon : '🎉',
-      detail: nouveauBadge
-        ? 'Nouveau badge : ' + badge.name + '.'
-        : 'Continue comme ça.',
-      duree: 6500
-    });
-  }
-
-  // Petite impulsion sur la carte d'XP du profil, seulement si elle est à
-  // l'écran.
-  const carte = document.getElementById('profilXp');
-  if(carte && carte.offsetParent !== null){
-    carte.classList.remove('gagne');
-    void carte.offsetWidth; // force le redémarrage de l'animation
-    carte.classList.add('gagne');
-  }
-}
 
 // La communauté est un réseau social complet, dessiné par communaute.js. Le
 // fichier se charge à la demande (comme waveurs.js) : le reste du site n'en
@@ -12262,14 +12079,29 @@ async function renderCommunity(){
   }
 }
 
-// ---- Badges liés au niveau ----
+// ---- Niveaux et titres ----
+// Miroir de sql/xp-refonte.sql (xp_seuil, xp_niveau, xp_titre) : le serveur fait foi, ceci sert à écrire le
+// niveau d'un membre d'après son XP (profils, communauté) sans appel. À garder identique des deux côtés.
 const BADGE_TIERS = [
-  { minLevel: 10, name: 'Légende', icon: '👑' },
-  { minLevel: 6, name: 'Pilier', icon: '⭐' },
-  { minLevel: 3, name: 'Habitué', icon: '🎧' },
+  { minLevel: 50, name: 'Icône', icon: '💎' },
+  { minLevel: 40, name: 'Légende', icon: '👑' },
+  { minLevel: 30, name: 'Prescripteur', icon: '🎙️' },
+  { minLevel: 23, name: 'Mélomane', icon: '🎼' },
+  { minLevel: 17, name: 'Pilier', icon: '⭐' },
+  { minLevel: 12, name: 'Initié', icon: '🌀' },
+  { minLevel: 8, name: 'Passionné', icon: '🔥' },
+  { minLevel: 5, name: 'Habitué', icon: '🎧' },
+  { minLevel: 3, name: 'Curieux', icon: '🔎' },
   { minLevel: 1, name: 'Nouvelle Vague', icon: '🌊' }
 ];
-function levelForXP(xp){ return Math.floor((xp||0) / 100) + 1; }
+// XP cumulé qu'il faut pour entrer dans le niveau n.
+function xpSeuil(n){ return n <= 1 ? 0 : Math.round(38 * Math.pow(n - 1, 1.7)); }
+function levelForXP(xp){
+  let n = 1;
+  const total = xp || 0;
+  while(n < 60 && total >= xpSeuil(n + 1)) n++;
+  return n;
+}
 function badgeForXP(xp){
   const level = levelForXP(xp);
   return BADGE_TIERS.find(b => level >= b.minLevel) || BADGE_TIERS[BADGE_TIERS.length-1];
@@ -12297,7 +12129,7 @@ async function viewProfileClassique(userId){
   if(!userId) return;
 
   // Consulter son propre profil ne compte pas comme une découverte.
-  if(currentUser && userId !== currentUser.id) awardXP('decouvrirMembre', 5);
+  if(currentUser && userId !== currentUser.id) xpAction('visite_profil', userId);
 
   const users = await getUsers();
   const user = users.find(u=>u.id===userId);
@@ -12362,28 +12194,19 @@ function closeViewProfileModal(){
   document.getElementById('viewProfileModal').classList.remove('open');
 }
 
-// ---- Indicateurs "nouveau" sur les défis ----
+// ---- Indicateurs "nouveau" ----
+// Le point du bouton flottant (quêtes du jour pas toutes faites) est posé par xp.js avec le reste du bouton.
 function refreshChallengeDots(){
   if(!currentUser) return;
   const onboardingDot = document.getElementById('onboardingNewDot');
-  const dailyDot = document.getElementById('dailyNewDot');
   if(onboardingDot) onboardingDot.style.display = currentUser.seenOnboarding ? 'none' : 'inline-block';
-
-  // Le point du bouton flottant reste tant que le défi du jour n'est pas
-  // fait : ouvrir le panneau ne l'éteint plus, puisque c'est le défi à
-  // accomplir qu'il signale, pas un message à lire.
-  if(dailyDot){
-    ensureDailyChallenges(currentUser);
-    const fait = !!currentUser.challenges[defiDuJour().key];
-    dailyDot.style.display = fait ? 'none' : 'inline-block';
-  }
 }
 
-// ---- Bouton flottant des défis du jour ----
+// ---- Bouton flottant de progression ----
 //
 // Le bouton (#defisBouton) et son panneau (#defisPanneau) vivent hors de
-// toute page, en position fixe. Le panneau garde la liste que dessine
-// renderChallenges : seul son emplacement a changé.
+// toute page, en position fixe. Le contenu du panneau (niveau, série, quêtes
+// du jour, semaine, classement) est dessiné par xp.js.
 
 function defisOuverts(){
   const panneau = document.getElementById('defisPanneau');
@@ -12422,14 +12245,22 @@ function majDefisFlottant(){
   const zone = document.getElementById('defisFlottant');
   if(!zone) return;
 
-  zone.hidden = !currentUser;
+  // Sans le SQL de l'XP (xp-refonte.sql), le bouton n'aurait rien à montrer : il reste caché.
+  const visible = !!currentUser && !(window.Xp && window.Xp.indisponible());
+
+  zone.hidden = !visible;
 
   // Le pied de page laisse la place du bouton : sans cela, il recouvrirait
   // le lien le plus à droite en bas de chaque page.
-  document.body.classList.toggle('avec-defis', !!currentUser);
+  document.body.classList.toggle('avec-defis', visible);
 
-  if(currentUser) renderChallenges();
-  else fermerDefis();
+  if(currentUser){
+    xpDemarrer();
+    renderChallenges();
+  }else{
+    fermerDefis();
+    if(window.Xp) window.Xp.reinitialiser();
+  }
 }
 
 document.getElementById('defisBouton').addEventListener('click', function(){
@@ -18858,7 +18689,7 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
   const corps = document.getElementById('artistePageBody');
   corps.innerHTML = `<div class="empty-state chargement">Chargement...</div>`;
 
-  if(currentUser) awardXP('visiterArtiste', 5);
+  if(currentUser) xpAction('visite_artiste', handle);
 
   // Le catalogue ne porte que les sorties récentes : celles de l'artiste (et où il est invité) se lisent ici.
   if(!catalogueData.length) await renderCatalogue();
@@ -19936,10 +19767,7 @@ document.getElementById(
   if(!lectureAdresseEnCours && item.catalogNum){
     ecrireAdresse('sortie', String(item.catalogNum), { fiche: true });
   }
-  if(currentUser){
-    ensureDailyChallenges(currentUser);
-    awardXP('exploreCatalogue', 5);
-  }
+  if(currentUser) xpAction('decouverte_sortie', item.id);
 }
 
 // Retire la fiche de l'écran et dit si elle y était. Le clip lu sur place
