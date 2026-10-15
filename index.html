@@ -5602,6 +5602,8 @@
       <textarea id="accesMessage" rows="12" readonly></textarea>
 
       <div class="inline-actions" style="margin-top:12px;">
+        <button type="button" class="btn btn-primary" onclick="accesEnvoyerMail('gmail')">Envoyer par Gmail</button>
+        <button type="button" class="btn btn-ghost" onclick="accesEnvoyerMail('appli')">Autre messagerie</button>
         <button type="button" class="btn btn-ghost" onclick="accesCopier('message')">Copier le message</button>
         <button type="button" class="btn btn-ghost" onclick="accesFermerResultat()">Fermer</button>
       </div>
@@ -21618,6 +21620,7 @@ function accesMontrerResultat(titre, acces, nom){
   if(!bloc) return;
 
   document.getElementById('accesResTitre').textContent = titre;
+  bloc.dataset.email = acces.email;
   document.getElementById('accesMdp').value = acces.mot_de_passe;
   document.getElementById('accesMessage').value =
     accesMessageInvitation(nom || acces.nom, acces.email, acces.mot_de_passe);
@@ -21641,6 +21644,54 @@ function accesFermerResultat(){
   // Le mot de passe ne doit pas rester dans la page une fois masqué.
   document.getElementById('accesMdp').value = '';
   document.getElementById('accesMessage').value = '';
+  delete bloc.dataset.email;
+}
+
+
+// Ouvre un nouveau message déjà écrit (destinataire, objet, texte) : Gmail dans un nouvel onglet, ou l'application
+// de messagerie du poste. Rien n'est envoyé d'ici : il reste à cliquer sur « Envoyer » dans la messagerie, ce qui
+// laisse le dernier regard à l'équipe. Les identifiants ne transitent que par le navigateur de la personne.
+function accesEnvoyerMail(quelle){
+
+  const bloc = document.getElementById('accesResultat');
+  const message = document.getElementById('accesMessage');
+  const email = bloc && bloc.dataset.email;
+
+  if(!email || !message || !message.value){
+    setRowMessage('accesMsg', "Génère d'abord un accès : il n'y a pas de message à envoyer.", 'err');
+    return;
+  }
+
+  const objet = 'Ton accès au site de test de La Wave';
+
+  if(quelle === 'gmail'){
+    const url = 'https://mail.google.com/mail/?view=cm&fs=1' +
+      '&to=' + encodeURIComponent(email) +
+      '&su=' + encodeURIComponent(objet) +
+      '&body=' + encodeURIComponent(message.value);
+
+    // Pas de « noopener » ici : il ferait toujours renvoyer null, même quand la fenêtre s'ouvre. Le lien avec la
+    // page est coupé à la main.
+    const fenetre = window.open(url, '_blank');
+
+    if(fenetre){
+      try{ fenetre.opener = null; }catch(e){ /* sans effet */ }
+    }
+
+    if(!fenetre){
+      setRowMessage('accesMsg', "Le navigateur a bloqué l'ouverture de Gmail : autorise les fenêtres pour ce site, ou copie le message.", 'err');
+      return;
+    }
+
+    setRowMessage('accesMsg', '✅ Gmail est ouvert avec le message prêt : il reste à cliquer sur Envoyer.', 'ok');
+    return;
+  }
+
+  location.href = 'mailto:' + encodeURIComponent(email) +
+    '?subject=' + encodeURIComponent(objet) +
+    '&body=' + encodeURIComponent(message.value);
+
+  setRowMessage('accesMsg', '✅ Ton application de messagerie s’ouvre avec le message prêt.', 'ok');
 }
 
 
