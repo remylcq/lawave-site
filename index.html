@@ -2017,6 +2017,17 @@
   }
   .wv-retour-com:hover{color:var(--ink); border-color:var(--line-strong); background:var(--glass-hi);}
 
+  /* L'espace des waveurs est fermé au public : le panneau ne montre que « Bientôt disponible ». */
+  .wv-bientot{display:none;}
+  #panneauCommunaute-waveurs.wv-ferme > .section-head,
+  #panneauCommunaute-waveurs.wv-ferme > .wv-accueil{display:none;}
+  #panneauCommunaute-waveurs.wv-ferme > .wv-bientot{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;
+    min-height:52vh; padding:40px 16px;
+  }
+  .wv-bientot h2{margin:0 0 8px; font-size:28px; font-weight:600;}
+  .wv-bientot p{margin:0; font-size:15px; color:var(--muted);}
+
   /* Un onglet par pays. Le fond clair n'appartient à aucun bouton : il
      glisse de l'un à l'autre en changeant de largeur, calé en JS sur
      l'onglet actif (placerFondOnglets). */
@@ -2860,29 +2871,35 @@
   .profile-form{max-width:520px;}
 
   /* ---------- AUTH MODAL ---------- */
-  .auth-tabs{display:flex; gap:4px; margin-bottom:20px; background:rgba(255,255,255,0.05); border-radius:var(--radius-pill); padding:4px;}
+  /* Fenêtre de connexion : deux onglets en texte, les champs, un bouton ; les fournisseurs et la note, en discret. */
+  .auth-tabs{display:flex; gap:22px; margin-bottom:22px; border-bottom:1px solid var(--line);}
   .auth-tab{
-    flex:1; text-align:center; padding:9px; font-size:13px; font-weight:600; color:var(--muted); background:transparent; border:none;
-    border-radius:var(--radius-pill);
+    padding:4px 0 11px; margin-bottom:-1px; font-size:14px; font-weight:600; color:var(--muted);
+    background:transparent; border:none; border-bottom:2px solid transparent; border-radius:0;
+    transition:color .2s var(--ease), border-color .2s var(--ease);
   }
-  .auth-tab.active{color:var(--ink); background:rgba(255,255,255,0.12);}
+  .auth-tab:hover{color:var(--ink-soft);}
+  .auth-tab.active{color:var(--ink); border-bottom-color:var(--blue);}
   .auth-panel{display:none;}
   .auth-panel.active{display:block;}
 
   /* ---------- CONNEXION PAR UN FOURNISSEUR ---------- */
-  .auth-fournisseurs{display:flex; flex-direction:column; gap:8px; margin-bottom:16px;}
+  .auth-fournisseurs{display:flex; gap:8px; margin-bottom:4px;}
   .fournisseur{
-    display:flex; align-items:center; justify-content:center; gap:10px;
-    width:100%; padding:12px 16px; font-size:14px; font-weight:600;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    flex:1; padding:10px 12px; font-size:13px; font-weight:600;
     border-radius:var(--radius-pill);
-    border:1px solid var(--line-strong);
-    background:var(--glass); color:var(--ink);
-    transition:background .2s var(--ease), border-color .2s var(--ease);
+    border:1px solid var(--line);
+    background:transparent; color:var(--ink-soft);
+    transition:color .2s var(--ease), border-color .2s var(--ease);
   }
-  .fournisseur:hover{background:var(--glass-hi); border-color:rgba(255,255,255,0.30);}
-  .fournisseur svg{width:18px; height:18px; flex-shrink:0;}
+  .fournisseur:hover{color:var(--ink); border-color:var(--line-strong);}
+  .fournisseur svg{width:16px; height:16px; flex-shrink:0;}
+  .auth-fournisseurs .form-msg{flex-basis:100%;}
+  #authModal .field label{text-transform:none; letter-spacing:0; font-size:13px; font-weight:500; color:var(--ink-soft);}
+  .auth-note{margin:18px 0 0; font-size:12px; line-height:1.5; color:var(--muted); text-align:center;}
   .auth-separateur{
-    display:flex; align-items:center; gap:12px; margin:0 0 18px;
+    display:flex; align-items:center; gap:12px; margin:20px 0 14px;
     font-size:12px; color:var(--muted);
   }
   .auth-separateur::before, .auth-separateur::after{
@@ -4533,6 +4550,12 @@
 
         <button type="button" class="wv-retour-com" onclick="goTo('community')">← La communauté</button>
 
+        <!-- Fermé au public : seule l'équipe entre (voir waveursOuvertes). -->
+        <div class="wv-bientot" id="waveursBientot">
+          <h2>Bientôt disponible</h2>
+          <p>L'espace des waveurs ouvre prochainement.</p>
+        </div>
+
         <div class="section-head">
           <div>
             <span class="eyebrow">La salle de la communauté</span>
@@ -5755,36 +5778,6 @@
   <div class="modal-box" style="max-width:380px;">
     <button class="modal-close" onclick="closeAuthModal()">✕</button>
     <div class="modal-body">
-      <div class="demo-banner" style="margin-bottom:20px;">
-        Ton mot de passe est chiffré et n'est jamais visible par l'équipe La Wave. Pseudo, avatar et bio, eux, sont publics.
-      </div>
-      <!-- Un seul jeu de boutons pour les deux onglets : chez ces
-           fournisseurs, se connecter et créer un compte sont le même
-           geste. -->
-      <div class="auth-fournisseurs">
-
-        <button type="button" class="fournisseur" onclick="connexionFournisseur('google')">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7c2.2-2 3.4-5 3.4-8.6z"/>
-            <path fill="#34A853" d="M12 24c3.1 0 5.7-1 7.6-2.8l-3.7-2.9a7 7 0 0 1-10.4-3.7H1.7v3A12 12 0 0 0 12 24z"/>
-            <path fill="#FBBC05" d="M5.5 14.6a7.2 7.2 0 0 1 0-4.6v-3H1.7a12 12 0 0 0 0 10.6l3.8-3z"/>
-            <path fill="#EA4335" d="M12 4.8c1.7 0 3.2.6 4.4 1.7l3.3-3.3A11.6 11.6 0 0 0 12 0 12 12 0 0 0 1.7 6l3.8 3A7.1 7.1 0 0 1 12 4.8z"/>
-          </svg>
-          Continuer avec Google
-        </button>
-
-        <button type="button" class="fournisseur" onclick="connexionFournisseur('spotify')">
-          <svg viewBox="0 0 24 24" fill="#1DB954" aria-hidden="true">
-            <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm4.6 14.4a.8.8 0 01-1.1.3c-3-1.8-6.7-2.2-11.1-1.2a.8.8 0 11-.3-1.5c4.8-1.1 8.9-.6 12.2 1.4.4.2.5.7.3 1zm1.2-2.9a1 1 0 01-1.3.3c-3.4-2.1-8.6-2.7-12.6-1.5a1 1 0 11-.6-1.9c4.6-1.4 10.3-.7 14.2 1.7.5.3.6.9.3 1.4zm.1-3C13.9 8.1 7.2 7.9 3.3 9.1a1.2 1.2 0 11-.7-2.3C7 5.4 14.4 5.6 19 8.4a1.2 1.2 0 01-1.1 2.1z"/>
-          </svg>
-          Continuer avec Spotify
-        </button>
-
-        <div class="form-msg" id="authFournisseurMsg"></div>
-      </div>
-
-      <div class="auth-separateur">ou par email</div>
-
       <div class="auth-tabs">
         <button class="auth-tab active" id="tabLogin" onclick="switchAuthTab('login')">Connexion</button>
         <button class="auth-tab" id="tabSignup" onclick="switchAuthTab('signup')">Créer un compte</button>
@@ -5810,6 +5803,35 @@
         <button class="btn btn-primary" data-envoi style="width:100%; justify-content:center;" onclick="submitSignup()">Créer mon compte</button>
         <div class="form-msg" id="signupMsg"></div>
       </div>
+
+      <div class="auth-separateur">ou</div>
+
+      <!-- Un seul jeu de boutons pour les deux onglets : chez ces
+           fournisseurs, se connecter et créer un compte sont le même
+           geste. -->
+      <div class="auth-fournisseurs">
+
+        <button type="button" class="fournisseur" onclick="connexionFournisseur('google')">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="#4285F4" d="M23 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.2a5.3 5.3 0 0 1-2.3 3.5v2.9h3.7c2.2-2 3.4-5 3.4-8.6z"/>
+            <path fill="#34A853" d="M12 24c3.1 0 5.7-1 7.6-2.8l-3.7-2.9a7 7 0 0 1-10.4-3.7H1.7v3A12 12 0 0 0 12 24z"/>
+            <path fill="#FBBC05" d="M5.5 14.6a7.2 7.2 0 0 1 0-4.6v-3H1.7a12 12 0 0 0 0 10.6l3.8-3z"/>
+            <path fill="#EA4335" d="M12 4.8c1.7 0 3.2.6 4.4 1.7l3.3-3.3A11.6 11.6 0 0 0 12 0 12 12 0 0 0 1.7 6l3.8 3A7.1 7.1 0 0 1 12 4.8z"/>
+          </svg>
+          Google
+        </button>
+
+        <button type="button" class="fournisseur" onclick="connexionFournisseur('spotify')">
+          <svg viewBox="0 0 24 24" fill="#1DB954" aria-hidden="true">
+            <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm4.6 14.4a.8.8 0 01-1.1.3c-3-1.8-6.7-2.2-11.1-1.2a.8.8 0 11-.3-1.5c4.8-1.1 8.9-.6 12.2 1.4.4.2.5.7.3 1zm1.2-2.9a1 1 0 01-1.3.3c-3.4-2.1-8.6-2.7-12.6-1.5a1 1 0 11-.6-1.9c4.6-1.4 10.3-.7 14.2 1.7.5.3.6.9.3 1.4zm.1-3C13.9 8.1 7.2 7.9 3.3 9.1a1.2 1.2 0 11-.7-2.3C7 5.4 14.4 5.6 19 8.4a1.2 1.2 0 01-1.1 2.1z"/>
+          </svg>
+          Spotify
+        </button>
+
+        <div class="form-msg" id="authFournisseurMsg"></div>
+      </div>
+
+      <p class="auth-note">Ton mot de passe est chiffré : l'équipe ne le voit jamais.</p>
     </div>
   </div>
 </div>
@@ -9915,6 +9937,7 @@ let waveursChargement = null;
 
 function chargerWaveurs(){
 
+  if(!waveursOuvertes()) return Promise.reject(new Error('Bientôt disponible.'));
   if(window.Waveurs) return Promise.resolve();
   if(waveursChargement) return waveursChargement;
 
@@ -10137,7 +10160,25 @@ function annoncerNiveauWaveurs(res){
 
 
 // La page d'accueil de la salle : où en sont les tours du jour.
+// L'espace des waveurs n'est ouvert qu'à l'équipe (Rémy, Yanis) : le public voit « Bientôt disponible ». Déclaration
+// de fonction, non constante : goTo peut dessiner la page avant que le script n'atteigne cet endroit.
+function waveursOuvertes(){
+  try{
+    return !!(currentUser && currentUser.isAdmin);
+  }catch(e){
+    return false;   // currentUser pas encore initialisé : fermé dans le doute
+  }
+}
+
 async function renderWaveurs(){
+
+  const panneau = document.getElementById('panneauCommunaute-waveurs');
+  if(panneau) panneau.classList.toggle('wv-ferme', !waveursOuvertes());
+
+  if(!waveursOuvertes()){
+    arreterWaveurs();
+    return;
+  }
 
   const logo = document.getElementById('waveursLogo');
   const source = document.querySelector('.nav-logo img');
@@ -10221,6 +10262,8 @@ async function renderWaveurs(){
 }
 
 async function entrerDansLaSalle(){
+
+  if(!waveursOuvertes()) return;
 
   const bouton = document.getElementById('waveursEntrer');
   const msg = document.getElementById('waveursMsg');

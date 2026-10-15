@@ -4357,7 +4357,7 @@ function menuMetiers(ancre, actif, libelleTous, choisir){
 }
 
 // Les profils d'Explorer défilent d'eux-mêmes, trois par trois.
-const TRIO = { taille: 3, periode: 6000 };
+const TRIO = { taille: 3, periode: 3000 };
 
 const TRIS = [
   { cle: 'actifs', libelle: 'Les plus actifs' },
@@ -8405,7 +8405,7 @@ const FEUILLE = String.raw`
 .com-trio-barre{display:block; width:120px; height:2px; margin:12px auto 0; border-radius:2px; background:rgba(255,255,255,0.08); overflow:hidden;}
 .com-trio-barre i{
   display:block; width:100%; height:100%; transform-origin:left center;
-  background:linear-gradient(90deg, var(--blue), var(--blue-bright)); animation:comTrioBarre 6000ms linear both;
+  background:linear-gradient(90deg, var(--blue), var(--blue-bright)); animation:comTrioBarre 3000ms linear both;
 }
 .com-trio-barre.en-pause i{animation-play-state:paused;}
 @keyframes comTrioBarre{from{transform:scaleX(0);} to{transform:scaleX(1);}}
