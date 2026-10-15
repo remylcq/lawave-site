@@ -5143,7 +5143,7 @@
     <div class="eq-outils">
       <input type="text" id="rechercheArtistesEquipe" autocomplete="off"
              placeholder="Chercher un artiste, un pseudo, une ville"
-             oninput="renderArtistProfilesList()">
+             oninput="rechercherArtistesEquipe()">
       <button type="button" class="btn btn-ghost" id="artistesBannisBtn"
               onclick="ouvrirBannis()">
         Artistes bannis <span id="artistesBannisNb"></span>
@@ -24802,15 +24802,34 @@ function voirTousLesArtistes(){
 }
 
 
-function renderArtistProfilesList(){
+// La recherche attend la fin de la frappe : redessiner la liste à chaque lettre, avec sept mille profils, bloquait la
+// page trois ou quatre secondes (« a » correspondait à des milliers de fiches, chacune dessinée en entier).
+let rechercheArtistesEquipeMinuteur = null;
+
+function rechercherArtistesEquipe(){
+
+  clearTimeout(rechercheArtistesEquipeMinuteur);
+
+  rechercheArtistesEquipeMinuteur = setTimeout(() => {
+    // Une nouvelle recherche repart de l'aperçu, même si la liste complète avait été demandée.
+    artistesEquipeTout = false;
+    renderArtistProfilesList({ sansFiltres: true });
+  }, 180);
+}
+
+// Combien de résultats une recherche dessine : le reste se demande (« Voir les N autres »).
+const RECHERCHE_EQUIPE_PLAFOND = 25;
+
+
+function renderArtistProfilesList(options){
 
   const list = document.getElementById('artistProfilesList');
   if(!list) return;
 
   // Les filtres se redessinent avec la liste : leurs comptes suivent
-  // chaque ajout, chaque suivi, chaque retrait.
+  // chaque ajout, chaque suivi, chaque retrait. Pas à chaque lettre d'une recherche : ils ne changent pas.
   const barre = document.getElementById('artistesFiltres');
-  if(barre) barre.innerHTML = artistesFiltresHtml();
+  if(barre && !(options && options.sansFiltres)) barre.innerHTML = artistesFiltresHtml();
 
   if(artistProfilesData.length === 0){
     list.innerHTML = `
@@ -24829,12 +24848,15 @@ function renderArtistProfilesList(){
 
   const base = artistProfilesData.filter(filtre.garde);
 
+  // Le texte cherché de chaque profil est mis en minuscules une fois (et gardé sur l'objet), pas à chaque frappe.
   const trouves = requete
-    ? base.filter(profil =>
-        String(profil.display_name || '').toLowerCase().includes(requete) ||
-        String(profil.instagram_handle || '').toLowerCase().includes(requete) ||
-        String(profil.ville || '').toLowerCase().includes(requete)
-      )
+    ? base.filter(profil => {
+        if(profil._recherche === undefined){
+          profil._recherche = [profil.display_name, profil.instagram_handle, profil.ville]
+            .map(t => String(t || '').toLowerCase()).join('\n');
+        }
+        return profil._recherche.includes(requete);
+      })
     : base;
 
   if(trouves.length === 0){
@@ -24849,9 +24871,9 @@ function renderArtistProfilesList(){
     return;
   }
 
-  const visibles = (requete || artistesEquipeTout)
+  const visibles = artistesEquipeTout
     ? trouves
-    : trouves.slice(0, LISTE_EQUIPE_APERCU);
+    : trouves.slice(0, requete ? RECHERCHE_EQUIPE_PLAFOND : LISTE_EQUIPE_APERCU);
 
   list.innerHTML =
     visibles.map(artistProfileRowHtml).join('') +
