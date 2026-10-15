@@ -35,134 +35,98 @@
   let dernierControle = 0;
   let minuteur = null;
 
+  // Un fond uni, une colonne étroite, des champs à plat : rien qui brille, rien qui flotte.
   const FEUILLE = `
 #portail{
-  --p-bg:#05070a; --p-ink:#F4F5F6; --p-soft:#C4C9D0; --p-muted:#838A92;
-  --p-blue:#1489DE; --p-bright:#4FB4FF; --p-danger:#E5695C;
-  --p-ease:cubic-bezier(.16,1,.3,1);
+  --p-bg:#0a0c10; --p-ink:#F4F5F6; --p-soft:#B4BAC2; --p-muted:#7B828B; --p-line:#272c34;
+  --p-blue:#4FB4FF; --p-danger:#E5695C;
   position:fixed; inset:0; z-index:2147483000; overflow:auto; display:flex;
-  padding:24px 16px; background:var(--p-bg); color:var(--p-ink);
-  font-family:'Public Sans', system-ui, sans-serif; font-weight:300; line-height:1.5;
+  padding:24px 20px; background:var(--p-bg); color:var(--p-ink);
+  font-family:'Public Sans', system-ui, sans-serif; font-weight:400; line-height:1.5;
   -webkit-font-smoothing:antialiased;
-  transition:opacity .6s var(--p-ease), transform .6s var(--p-ease);
+  transition:opacity .4s ease;
 }
 #portail, #portail *{box-sizing:border-box;}
-#portail.p-sortie{opacity:0; pointer-events:none; transform:scale(1.03);}
+#portail.p-sortie{opacity:0; pointer-events:none;}
 #portail [hidden]{display:none !important;}
 
-#portail .p-fond{position:fixed; inset:0; overflow:hidden; pointer-events:none;}
-#portail .p-halo{position:absolute; border-radius:50%; filter:blur(60px); animation:p-derive 17s ease-in-out infinite alternate;}
-#portail .p-halo-1{width:64vmax; height:64vmax; left:-22vmax; top:-34vmax; opacity:.55;
-  background:radial-gradient(circle, rgba(20,137,222,.6), transparent 65%);}
-#portail .p-halo-2{width:52vmax; height:52vmax; right:-20vmax; bottom:-30vmax; opacity:.45;
-  background:radial-gradient(circle, rgba(79,180,255,.34), transparent 65%);
-  animation-duration:23s; animation-direction:alternate-reverse;}
-@keyframes p-derive{from{transform:translate3d(0,0,0) scale(1);} to{transform:translate3d(6vmax,4vmax,0) scale(1.14);}}
-
 #portail .p-carte{
-  position:relative; width:100%; max-width:424px; margin:auto; padding:38px 32px 26px;
-  border-radius:30px; text-align:center;
-  background:linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.035));
-  border:1px solid rgba(255,255,255,.12);
-  box-shadow:0 2px 6px rgba(0,0,0,.36), 0 30px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.14);
-  -webkit-backdrop-filter:blur(28px) saturate(160%); backdrop-filter:blur(28px) saturate(160%);
-  animation:p-entree .85s var(--p-ease) both;
+  width:100%; max-width:320px; margin:auto; text-align:center;
+  animation:p-entree .5s ease both;
 }
-@keyframes p-entree{from{opacity:0; transform:translateY(22px) scale(.975);} to{opacity:1; transform:none;}}
-#portail .p-carte > *{animation:p-monte .8s var(--p-ease) both; animation-delay:calc(var(--i, 0) * 70ms + 120ms);}
-@keyframes p-monte{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:none;}}
+@keyframes p-entree{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
 
-#portail .p-logo{display:flex; justify-content:center; align-items:center; height:88px; margin:0 0 14px;}
-#portail .p-logo img{display:block; height:88px; width:88px; object-fit:contain; filter:drop-shadow(0 8px 26px rgba(20,137,222,.42));}
-#portail .p-logo b{font-size:26px; font-weight:700; letter-spacing:-.02em;}
-#portail .p-pastille{
-  display:inline-flex; align-items:center; gap:8px; margin:0 0 16px; padding:6px 13px;
-  border-radius:999px; font-size:12px; font-weight:500; letter-spacing:.06em; text-transform:uppercase;
-  color:var(--p-bright); background:rgba(79,180,255,.10); border:1px solid rgba(79,180,255,.22);
-}
-#portail .p-point{width:7px; height:7px; border-radius:50%; background:var(--p-bright); box-shadow:0 0 0 0 rgba(79,180,255,.6); animation:p-pouls 2.2s ease-out infinite;}
-@keyframes p-pouls{0%{box-shadow:0 0 0 0 rgba(79,180,255,.55);} 70%,100%{box-shadow:0 0 0 9px rgba(79,180,255,0);}}
-#portail .p-titre{margin:0 0 10px; font-size:30px; font-weight:700; letter-spacing:-.02em; line-height:1.12; color:var(--p-ink);}
-#portail .p-intro{margin:0 0 26px; font-size:15px; color:var(--p-soft);}
+#portail .p-logo{display:flex; justify-content:center; align-items:center; height:56px; margin:0 0 36px;}
+#portail .p-logo img{display:block; height:56px; width:56px; object-fit:contain;}
+#portail .p-logo b{font-size:20px; font-weight:700;}
+#portail .p-titre{margin:0 0 6px; font-size:20px; font-weight:600; line-height:1.2; color:var(--p-ink);}
+#portail .p-intro{margin:0 0 32px; font-size:14px; color:var(--p-muted);}
 
-#portail .p-champ{display:block; margin:0 0 14px; text-align:left;}
-#portail .p-champ > span{display:block; margin:0 0 7px 4px; font-size:12px; font-weight:500; letter-spacing:.05em; text-transform:uppercase; color:var(--p-muted);}
+#portail .p-champ{display:block; margin:0 0 16px; text-align:left;}
+#portail .p-champ > span{display:block; margin:0 0 6px; font-size:13px; color:var(--p-soft);}
 #portail .p-saisie{position:relative;}
 #portail .p-saisie input{
-  display:block; width:100%; height:54px; padding:0 16px; margin:0;
-  border-radius:16px; border:1px solid rgba(255,255,255,.14); background:rgba(0,0,0,.30);
-  color:var(--p-ink); font:inherit; font-size:16px; font-weight:400; outline:none;
-  transition:border-color .25s var(--p-ease), box-shadow .25s var(--p-ease), background .25s var(--p-ease);
+  display:block; width:100%; height:48px; padding:0 14px; margin:0;
+  border-radius:10px; border:1px solid var(--p-line); background:transparent;
+  color:var(--p-ink); font:inherit; font-size:16px; outline:none;
+  transition:border-color .2s ease;
 }
-#portail .p-saisie input::placeholder{color:rgba(196,201,208,.38);}
-#portail .p-saisie input:hover{border-color:rgba(255,255,255,.24);}
-#portail .p-saisie input:focus{border-color:var(--p-bright); background:rgba(0,0,0,.42); box-shadow:0 0 0 4px rgba(79,180,255,.16);}
-#portail .p-saisie input:-webkit-autofill{-webkit-text-fill-color:var(--p-ink); -webkit-box-shadow:0 0 0 100px #0b1119 inset; caret-color:var(--p-ink);}
-#portail .p-mdp input{padding-right:54px;}
+#portail .p-saisie input::placeholder{color:#4b525b;}
+#portail .p-saisie input:hover{border-color:#3a414b;}
+#portail .p-saisie input:focus{border-color:var(--p-blue);}
+#portail .p-saisie input:-webkit-autofill{-webkit-text-fill-color:var(--p-ink); -webkit-box-shadow:0 0 0 100px #0a0c10 inset; caret-color:var(--p-ink);}
+#portail .p-mdp input{padding-right:48px;}
 #portail .p-oeil{
-  position:absolute; right:6px; top:6px; width:42px; height:42px; padding:0; border:0; border-radius:12px;
+  position:absolute; right:4px; top:4px; width:40px; height:40px; padding:0; border:0; border-radius:8px;
   display:flex; align-items:center; justify-content:center; background:none; color:var(--p-muted); cursor:pointer;
-  transition:color .2s var(--p-ease), background .2s var(--p-ease);
+  transition:color .2s ease;
 }
-#portail .p-oeil:hover{color:var(--p-ink); background:rgba(255,255,255,.07);}
+#portail .p-oeil:hover{color:var(--p-ink);}
 #portail .p-oeil svg{width:20px; height:20px; display:block;}
-#portail .p-oeil .p-barre{opacity:0; transition:opacity .2s;}
+#portail .p-oeil .p-barre{opacity:0;}
 #portail .p-oeil[aria-pressed="true"] .p-barre{opacity:1;}
 
-#portail .p-erreur{min-height:22px; margin:0 4px 12px; font-size:14px; font-weight:400; text-align:left; color:var(--p-danger);}
-#portail .p-erreur.p-vu{animation:p-apparait .35s var(--p-ease) both;}
-@keyframes p-apparait{from{opacity:0; transform:translateY(-5px);} to{opacity:1; transform:none;}}
-#portail .p-secoue{animation:p-secoue .45s cubic-bezier(.36,.07,.19,.97) both;}
-@keyframes p-secoue{10%,90%{transform:translateX(-2px);} 20%,80%{transform:translateX(4px);} 30%,50%,70%{transform:translateX(-7px);} 40%,60%{transform:translateX(7px);}}
+#portail .p-erreur{min-height:22px; margin:0 0 12px; font-size:14px; text-align:left; color:var(--p-danger);}
+#portail .p-secoue{animation:p-secoue .4s ease both;}
+@keyframes p-secoue{20%,60%{transform:translateX(-5px);} 40%,80%{transform:translateX(5px);}}
 
 #portail .p-entrer{
-  position:relative; display:flex; align-items:center; justify-content:center; gap:10px;
-  width:100%; height:56px; padding:0 18px; margin:0; border:0; border-radius:16px; overflow:hidden;
-  font:inherit; font-size:16px; font-weight:600; color:#fff; cursor:pointer;
-  background:linear-gradient(180deg, #2ea0f2, #1489DE 55%, #0f74c0);
-  box-shadow:0 10px 26px rgba(20,137,222,.38), inset 0 1px 0 rgba(255,255,255,.28);
-  transition:transform .3s var(--p-ease), box-shadow .3s var(--p-ease), filter .3s var(--p-ease);
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  width:100%; height:48px; padding:0 18px; margin:0; border:0; border-radius:10px;
+  font:inherit; font-size:15px; font-weight:600; color:var(--p-bg); cursor:pointer;
+  background:var(--p-ink);
+  transition:background .2s ease;
 }
-#portail .p-entrer:hover{transform:translateY(-1px); filter:brightness(1.07); box-shadow:0 14px 32px rgba(20,137,222,.46), inset 0 1px 0 rgba(255,255,255,.3);}
-#portail .p-entrer:active{transform:scale(.985);}
-#portail .p-entrer:focus-visible{outline:2px solid #fff; outline-offset:3px;}
-#portail .p-entrer:disabled{cursor:default; transform:none; filter:saturate(.75) brightness(.95);}
-#portail .p-entrer.p-reussi{background:linear-gradient(180deg, #3ec28a, #26a874 55%, #1d8f62); box-shadow:0 10px 26px rgba(38,168,116,.4), inset 0 1px 0 rgba(255,255,255,.28);}
-#portail .p-rond{width:20px; height:20px; border-radius:50%; border:2.5px solid rgba(255,255,255,.35); border-top-color:#fff; animation:p-tour .7s linear infinite;}
+#portail .p-entrer:hover{background:#fff;}
+#portail .p-entrer:focus-visible{outline:2px solid var(--p-blue); outline-offset:3px;}
+#portail .p-entrer:disabled{cursor:default; background:#9aa0a8;}
+#portail .p-entrer.p-reussi{background:#3ec28a; color:#06150e;}
+#portail .p-rond{width:18px; height:18px; border-radius:50%; border:2px solid rgba(10,12,16,.25); border-top-color:var(--p-bg); animation:p-tour .7s linear infinite;}
 @keyframes p-tour{to{transform:rotate(360deg);}}
-#portail .p-coche{width:22px; height:22px; animation:p-pop .45s cubic-bezier(.34,1.56,.64,1) both;}
-@keyframes p-pop{from{opacity:0; transform:scale(.4);} to{opacity:1; transform:none;}}
+#portail .p-coche{width:20px; height:20px;}
 
-#portail .p-pied{margin:20px 0 0; font-size:13px; color:var(--p-muted);}
-#portail .p-attente{display:flex; flex-direction:column; align-items:center; gap:16px; padding:10px 0 8px;}
-#portail .p-attente .p-rond{width:30px; height:30px; border-width:3px;}
-#portail .p-attente p{margin:0; font-size:15px; color:var(--p-soft);}
-#portail .p-reseau-msg{margin:0 0 20px; font-size:15px; color:var(--p-soft);}
+#portail .p-pied{margin:24px 0 0; font-size:12px; color:var(--p-muted);}
+#portail .p-attente{display:flex; flex-direction:column; align-items:center; gap:14px; padding:8px 0;}
+#portail .p-attente .p-rond{width:24px; height:24px; border-color:rgba(255,255,255,.2); border-top-color:var(--p-ink);}
+#portail .p-attente p{margin:0; font-size:14px; color:var(--p-soft);}
+#portail .p-reseau-msg{margin:0 0 20px; font-size:14px; color:var(--p-soft);}
 #portail .p-reessayer{
-  width:100%; height:52px; border-radius:16px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.07);
+  width:100%; height:48px; border-radius:10px; border:1px solid var(--p-line); background:transparent;
   color:var(--p-ink); font:inherit; font-size:15px; font-weight:500; cursor:pointer;
-  transition:background .25s var(--p-ease), transform .25s var(--p-ease);
+  transition:border-color .2s ease;
 }
-#portail .p-reessayer:hover{background:rgba(255,255,255,.12);}
-#portail .p-reessayer:active{transform:scale(.985);}
+#portail .p-reessayer:hover{border-color:#3a414b;}
 
-@media (max-width:480px){
-  #portail{padding:16px;}
-  #portail .p-carte{padding:30px 20px 22px; border-radius:26px;}
-  #portail .p-titre{font-size:26px;}
-}
 @media (prefers-reduced-motion:reduce){
   #portail, #portail *{animation-duration:.01ms !important; animation-delay:0s !important; animation-iteration-count:1 !important; transition-duration:.01ms !important;}
 }
 `;
 
   const GABARIT = `
-<div class="p-fond" aria-hidden="true"><div class="p-halo p-halo-1"></div><div class="p-halo p-halo-2"></div></div>
 <div class="p-carte">
-  <div class="p-logo" style="--i:0"></div>
-  <div style="--i:1"><span class="p-pastille"><span class="p-point"></span>Test privé</span></div>
-  <h1 class="p-titre" id="portail-titre" style="--i:2">Accès réservé</h1>
-  <p class="p-intro" style="--i:3">Le site est en phase de test, sur invitation. Entre l'adresse e-mail et le mot de passe que tu as reçus.</p>
+  <div class="p-logo"></div>
+  <h1 class="p-titre" id="portail-titre">Accès sur invitation</h1>
+  <p class="p-intro">Le site est en phase de test.</p>
 
   <div class="p-vue" data-v="verif" hidden>
     <div class="p-attente"><div class="p-rond"></div><p>Vérification de ton accès…</p></div>
@@ -173,12 +137,12 @@
     <button type="button" class="p-reessayer">Réessayer</button>
   </div>
 
-  <form class="p-vue" data-v="form" novalidate style="--i:4">
-    <label class="p-champ"><span>Adresse e-mail</span>
-      <div class="p-saisie"><input type="email" name="email" autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="toi@exemple.fr" required></div>
+  <form class="p-vue" data-v="form" novalidate>
+    <label class="p-champ"><span>E-mail</span>
+      <div class="p-saisie"><input type="email" name="email" autocomplete="username" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" required></div>
     </label>
     <label class="p-champ"><span>Mot de passe</span>
-      <div class="p-saisie p-mdp"><input type="password" name="mot-de-passe" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="XXXX-XXXX-XXXX" required>
+      <div class="p-saisie p-mdp"><input type="password" name="mot-de-passe" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required>
         <button type="button" class="p-oeil" aria-label="Afficher le mot de passe" aria-pressed="false">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path class="p-barre" d="M4 4l16 16"/></svg>
         </button>
@@ -188,7 +152,7 @@
     <button type="submit" class="p-entrer"><span class="p-lib">Entrer</span></button>
   </form>
 
-  <p class="p-pied" style="--i:5">Tes identifiants sont personnels : merci de ne pas les partager.</p>
+  <p class="p-pied">Tes identifiants sont personnels.</p>
 </div>`;
 
   // ---------------- Échanges avec Supabase ----------------
@@ -300,11 +264,6 @@
     const p = racine && racine.querySelector('.p-erreur');
     if(!p) return;
     p.textContent = texte;
-    p.classList.remove('p-vu');
-    if(texte){
-      void p.offsetWidth;
-      p.classList.add('p-vu');
-    }
   }
 
   function secouer(){
@@ -411,7 +370,7 @@
     racine = null;
     if(r){
       r.classList.add('p-sortie');
-      setTimeout(() => r.remove(), 700);
+      setTimeout(() => r.remove(), 500);
     }
 
     document.dispatchEvent(new CustomEvent('portail:leve'));
@@ -468,7 +427,7 @@
       if(!document.getElementById('portail')){
         const d = document.createElement('div');
         d.id = 'portail';
-        d.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#05070a;color:#F4F5F6;font:16px sans-serif;text-align:center';
+        d.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:#0a0c10;color:#F4F5F6;font:16px sans-serif;text-align:center';
         d.textContent = 'Accès momentanément indisponible. Recharge la page dans un instant.';
         document.body.appendChild(d);
       }
