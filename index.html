@@ -4205,6 +4205,10 @@
                   tabindex="-1" onclick="choisirPaysCarte('suisse')">
             Suisse <span class="carte-pays-compte"></span>
           </button>
+          <button type="button" role="tab" id="cartePays-outremer" aria-selected="false"
+                  tabindex="-1" onclick="choisirPaysCarte('outremer')">
+            Outre-mer <span class="carte-pays-compte"></span>
+          </button>
         </div>
 
         <!-- Un formulaire à lui seul, comme la recherche du catalogue : les
@@ -15299,6 +15303,31 @@ const SUISSE_CONTOUR =
 // latitude moyenne. À cette échelle la déformation est invisible, et
 // elle est réversible en deux multiplications — ce qui place une ville
 // sur la même grille que les points du fond.
+// ---- L'outre-mer ----
+//
+// Cinq territoires aux quatre coins du monde : une seule projection ne les réunirait pas. Chacun a donc son cadre
+// dans une même grille, à sa propre échelle (comme les encarts d'une carte papier). Les points viennent des contours
+// officiels des régions (data.gouv.fr, simplifiés), à raison d'un point par case de la grille du cadre.
+//   cle, nom                       le territoire
+//   lonMin lonMax latMin latBoite  la boîte qui dit si une ville s'y trouve
+//   lonRef latMax                  le coin nord-ouest du cadre (point de départ de la grille)
+//   K PAS                          l'échelle : K corrige la longitude, PAS est la taille d'une case en degrés
+//   col0 row0                      la place du cadre dans la grille de l'outre-mer
+const OUTREMER_POINTILLES =
+  '3:7-9,33-34 4:6-12,33-34,48-51 5:5-13,33-34,48-51 6:5-15,28-30,33-37,41,49-54 7:4-16,28-38,49-54 ' +
+  '8:4-17,28-31,49-54 9:4-19,28-31,50-54 10:5-19,28-31,52-55 11:5-19,28-31,50-55 12:5-19,29-30,37,51-55 ' +
+  '13:6-18,36-38,55 14:7-17,36-37 15:7-17 16:6-16 17:6-15 18:6-15 19:6-15 20:5-14 21:4-14 22:4-6,11-12,30-36 ' +
+  '23:29-36,48-49 24:29-37,48-49 25:28-37,49-52 26:28-38,50-52 27:29-39,50-51 28:29-39,50-52 29:29-39,49,51 ' +
+  '30:30-39,49-50 31:32-39,50 32:34-38';
+
+const OUTREMER_CADRES = [
+  { cle: 'guyane',     nom: 'Guyane',     lonMin: -54.6216, lonMax: -51.5991, latMin: 2.0913,   latBoite: 5.7682,   lonRef: -54.6016, latMax: 5.7482,   K: 0.997649, PAS: 0.175028, col0: 3,  row0: 2 },
+  { cle: 'guadeloupe', nom: 'Guadeloupe', lonMin: -61.8296, lonMax: -60.9821, latMin: 15.8121,  latBoite: 16.5343,  lonRef: -61.8096, latMax: 16.5143,  K: 0.960424, PAS: 0.051703, col0: 27, row0: 2 },
+  { cle: 'martinique', nom: 'Martinique', lonMin: -61.2493, lonMax: -60.7895, latMin: 14.3687,  latBoite: 14.8988,  lonRef: -61.2293, latMax: 14.8788,  K: 0.967561, PAS: 0.045129, col0: 47, row0: 3 },
+  { cle: 'reunion',    nom: 'La Réunion', lonMin: 55.1965,  lonMax: 55.8567,  latMin: -21.4094, latBoite: -20.8517, lonRef: 55.2165,  latMax: -20.8717, K: 0.932761, PAS: 0.044496, col0: 27, row0: 21 },
+  { cle: 'mayotte',    nom: 'Mayotte',    lonMin: 44.9983,  lonMax: 45.32,    latMin: -13.0253, latBoite: -12.6166, lonRef: 45.0183,  latMax: -12.6366, K: 0.975068, PAS: 0.039234, col0: 47, row0: 22 }
+];
+
 const CARTES_PAYS = {
   france: {
     nom: 'France', pointilles: FRANCE_POINTILLES, contour: null,
@@ -15314,6 +15343,13 @@ const CARTES_PAYS = {
     nom: 'Suisse', pointilles: SUISSE_POINTILLES, contour: SUISSE_CONTOUR,
     lonMin: 5.9559, lonMax: 10.4922, latMax: 47.8085, latCentre: 46.8,
     colonnes: 62, ligneCentre: 20
+  },
+  // Pas de projection d'ensemble : chaque territoire a la sienne (OUTREMER_CADRES, voir projeterSurCarte). Les
+  // valeurs ci-dessous ne servent qu'à garder les calculs communs valides ; la grille fait 62 colonnes sur 35 lignes.
+  outremer: {
+    nom: 'Outre-mer', pointilles: OUTREMER_POINTILLES, contour: null, cadres: OUTREMER_CADRES,
+    lonMin: 0, lonMax: 1, latMax: 0, latCentre: 0,
+    colonnes: 62, ligneCentre: 18
   }
 };
 
@@ -15330,11 +15366,23 @@ var cartePays = cartePays || 'france';
 
 // Sans passer par CARTES_PAYS, pour la même raison.
 function paysCarteValide(cle){
-  return cle === 'france' || cle === 'belgique' || cle === 'suisse';
+  return cle === 'france' || cle === 'belgique' || cle === 'suisse' || cle === 'outremer';
 }
 
 function projeterSurCarte(lon, lat){
   const pays = CARTES_PAYS[cartePays];
+
+  // Outre-mer : le cadre du territoire où tombe la ville, avec sa propre échelle.
+  if(pays.cadres){
+    const cadre = cadreOutremer(Number(lon), Number(lat));
+    if(cadre){
+      return {
+        x: cadre.col0 + ((Number(lon) - cadre.lonRef) * cadre.K) / cadre.PAS,
+        y: cadre.row0 + (cadre.latMax - Number(lat)) / cadre.PAS
+      };
+    }
+  }
+
   return {
     x: ((Number(lon) - pays.lonMin) * pays.K) / pays.PAS,
     y: (pays.latMax - Number(lat)) / pays.PAS
@@ -15402,12 +15450,21 @@ function dansContour(contour, lon, lat){
   return dedans;
 }
 
+// Le territoire d'outre-mer où tombe un point, ou null.
+function cadreOutremer(lon, lat){
+  return OUTREMER_CADRES.find(c =>
+    lon >= c.lonMin && lon <= c.lonMax && lat >= c.latMin && lat <= c.latBoite
+  ) || null;
+}
+
 function paysDuLieu(lat, lon){
 
   const cle = lat + '|' + lon;
 
   if(!cartePaysDesLieux.has(cle)){
-    const pays = ['belgique', 'suisse'].find(p => dansContour(contourPays(p), lon, lat));
+    const pays = cadreOutremer(Number(lon), Number(lat))
+      ? 'outremer'
+      : ['belgique', 'suisse'].find(p => dansContour(contourPays(p), lon, lat));
     cartePaysDesLieux.set(cle, pays || 'france');
   }
 
@@ -16273,6 +16330,32 @@ function dessinerVisageCarte(ctx, profil, x, y, rayon, alpha){
 }
 
 
+// Le nom de chaque territoire, sous son cadre : sans lui, cinq îlots de points ne disent pas où l'on est.
+function dessinerLegendesOutremer(ctx, etat, largeur, hauteur){
+
+  const pays = CARTES_PAYS[cartePays];
+
+  if(!pays.cadres) return;
+
+  ctx.save();
+  ctx.fillStyle = '#C4C9D0';
+  ctx.globalAlpha = 0.55;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.font = '500 11px "Public Sans", sans-serif';
+
+  pays.cadres.forEach(c => {
+    const u = c.col0 + (((c.lonMin + c.lonMax) / 2 - c.lonRef) * c.K) / c.PAS;
+    const v = c.row0 + (c.latMax - c.latMin) / c.PAS + 1.6;
+    const p = projeter3D(u, v, 0, etat);
+    if(p.x < -40 || p.x > largeur + 40 || p.y < -20 || p.y > hauteur + 20) return;
+    ctx.fillText(c.nom.toUpperCase(), p.x, p.y);
+  });
+
+  ctx.restore();
+}
+
+
 function dessinerCarte(temps, dt){
 
   const canvas = document.getElementById('carteCanvas');
@@ -16324,6 +16407,7 @@ function dessinerCarte(temps, dt){
   };
 
   dessinerPointsCarte(ctx, etat, cadre, largeur, hauteur);
+  dessinerLegendesOutremer(ctx, etat, largeur, hauteur);
 
   // ---- Villes, regroupées quand leurs pastilles se toucheraient ----
   carteEcran = [];
@@ -17232,7 +17316,7 @@ function renderOngletsPays(animer){
   const barre = document.getElementById('cartePays');
   if(!barre) return;
 
-  const comptes = { france: 0, belgique: 0, suisse: 0 };
+  const comptes = { france: 0, belgique: 0, suisse: 0, outremer: 0 };
 
   Object.values(artistsByHandle).forEach(profil => {
     const lieu = lieuDuProfil(profil);
