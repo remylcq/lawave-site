@@ -26227,10 +26227,15 @@ function artistProfileRowHtml(profil){
                ${
                  nombre > 0
                    ? `Ses ${nombre} sortie${nombre > 1 ? 's' : ''} peuvent partir
-                      avec lui, ou rester en ligne — elles afficheraient alors son
-                      initiale à la place de sa photo, et le profil se recréerait
-                      tout seul à sa prochaine soumission.`
-                   : `Il n'a aucune sortie publiée.`
+                      avec lui : il est alors aussi banni (son nom et sa page Deezer),
+                      donc il ne revient pas, même s'il sort un nouveau morceau ; tu
+                      peux le rétablir depuis « Artistes bannis ». Ou rester en ligne :
+                      « Le profil seul » ne bannit pas, les sorties affichent son
+                      initiale à la place de sa photo et le profil se recréerait à sa
+                      prochaine soumission.`
+                   : `Il n'a aucune sortie publiée. Il est aussi banni (son nom et sa
+                      page Deezer) : il ne revient pas, même s'il sort un nouveau
+                      morceau ; tu peux le rétablir depuis « Artistes bannis ».`
                }
              </p>
 
@@ -26238,15 +26243,15 @@ function artistProfileRowHtml(profil){
                ${
                  nombre > 0
                    ? `<button type="button" class="btn btn-primary"
-                              onclick="supprimerProfilArtiste('${h}', true)">
+                              onclick="supprimerProfilArtiste('${h}', true, true)">
                         Supprimer le profil et ses ${nombre} sortie${nombre > 1 ? 's' : ''}
                       </button>
                       <button type="button" class="btn btn-ghost"
-                              onclick="supprimerProfilArtiste('${h}', false)">
+                              onclick="supprimerProfilArtiste('${h}', false, false)">
                         Le profil seul
                       </button>`
                    : `<button type="button" class="btn btn-primary"
-                              onclick="supprimerProfilArtiste('${h}', false)">
+                              onclick="supprimerProfilArtiste('${h}', false, true)">
                         Oui, supprimer
                       </button>`
                }
@@ -26733,12 +26738,21 @@ async function enregistrerArtiste(ancienHandle){
 // Supprime le profil et sa photo. Les sorties de l'artiste restent en
 // ligne : elles perdent seulement le lien vers sa photo, et le profil
 // se recrée automatiquement à sa prochaine soumission.
-async function supprimerProfilArtiste(handle, avecSorties){
+//
+// `definitif` : l'artiste est aussi banni (son nom et sa page Deezer), pour qu'il ne revienne pas — ni par un nouveau
+// morceau importé de Deezer, ni comme invité sur la sortie d'un autre, ni par un dépôt. Le bannissement vient
+// APRÈS la suppression : un artiste banni est masqué pour tout le monde, l'équipe comprise, et sa suppression
+// échouerait. Sans lui (« le profil seul »), l'artiste peut revenir.
+async function supprimerProfilArtiste(handle, avecSorties, definitif){
 
   if(!isAdmin) return;
 
   const msgId = 'artist-msg-' + handle;
   const profil = artistProfilesData.find(a => a.instagram_handle === handle);
+
+  // Retenus avant que le profil disparaisse : ils servent au bannissement.
+  const nomAvantSuppression = (profil && profil.display_name) || handle;
+  const deezerAvantSuppression = profil ? profil.deezer_artist_id : null;
 
   closeConfirmPanel('artist-delete-' + handle);
   setRowMessage(msgId, 'Suppression en cours...', 'ok');
@@ -26791,6 +26805,22 @@ async function supprimerProfilArtiste(handle, avecSorties){
       await Fichiers.supprimerParUrl(profil.photo_url);
     }
 
+    // Le bannissement : par le nom et la page Deezer (le pseudo ne sert plus, le profil n'existe plus).
+    let avertissementBan = '';
+
+    if(definitif){
+
+      const { error: erreurBan } = await BD.bannirArtiste(
+        nomAvantSuppression, null, deezerAvantSuppression, 'Supprimé depuis l’espace équipe'
+      );
+
+      // « Déjà banni » est le résultat voulu, pas une erreur.
+      if(erreurBan && !/déjà banni/i.test(erreurBan.message || '')){
+        avertissementBan = " Mais il n'a pas pu être banni (" + (erreurBan.message || erreurBan) +
+          ") : il pourrait revenir, bannis-le depuis l'onglet Artistes.";
+      }
+    }
+
     await refreshAfterArtistChange();
 
     setRowMessage(
@@ -26799,8 +26829,10 @@ async function supprimerProfilArtiste(handle, avecSorties){
       (sortiesEffacees
         ? ', avec ses ' + sortiesEffacees + ' sortie' +
           (sortiesEffacees > 1 ? 's' : '') + '.'
-        : '.'),
-      'ok'
+        : '.') +
+      (definitif && !avertissementBan ? ' Il est aussi banni : il ne reviendra pas.' : '') +
+      avertissementBan,
+      avertissementBan ? 'err' : 'ok'
     );
 
   } catch(error){
