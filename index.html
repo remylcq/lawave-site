@@ -4905,6 +4905,7 @@
       <symbol id="eq-artistes" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
       <symbol id="eq-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></symbol>
       <symbol id="eq-etoile" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></symbol>
+      <symbol id="eq-duel" viewBox="0 0 24 24"><path d="M4 4l16 16M20 4L4 20"/><circle cx="12" cy="12" r="2.2"/></symbol>
       <symbol id="eq-film" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="3"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5"/></symbol>
       <symbol id="eq-reglages" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
       <symbol id="eq-bulle" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
@@ -4977,6 +4978,12 @@
         <svg class="eq-ic" aria-hidden="true"><use href="#eq-etoile"/></svg>
         <span class="admin-tab-label">Sélection</span>
         <span class="admin-tab-count" id="adminCount-selection"></span>
+      </button>
+
+      <button type="button" class="admin-tab" id="adminTab-engagement"
+        role="tab" onclick="switchAdminTab('engagement')" title="Duels de sorties et saisons">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-duel"/></svg>
+        <span class="admin-tab-label">Engagement</span>
       </button>
 
       <button type="button" class="admin-tab" id="adminTab-accreditations"
@@ -5348,6 +5355,26 @@
 
   </div>
 
+
+  <!-- ================= ENGAGEMENT : DUELS ET SAISONS ================= -->
+
+  <div class="admin-section" id="adminSection-engagement">
+
+    <div class="section-head">
+      <div>
+        <span class="eyebrow mono">Communauté</span>
+        <h3>Duels et saisons</h3>
+        <p class="desc">
+          Lance des duels entre deux sorties (les membres votent, le résultat s'affiche après leur vote) et règle les saisons :
+          4 à 6 semaines, avec 8 récompenses de style aux couleurs de la saison. Rien de tout ça ne donne d'avantage.
+        </p>
+      </div>
+      <button type="button" class="btn btn-ghost" onclick="chargerEngagementEquipe()">Actualiser</button>
+    </div>
+
+    <div id="engagementEquipe" style="margin-top:20px;"></div>
+
+  </div>
 
   <!-- ================= SÉLECTION DE L'ACCUEIL ================= -->
 
@@ -6822,6 +6849,64 @@ const BD = {
 
   xpSuccesListe(userId){
     return supabaseClient.rpc('xp_succes_liste', { p_user: userId || null });
+  },
+
+  // L'engagement (sql/engagement.sql) : duels de sorties, saisons, cosmétiques, résumé de la semaine, pépites.
+  // Tout se passe dans la base ; engagement.js ne fait que lire et dessiner.
+  duelsListe(){
+    return supabaseClient.rpc('duels_liste');
+  },
+
+  duelVoter(duel, choix){
+    return supabaseClient.rpc('duel_voter', { p_duel: duel, p_choix: choix });
+  },
+
+  saisonEtat(){
+    return supabaseClient.rpc('saison_etat');
+  },
+
+  resumeSemaine(decalage){
+    return supabaseClient.rpc('resume_semaine', { p_decalage: decalage === 0 ? 0 : 1 });
+  },
+
+  cosmetiquesMoi(){
+    return supabaseClient.rpc('cosmetiques_moi');
+  },
+
+  cosmetiqueEquiper(type, id){
+    return supabaseClient.rpc('cosmetique_equiper', { p_type: type, p_id: id });
+  },
+
+  decouvreurFiche(userId){
+    return supabaseClient.rpc('decouvreur_fiche', { p_user: userId || null });
+  },
+
+  engagementSynchroniser(){
+    return supabaseClient.rpc('engagement_synchroniser');
+  },
+
+  duelEquipeListe(){
+    return supabaseClient.rpc('duel_equipe_liste');
+  },
+
+  duelEquipeSauver(a, b, fin, titre){
+    return supabaseClient.rpc('duel_equipe_sauver', { p_release_a: a, p_release_b: b, p_fin: fin, p_titre: titre || null });
+  },
+
+  duelEquipeHasard(jours){
+    return supabaseClient.rpc('duel_equipe_hasard', { p_jours: jours || 3 });
+  },
+
+  duelEquipeSupprimer(id){
+    return supabaseClient.rpc('duel_equipe_supprimer', { p_id: id });
+  },
+
+  saisonEquipeListe(){
+    return supabaseClient.rpc('saison_equipe_liste');
+  },
+
+  saisonEquipeSauver(champs){
+    return supabaseClient.rpc('saison_equipe_sauver', champs);
   },
 
   waveursReclamerDefi(id){
@@ -11912,10 +11997,33 @@ function chargerXp(){
   return chargerModuleSite('xp.js?v=1', 'Xp', "de l'XP (xp.js)");
 }
 
+// Les duels, la saison, la garde-robe, « Ma semaine » (engagement.js). Même principe que l'XP : le numéro reçoit
+// l'empreinte du fichier à la mise en ligne, et le nom est écrit dans la fonction.
+function chargerEngagement(){
+  return chargerModuleSite('engagement.js?v=1', 'Engagement', "de l'engagement (engagement.js)");
+}
+
+// L'onglet « Engagement » de l'espace équipe : duels et saisons (dessiné par engagement.js).
+async function chargerEngagementEquipe(){
+
+  const zone = document.getElementById('engagementEquipe');
+  if(!zone) return;
+
+  try{
+    await chargerEngagement();
+    await window.Engagement.equipe(zone);
+  }catch(erreur){
+    zone.innerHTML = `<div class="empty-state">${escapeHtml(erreur.message)}</div>`;
+  }
+}
+
 // Un membre est connecté : on lit son état et on annonce ce qui l'attend. Sans effet s'il est déjà lu.
 function xpDemarrer(){
   if(!currentUser) return;
   chargerXp().then(() => window.Xp.demarrer()).catch(() => {});
+
+  // Débloque ce qui est mérité (cosmétiques, pépites) ; les annonces arrivent par la file de l'XP.
+  Promise.resolve(BD.engagementSynchroniser()).then(() => xpApres(900)).catch(() => {});
 }
 
 // Après un geste qui a pu rapporter de l'XP (noter, écouter, publier, réagir…) : le serveur a déjà compté, on annonce.
@@ -21634,6 +21742,7 @@ const ADMIN_TABS = [
   'support',
   'profils',
   'selection',
+  'engagement',
   'membres',
   'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
@@ -21730,6 +21839,10 @@ function switchAdminTab(nom){
 
   if(nom === 'selection'){
     chargerSelectionEquipe();
+  }
+
+  if(nom === 'engagement'){
+    chargerEngagementEquipe();
   }
 
   // ACCÈS TESTEURS (TEMPORAIRE)

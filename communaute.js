@@ -146,6 +146,7 @@ const ICONES = {
   explorer:  '<circle cx="12" cy="12" r="9"/><path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1z"/>',
   collabs:   '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.4 3-5.2 6-5.2s5.4 1.8 6 5.2"/><circle cx="17.5" cy="9" r="2.4"/><path d="M17 14.2c2.4.3 3.9 1.9 4.3 4.3"/>',
   messages:  '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/>',
+  diamant:   '<path d="M6.5 4h11l3.5 5-9 11L3 9z"/><path d="M3 9h18M9.5 4 8 9l4 11 4-11-1.5-5"/>',
   cloche:    '<path d="M6 9a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9z"/><path d="M10 19a2.2 2.2 0 0 0 4 0"/>',
   profil:    '<circle cx="12" cy="8.5" r="3.6"/><path d="M4.5 20c1.4-3.8 4.2-5.6 7.5-5.6s6.1 1.8 7.5 5.6"/>',
   plus:      '<path d="M12 5v14M5 12h14"/>',
@@ -268,6 +269,11 @@ function teinte(texte){
   return h;
 }
 
+// Un cadre d'avatar (cosmétique) : { a, b, c, anim }. Les couleurs viennent de la base : on ne garde que du #rrggbb.
+function couleurSure(c, defaut){
+  return /^#[0-9a-fA-F]{6}$/.test(c || '') ? c : defaut;
+}
+
 function avatarHtml(u, taille){
 
   const pseudo = (u && u.pseudo) || '?';
@@ -275,11 +281,17 @@ function avatarHtml(u, taille){
   const t = taille || 'm';
   const h = teinte(pseudo);
 
+  const cadre = u && u.cadre && typeof u.cadre === 'object' ? u.cadre : null;
+  const classe = cadre ? ' com-av-cadre' + (cadre.anim === 'tourne' || cadre.anim === 'pulse' ? ' ' + cadre.anim : '') : '';
+  const vars = cadre
+    ? `--ca:${couleurSure(cadre.a, '#ffffff')};--cb:${couleurSure(cadre.b, '#ffffff')};--cc:${couleurSure(cadre.c || cadre.a, '#ffffff')};`
+    : '';
+
   if(photo){
-    return `<span class="com-av com-av-${t}"><img src="${attr(photo)}" alt="" loading="lazy" decoding="async"></span>`;
+    return `<span class="com-av com-av-${t}${classe}"${vars ? ` style="${vars}"` : ''}><img src="${attr(photo)}" alt="" loading="lazy" decoding="async"></span>`;
   }
 
-  return `<span class="com-av com-av-${t}" style="--h:${h}" aria-hidden="true"><b>${esc(artistInitial(pseudo))}</b></span>`;
+  return `<span class="com-av com-av-${t}${classe}" style="--h:${h};${vars}" aria-hidden="true"><b>${esc(artistInitial(pseudo))}</b></span>`;
 }
 
 function roleHtml(role, petit){
@@ -314,8 +326,21 @@ function nomHtml(u, options){
     ? ` data-act="membre" data-cle="${attr(u.pseudo)}"`
     : '';
 
+  // Les cosmétiques (engagement.js) : une couleur de pseudo, un titre, le rang de découvreur. Sans avantage, que du style.
+  const couleur = u && u.couleur && typeof u.couleur === 'object'
+    ? ` com-nom-couleur" style="--na:${couleurSure(u.couleur.a, '#ffffff')};--nb:${couleurSure(u.couleur.b, '#ffffff')}`
+    : '';
+
+  const decouvreur = u && u.decouvreur
+    ? `<span class="com-badge-decouvreur" title="${attr(u.decouvreur)} : a repéré des pépites avant tout le monde">${icone('diamant', 12)}</span>`
+    : '';
+
+  const titre = u && u.titre && !o.sansTitre
+    ? `<span class="com-titre-perso">${esc(u.titre)}</span>`
+    : '';
+
   // Le nom et ses badges sur une même ligne, alignés au centre : l'écusson de l'équipe et la coche bleue tombent pile sur le pseudo.
-  return `<span class="com-nom-ligne"><span class="com-nom"${lien}>${esc(pseudo)}</span>${equipe}${verifie}${artiste}</span>`;
+  return `<span class="com-nom-ligne"><span class="com-nom${couleur}"${lien}>${esc(pseudo)}</span>${equipe}${verifie}${artiste}${decouvreur}${titre}</span>`;
 }
 
 
@@ -3030,6 +3055,7 @@ VUES.accueil = {
 
     V.el.innerHTML = `
       <div data-hote="onboarding"></div>
+      <div data-hote="engagement"></div>
       <div data-hote="composer" class="com-hote-composer"></div>
       <div class="com-filtres">
         <div class="com-filtres-ligne">
@@ -3043,6 +3069,7 @@ VUES.accueil = {
 
     V.hotes = {
       onboarding: $('[data-hote="onboarding"]', V.el),
+      engagement: $('[data-hote="engagement"]', V.el),
       composer: $('[data-hote="composer"]', V.el),
       sujets: $('[data-hote="sujets"]', V.el),
       onglets: $('[data-hote="onglets"]', V.el),
@@ -3109,6 +3136,7 @@ VUES.accueil = {
     if(!V.liste.charge && !V.liste.enCours) V.liste.recharger();
     V.liste.demarrer();
     VUES.accueil.onboarding(V);
+    VUES.accueil.engagement(V);
     VUES.accueil.decouvrir(V);
     VUES.accueil.tendances(V);
     // La barre sous l'onglet actif se cale quand la vue est à l'écran : cachée,
@@ -3137,6 +3165,19 @@ VUES.accueil = {
 
   // Le bloc « À découvrir » : les collabs ouvertes et des gens à suivre. Il se
   // glisse dans le fil après le troisième message.
+  // Le duel du moment et la bande « ma semaine · saison · garde-robe » (engagement.js, chargé à la demande).
+  async engagement(V){
+
+    if(!moi() || typeof chargerEngagement !== 'function') return;
+
+    try{
+      await chargerEngagement();
+      await window.Engagement.accueil(V.hotes.engagement);
+    }catch(e){
+      V.hotes.engagement.innerHTML = '';
+    }
+  },
+
   async decouvrir(V){
 
     if(V.decouvertLe && Date.now() - V.decouvertLe < 60000) return;
@@ -6112,6 +6153,34 @@ function notificationTexte(n){
       return { fort: a.pseudo, apres: " t'a mentionné" };
   }
 
+  // Les annonces du site (engagement) : pas de membre derrière, des données.
+  const d = n.donnees || {};
+  const sortie = d.sortie || {};
+
+  switch(n.type){
+    case 'sortie_artiste':
+      return { fort: d.artiste || 'Un artiste', apres: ` vient de sortir « ${d.titre || 'un nouveau projet'} »` };
+    case 'sortie_a_ecouter':
+      return { fort: `« ${d.titre || 'Une sortie'} »`, apres: " que tu voulais écouter vient de sortir" };
+    case 'resume_semaine':
+      return { fort: 'Ta semaine est prête', apres: d.xp ? ` · +${d.xp} XP` : '' };
+    case 'duel':
+      if(d.fini){
+        const v = d.votes || {};
+        const gagnant = v.a === v.b ? null : (v.a > v.b ? d.a : d.b);
+        return { fort: 'Duel terminé', apres: gagnant ? ` : « ${gagnant.titre} » l'emporte` : ' : égalité parfaite' };
+      }
+      return { fort: 'Nouveau duel', apres: d.a && d.b ? ` : « ${d.a.titre} » contre « ${d.b.titre} »` : '' };
+    case 'saison':
+      return d.fini
+        ? { fort: `${d.nom || 'La saison'} est terminée`, apres: ` · palier ${d.palier || 0} sur 8` }
+        : { fort: `${d.nom || 'Une saison'} commence`, apres: d.theme ? ` · ${d.theme}` : '' };
+    case 'decouvreur':
+      return { fort: 'Pépite repérée', apres: ` : tu avais noté « ${sortie.titre || 'cette sortie'} » avant tout le monde` };
+    case 'cosmetique':
+      return { fort: 'Nouveau cosmétique', apres: ` : ${d.nom || ''}` };
+  }
+
   return { fort: a.pseudo, apres: '' };
 }
 
@@ -6122,9 +6191,18 @@ function notificationHtml(n){
   const extrait = (n.commentaire && n.commentaire.extrait) || (n.post && n.post.extrait) || '';
   const icones = { reaction: 'coeur', commentaire: 'bulle', reponse: 'bulle', suivi: 'utilisateurPlus', mention: 'arobase' };
 
+  // Une annonce du site : la pochette quand il y en a une, sinon un pictogramme.
+  const d = n.donnees || {};
+  const systeme = !n.acteur;
+  const pochette = safeUrl(d.cover || (d.sortie && d.sortie.cover) || (d.a && d.a.cover) || '');
+  const emoji = { resume_semaine: '📊', duel: '⚔️', saison: '🏆', cosmetique: '✨', decouvreur: '💎' }[n.type] || '🔔';
+  const avatar = systeme
+    ? `<span class="com-notif-av"><span class="com-notif-sys">${pochette ? `<img src="${attr(pochette)}" alt="" loading="lazy">` : emoji}</span></span>`
+    : `<span class="com-notif-av">${avatarHtml(a, 'm')}<span class="com-notif-type t-${attr(n.type)}">${icone(icones[n.type] || 'cloche', 12)}</span></span>`;
+
   return `
     <button type="button" class="com-notif${n.lu ? '' : ' non-lue'}" data-act="ouvrir-notif" data-id="${attr(n.id)}">
-      <span class="com-notif-av">${avatarHtml(a, 'm')}<span class="com-notif-type t-${attr(n.type)}">${icone(icones[n.type] || 'cloche', 12)}</span></span>
+      ${avatar}
       <span class="com-notif-corps">
         <span class="com-notif-texte"><b>${esc(t.fort)}</b>${esc(t.apres)}</span>
         ${extrait ? `<span class="com-notif-extrait">${esc(extrait)}</span>` : ''}
@@ -6320,6 +6398,12 @@ VUES.notifications = {
 
     if(n.type === 'suivi' && n.acteur && n.acteur.pseudo){
       aller('membre/' + encodeURIComponent(n.acteur.pseudo));
+      return;
+    }
+
+    // Une annonce du site : engagement.js l'ouvre (résumé, duel, saison, garde-robe) ou la fiche de la sortie.
+    if(!n.acteur && typeof chargerEngagement === 'function'){
+      chargerEngagement().then(() => window.Engagement.ouvrirNotif(n)).catch(() => {});
       return;
     }
 
@@ -7833,7 +7917,28 @@ const FEUILLE = String.raw`
   background:linear-gradient(145deg, hsl(var(--h,210) 58% 40%), hsl(calc(var(--h,210) + 46) 62% 26%));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,0.14);
 }
-.com-av img{width:100%; height:100%; object-fit:cover;}
+.com-av img{width:100%; height:100%; object-fit:cover; border-radius:50%;}
+/* Cadre d'avatar (cosmétique de la garde-robe) : un anneau derrière la photo, fixe, qui respire ou qui tourne. */
+.com-av.com-av-cadre{overflow:visible; isolation:isolate; --gap:#0b0f15; box-shadow:0 0 0 2px var(--gap) !important;}
+.com-av-cadre::before{
+  content:''; position:absolute; inset:-5px; border-radius:50%; z-index:-1;
+  background:linear-gradient(135deg, var(--ca,#fff), var(--cb,#fff));
+}
+.com-av-s.com-av-cadre::before{inset:-4px;}
+.com-av-xl.com-av-cadre::before{inset:-6px;}
+.com-av-cadre.tourne::before{background:conic-gradient(var(--ca,#fff), var(--cb,#fff), var(--cc,#fff), var(--ca,#fff)); animation:comCadreTourne 6s linear infinite;}
+.com-av-cadre.pulse::before{animation:comCadrePulse 2.6s ease-in-out infinite;}
+@keyframes comCadreTourne{to{transform:rotate(360deg);}}
+@keyframes comCadrePulse{0%,100%{opacity:.75; filter:blur(0);} 50%{opacity:1; filter:blur(1.5px);}}
+@media (prefers-reduced-motion:reduce){ .com-av-cadre::before{animation:none !important;} }
+.com-nom.com-nom-couleur{background:linear-gradient(90deg, var(--na), var(--nb)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+.com-titre-perso{
+  flex:0 1 auto !important; min-width:0; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  padding:1px 8px; border-radius:99px; font-size:11px; font-weight:500; color:var(--ink-soft); background:rgba(255,255,255,0.08);
+  border:1px solid rgba(255,255,255,0.1);
+}
+.com-badge-decouvreur{display:inline-flex; align-items:center; color:#8fd8ff;}
+.com-badge-decouvreur svg{width:14px; height:14px; display:block;}
 .com-av-s{width:30px; height:30px; font-size:13px;}
 .com-av-m{width:42px; height:42px; font-size:17px;}
 .com-av-l{width:54px; height:54px; font-size:21px;}
@@ -8599,6 +8704,11 @@ const FEUILLE = String.raw`
 .com-notif.non-lue{background:rgba(20,137,222,0.1);}
 .com-notif.non-lue:hover{background:rgba(20,137,222,0.17);}
 .com-notif-av{position:relative; flex:none;}
+.com-notif-sys{
+  width:42px; height:42px; border-radius:12px; overflow:hidden; display:grid; place-items:center; font-size:20px;
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1);
+}
+.com-notif-sys img{width:100%; height:100%; object-fit:cover; display:block;}
 .com-notif-type{
   position:absolute; right:-4px; bottom:-4px; width:22px; height:22px; border-radius:50%; border:2px solid #0b0f15;
   display:flex; align-items:center; justify-content:center; color:#fff; background:var(--blue);
