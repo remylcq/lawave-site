@@ -4,10 +4,10 @@
    Le moteur vit dans la base (sql/engagement.sql). Ce fichier lit et dessine :
 
      le duel de sorties           deux pochettes, un clic, le résultat s'affiche après le vote
-     la bande de l'accueil        ma semaine · la saison · la garde-robe
+     la page Saison              l'onglet de la communauté : la saison (30 paliers, 4 chapitres, événements, citrouille du
+                                  jour, défis, classement), le duel du moment, ma semaine et la garde-robe
      « Ma semaine »               le résumé du lundi au dimanche, partageable en image
-     la saison                    8 paliers de récompenses, des défis, des couleurs qui changent à chaque saison
-     la garde-robe                cadres d'avatar, titres, couleurs de pseudo (aucun avantage, que du style)
+     la garde-robe                cadres d'avatar, titres, couleurs de pseudo, emblèmes (aucun avantage, que du style)
                                   + le statut de découvreur (les pépites repérées avant tout le monde)
      l'accès équipe               créer / retirer des duels, régler les saisons
 
@@ -26,7 +26,8 @@
 
   const RANGS = { 1: 'Découvreur', 3: 'Dénicheur', 10: 'Visionnaire', 25: 'Prophète' };
   const RARETES = { commun: 'Commun', rare: 'Rare', epique: 'Épique', legendaire: 'Légendaire' };
-  const TYPES = { cadre: 'Cadres', titre: 'Titres', couleur: 'Couleurs de pseudo' };
+  const TYPES = { cadre: 'Cadres', titre: 'Titres', couleur: 'Couleurs de pseudo', embleme: 'Emblèmes' };
+  const TYPE_LIBELLE = { cadre: 'Cadre', titre: 'Titre', couleur: 'Couleur de pseudo', embleme: 'Emblème' };
 
   // ---------------------------------------------------------------------
   // La feuille de style, posée une fois
@@ -232,12 +233,147 @@
   .eng-eq .duel-ligne .tx span{display:block; font-size:12px; color:var(--muted);}
   .eng-eq .msg{font-size:13px; margin:8px 0 0;} .eng-eq .msg.err{color:var(--danger);} .eng-eq .msg.ok{color:#7be0a4;}
 
+
+  /* ---- La page Saison ---- */
+  .eng-page{--eng-bord:rgba(255,255,255,.10); --eng-fond:rgba(255,255,255,.045); display:grid; gap:20px; padding-bottom:30px;}
+  .eng-sec{margin:0; min-width:0;}
+  .eng-sec-titre{display:flex; align-items:baseline; justify-content:space-between; margin:0 0 10px; font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);}
+  .eng-sec-titre span{letter-spacing:0; text-transform:none; font-size:12px; font-variant-numeric:tabular-nums;}
+  .eng-emoji{font-size:26px; line-height:1;}
+
+  .eng-hero{
+    position:relative; overflow:hidden; display:block; border-radius:24px; border:1px solid var(--eng-bord);
+    background:linear-gradient(135deg, color-mix(in srgb, var(--s1) 38%, #0b0f15), color-mix(in srgb, var(--s3) 34%, #0b0f15));
+  }
+  .eng-hero-fond{display:block; width:100%; height:auto; margin-bottom:-1px; aspect-ratio:600 / 240; max-height:260px;}
+  .eng-hero-contenu{position:relative; z-index:2; padding:60px 20px 20px; background:linear-gradient(transparent, rgba(8,4,16,.5) 40%);}
+  .eng-hero.hw{background:#0b0614;}
+  .eng-hero.hw .eng-hero-contenu{margin-top:-14px; padding-top:20px; background:none;}
+  .eng-hero-eyebrow{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:rgba(255,255,255,.78);}
+  .eng-hero-titre{margin:2px 0 12px; font-size:36px; line-height:1.05; font-weight:700; color:#fff; text-shadow:0 2px 18px rgba(0,0,0,.5);}
+  .eng-hero-palier{display:flex; align-items:baseline; gap:6px; color:#fff;}
+  .eng-hero-palier b{font-size:22px;}
+  .eng-hero-palier span{color:rgba(255,255,255,.7);}
+  .eng-hero-palier em{margin-left:auto; font-style:normal; font-size:13px; color:rgba(255,255,255,.88); font-variant-numeric:tabular-nums;}
+  .eng-hero .eng-barre{margin-top:8px; background:rgba(255,255,255,.18);}
+  .eng-hero.hw .eng-barre i{background:linear-gradient(90deg, #ff7a1a, #ffd166);}
+  .eng-hero-suite{margin:8px 0 0; font-size:12.5px; color:rgba(255,255,255,.85);}
+  .eng-puces{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
+  .eng-puces span{padding:5px 10px; border-radius:99px; font-size:12px; color:#fff; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.18);}
+  .eng-puces span.mult{background:color-mix(in srgb, var(--s2) 38%, transparent); border-color:var(--s2); font-weight:600;}
+
+  .hw-etoile{animation:engScintille 3.2s ease-in-out infinite;}
+  .hw-chauve{animation:engVol 17s linear infinite;}
+  .hw-chauve .ailes{transform-box:fill-box; transform-origin:center; animation:engBat .45s ease-in-out infinite alternate;}
+  .hw-lueur{animation:engLueur 2.4s ease-in-out infinite;}
+  .hw-brume{animation:engBrume 24s linear infinite alternate;}
+  @keyframes engScintille{0%,100%{opacity:.2;} 50%{opacity:1;}}
+  @keyframes engVol{from{transform:translateX(-80px) translateY(0);} 50%{transform:translateX(340px) translateY(-16px);} to{transform:translateX(720px) translateY(8px);}}
+  @keyframes engBat{from{transform:scaleY(1);} to{transform:scaleY(.4);}}
+  @keyframes engLueur{0%,100%{opacity:.65;} 50%{opacity:1;}}
+  @keyframes engBrume{from{transform:translateX(-7%);} to{transform:translateX(7%);}}
+
+  .eng-evts{display:grid; gap:8px;}
+  .eng-evt{display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:16px; border:1px solid var(--eng-bord); background:var(--eng-fond);}
+  .eng-evt.actif{border-color:var(--s2); background:color-mix(in srgb, var(--s2) 14%, transparent); box-shadow:0 0 28px color-mix(in srgb, var(--s2) 22%, transparent);}
+  .eng-evt .em{font-size:26px; flex:none; line-height:1;}
+  .eng-evt .tx{flex:1; min-width:0;}
+  .eng-evt .tx b{display:block; font-size:14px;}
+  .eng-evt .tx small{display:block; margin-top:2px; font-size:12px; color:var(--muted); line-height:1.35;}
+  .eng-evt .dt{text-align:right; flex:none;}
+  .eng-evt .dt b{display:block; font-size:15px; color:var(--s2);}
+  .eng-evt .dt small{display:block; font-size:11px; color:var(--muted);}
+
+  .eng-citrouille{
+    display:flex; align-items:center; gap:16px; padding:16px; border-radius:20px; border:1px solid var(--eng-bord);
+    background:radial-gradient(120% 140% at 0% 50%, color-mix(in srgb, var(--s1) 24%, transparent), transparent 62%), var(--eng-fond);
+  }
+  .eng-citrouille-bouton{
+    all:unset; box-sizing:border-box; cursor:pointer; flex:none; width:84px; height:84px; display:grid; place-items:center; font-size:58px; line-height:1;
+    border-radius:50%; filter:drop-shadow(0 0 14px color-mix(in srgb, var(--s1) 70%, transparent)); transition:transform .25s var(--ease, ease);
+  }
+  .eng-citrouille-bouton:hover{transform:scale(1.07) rotate(-4deg);}
+  .eng-citrouille-bouton:focus-visible{outline:2px solid var(--blue-bright); outline-offset:4px;}
+  .eng-citrouille-bouton[disabled]{cursor:default; filter:grayscale(.5) brightness(.85);}
+  .eng-citrouille-bouton[disabled]:hover{transform:none;}
+  .eng-citrouille.secoue .eng-citrouille-bouton{animation:engSecoue .7s ease-in-out;}
+  .eng-citrouille .tx{min-width:0;}
+  .eng-citrouille .tx b{display:block; font-size:15px;}
+  .eng-citrouille .tx p{margin:4px 0 0; font-size:13px; color:var(--ink-soft); line-height:1.4;}
+  .eng-citrouille .gain{display:inline-flex; align-items:center; gap:8px; margin-top:8px; padding:5px 12px; border-radius:99px; font-size:13px; font-weight:600; background:color-mix(in srgb, var(--s2) 22%, transparent); border:1px solid var(--s2);}
+  .eng-citrouille.gagne .gain{animation:engPop .5s var(--ease, ease) both;}
+  @keyframes engSecoue{0%,100%{transform:rotate(0);} 15%{transform:rotate(-14deg) scale(1.08);} 35%{transform:rotate(12deg) scale(1.1);} 55%{transform:rotate(-9deg);} 75%{transform:rotate(6deg);}}
+  @keyframes engPop{from{opacity:0; transform:scale(.6);} to{opacity:1; transform:none;}}
+
+  .eng-chap{border-radius:16px; border:1px solid var(--eng-bord); background:var(--eng-fond); margin-bottom:8px; overflow:hidden;}
+  .eng-chap.en_cours{border-color:color-mix(in srgb, var(--s2) 55%, transparent);}
+  .eng-chap.a_venir{opacity:.72;}
+  .eng-chap summary{list-style:none; display:flex; align-items:center; gap:12px; padding:12px 14px; cursor:pointer;}
+  .eng-chap summary::-webkit-details-marker{display:none;}
+  .eng-chap summary:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px;}
+  .eng-chap summary::after{content:'›'; transform:rotate(90deg); color:var(--muted); font-size:18px; line-height:1; transition:transform .25s;}
+  .eng-chap[open] summary::after{transform:rotate(-90deg);}
+  .eng-chap .num{width:28px; height:28px; flex:none; border-radius:50%; display:grid; place-items:center; font-size:13px; font-weight:700; background:rgba(255,255,255,.09);}
+  .eng-chap.fait .num{background:var(--s2); color:#06101a;}
+  .eng-chap .tx{flex:1; min-width:0;}
+  .eng-chap .tx b{display:block; font-size:14px;}
+  .eng-chap .tx small{display:block; font-size:12px; color:var(--muted);}
+  .eng-chap .etat{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .eng-chap-corps{padding:0 14px 14px;}
+  .eng-chap-rec{display:flex; align-items:center; gap:12px; margin-top:10px; padding:10px 12px; border-radius:14px; border:1px dashed var(--eng-bord);}
+  .eng-chap-rec.obtenu{border-style:solid; border-color:var(--s2);}
+  .eng-chap-rec .v{width:44px; display:grid; place-items:center; flex:none;}
+  .eng-chap-rec .tx b{display:block; font-size:13px;}
+  .eng-chap-rec .tx small{display:block; font-size:11.5px; color:var(--muted);}
+
+  .eng-piste{display:grid; grid-template-columns:repeat(auto-fill, minmax(88px, 1fr)); gap:8px;}
+  .eng-tuile-r{
+    all:unset; box-sizing:border-box; cursor:pointer; position:relative; display:flex; flex-direction:column; align-items:center; gap:6px;
+    padding:22px 6px 8px; min-height:132px; border-radius:14px; border:1px solid var(--eng-bord); background:var(--eng-fond); text-align:center;
+    transition:transform .2s var(--ease, ease), background .2s;
+  }
+  .eng-tuile-r:hover{transform:translateY(-2px); background:rgba(255,255,255,.08);}
+  .eng-tuile-r:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+  .eng-tuile-r .k{position:absolute; top:6px; left:9px; font-size:11px; font-weight:700; color:var(--muted);}
+  .eng-tuile-r .visuel{flex:1; display:grid; place-items:center; min-height:42px; font-size:26px;}
+  .eng-tuile-r .nom{font-size:10.5px; line-height:1.25; color:var(--ink-soft); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:2.5em; max-width:100%;}
+  .eng-tuile-r .pts{font-size:10px; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .eng-tuile-r:not(.atteint) .visuel{opacity:.55; filter:saturate(.6);}
+  .eng-tuile-r.atteint{border-color:color-mix(in srgb, var(--s2) 60%, transparent); background:color-mix(in srgb, var(--s2) 9%, transparent);}
+  .eng-tuile-r.atteint .k{color:var(--s2);}
+  .eng-tuile-r.prochain{border-color:var(--ink-soft); animation:engPulseTuile 2.4s ease-in-out infinite;}
+  .eng-tuile-r.choisi{box-shadow:0 0 0 2px var(--blue-bright);}
+  .eng-tuile-r.rar-rare .nom{color:#7cc4ff;}
+  .eng-tuile-r.rar-epique .nom{color:#c79bff;}
+  .eng-tuile-r.rar-legendaire .nom{color:#ffc46b;}
+  .eng-detail{margin-top:10px; padding:12px 14px; border-radius:14px; border:1px solid var(--eng-bord); background:var(--eng-fond); font-size:13px;}
+  .eng-detail b{display:block; font-size:14px;}
+  .eng-detail span{display:block; margin-top:2px; color:var(--muted);}
+  .eng-speciales{display:grid; gap:8px;}
+  .eng-spec{display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:14px; border:1px solid var(--eng-bord); background:var(--eng-fond);}
+  .eng-spec.obtenu{border-color:var(--s2);}
+  .eng-spec .v{width:44px; display:grid; place-items:center; flex:none;}
+  .eng-spec .tx{min-width:0;}
+  .eng-spec .tx b{display:block; font-size:13px;}
+  .eng-spec .tx small{display:block; font-size:11.5px; color:var(--muted); line-height:1.35;}
+  @keyframes engPulseTuile{0%,100%{box-shadow:0 0 0 0 transparent;} 50%{box-shadow:0 0 18px 0 color-mix(in srgb, var(--s2) 45%, transparent);}}
+
+  .eng-rang{display:flex; align-items:center; gap:12px; padding:9px 12px; border-radius:14px; border:1px solid var(--eng-bord); background:var(--eng-fond); margin-bottom:6px;}
+  .eng-rang.moi{border-color:var(--s2); background:color-mix(in srgb, var(--s2) 10%, transparent);}
+  .eng-rang .n{width:26px; flex:none; text-align:center; font-weight:700; font-size:15px; font-variant-numeric:tabular-nums;}
+  .eng-rang .tx{flex:1; min-width:0;}
+  .eng-rang .tx b{display:block; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .eng-rang .tx small{display:block; font-size:11.5px; color:var(--muted);}
+  .eng-rang .pts{font-size:13px; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap;}
+  .eng-bande.deux{grid-template-columns:repeat(2, 1fr);}
+
   @keyframes engVoile{from{opacity:0;} to{opacity:1;}}
   @keyframes engMonte{from{opacity:0; transform:translateY(24px);} to{opacity:1; transform:none;}}
   @keyframes engTourne{to{transform:rotate(360deg);}}
   @keyframes engPulse{0%,100%{opacity:.75; filter:blur(0);} 50%{opacity:1; filter:blur(1.5px);}}
   @media (prefers-reduced-motion:reduce){
     .eng-voile, .eng-feuille, .eng-av.cadre::before{animation:none !important;}
+    .hw-etoile, .hw-chauve, .hw-chauve .ailes, .hw-lueur, .hw-brume, .eng-tuile-r.prochain, .eng-citrouille.secoue .eng-citrouille-bouton{animation:none !important;}
     .eng-barre i, .eng-puce, .eng-cote{transition:none;}
   }
   @media (max-width:420px){
@@ -279,17 +415,19 @@
     }</span>`;
   }
 
-  function nomApercu(pseudo, couleur){
+  function nomApercu(pseudo, couleur, embleme){
+    const emb = embleme ? ` <span class="eng-emoji" style="font-size:14px">${esc(embleme)}</span>` : '';
     if(couleur && typeof couleur === 'object'){
-      return `<span class="eng-nom-couleur" style="--na:${hexa(couleur.a, '#ffffff')};--nb:${hexa(couleur.b, '#ffffff')}">${esc(pseudo)}</span>`;
+      return `<span class="eng-nom-couleur" style="--na:${hexa(couleur.a, '#ffffff')};--nb:${hexa(couleur.b, '#ffffff')}">${esc(pseudo)}</span>${emb}`;
     }
-    return esc(pseudo);
+    return esc(pseudo) + emb;
   }
 
   // Ce que montre un cosmétique dans la garde-robe, selon son type.
   function objetApercu(o){
     if(o.type === 'cadre') return avatarApercu(currentUser ? currentUser.pseudo : '?', currentUser ? currentUser.avatar : '', o.style, 40);
     if(o.type === 'couleur') return `<span class="eng-nom-couleur" style="--na:${hexa(o.style.a, '#fff')};--nb:${hexa(o.style.b, '#fff')}">${esc(currentUser ? currentUser.pseudo : 'Pseudo')}</span>`;
+    if(o.type === 'embleme') return `<span class="eng-emoji">${esc((o.style && o.style.emoji) || '✨')}</span>`;
     return `<span class="eng-titre-pastille">${esc(o.nom)}</span>`;
   }
 
@@ -447,66 +585,12 @@
   }
 
   // ---------------------------------------------------------------------
-  // L'accueil de la communauté : le duel et la bande
+  // Ouvrir un morceau précis (le panneau d'XP, les notifications)
   // ---------------------------------------------------------------------
-
-  async function accueil(hote){
-
-    if(!hote || !currentUser) return;
-    poserFeuille();
-
-    let duels = [];
-    let saison = null;
-
-    try{
-      const [d, s] = await Promise.all([BD.duelsListe(), BD.saisonEtat()]);
-      duels = d && Array.isArray(d.data) ? d.data : [];
-      saison = s && !s.error ? s.data : null;
-    }catch(e){
-      hote.innerHTML = '';
-      return;
-    }
-
-    const actif = duels.find(d => d.actif);
-    let html = '';
-
-    if(actif) html += duelHtml(actif);
-
-    let puceSaison = '';
-    if(saison && !saison.a_venir){
-      const prochain = saison.prochain;
-      const total = (saison.paliers && saison.paliers.length) ? saison.paliers[saison.paliers.length - 1].points : 1;
-      const pct = Math.min(100, Math.round((saison.points || 0) / total * 100));
-      const c = saison.couleurs || [];
-      puceSaison = `
-        <button type="button" class="eng-puce" data-eng="saison" style="--s1:${hexa(c[0], '#4FB4FF')};--s2:${hexa(c[1], '#ffc46b')}">
-          <b>${esc(saison.nom)}</b>
-          <small>${saison.terminee ? 'Terminée · palier ' + saison.palier + '/8' : 'Palier ' + saison.palier + '/8' + (prochain ? ' · ' + nf(prochain.points - saison.points) + ' pts' : '')}</small>
-          <span class="eng-fil"><i style="width:${pct}%"></i></span>
-        </button>`;
-    }else{
-      puceSaison = `<button type="button" class="eng-puce" data-eng="saison"><b>Saison</b><small>${saison && saison.a_venir ? 'Début le ' + esc(jourCourt(saison.debut)) : 'Bientôt'}</small></button>`;
-    }
-
-    html += `
-      <div class="eng-bande">
-        <button type="button" class="eng-puce" data-eng="semaine"><b>Ma semaine</b><small>Ton résumé du lundi au dimanche</small></button>
-        ${puceSaison}
-        <button type="button" class="eng-puce" data-eng="garderobe"><b>Garde-robe</b><small>Cadres, titres, couleurs</small></button>
-      </div>`;
-
-    hote.innerHTML = html;
-
-    if(actif) brancherDuel(hote, actif);
-
-    hote.querySelectorAll('[data-eng]').forEach((b) => {
-      b.addEventListener('click', () => ouvrir(b.dataset.eng));
-    });
-  }
 
   function ouvrir(quoi, option){
     if(quoi === 'semaine') return semaine(option === undefined ? 1 : option);
-    if(quoi === 'saison') return saison();
+    if(quoi === 'saison') return typeof ouvrirSaison === 'function' ? ouvrirSaison() : undefined;
     if(quoi === 'garderobe') return garderobe();
     if(quoi === 'duel') return duel(option);
   }
@@ -756,65 +840,408 @@
   }
 
   // ---------------------------------------------------------------------
-  // La saison
+  // La page Saison : l'onglet de la communauté
   // ---------------------------------------------------------------------
 
-  function recompenseHtml(c){
-    if(c.type === 'cadre') return avatarApercu(currentUser ? currentUser.pseudo : '?', currentUser ? currentUser.avatar : '', c.style, 30);
-    if(c.type === 'couleur') return `<span class="eng-nom-couleur" style="--na:${hexa(c.style.a, '#fff')};--nb:${hexa(c.style.b, '#fff')};font-weight:600">Pseudo</span>`;
+  const CITROUILLE = {
+    halloween: {
+      titre: 'La citrouille du jour',
+      invite: "Touche-la : une surprise t'attend chaque jour, et elle compte pour la saison.",
+      lots: { bonbon: ['Une poignée de bonbons', '🍬'], friandise: ['Un sac de friandises', '🍭'], sortilege: ["Un sortilège t'enveloppe", '🔮'], tresor: ['Le trésor de la citrouille hantée', '👑'] }
+    },
+    defaut: {
+      titre: 'La surprise du jour',
+      invite: 'Ouvre-la : un bonus de points de saison t\'attend chaque jour.',
+      lots: { bonbon: ['Un petit coup de pouce', '✨'], friandise: ['Un joli bonus', '🎁'], sortilege: ['Un gros bonus', '💫'], tresor: ['Le jackpot', '👑'] }
+    }
+  };
+
+  // Le décor d'Halloween : un ciel, une lune, des chauves-souris, des citrouilles qui brillent. Pur dessin, rien à charger.
+  const HERO_HALLOWEEN = `
+    <svg class="eng-hero-fond" viewBox="0 30 600 240" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">
+      <defs>
+        <linearGradient id="hwCiel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#120a26"/><stop offset=".55" stop-color="#2b1250"/><stop offset="1" stop-color="#7a2a3e"/></linearGradient>
+        <radialGradient id="hwHalo" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ffe6a8" stop-opacity=".9"/><stop offset=".5" stop-color="#ffb347" stop-opacity=".25"/><stop offset="1" stop-color="#ffb347" stop-opacity="0"/></radialGradient>
+        <symbol id="hwCitrouille" viewBox="-30 -30 60 54">
+          <ellipse cx="-11" cy="0" rx="14" ry="18" fill="#c4510a"/><ellipse cx="11" cy="0" rx="14" ry="18" fill="#c4510a"/>
+          <ellipse cx="0" cy="0" rx="14" ry="19" fill="#ee6c10"/>
+          <path d="M-2 -18 q2 -9 9 -10" stroke="#4d7c2a" stroke-width="3.4" fill="none" stroke-linecap="round"/>
+          <g class="hw-lueur" fill="#ffd34d"><path d="M-11 -4 l5 -8 l5 8z M3 -4 l5 -8 l5 8z"/><path d="M-12 5 q12 12 24 0 l-4 -4 l-4 4 l-4 -4 l-4 4 l-4 -4z"/></g>
+        </symbol>
+      </defs>
+      <rect width="600" height="270" fill="url(#hwCiel)"/>
+      <g fill="#fff">
+        <circle class="hw-etoile" cx="38" cy="34" r="1.5"/><circle class="hw-etoile" style="animation-delay:.7s" cx="112" cy="70" r="1"/>
+        <circle class="hw-etoile" style="animation-delay:1.4s" cx="188" cy="28" r="1.3"/><circle class="hw-etoile" style="animation-delay:2.1s" cx="262" cy="84" r="1"/>
+        <circle class="hw-etoile" style="animation-delay:.3s" cx="330" cy="40" r="1.4"/><circle class="hw-etoile" style="animation-delay:1.1s" cx="402" cy="112" r="1"/>
+        <circle class="hw-etoile" style="animation-delay:1.8s" cx="560" cy="30" r="1.3"/><circle class="hw-etoile" style="animation-delay:2.5s" cx="590" cy="120" r="1"/>
+      </g>
+      <circle cx="472" cy="78" r="98" fill="url(#hwHalo)"/>
+      <circle cx="472" cy="78" r="40" fill="#fff1c9"/>
+      <g fill="#e6cd92" opacity=".55"><circle cx="459" cy="67" r="8"/><circle cx="487" cy="91" r="5.5"/><circle cx="473" cy="58" r="3.2"/></g>
+      <g class="hw-brume" opacity=".55"><ellipse cx="150" cy="236" rx="210" ry="28" fill="#b9a4ff" opacity=".24"/><ellipse cx="470" cy="246" rx="230" ry="26" fill="#ff9d6b" opacity=".2"/></g>
+      <path d="M0 224 Q70 196 150 216 T320 212 T470 218 T600 208 V270 H0z" fill="#0b0614"/>
+      <path d="M58 226 L62 156 L50 128 M62 156 L80 132 M60 178 L40 160 M62 146 L74 114 M52 138 L40 120" stroke="#0b0614" stroke-width="6" stroke-linecap="round" fill="none"/>
+      <use href="#hwCitrouille" x="96" y="204" width="58" height="52"/>
+      <use href="#hwCitrouille" x="146" y="216" width="40" height="36"/>
+      <use href="#hwCitrouille" x="520" y="208" width="64" height="58"/>
+      <g class="hw-chauve"><g transform="translate(0 52)"><g class="ailes"><path d="M0 0c-3-3-8-3-13 1 3-1 5 0 6 3 2-2 4-2 5 1l2-2 2 2c1-3 3-3 5-1 1-3 3-4 6-3-5-4-10-4-13-1z" fill="#0b0614"/></g></g></g>
+      <g class="hw-chauve" style="animation-delay:-6s;animation-duration:21s"><g transform="translate(0 96) scale(1.35)"><g class="ailes"><path d="M0 0c-3-3-8-3-13 1 3-1 5 0 6 3 2-2 4-2 5 1l2-2 2 2c1-3 3-3 5-1 1-3 3-4 6-3-5-4-10-4-13-1z" fill="#0b0614"/></g></g></g>
+      <g class="hw-chauve" style="animation-delay:-11s;animation-duration:15s"><g transform="translate(0 30) scale(.8)"><g class="ailes"><path d="M0 0c-3-3-8-3-13 1 3-1 5 0 6 3 2-2 4-2 5 1l2-2 2 2c1-3 3-3 5-1 1-3 3-4 6-3-5-4-10-4-13-1z" fill="#0b0614"/></g></g></g>
+    </svg>`;
+
+  const pluriel = (n, mot) => n + ' ' + mot + (n > 1 ? 's' : '');
+  const multTxt = (m) => String(Number(m)).replace('.', ',');
+  const rangTxt = (n) => (Number(n) === 1 ? '1er' : n + 'e');
+
+  // L'état de la page, gardé pour la redessiner après un geste (citrouille, vote).
+  const PG = { hote: null, saison: null, classement: null, duel: null, message: null, ouverts: null, detail: null };
+
+  // compact : un titre devient une petite étiquette (son nom s'écrit à côté, pas dans l'aperçu).
+  function recompenseHtml(c, taille, compact){
+    const t = taille || 30;
+    const st = c.style || {};
+    if(c.type === 'cadre') return avatarApercu(currentUser ? currentUser.pseudo : '?', currentUser ? currentUser.avatar : '', st, t);
+    if(c.type === 'couleur') return `<span class="eng-nom-couleur" style="--na:${hexa(st.a, '#fff')};--nb:${hexa(st.b, '#fff')};font-weight:700;font-size:${Math.round(t * .62)}px">Aa</span>`;
+    if(c.type === 'embleme') return `<span class="eng-emoji" style="font-size:${Math.round(t * .8)}px">${esc(st.emoji || '✨')}</span>`;
+    if(compact) return '<span class="eng-emoji">🏷️</span>';
     return `<span class="eng-titre-pastille">${esc(c.nom)}</span>`;
   }
 
-  async function saison(){
+  const labelPalier = (p) => (p.bonus === 'gel' ? 'Gel de série' : (p.cosmetique ? p.cosmetique.nom : '?'));
+  const typePalier = (p) => (p.bonus === 'gel' ? 'Bonus' : (TYPE_LIBELLE[p.cosmetique.type] || ''));
 
-    const f = ouvrirFeuille('Saison');
-    f.corps.innerHTML = '<div class="eng-vide">Chargement…</div>';
+  function visuelTuile(p){
+    if(p.bonus === 'gel') return '<span class="eng-emoji">❄️</span>';
+    return recompenseHtml(p.cosmetique, 36, true);
+  }
 
-    const { data: s, error } = await BD.saisonEtat();
-
-    if(error){ f.corps.innerHTML = `<div class="eng-vide">${esc(erreurTexte(error))}</div>`; return; }
-
-    if(!s || s.a_venir){
-      f.corps.innerHTML = `<div class="eng-vide">${s && s.a_venir
-        ? `La ${esc(s.nom)} (${esc(s.theme)}) commence le ${esc(jourCourt(s.debut))}.<br>De nouveaux cadres, titres et couleurs t'y attendent.`
-        : 'Pas de saison pour le moment. La prochaine arrive bientôt.'}</div>`;
-      return;
-    }
-
-    const c = s.couleurs || [];
-    const total = s.paliers.length ? s.paliers[s.paliers.length - 1].points : 1;
-    const pct = Math.min(100, Math.round(s.points / total * 100));
-    const prochainPalier = s.prochain ? s.prochain.palier : null;
-
-    f.corps.innerHTML = `
-      <div style="--s1:${hexa(c[0], '#4FB4FF')};--s2:${hexa(c[1], '#ffc46b')};--s3:${hexa(c[2], '#7b5cff')}">
-        <div class="eng-saison-haut">
-          <div class="theme">${esc(s.theme)}</div>
-          <h3>${esc(s.nom)}</h3>
-          <p class="reste">${s.terminee ? 'Saison terminée' : (s.jours_restants === 0 ? 'Dernier jour' : s.jours_restants + ' jour' + (s.jours_restants > 1 ? 's' : '') + ' restant' + (s.jours_restants > 1 ? 's' : ''))}
-            · du ${esc(jourCourt(s.debut))} au ${esc(jourCourt(s.fin))}</p>
-          <div class="eng-barre"><i style="width:${pct}%"></i></div>
-          <div class="eng-saison-pts"><span>${nf(s.points)} points</span><span>${s.prochain ? 'Prochain palier : ' + nf(s.prochain.points) : 'Tous les paliers atteints'}</span></div>
-        </div>
-
-        <div class="eng-titre-bloc">Récompenses</div>
-        ${s.paliers.map(p => `
-          <div class="eng-palier${p.atteint ? ' atteint' : ''}${p.palier === prochainPalier ? ' prochain' : ''}">
-            <span class="num">${p.atteint ? '✓' : p.palier}</span>
-            <div class="tx"><b>${esc(p.cosmetique.nom)}</b><small>${nf(p.points)} points · ${esc(({ cadre: 'Cadre', titre: 'Titre', couleur: 'Couleur de pseudo' })[p.cosmetique.type] || '')}</small></div>
-            ${recompenseHtml(p.cosmetique)}
-          </div>`).join('')}
-
-        <div class="eng-titre-bloc">Défis de la saison</div>
-        ${s.defis.map(d => `
-          <div class="eng-defi${d.fait ? ' fait' : ''}">
-            <div class="l"><b style="font-weight:500">${d.fait ? '✓ ' : ''}${esc(d.libelle)}</b><span>${d.fait ? '+' + d.points + ' pts' : d.progres + '/' + d.objectif + ' · +' + d.points + ' pts'}</span></div>
-            <div class="eng-barre"><i style="width:${Math.round(d.progres / d.objectif * 100)}%"></i></div>
-          </div>`).join('')}
-
-        <p class="eng-note">Tes points = l'XP gagné pendant la saison + les défis accomplis. Les récompenses de saison ne se gagnent qu'à ce moment-là : après, elles restent un souvenir de ceux qui y étaient. Aucun avantage, seulement du style.</p>
+  function defiHtml(d){
+    return `
+      <div class="eng-defi${d.fait ? ' fait' : ''}">
+        <div class="l"><b style="font-weight:500">${d.fait ? '✓ ' : ''}${esc(d.libelle)}</b><span>${d.fait ? '+' + d.points + ' pts' : d.progres + '/' + d.objectif + ' · +' + d.points + ' pts'}</span></div>
+        <div class="eng-barre"><i style="width:${Math.round(d.progres / d.objectif * 100)}%"></i></div>
       </div>`;
   }
+
+  function heroHtml(s){
+
+    const paliers = s.paliers || [];
+    const total = s.total_paliers || paliers.length || 30;
+    const pts = s.points || 0;
+    const precedent = paliers.filter(p => p.points <= pts).reduce((m, p) => Math.max(m, p.points), 0);
+    const suivant = s.prochain ? s.prochain.points : null;
+    const pct = suivant ? Math.max(2, Math.min(100, Math.round((pts - precedent) / (suivant - precedent) * 100))) : 100;
+    const pSuivant = s.prochain ? paliers.find(p => p.palier === s.prochain.palier) : null;
+    const jours = s.terminee ? 'Saison terminée'
+      : (s.jours_restants === 0 ? 'Dernier jour' : pluriel(s.jours_restants, 'jour') + ' restant' + (s.jours_restants > 1 ? 's' : ''));
+
+    const puces = [
+      `<span>⏳ ${esc(jours)}</span>`,
+      s.rang ? `<span>🏅 ${esc(rangTxt(s.rang))} sur ${nf(s.participants)}</span>` : '',
+      Number(s.multiplicateur) > 1 ? `<span class="mult">⚡ XP ×${esc(multTxt(s.multiplicateur))} aujourd'hui</span>` : ''
+    ].join('');
+
+    return `
+      <section class="eng-hero${s.decor === 'halloween' ? ' hw' : ''}">
+        ${s.decor === 'halloween' ? HERO_HALLOWEEN : ''}
+        <div class="eng-hero-contenu">
+          <div class="eng-hero-eyebrow">${esc(s.nom)} · du ${esc(jourCourt(s.debut))} au ${esc(jourCourt(s.fin))}</div>
+          <h2 class="eng-hero-titre">${esc(s.theme)}</h2>
+          <div class="eng-hero-palier"><b>Palier ${nf(s.palier)}</b><span>sur ${nf(total)}</span><em>${nf(pts)} points</em></div>
+          <div class="eng-barre"><i style="width:${pct}%"></i></div>
+          <p class="eng-hero-suite">${pSuivant
+            ? 'Prochain : ' + esc(labelPalier(pSuivant)) + ' · encore ' + nf(suivant - pts) + ' points'
+            : 'Tous les paliers sont atteints. Bravo !'}</p>
+          <div class="eng-puces">${puces}</div>
+        </div>
+      </section>`;
+  }
+
+  function evenementsHtml(s){
+
+    const evts = s.evenements || [];
+    if(!evts.length) return '';
+
+    return `
+      <section class="eng-sec">
+        <h3 class="eng-sec-titre">Événements</h3>
+        <div class="eng-evts">${evts.map(e => `
+          <div class="eng-evt${e.actif ? ' actif' : ''}">
+            <span class="em">${esc(e.emoji)}</span>
+            <div class="tx"><b>${esc(e.nom)}</b><small>${esc(e.description)}</small></div>
+            <div class="dt"><b>XP ×${esc(multTxt(e.multiplicateur))}</b><small>${e.actif ? 'En cours' : esc(jourCourt(e.debut)) + (e.fin !== e.debut ? ' → ' + esc(jourCourt(e.fin)) : '')}</small></div>
+          </div>`).join('')}</div>
+      </section>`;
+  }
+
+  function citrouilleHtml(s){
+
+    if(s.terminee) return '';
+
+    const kit = CITROUILLE[s.decor] || CITROUILLE.defaut;
+    const c = s.citrouille || {};
+    const msg = PG.message;
+    const lot = c.ouverte ? (kit.lots[c.tirage] || kit.lots.bonbon) : null;
+    const emoji = s.decor === 'halloween' ? '🎃' : '🎁';
+
+    return `
+      <section class="eng-citrouille${msg ? ' gagne' : ''}" data-citrouille-bloc>
+        <button type="button" class="eng-citrouille-bouton" data-citrouille ${c.ouverte ? 'disabled' : ''} aria-label="${esc(kit.titre)}">${emoji}</button>
+        <div class="tx">
+          <b>${esc(kit.titre)}</b>
+          ${c.ouverte
+            ? `<span class="gain">${lot[1]} ${esc(lot[0])} · +${nf(c.points)} pts</span>
+               <p>${msg ? 'Ajouté à ta saison. ' : ''}Reviens demain pour une nouvelle surprise${c.total > 1 ? ' · ' + pluriel(c.total, 'ouverture') + ' cette saison' : ''}.</p>`
+            : `<p>${esc(kit.invite)}</p>`}
+          <p class="eng-erreur" data-erreur hidden></p>
+        </div>
+      </section>`;
+  }
+
+  function chapitresHtml(s){
+
+    const ch = s.chapitres || [];
+    if(!ch.length) return '';
+
+    return `
+      <section class="eng-sec">
+        <h3 class="eng-sec-titre">Chapitres <span>${ch.filter(c => c.fait).length}/${ch.length} terminés</span></h3>
+        ${ch.map((c) => {
+          const faits = c.defis.filter(d => d.fait).length;
+          const statut = c.fait ? 'Terminé' : (c.statut === 'a_venir' ? 'Dès le ' + jourCourt(c.debut) : (c.statut === 'termine' ? 'Clos' : 'En cours'));
+          const ouvert = PG.ouverts ? PG.ouverts.has(c.numero) : c.statut === 'en_cours';
+          return `
+            <details class="eng-chap ${esc(c.statut)}${c.fait ? ' fait' : ''}" data-chap="${c.numero}"${ouvert ? ' open' : ''}>
+              <summary>
+                <span class="num">${c.fait ? '✓' : c.numero}</span>
+                <span class="tx"><b>${esc(c.nom)}</b><small>${esc(jourCourt(c.debut))} → ${esc(jourCourt(c.fin))} · ${esc(statut)}</small></span>
+                <span class="etat">${faits}/${c.defis.length}</span>
+              </summary>
+              <div class="eng-chap-corps">
+                <p class="eng-note" style="margin:0 0 10px">${esc(c.description)}</p>
+                ${c.defis.map(defiHtml).join('')}
+                ${c.recompense ? `
+                  <div class="eng-chap-rec${c.recompense.obtenu ? ' obtenu' : ''}">
+                    <span class="v">${recompenseHtml(c.recompense, 34, true)}</span>
+                    <div class="tx"><small>Récompense du chapitre</small><b>${esc(c.recompense.nom)}</b><small>${c.recompense.obtenu ? '✓ Obtenue' : 'Termine les ' + c.defis.length + ' défis du chapitre'}</small></div>
+                  </div>` : ''}
+              </div>
+            </details>`;
+        }).join('')}
+      </section>`;
+  }
+
+  function detailHtml(s, k){
+    const p = (s.paliers || []).find(x => x.palier === k);
+    if(!p) return '';
+    const rar = p.cosmetique ? ' · ' + (RARETES[p.cosmetique.rarete] || '') : '';
+    const etat = p.atteint ? 'Débloqué' : 'Encore ' + nf(Math.max(p.points - s.points, 0)) + ' points';
+    return `<b>Palier ${p.palier} · ${esc(labelPalier(p))}</b><span>${esc(typePalier(p))}${esc(rar)} · ${nf(p.points)} points · ${esc(etat)}</span>`;
+  }
+
+  function pisteHtml(s){
+
+    const paliers = s.paliers || [];
+    if(!paliers.length) return '';
+
+    const prochain = s.prochain ? s.prochain.palier : null;
+    const speciales = s.speciales || [];
+
+    return `
+      <section class="eng-sec">
+        <h3 class="eng-sec-titre">Récompenses <span>${nf(s.palier)}/${paliers.length}</span></h3>
+        <div class="eng-piste">${paliers.map(p => `
+          <button type="button" class="eng-tuile-r ${p.cosmetique ? 'rar-' + esc(p.cosmetique.rarete) : 'rar-bonus'}${p.atteint ? ' atteint' : ''}${p.palier === prochain ? ' prochain' : ''}${PG.detail === p.palier ? ' choisi' : ''}" data-palier="${p.palier}">
+            <span class="k">${p.atteint ? '✓' : p.palier}</span>
+            <span class="visuel">${visuelTuile(p)}</span>
+            <span class="nom">${esc(labelPalier(p))}</span>
+            <span class="pts">${nf(p.points)}</span>
+          </button>`).join('')}</div>
+        <div class="eng-detail" data-detail aria-live="polite">${detailHtml(s, PG.detail || prochain || paliers[paliers.length - 1].palier)}</div>
+        ${speciales.length ? `
+          <div class="eng-titre-bloc">Récompenses spéciales</div>
+          <div class="eng-speciales">${speciales.map(c => `
+            <div class="eng-spec${c.obtenu ? ' obtenu' : ''}">
+              <span class="v">${recompenseHtml(c, 34, true)}</span>
+              <div class="tx"><b>${esc(c.nom)}</b><small>${c.obtenu ? '✓ Obtenue' : '🔒 ' + esc(c.condition)}</small></div>
+            </div>`).join('')}</div>` : ''}
+      </section>`;
+  }
+
+  function epopeeHtml(s){
+
+    const d = s.defis || [];
+    if(!d.length) return '';
+
+    return `
+      <section class="eng-sec">
+        <h3 class="eng-sec-titre">Défis de la saison <span>${d.filter(x => x.fait).length}/${d.length}</span></h3>
+        ${d.map(defiHtml).join('')}
+        <p class="eng-note">Ces défis durent toute la saison. Tes points = l'XP gagné pendant la saison + les défis accomplis + la citrouille du jour. Les récompenses de saison ne se gagnent qu'à ce moment-là : après, elles restent un souvenir de ceux qui y étaient.</p>
+      </section>`;
+  }
+
+  function classementHtml(s){
+
+    const c = PG.classement;
+    const medaille = { 1: '🥇', 2: '🥈', 3: '🥉' };
+    const top = c && Array.isArray(c.top) ? c.top : [];
+
+    const ligne = (r) => {
+      const m = r.membre || {};
+      return `
+        <div class="eng-rang${r.moi ? ' moi' : ''}">
+          <span class="n">${medaille[r.rang] || r.rang}</span>
+          ${avatarApercu(m.pseudo, m.avatar_url, m.cadre, 34)}
+          <div class="tx"><b>${nomApercu(m.pseudo, m.couleur, m.embleme)}</b><small>Palier ${nf(r.palier)}${m.titre ? ' · ' + esc(m.titre) : ''}</small></div>
+          <span class="pts">${nf(r.points)} pts</span>
+        </div>`;
+    };
+
+    const horsTop = c && c.moi && !top.some(r => r.moi)
+      ? ligne({ rang: c.moi.rang, points: c.moi.points, moi: true, palier: s.palier, membre: { pseudo: currentUser ? currentUser.pseudo : 'Toi', avatar_url: currentUser ? currentUser.avatar : '' } })
+      : '';
+
+    return `
+      <section class="eng-sec">
+        <h3 class="eng-sec-titre">Classement <span>${c && c.participants ? nf(c.participants) + ' participant' + (c.participants > 1 ? 's' : '') : ''}</span></h3>
+        ${top.length ? top.map(ligne).join('') + horsTop : '<div class="eng-vide">Personne n\'est encore classé. Gagne des points pour ouvrir le bal.</div>'}
+        <p class="eng-note">À la fin de la saison, le podium gagne des récompenses exclusives : un cadre pour les trois premiers, un titre pour le premier.</p>
+      </section>`;
+  }
+
+  function attenteHtml(s){
+    return `
+      <section class="eng-hero">
+        <div class="eng-hero-contenu" style="padding-top:60px">
+          <div class="eng-hero-eyebrow">Saison</div>
+          <h2 class="eng-hero-titre">${s && s.a_venir ? esc(s.theme) : 'Bientôt'}</h2>
+          <p class="eng-hero-suite">${s && s.a_venir
+            ? 'La ' + esc(s.nom) + ' commence le ' + esc(jourCourt(s.debut)) + '. De nouveaux cadres, titres, couleurs et emblèmes t\'y attendent.'
+            : 'Pas de saison pour le moment. La prochaine arrive bientôt.'}</p>
+        </div>
+      </section>`;
+  }
+
+  function espaceHtml(){
+    return `
+      <section class="eng-sec">
+        <h3 class="eng-sec-titre">Ton espace</h3>
+        <div class="eng-bande deux">
+          <button type="button" class="eng-puce" data-eng="semaine"><b>Ma semaine</b><small>Ton résumé du lundi au dimanche, à partager</small></button>
+          <button type="button" class="eng-puce" data-eng="garderobe"><b>Garde-robe</b><small>Cadres, titres, couleurs, emblèmes</small></button>
+        </div>
+      </section>`;
+  }
+
+  async function charger(){
+
+    const [d, s, c] = await Promise.all([BD.duelsListe(), BD.saisonEtat(), BD.saisonClassement(10)]);
+
+    if(s && s.error) throw s.error;
+
+    PG.duel = d && Array.isArray(d.data) ? (d.data.find(x => x.actif) || null) : null;
+    PG.saison = s ? s.data : null;
+    PG.classement = c && !c.error ? c.data : null;
+  }
+
+  function dessiner(){
+
+    const h = PG.hote;
+    if(!h) return;
+
+    const s = PG.saison;
+    const vivante = s && !s.a_venir && s.id;
+    const c = (s && s.couleurs) || [];
+
+    let html = `<div class="eng-page" style="--s1:${hexa(c[0], '#ff7a1a')};--s2:${hexa(c[1], '#ffd166')};--s3:${hexa(c[2], '#8b5cf6')}">`;
+
+    if(vivante) html += heroHtml(s) + evenementsHtml(s) + citrouilleHtml(s);
+    else html += attenteHtml(s);
+
+    if(PG.duel) html += `<section class="eng-sec"><h3 class="eng-sec-titre">Duel du moment</h3>${duelHtml(PG.duel)}</section>`;
+
+    if(vivante) html += chapitresHtml(s) + pisteHtml(s) + epopeeHtml(s) + classementHtml(s);
+
+    html += espaceHtml() + '</div>';
+
+    h.innerHTML = html;
+    brancher();
+  }
+
+  function brancher(){
+
+    const h = PG.hote;
+    const s = PG.saison;
+
+    h.querySelectorAll('[data-eng]').forEach((b) => b.addEventListener('click', () => ouvrir(b.dataset.eng)));
+
+    h.querySelectorAll('details[data-chap]').forEach((d) => d.addEventListener('toggle', () => {
+      PG.ouverts = new Set(Array.from(h.querySelectorAll('details[data-chap][open]')).map(x => Number(x.dataset.chap)));
+    }));
+
+    h.querySelectorAll('[data-palier]').forEach((b) => b.addEventListener('click', () => {
+      PG.detail = Number(b.dataset.palier);
+      h.querySelectorAll('[data-palier]').forEach((x) => x.classList.toggle('choisi', x === b));
+      const zone = h.querySelector('[data-detail]');
+      if(zone) zone.innerHTML = detailHtml(s, PG.detail);
+    }));
+
+    if(PG.duel) brancherDuel(h, PG.duel);
+
+    const cit = h.querySelector('[data-citrouille]');
+
+    if(cit) cit.addEventListener('click', async () => {
+
+      if(cit.disabled) return;
+      cit.disabled = true;
+
+      const bloc = h.querySelector('[data-citrouille-bloc]');
+      const erreur = bloc.querySelector('[data-erreur]');
+      erreur.hidden = true;
+      bloc.classList.add('secoue');
+
+      const debut = Date.now();
+      const { data, error } = await BD.saisonCitrouille();
+      await new Promise((r) => setTimeout(r, Math.max(0, 750 - (Date.now() - debut))));
+
+      if(error || !data){
+        bloc.classList.remove('secoue');
+        cit.disabled = false;
+        erreur.textContent = erreurTexte(error);
+        erreur.hidden = false;
+        return;
+      }
+
+      PG.message = { tirage: data.tirage, points: data.points };
+      await rafraichir();
+
+      if(window.Xp && window.Xp.apres) window.Xp.apres(600);
+    });
+  }
+
+  // Relit la saison et le classement, et redessine sans faire sauter la page.
+  async function rafraichir(){
+    const y = window.scrollY;
+    try{ await charger(); }catch(e){ return; }
+    dessiner();
+    window.scrollTo({ top: y, behavior: 'instant' });
+  }
+
+  async function page(hote){
+
+    if(!hote || !currentUser) return;
+
+    poserFeuille();
+    PG.hote = hote;
+    PG.message = null;
+
+    await charger();
+    dessiner();
+  }
+
+  function pause(){}
 
   // ---------------------------------------------------------------------
   // La garde-robe (et le statut de découvreur)
@@ -842,6 +1269,7 @@
       const cadre = parId[equipe.cadre];
       const titre = parId[equipe.titre];
       const couleur = parId[equipe.couleur];
+      const embleme = parId[equipe.embleme];
       const pseudo = currentUser ? currentUser.pseudo : 'Toi';
       const nbObtenus = catalogue.filter(o => o.obtenu).length;
 
@@ -849,7 +1277,7 @@
         <div class="eng-ap">
           ${avatarApercu(pseudo, currentUser ? currentUser.avatar : '', cadre ? cadre.style : null, 56)}
           <div>
-            <div class="nom">${nomApercu(pseudo, couleur ? couleur.style : null)}</div>
+            <div class="nom">${nomApercu(pseudo, couleur ? couleur.style : null, embleme && embleme.style ? embleme.style.emoji : null)}</div>
             ${titre ? `<span class="eng-titre-pastille">${esc(titre.nom)}</span>` : ''}
           </div>
         </div>`;
@@ -867,7 +1295,7 @@
           </div>`;
       }
 
-      ['cadre', 'titre', 'couleur'].forEach((type) => {
+      ['cadre', 'titre', 'couleur', 'embleme'].forEach((type) => {
         const objets = catalogue.filter(o => o.type === type);
         if(!objets.length) return;
         html += `<div class="eng-titre-bloc">${esc(TYPES[type])}</div><div class="eng-grille">${objets.map(o => `
@@ -922,7 +1350,7 @@
 
     if(n.type === 'resume_semaine') return semaine(1);
     if(n.type === 'duel') return duel(d.duel);
-    if(n.type === 'saison') return saison();
+    if(n.type === 'saison') return ouvrir('saison');
     if(n.type === 'cosmetique') return garderobe();
 
     const numero = d.numero || (d.sortie && d.sortie.numero);
@@ -991,7 +1419,7 @@
 
         <section>
           <h4>Saisons</h4>
-          <p class="eng-note" style="margin:0 0 10px">Une saison dure 4 à 6 semaines. Ses 8 récompenses (cadres, titres, couleurs de pseudo) se créent toutes seules aux couleurs choisies, et ne se gagnent que pendant la saison.</p>
+          <p class="eng-note" style="margin:0 0 10px">Une saison dure 4 à 6 semaines. Ses 30 paliers de récompenses (cadres, titres, couleurs de pseudo, emblèmes, gels de série), ses 4 chapitres de défis et son événement final se créent tout seuls aux couleurs choisies. Le décor « Halloween » apporte un contenu écrit sur mesure.</p>
           <div class="carte">
             ${EQ.saisons.length ? EQ.saisons.map(s => `
               <div class="duel-ligne">
@@ -1006,6 +1434,11 @@
               <input type="text" name="theme" placeholder="Thème (L'Hiver)" value="${esc(ed ? ed.theme : '')}" required></div>
             <div class="ligne"><label>Début <input type="date" name="debut" value="${esc(ed ? ed.debut : dans(1))}" required></label>
               <label>Fin <input type="date" name="fin" value="${esc(ed ? ed.fin : dans(35))}" required></label></div>
+            <div class="ligne"><label>Décor
+              <select name="decor">
+                <option value="">Aucun (contenu aux couleurs de la saison)</option>
+                <option value="halloween"${ed && ed.decor === 'halloween' ? ' selected' : ''}>Halloween (contenu sur mesure)</option>
+              </select></label></div>
             <div class="ligne"><label>Couleurs
               <input type="color" name="a" value="${hexa(ed && ed.couleurs[0], '#3b82f6')}">
               <input type="color" name="b" value="${hexa(ed && ed.couleurs[1], '#a5f3fc')}">
@@ -1132,7 +1565,7 @@
 
       const { error } = await BD.saisonEquipeSauver({
         p_id: EQ.edition ? EQ.edition.id : null, p_nom: v('nom'), p_theme: v('theme'),
-        p_debut: v('debut'), p_fin: v('fin'), p_a: v('a'), p_b: v('b'), p_c: v('c')
+        p_debut: v('debut'), p_fin: v('fin'), p_a: v('a'), p_b: v('b'), p_c: v('c'), p_decor: v('decor') || null
       });
 
       if(error){ msg.className = 'msg err'; msg.textContent = erreurTexte(error); return; }
@@ -1155,6 +1588,6 @@
     await eqCharger();
   }
 
-  window.Engagement = { accueil, ouvrir, ouvrirNotif, equipe, semaine, saison, garderobe, duel };
+  window.Engagement = { page, pause, ouvrir, ouvrirNotif, equipe, semaine, garderobe, duel };
 
 })();

@@ -146,6 +146,7 @@ const ICONES = {
   explorer:  '<circle cx="12" cy="12" r="9"/><path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1z"/>',
   collabs:   '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.4 3-5.2 6-5.2s5.4 1.8 6 5.2"/><circle cx="17.5" cy="9" r="2.4"/><path d="M17 14.2c2.4.3 3.9 1.9 4.3 4.3"/>',
   messages:  '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/>',
+  trophee:   '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
   diamant:   '<path d="M6.5 4h11l3.5 5-9 11L3 9z"/><path d="M3 9h18M9.5 4 8 9l4 11 4-11-1.5-5"/>',
   cloche:    '<path d="M6 9a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9z"/><path d="M10 19a2.2 2.2 0 0 0 4 0"/>',
   profil:    '<circle cx="12" cy="8.5" r="3.6"/><path d="M4.5 20c1.4-3.8 4.2-5.6 7.5-5.6s6.1 1.8 7.5 5.6"/>',
@@ -339,8 +340,12 @@ function nomHtml(u, options){
     ? `<span class="com-titre-perso">${esc(u.titre)}</span>`
     : '';
 
+  const embleme = u && u.embleme
+    ? `<span class="com-embleme" aria-hidden="true">${esc(u.embleme)}</span>`
+    : '';
+
   // Le nom et ses badges sur une même ligne, alignés au centre : l'écusson de l'équipe et la coche bleue tombent pile sur le pseudo.
-  return `<span class="com-nom-ligne"><span class="com-nom${couleur}"${lien}>${esc(pseudo)}</span>${equipe}${verifie}${artiste}${decouvreur}${titre}</span>`;
+  return `<span class="com-nom-ligne"><span class="com-nom${couleur}"${lien}>${esc(pseudo)}</span>${equipe}${verifie}${artiste}${decouvreur}${embleme}${titre}</span>`;
 }
 
 
@@ -3055,7 +3060,6 @@ VUES.accueil = {
 
     V.el.innerHTML = `
       <div data-hote="onboarding"></div>
-      <div data-hote="engagement"></div>
       <div data-hote="composer" class="com-hote-composer"></div>
       <div class="com-filtres">
         <div class="com-filtres-ligne">
@@ -3069,7 +3073,6 @@ VUES.accueil = {
 
     V.hotes = {
       onboarding: $('[data-hote="onboarding"]', V.el),
-      engagement: $('[data-hote="engagement"]', V.el),
       composer: $('[data-hote="composer"]', V.el),
       sujets: $('[data-hote="sujets"]', V.el),
       onglets: $('[data-hote="onglets"]', V.el),
@@ -3136,7 +3139,6 @@ VUES.accueil = {
     if(!V.liste.charge && !V.liste.enCours) V.liste.recharger();
     V.liste.demarrer();
     VUES.accueil.onboarding(V);
-    VUES.accueil.engagement(V);
     VUES.accueil.decouvrir(V);
     VUES.accueil.tendances(V);
     // La barre sous l'onglet actif se cale quand la vue est à l'écran : cachée,
@@ -3165,19 +3167,6 @@ VUES.accueil = {
 
   // Le bloc « À découvrir » : les collabs ouvertes et des gens à suivre. Il se
   // glisse dans le fil après le troisième message.
-  // Le duel du moment et la bande « ma semaine · saison · garde-robe » (engagement.js, chargé à la demande).
-  async engagement(V){
-
-    if(!moi() || typeof chargerEngagement !== 'function') return;
-
-    try{
-      await chargerEngagement();
-      await window.Engagement.accueil(V.hotes.engagement);
-    }catch(e){
-      V.hotes.engagement.innerHTML = '';
-    }
-  },
-
   async decouvrir(V){
 
     if(V.decouvertLe && Date.now() - V.decouvertLe < 60000) return;
@@ -3403,6 +3392,48 @@ VUES.favoris = {
   },
 
   pause(){}
+};
+
+
+
+// La saison et tout ce qui l'entoure (duel, chapitres, récompenses, classement, garde-robe, ma semaine) : dessinée par
+// engagement.js, chargé à la première visite.
+VUES.saison = {
+
+  titre: () => 'Saison',
+
+  creer(V){
+    V.el.innerHTML = `<div data-saison></div>`;
+  },
+
+  async montrer(V){
+
+    const hote = $('[data-saison]', V.el);
+
+    if(!moi()){
+      hote.innerHTML = etatVide({ icone: 'trophee', titre: 'La saison t\'attend', texte: 'Connecte-toi pour relever les défis, voter aux duels et gagner des récompenses.',
+        bouton: { libelle: 'Se connecter', attrs: 'data-act="connexion" data-mode="login"' } });
+      V.charge = false;
+      return;
+    }
+
+    // Relue à chaque visite, sans effacer l'écran quand elle est déjà là.
+    if(V.charge && Date.now() - V.chargeLe < 30000) return;
+
+    try{
+      if(!V.charge) hote.innerHTML = '<div class="com-chargement" style="padding:30px;text-align:center;color:var(--muted)">Chargement…</div>';
+      await chargerEngagement();
+      await window.Engagement.page(hote);
+      V.charge = true;
+      V.chargeLe = Date.now();
+    }catch(e){
+      if(!V.charge) hote.innerHTML = etatVide({ icone: 'trophee', titre: 'La saison n\'a pas pu s\'ouvrir', texte: e.message || 'Réessaie dans un instant.' });
+    }
+  },
+
+  pause(){
+    if(window.Engagement && window.Engagement.pause) window.Engagement.pause();
+  }
 };
 
 
@@ -6171,10 +6202,25 @@ function notificationTexte(n){
         return { fort: 'Duel terminé', apres: gagnant ? ` : « ${gagnant.titre} » l'emporte` : ' : égalité parfaite' };
       }
       return { fort: 'Nouveau duel', apres: d.a && d.b ? ` : « ${d.a.titre} » contre « ${d.b.titre} »` : '' };
-    case 'saison':
-      return d.fini
-        ? { fort: `${d.nom || 'La saison'} est terminée`, apres: ` · palier ${d.palier || 0} sur 8` }
-        : { fort: `${d.nom || 'Une saison'} commence`, apres: d.theme ? ` · ${d.theme}` : '' };
+    case 'saison': {
+      if(d.chapitre){
+        return { fort: 'Nouveau chapitre : ' + (d.chapitre.nom || ''), apres: d.theme ? ` · ${d.theme}` : '' };
+      }
+      if(d.evenement){
+        const ev = d.evenement;
+        const quand = ev.debut ? new Date(String(ev.debut).slice(0, 10) + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
+        const mult = Number(ev.multiplicateur) > 1 ? ' · XP ×' + String(Number(ev.multiplicateur)).replace('.', ',') : '';
+        return { fort: ev.nom || 'Un événement', apres: mult + (quand ? ' · ' + quand : '') };
+      }
+      if(d.refonte){
+        return { fort: `${d.nom || 'La saison'} passe en mode ${d.theme || 'événement'}`, apres: ' · 30 paliers, 4 chapitres, des événements' };
+      }
+      if(d.fini){
+        const rang = Number(d.rang) > 0 ? ' · ' + d.rang + (Number(d.rang) === 1 ? 'er' : 'e') + ' du classement' : '';
+        return { fort: `${d.nom || 'La saison'} est terminée`, apres: ` · palier ${d.palier || 0} sur ${d.total || 30}${rang}` };
+      }
+      return { fort: `${d.nom || 'Une saison'} commence`, apres: d.theme ? ` · ${d.theme}` : '' };
+    }
     case 'decouvreur':
       return { fort: 'Pépite repérée', apres: ` : tu avais noté « ${sortie.titre || 'cette sortie'} » avant tout le monde` };
     case 'cosmetique':
@@ -6195,7 +6241,8 @@ function notificationHtml(n){
   const d = n.donnees || {};
   const systeme = !n.acteur;
   const pochette = safeUrl(d.cover || (d.sortie && d.sortie.cover) || (d.a && d.a.cover) || '');
-  const emoji = { resume_semaine: '📊', duel: '⚔️', saison: '🏆', cosmetique: '✨', decouvreur: '💎' }[n.type] || '🔔';
+  const emoji = (d.evenement && d.evenement.emoji) || (d.chapitre ? '📖' : null)
+    || { resume_semaine: '📊', duel: '⚔️', saison: '🏆', cosmetique: '✨', decouvreur: '💎' }[n.type] || '🔔';
   const avatar = systeme
     ? `<span class="com-notif-av"><span class="com-notif-sys">${pochette ? `<img src="${attr(pochette)}" alt="" loading="lazy">` : emoji}</span></span>`
     : `<span class="com-notif-av">${avatarHtml(a, 'm')}<span class="com-notif-type t-${attr(n.type)}">${icone(icones[n.type] || 'cloche', 12)}</span></span>`;
@@ -6532,7 +6579,7 @@ VUES.recherche = {
 // ---------------------------------------------------------------------
 
 const ROUTES_AVEC_PARAMETRE = ['post', 'membre', 'tag', 'sujet'];
-const ROUTES_SIMPLES = ['explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche'];
+const ROUTES_SIMPLES = ['explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche', 'saison'];
 
 function pageActive(){
   const p = document.getElementById('page-community');
@@ -6562,7 +6609,7 @@ function lireRoute(){
   return { nom: 'accueil', param: null, cle: 'accueil' };
 }
 
-const VUES_PERMANENTES = ['accueil', 'explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche'];
+const VUES_PERMANENTES = ['accueil', 'explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche', 'saison'];
 const VUES_DETAIL_MAX = 6;
 
 function profondeur(){
@@ -6737,7 +6784,7 @@ function majCoque(){
   const actif = {
     accueil: 'accueil', sujet: 'accueil', tag: 'accueil', post: 'accueil',
     explorer: 'explorer', recherche: 'explorer',
-    collabs: 'explorer', messages: 'messages', notifications: 'notifications', favoris: 'favoris'
+    collabs: 'explorer', messages: 'messages', notifications: 'notifications', favoris: 'favoris', saison: 'saison'
   }[route.nom] || null;
 
   const monProfil = route.nom === 'membre' && u && route.param.toLowerCase() === u.pseudo.toLowerCase();
@@ -6787,6 +6834,7 @@ function navItemHtml(cle, ic, libelle, badge, vers, classe){
 const ELEMENTS_NAV = [
   ['accueil', 'accueil', 'Accueil', null, ''],
   ['explorer', 'explorer', 'Explorer', null, 'explorer'],
+  ['saison', 'trophee', 'Saison', null, 'saison'],
   ['messages', 'messages', 'Messages', 'messages', 'messages'],
   ['notifications', 'cloche', 'Alertes', 'notifications', 'notifications'],
   ['favoris', 'signet', 'Enregistrés', null, 'favoris']
@@ -7810,6 +7858,12 @@ window.Com = {
     if(v && v.hotes) VUES.accueil.onboarding(v);
   },
 
+  // L'onglet Saison (le panneau d'XP et les notifications y envoient).
+  saison(){
+    history.pushState({ com: 1 }, '', '#community/saison');
+    goTo('community', { sansAdresse: true });
+  },
+
   // Son propre profil, ouvert sur un onglet précis (le panneau d'XP envoie sur les succès). Attend que la page
   // du profil soit dessinée avant de changer d'onglet.
   async profilSurOnglet(onglet){
@@ -7939,6 +7993,7 @@ const FEUILLE = String.raw`
 }
 .com-badge-decouvreur{display:inline-flex; align-items:center; color:#8fd8ff;}
 .com-badge-decouvreur svg{width:14px; height:14px; display:block;}
+.com-embleme{flex:none; font-size:14px; line-height:1;}
 .com-av-s{width:30px; height:30px; font-size:13px;}
 .com-av-m{width:42px; height:42px; font-size:17px;}
 .com-av-l{width:54px; height:54px; font-size:21px;}
@@ -9311,7 +9366,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-entete-moi .com-av{width:32px; height:32px; font-size:14px;}
 
   .com-barre{
-    position:fixed; left:0; right:0; bottom:0; z-index:95; display:grid; grid-template-columns:repeat(5, 1fr);
+    position:fixed; left:0; right:0; bottom:0; z-index:95; display:grid; grid-template-columns:repeat(6, 1fr);
     padding:6px 2px calc(6px + env(safe-area-inset-bottom));
     background:rgba(8,11,16,0.9); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
     border-top:1px solid var(--line);

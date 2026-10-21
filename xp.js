@@ -300,6 +300,9 @@
       else if(e.type === 'cosmetique'){
         file.push({ sorte: 'toast', titre: 'Nouveau cosmétique', options: { type: 'succes', icone: '✨', detail: d.nom + ' : à équiper dans la garde-robe', duree: 5000 }});
       }
+      else if(e.type === 'saison_gel'){
+        file.push({ sorte: 'toast', titre: 'Gel de série gagné', options: { type: 'succes', icone: '❄️', detail: 'Palier ' + d.palier + ' de la saison : un jour manqué ne casse plus ta série', duree: 5000 }});
+      }
       else if(e.type === 'pepite'){
         file.push({ sorte: 'toast', titre: 'Pépite repérée', options: { type: 'succes', icone: '💎', detail: 'Tu avais noté « ' + d.titre + ' » avant tout le monde', duree: 5000 }});
       }

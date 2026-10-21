@@ -2791,6 +2791,8 @@
   }
   .release-badge.live{color:var(--blue); border-color:var(--blue);}
   .release-badge.scheduled{color:var(--danger); border-color:var(--danger);}
+  .release-badge.auto{color:var(--blue); border-color:var(--blue);}
+  .release-badge.membre{color:#c9a8ff; border-color:#c9a8ff;}
   .release-edit{display:none; margin-top:2px;}
   .admin-row.editing .admin-row-main{display:none;}
   .admin-row.editing .release-edit{display:block;}
@@ -3882,6 +3884,36 @@
   }
   #page-admin .release-badge.live{color:#9be8b7; background:rgba(46,160,90,0.12); border-color:rgba(46,160,90,0.35);}
   #page-admin .release-badge.scheduled{color:#ffc27d; background:rgba(255,170,70,0.1); border-color:rgba(255,170,70,0.35);}
+  #page-admin .release-badge.auto{color:#9ccbff; background:rgba(79,180,255,0.1); border-color:rgba(79,180,255,0.35);}
+  #page-admin .release-badge.membre{color:#d6b8ff; background:rgba(167,139,250,0.12); border-color:rgba(167,139,250,0.35);}
+
+  /* Soumissions : filtres par origine, validation par lot, pages */
+  #page-admin .attente-barre{display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:16px;}
+  #page-admin .attente-puces{display:flex; flex-wrap:wrap; gap:6px;}
+  #page-admin .attente-puce{
+    all:unset; box-sizing:border-box; cursor:pointer; padding:7px 13px; border-radius:99px; font-size:13px;
+    color:var(--ink-soft); border:1px solid var(--eq-trait-2); background:rgba(255,255,255,0.04);
+  }
+  #page-admin .attente-puce b{margin-left:5px; font-weight:600; color:var(--ink);}
+  #page-admin .attente-puce:hover{background:rgba(255,255,255,0.09);}
+  #page-admin .attente-puce.actif{color:var(--ink); background:rgba(255,255,255,0.12); border-color:var(--line-strong);}
+  #page-admin .attente-puce:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+  #page-admin .attente-champ{
+    flex:1; min-width:200px; box-sizing:border-box; padding:9px 13px; border-radius:99px; font:inherit; font-size:14px;
+    color:var(--ink); background:rgba(255,255,255,0.05); border:1px solid var(--eq-trait-2);
+  }
+  #page-admin .attente-lot{
+    display:flex; flex-wrap:wrap; align-items:center; gap:10px 14px; margin-top:12px; padding:12px 14px; border-radius:14px;
+    background:rgba(79,180,255,0.07); border:1px solid rgba(79,180,255,0.25); font-size:13px; color:var(--ink-soft);
+  }
+  #page-admin .attente-lot[hidden]{display:none;}
+  #page-admin .attente-lot label{display:inline-flex; align-items:center; gap:8px; cursor:pointer;}
+  #page-admin .attente-lot .attente-nb{color:var(--ink); font-variant-numeric:tabular-nums;}
+  #page-admin .attente-lot .inline-actions{margin:0; margin-left:auto;}
+  #page-admin .attente-lot-confirm{flex-basis:100%; margin:0;}
+  #page-admin .attente-case{width:18px; height:18px; margin:2px 12px 0 0; flex:none; accent-color:var(--blue-bright); cursor:pointer;}
+  #page-admin .attente-pager{display:flex; align-items:center; justify-content:center; gap:14px; margin-top:18px; font-size:13px; color:var(--muted);}
+  #page-admin .attente-pager:empty{display:none;}
   #page-admin .lien-bouton{color:var(--blue-bright);}
 
   /* ---------- Onglet Artistes ---------- */
@@ -5112,7 +5144,9 @@
           Sorties reçues
         </h3>
         <p class="desc">
-          Les sorties envoyées par les artistes apparaissent automatiquement ici.
+          Les sorties envoyées avec « Soumettre une sortie » et celles repérées
+          automatiquement sur Deezer attendent ici ta validation : tu peux les
+          modifier avant de les publier.
         </p>
       </div>
 
@@ -5131,6 +5165,20 @@
       style="margin-top:16px;"
     ></div>
 
+    <div class="attente-barre">
+      <div class="attente-puces" id="attenteChips"></div>
+      <input
+        type="search"
+        id="attenteRecherche"
+        class="attente-champ"
+        placeholder="Chercher un titre ou un artiste"
+        autocomplete="off"
+        oninput="chercherAttente(this.value)"
+      >
+    </div>
+
+    <div class="attente-lot" id="attenteLot" hidden></div>
+
     <div
       id="artistSubmissionsList"
       class="admin-list"
@@ -5140,6 +5188,8 @@
         Chargement des soumissions...
       </div>
     </div>
+
+    <div class="attente-pager" id="attentePager"></div>
 
   </div>
 
@@ -6506,11 +6556,43 @@ const BD = {
       .limit(120);
   },
 
-  sortiesEnAttente(){
+  // Les sorties à valider, par pages : celles que les membres envoient et celles que l'import Deezer dépose
+  // (colonne source renseignée). Origine : '' toutes, 'auto' ou 'membre'.
+  sortiesEnAttente({ origine = '', texte = '', page = 0, taille = 25 } = {}){
+    let requete = supabaseClient.from('submissions')
+      .select('*', { count: 'exact' })
+      .eq('status', 'pending');
+    if(origine === 'auto') requete = requete.not('source', 'is', null);
+    if(origine === 'membre') requete = requete.is('source', null);
+    const q = String(texte || '').replace(/[%,()*\\]/g, ' ').trim().slice(0, 60);
+    if(q) requete = requete.or('track_title.ilike.%' + q + '%,artist_name.ilike.%' + q + '%,artist_handle.ilike.%' + q + '%');
+    return requete
+      .order('created_at', { ascending: false })
+      .order('release_date', { ascending: false, nullsFirst: false })
+      .range(page * taille, page * taille + taille - 1);
+  },
+
+  async sortiesEnAttenteComptes(){
+    const compter = (filtre) => filtre(
+      supabaseClient.from('submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+    );
+    const [auto, membre] = await Promise.all([
+      compter(r => r.not('source', 'is', null)),
+      compter(r => r.is('source', null))
+    ]);
+    return { auto: auto.count || 0, membre: membre.count || 0 };
+  },
+
+  // La sortie qu'on vient d'ajouter à la main, retrouvée parmi celles en attente.
+  sortieEnAttenteRecente(titre, artiste){
     return supabaseClient.from('submissions')
       .select('*')
       .eq('status', 'pending')
-      .order('created_at', { ascending: false });
+      .is('source', null)
+      .eq('track_title', titre)
+      .eq('artist_name', artiste)
+      .order('created_at', { ascending: false })
+      .limit(1);
   },
 
   sortie(id){
@@ -6587,6 +6669,12 @@ const BD = {
   majSortie(id, champs){
     return supabaseClient.from('submissions')
       .update(champs).eq('id', id).select().single();
+  },
+
+  // Plusieurs sorties d'un coup (validation ou refus par lot).
+  majSorties(ids, champs){
+    return supabaseClient.from('submissions')
+      .update(champs).in('id', ids).select('id');
   },
 
   supprimerSortie(id){
@@ -6863,6 +6951,14 @@ const BD = {
 
   saisonEtat(){
     return supabaseClient.rpc('saison_etat');
+  },
+
+  saisonClassement(limite){
+    return supabaseClient.rpc('saison_classement', { p_limite: limite || 10 });
+  },
+
+  saisonCitrouille(){
+    return supabaseClient.rpc('saison_citrouille');
   },
 
   resumeSemaine(decalage){
@@ -11333,6 +11429,22 @@ let profileAvatarDataUrl = null;
 // Les succès vivent dans la base (sql/xp-refonte.sql : succes_def, succes_obtenus) : 71 succès en familles à
 // rangs bronze, argent, or, platine, des secrets, une barre de progression chacun et de l'XP à la clé. Ils se
 // débloquent côté serveur au moment du geste ; xp.js les dessine dans l'onglet « Succès » du profil.
+
+// Ouvre l'onglet Saison de la communauté (le panneau d'XP et les notifications y envoient).
+async function ouvrirSaison(){
+
+  if(!currentUser){
+    openAuthModal('login');
+    return;
+  }
+
+  try{
+    await chargerCommunaute();
+    window.Com.saison();
+  }catch(erreur){
+    goTo('community');
+  }
+}
 
 // Ouvre son profil sur l'onglet des succès (le panneau d'XP y envoie).
 async function ouvrirMesSucces(){
@@ -23081,7 +23193,497 @@ function setRowMessage(messageId, texte, type){
 // SOUMISSIONS ARTISTES — ADMIN
 // =========================================================
 
-async function loadArtistSubmissions(){
+// Ce que montre la file « à valider » : la page courante, le filtre d'origine, la recherche, les cases cochées.
+// Une sortie vient soit d'un membre (Soumettre une sortie), soit de l'import Deezer (source renseignée).
+const attente = {
+  origine: '',
+  texte: '',
+  page: 0,
+  taille: 25,
+  total: 0,
+  comptes: { auto: 0, membre: 0 },
+  data: [],
+  choisies: new Set(),
+  minuteur: null
+};
+
+
+// La pastille qui dit d'où vient la sortie.
+function originePastille(submission){
+
+  return submission.source
+    ? `<span class="release-badge auto" title="Repérée automatiquement sur Deezer">Automatique</span>`
+    : `<span class="release-badge membre" title="Envoyée avec « Soumettre une sortie »">Membre</span>`;
+}
+
+
+function filtrerAttente(origine){
+  attente.origine = origine;
+  attente.page = 0;
+  attente.choisies.clear();
+  loadArtistSubmissions({ garderMessage: true });
+}
+
+
+function chercherAttente(texte){
+
+  clearTimeout(attente.minuteur);
+
+  attente.minuteur = setTimeout(() => {
+    attente.texte = String(texte || '').trim();
+    attente.page = 0;
+    attente.choisies.clear();
+    loadArtistSubmissions({ garderMessage: true });
+  }, 300);
+}
+
+
+function pageAttente(sens){
+  attente.page = Math.max(0, attente.page + sens);
+  attente.choisies.clear();
+  loadArtistSubmissions({ garderMessage: true });
+  const haut = document.getElementById('adminSection-submissions');
+  if(haut) haut.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+
+function renderAttenteBarres(){
+
+  const puces = document.getElementById('attenteChips');
+
+  if(puces){
+    const c = attente.comptes;
+    const puce = (cle, libelle, n) => `
+      <button type="button" class="attente-puce${attente.origine === cle ? ' actif' : ''}"
+              onclick="filtrerAttente('${cle}')">${libelle}<b>${n}</b></button>`;
+    puces.innerHTML =
+      puce('', 'Toutes', c.auto + c.membre) +
+      puce('auto', 'Automatiques', c.auto) +
+      puce('membre', 'Membres', c.membre);
+  }
+
+  const pager = document.getElementById('attentePager');
+
+  if(pager){
+    const pages = Math.max(1, Math.ceil(attente.total / attente.taille));
+    pager.innerHTML = pages <= 1 ? '' : `
+      <button type="button" class="btn btn-ghost" ${attente.page === 0 ? 'disabled' : ''} onclick="pageAttente(-1)">Précédentes</button>
+      <span>Page ${attente.page + 1} sur ${pages}</span>
+      <button type="button" class="btn btn-ghost" ${attente.page + 1 >= pages ? 'disabled' : ''} onclick="pageAttente(1)">Suivantes</button>`;
+  }
+
+  renderAttenteLot();
+}
+
+
+// La barre de validation par lot : seulement quand la page montre des sorties automatiques.
+function renderAttenteLot(confirmation){
+
+  const lot = document.getElementById('attenteLot');
+  if(!lot) return;
+
+  const autos = attente.data.filter(s => s.source);
+
+  if(!autos.length){
+    lot.hidden = true;
+    lot.innerHTML = '';
+    return;
+  }
+
+  const n = attente.choisies.size;
+  const toutes = autos.every(s => attente.choisies.has(s.id));
+
+  lot.hidden = false;
+  lot.innerHTML = `
+    <label>
+      <input type="checkbox" class="attente-case" style="margin:0" ${toutes ? 'checked' : ''} onchange="cocherToutAttente(this.checked)">
+      Tout cocher (${autos.length} automatique${autos.length > 1 ? 's' : ''} sur cette page)
+    </label>
+    <span class="attente-nb">${n} cochée${n > 1 ? 's' : ''}</span>
+    <div class="inline-actions">
+      <button type="button" class="btn btn-primary" ${n ? '' : 'disabled'} onclick="renderAttenteLot('valider')">Valider la sélection</button>
+      <button type="button" class="reject" ${n ? '' : 'disabled'} onclick="renderAttenteLot('refuser')">Refuser la sélection</button>
+    </div>
+    ${confirmation === 'valider' ? `
+      <div class="confirm-panel open attente-lot-confirm">
+        <p>Publier ${n} sortie${n > 1 ? 's' : ''} dans le catalogue ?</p>
+        <div class="inline-actions">
+          <button type="button" class="btn btn-primary" onclick="validerLot()">Oui, valider</button>
+          <button type="button" class="btn btn-ghost" onclick="renderAttenteLot()">Annuler</button>
+        </div>
+      </div>` : ''}
+    ${confirmation === 'refuser' ? `
+      <div class="confirm-panel danger open attente-lot-confirm">
+        <p>Refuser ${n} sortie${n > 1 ? 's' : ''} ? L'import ne les redéposera pas.</p>
+        <div class="field">
+          <label for="attenteMotif">Motif du refus</label>
+          <input type="text" id="attenteMotif" maxlength="300" placeholder="Enregistré avec les soumissions">
+        </div>
+        <div class="inline-actions">
+          <button type="button" class="btn btn-primary" onclick="refuserLot()">Confirmer le refus</button>
+          <button type="button" class="btn btn-ghost" onclick="renderAttenteLot()">Annuler</button>
+        </div>
+      </div>` : ''}`;
+}
+
+
+function cocherAttente(id, coche){
+
+  if(coche) attente.choisies.add(id);
+  else attente.choisies.delete(id);
+
+  renderAttenteLot();
+}
+
+
+function cocherToutAttente(coche){
+
+  attente.data.filter(s => s.source).forEach(s => {
+    if(coche) attente.choisies.add(s.id);
+    else attente.choisies.delete(s.id);
+  });
+
+  document.querySelectorAll('#artistSubmissionsList .attente-case').forEach(c => { c.checked = coche; });
+
+  renderAttenteLot();
+}
+
+
+async function validerLot(){
+
+  if(!isAdmin) return;
+
+  const ids = Array.from(attente.choisies);
+  if(!ids.length) return;
+
+  setRowMessage('adminActionMsg', 'Validation en cours...', 'ok');
+
+  try{
+
+    const { data, error } = await BD.majSorties(ids, {
+      status: 'approved',
+      validated_at: new Date().toISOString(),
+      validated_by: null
+    });
+
+    if(error) throw error;
+
+    attente.choisies.clear();
+
+    await loadArtistSubmissions({ garderMessage: true });
+    await loadApprovedReleases();
+    await renderCatalogue();
+
+    const n = (data || []).length;
+    setRowMessage('adminActionMsg', '✅ ' + n + ' sortie' + (n > 1 ? 's' : '') + ' validée' + (n > 1 ? 's' : '') + ' et publiée' + (n > 1 ? 's' : '') + '.', 'ok');
+
+  }catch(error){
+    console.error('❌ Erreur validation par lot :', error);
+    setRowMessage('adminActionMsg', 'Impossible de valider : ' + (error.message || error), 'err');
+  }
+}
+
+
+async function refuserLot(){
+
+  if(!isAdmin) return;
+
+  const ids = Array.from(attente.choisies);
+  if(!ids.length) return;
+
+  const champ = document.getElementById('attenteMotif');
+  const motif = champ ? champ.value.trim() : '';
+
+  setRowMessage('adminActionMsg', 'Refus en cours...', 'ok');
+
+  try{
+
+    const { data, error } = await BD.majSorties(ids, {
+      status: 'rejected',
+      rejection_reason: motif,
+      validated_at: new Date().toISOString()
+    });
+
+    if(error) throw error;
+
+    attente.choisies.clear();
+
+    await loadArtistSubmissions({ garderMessage: true });
+
+    const n = (data || []).length;
+    setRowMessage('adminActionMsg', '❌ ' + n + ' sortie' + (n > 1 ? 's' : '') + ' refusée' + (n > 1 ? 's' : '') + '.', 'ok');
+
+  }catch(error){
+    console.error('❌ Erreur refus par lot :', error);
+    setRowMessage('adminActionMsg', 'Impossible de refuser : ' + (error.message || error), 'err');
+  }
+}
+
+
+function sortieEnAttenteHtml(submission){
+
+  const auto = !!submission.source;
+
+  const date =
+    new Date(submission.created_at).toLocaleDateString(
+      'fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }
+    );
+
+  // Date de sortie officielle (absente sur les anciennes soumissions).
+  const releaseDate =
+    submission.release_date
+      ? new Date(submission.release_date + 'T00:00:00').toLocaleDateString(
+          'fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }
+        )
+      : null;
+
+  // Une sortie programmée dans le futur reste invisible
+  // publiquement après validation : on le signale à l'admin.
+  const isScheduled =
+    !!submission.release_date &&
+    submission.release_date > new Date().toLocaleDateString('sv-SE');
+
+  const id = submission.id;
+
+  return `
+
+    <div class="admin-row stacked" id="submission-${id}">
+
+     <div class="admin-row-main">
+
+      ${
+        auto
+          ? `<input type="checkbox" class="attente-case" aria-label="Cocher cette sortie"
+                    ${attente.choisies.has(id) ? 'checked' : ''}
+                    onchange="cocherAttente('${id}', this.checked)">`
+          : ''
+      }
+
+      <!-- COVER -->
+
+      <img
+        src="${escapeAttribute(safeUrl(submission.cover_url))}"
+        alt="${escapeHtml(submission.track_title)}"
+        style="width:90px; height:90px; flex-shrink:0; object-fit:cover;"
+      >
+
+
+      <!-- INFORMATIONS -->
+
+      <div class="meta" style="padding-top:2px;">
+
+        ${originePastille(submission)}
+
+        <h4 style="margin-top:6px;">
+          ${escapeHtml(submission.track_title)}
+          ${
+            submission.release_type
+              ? `<span style="font-weight:500; color:var(--muted);">
+                   — ${escapeHtml(submission.release_type)}
+                 </span>`
+              : ''
+          }
+        </h4>
+
+        <span style="display:flex; align-items:center; gap:8px;">
+          ${artistPhotoThumbHtml(submission)}
+          ${escapeHtml(submission.artist_name)}
+          ${instagramLinkHtml(submission)}
+        </span>
+
+        ${featsResumeHtml(submission)}
+
+        ${
+          safeUrl(submission.artist_photo_url)
+            ? `<span style="display:flex; align-items:center; gap:10px;
+                            margin-top:8px;">
+                 <img src="${escapeAttribute(safeUrl(submission.artist_photo_url))}"
+                      alt="" style="width:44px; height:44px; border-radius:50%;
+                                    object-fit:cover; border:1px solid var(--line);">
+                 <span style="font-size:12px; color:var(--muted);">
+                   Photo proposée pour l'artiste —
+                   posée sur son profil à la validation, s'il n'en a pas déjà une.
+                   <button type="button"
+                           style="background:none; border:none; padding:0;
+                                  font:inherit; color:var(--danger);
+                                  text-decoration:underline; cursor:pointer;"
+                           onclick="refuserPhotoProposee('${id}')">
+                     Refuser la photo
+                   </button>
+                 </span>
+               </span>`
+            : ''
+        }
+
+        ${
+          submission.contact_email
+            ? `<span style="display:block; margin-top:5px;">
+                 <i class="eq-i eq-i-mail"></i>${escapeHtml(submission.contact_email)}
+               </span>`
+            : ''
+        }
+
+        <span style="display:block; margin-top:${submission.contact_email ? '3' : '5'}px;">
+          <i class="eq-i eq-i-cal"></i>${auto ? 'Repérée' : 'Reçue'} le ${date}
+        </span>
+
+        <span style="display:block; margin-top:3px;">
+          <i class="eq-i eq-i-go"></i>${
+            releaseDate
+              ? 'Sortie le ' + releaseDate
+              : 'Aucune date de sortie renseignée'
+          }
+        </span>
+
+        ${
+          isScheduled
+            ? `<span style="display:block; margin-top:5px; font-size:12px; color:var(--muted);">
+                 <i class="eq-i eq-i-clock"></i>Programmée : restera invisible sur le site
+                 jusqu'à cette date, même une fois validée.
+               </span>`
+            : ''
+        }
+
+        <div class="listen-row" style="margin-top:10px;">
+          ${listenIconsHtml(listenLinksFrom(submission))}
+        </div>
+
+      </div>
+
+
+      <!-- ACTIONS -->
+
+      <div
+        class="admin-actions"
+        style="display:flex; flex-direction:column; gap:8px; align-items:stretch;"
+      >
+
+        <button
+          class="btn btn-primary"
+          type="button"
+          onclick="askApproveSubmission('${id}')"
+        >
+          Valider
+        </button>
+
+        <button
+          type="button"
+          onclick="startEditRelease('${id}')"
+        >
+          Modifier
+        </button>
+
+        <button
+          class="reject"
+          type="button"
+          onclick="askRejectSubmission('${id}')"
+        >
+          Refuser
+        </button>
+
+      </div>
+
+     </div>
+
+
+      <!-- ---------- CONFIRMATION DE VALIDATION ---------- -->
+
+      <div class="confirm-panel" id="approve-confirm-${id}">
+
+        <p>
+          ${
+            auto
+              ? `Valider <strong>${escapeHtml(submission.track_title)}</strong> ?`
+              : `Valider <strong>${escapeHtml(submission.track_title)}</strong>
+                 et lui attribuer un numéro de catalogue ?`
+          }
+          ${
+            isScheduled
+              ? 'La sortie restera invisible sur le site ' +
+                'jusqu\'au ' + releaseDate + '.'
+              : 'Elle apparaîtra immédiatement dans le catalogue.'
+          }
+        </p>
+
+        <div class="inline-actions">
+
+          <button
+            type="button"
+            class="btn btn-primary"
+            onclick="approveSubmission('${id}')"
+          >
+            Oui, valider
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-ghost"
+            onclick="closeConfirmPanel('approve-confirm-${id}')"
+          >
+            Annuler
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <!-- ---------- REFUS ---------- -->
+
+      <div class="confirm-panel danger" id="reject-confirm-${id}">
+
+        <p>
+          Refuser <strong>${escapeHtml(submission.track_title)}</strong> ?
+        </p>
+
+        <div class="field">
+          <label for="reject-reason-${id}">
+            Motif du refus
+          </label>
+          <input
+            type="text"
+            id="reject-reason-${id}"
+            maxlength="300"
+            placeholder="Enregistré avec la soumission"
+          >
+        </div>
+
+        <div class="inline-actions">
+
+          <button
+            type="button"
+            class="btn btn-primary"
+            onclick="rejectSubmission('${id}')"
+          >
+            Confirmer le refus
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-ghost"
+            onclick="closeConfirmPanel('reject-confirm-${id}')"
+          >
+            Annuler
+          </button>
+
+        </div>
+
+      </div>
+
+      <div class="form-msg" id="submission-msg-${id}"></div>
+
+
+      <!-- ---------- MODIFICATION AVANT PUBLICATION ---------- -->
+
+      ${releaseEditFormHtml(submission)}
+
+    </div>
+
+  `;
+}
+
+
+async function loadArtistSubmissions(options){
 
   const list =
     document.getElementById('artistSubmissionsList');
@@ -23092,7 +23694,9 @@ async function loadArtistSubmissions(){
 
   // Les fonctions qui rechargent la liste réaffichent leur propre
   // message juste après : seul un rafraîchissement manuel efface.
-  setRowMessage('adminActionMsg', '');
+  if(!(options && options.garderMessage)){
+    setRowMessage('adminActionMsg', '');
+  }
 
   list.innerHTML = `
     <div class="empty-state chargement">
@@ -23106,27 +23710,48 @@ async function loadArtistSubmissions(){
     // Les vignettes d'artiste viennent des profils (une lecture partagée quand l'espace équipe s'ouvre).
     await (artistesPartages || loadArtists());
 
-    const { data, error } = await BD.sortiesEnAttente();
+    const [{ data, error, count }, comptes] = await Promise.all([
+      BD.sortiesEnAttente({
+        origine: attente.origine,
+        texte: attente.texte,
+        page: attente.page,
+        taille: attente.taille
+      }),
+      BD.sortiesEnAttenteComptes()
+    ]);
 
 
     if(error){
       throw error;
     }
 
+    // Une page vide alors qu'il reste des sorties (la dernière vient d'être traitée) : on recule d'une page.
+    if((!data || !data.length) && attente.page > 0 && count > 0){
+      attente.page -= 1;
+      return loadArtistSubmissions({ garderMessage: true });
+    }
 
-    console.log(
-      '✅ Soumissions récupérées :',
-      data
-    );
+    attente.data = data || [];
+    attente.total = count || 0;
+    attente.comptes = comptes;
 
+    // Une sélection ne survit pas aux sorties qui ne sont plus là.
+    const presentes = new Set(attente.data.map(s => s.id));
+    attente.choisies.forEach(id => { if(!presentes.has(id)) attente.choisies.delete(id); });
 
-    setAdminTabCount('submissions', (data || []).length);
+    setAdminTabCount('submissions', comptes.auto + comptes.membre);
 
-    if(!data || data.length === 0){
+    renderAttenteBarres();
+
+    if(attente.data.length === 0){
 
       list.innerHTML = `
         <div class="empty-state">
-          Aucune sortie en attente.
+          ${
+            attente.texte || attente.origine
+              ? 'Aucune sortie en attente ne correspond.'
+              : 'Aucune sortie en attente.'
+          }
         </div>
       `;
 
@@ -23134,289 +23759,13 @@ async function loadArtistSubmissions(){
     }
 
 
-    list.innerHTML = data
-      .map(submission => {
+    list.innerHTML = attente.data.map(sortieEnAttenteHtml).join('');
 
-        const date =
-          new Date(
-            submission.created_at
-          ).toLocaleDateString(
-            'fr-FR',
-            {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric'
-            }
-          );
-
-
-        // Date de sortie officielle demandée par l'artiste.
-        // Peut être absente sur les anciennes soumissions.
-        const releaseDate =
-          submission.release_date
-            ? new Date(
-                submission.release_date + 'T00:00:00'
-              ).toLocaleDateString(
-                'fr-FR',
-                {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: 'numeric'
-                }
-              )
-            : null;
-
-
-        // Une sortie programmée dans le futur reste invisible
-        // publiquement après validation : on le signale à l'admin.
-        const isScheduled =
-          !!submission.release_date &&
-          submission.release_date >
-            new Date().toLocaleDateString('sv-SE');
-
-
-        return `
-
-          <div
-            class="admin-row stacked"
-            id="submission-${submission.id}"
-          >
-
-           <div class="admin-row-main">
-
-            <!-- COVER -->
-
-            <img
-              src="${escapeAttribute(safeUrl(submission.cover_url))}"
-              alt="${escapeHtml(submission.track_title)}"
-              style="
-                width:90px;
-                height:90px;
-                flex-shrink:0;
-                object-fit:cover;
-              "
-            >
-
-
-            <!-- INFORMATIONS -->
-
-            <div
-              class="meta"
-              style="padding-top:2px;"
-            >
-
-              <h4>
-                ${escapeHtml(submission.track_title)}
-                ${
-                  submission.release_type
-                    ? `<span style="font-weight:500; color:var(--muted);">
-                         — ${escapeHtml(submission.release_type)}
-                       </span>`
-                    : ''
-                }
-              </h4>
-
-              <span style="display:flex; align-items:center; gap:8px;">
-                ${artistPhotoThumbHtml(submission)}
-                ${escapeHtml(submission.artist_name)}
-                ${instagramLinkHtml(submission)}
-              </span>
-
-              ${featsResumeHtml(submission)}
-
-              ${
-                safeUrl(submission.artist_photo_url)
-                  ? `<span style="display:flex; align-items:center; gap:10px;
-                                  margin-top:8px;">
-                       <img src="${escapeAttribute(safeUrl(submission.artist_photo_url))}"
-                            alt="" style="width:44px; height:44px; border-radius:50%;
-                                          object-fit:cover; border:1px solid var(--line);">
-                       <span style="font-size:12px; color:var(--muted);">
-                         Photo proposée pour l'artiste —
-                         posée sur son profil à la validation, s'il n'en a pas déjà une.
-                         <button type="button"
-                                 style="background:none; border:none; padding:0;
-                                        font:inherit; color:var(--danger);
-                                        text-decoration:underline; cursor:pointer;"
-                                 onclick="refuserPhotoProposee('${submission.id}')">
-                           Refuser la photo
-                         </button>
-                       </span>
-                     </span>`
-                  : ''
-              }
-
-              <span style="display:block; margin-top:5px;">
-                <i class="eq-i eq-i-mail"></i>${escapeHtml(submission.contact_email)}
-              </span>
-
-              <span style="display:block; margin-top:3px;">
-                <i class="eq-i eq-i-cal"></i>Reçue le ${date}
-              </span>
-
-              <span style="display:block; margin-top:3px;">
-                <i class="eq-i eq-i-go"></i>${
-                  releaseDate
-                    ? 'Sortie le ' + releaseDate
-                    : 'Aucune date de sortie renseignée'
-                }
-              </span>
-
-              ${
-                isScheduled
-                  ? `<span style="
-                        display:block;
-                        margin-top:5px;
-                        font-size:12px;
-                        color:var(--muted);
-                      ">
-                      <i class="eq-i eq-i-clock"></i>Programmée : restera invisible sur le site
-                      jusqu'à cette date, même une fois validée.
-                    </span>`
-                  : ''
-              }
-
-              <div
-                class="listen-row"
-                style="margin-top:10px;"
-              >
-                ${listenIconsHtml(listenLinksFrom(submission))}
-              </div>
-
-            </div>
-
-
-            <!-- ACTIONS -->
-
-            <div
-              class="admin-actions"
-              style="
-                display:flex;
-                flex-direction:column;
-                gap:8px;
-                align-items:stretch;
-              "
-            >
-
-              <button
-                class="btn btn-primary"
-                type="button"
-                onclick="askApproveSubmission('${submission.id}')"
-              >
-                Valider
-              </button>
-
-
-              <button
-                class="reject"
-                type="button"
-                onclick="askRejectSubmission('${submission.id}')"
-              >
-                Refuser
-              </button>
-
-            </div>
-
-           </div>
-
-
-            <!-- ---------- CONFIRMATION DE VALIDATION ---------- -->
-
-            <div
-              class="confirm-panel"
-              id="approve-confirm-${submission.id}"
-            >
-
-              <p>
-                Valider <strong>${escapeHtml(submission.track_title)}</strong>
-                et lui attribuer un numéro de catalogue ?
-                ${
-                  isScheduled
-                    ? 'La sortie restera invisible sur le site ' +
-                      'jusqu\'au ' + releaseDate + '.'
-                    : 'Elle apparaîtra immédiatement dans le catalogue.'
-                }
-              </p>
-
-              <div class="inline-actions">
-
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  onclick="approveSubmission('${submission.id}')"
-                >
-                  Oui, valider
-                </button>
-
-                <button
-                  type="button"
-                  class="btn btn-ghost"
-                  onclick="closeConfirmPanel('approve-confirm-${submission.id}')"
-                >
-                  Annuler
-                </button>
-
-              </div>
-
-            </div>
-
-
-            <!-- ---------- REFUS ---------- -->
-
-            <div
-              class="confirm-panel danger"
-              id="reject-confirm-${submission.id}"
-            >
-
-              <p>
-                Refuser <strong>${escapeHtml(submission.track_title)}</strong> ?
-              </p>
-
-              <div class="field">
-                <label for="reject-reason-${submission.id}">
-                  Motif du refus
-                </label>
-                <input
-                  type="text"
-                  id="reject-reason-${submission.id}"
-                  maxlength="300"
-                  placeholder="Enregistré avec la soumission"
-                >
-              </div>
-
-              <div class="inline-actions">
-
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  onclick="rejectSubmission('${submission.id}')"
-                >
-                  Confirmer le refus
-                </button>
-
-                <button
-                  type="button"
-                  class="btn btn-ghost"
-                  onclick="closeConfirmPanel('reject-confirm-${submission.id}')"
-                >
-                  Annuler
-                </button>
-
-              </div>
-
-            </div>
-
-            <div
-              class="form-msg"
-              id="submission-msg-${submission.id}"
-            ></div>
-
-          </div>
-
-        `;
-
-      })
-      .join('');
+    // Les blocs de featuring viennent d'être créés : on les remplit
+    // avec ce qui est enregistré pour chaque sortie affichée.
+    attente.data.forEach(sortie => {
+      initFeats('edit-feat-' + sortie.id, sortie.featuring);
+    });
 
 
   } catch(error){
@@ -24046,171 +24395,12 @@ async function uploadCoverDataUrl(dataUrl, artist, title){
 }
 
 
-function releaseRowHtml(submission){
-
-  const today =
-    new Date().toLocaleDateString('sv-SE');
-
-  const isScheduled =
-    !!submission.release_date &&
-    submission.release_date > today;
-
-  const catalogLabel =
-    'LW–' +
-    String(submission.catalog_number || 0)
-      .padStart(3, '0');
-
-  const releaseLabel =
-    formatFrDate(submission.release_date);
-
-  const badge = isScheduled
-    ? `<span class="release-badge scheduled">Programmée</span>`
-    : `<span class="release-badge live">En ligne</span>`;
+// Le formulaire de modification d'une sortie : le même pour une sortie publiée et pour une sortie en attente.
+function releaseEditFormHtml(submission){
 
   const id = submission.id;
 
-
   return `
-
-    <div
-      class="admin-row stacked"
-      id="release-${id}"
-    >
-
-      <!-- ---------- AFFICHAGE ---------- -->
-
-      <div class="admin-row-main">
-
-        <img
-          src="${escapeAttribute(submission.cover_url)}"
-          alt="${escapeHtml(submission.track_title)}"
-          style="width:90px; height:90px; flex-shrink:0; object-fit:cover;"
-        >
-
-        <div class="meta" style="padding-top:2px;">
-
-          <span class="mono" style="color:var(--blue); font-weight:600;">
-            ${catalogLabel}
-          </span>
-          ${badge}
-          ${
-            submission.source
-              ? `<span class="release-badge">importée</span>`
-              : ''
-          }
-
-          <h4 style="margin-top:6px;">
-            ${escapeHtml(submission.track_title)}
-            ${
-              submission.release_type
-                ? `<span style="font-weight:500; color:var(--muted);">
-                     — ${escapeHtml(submission.release_type)}
-                   </span>`
-                : ''
-            }
-          </h4>
-
-          <span style="display:flex; align-items:center; gap:8px;">
-            ${artistPhotoThumbHtml(submission)}
-            ${escapeHtml(submission.artist_name)}
-            ${instagramLinkHtml(submission)}
-          </span>
-
-          <span style="display:block; margin-top:5px;">
-            <i class="eq-i eq-i-go"></i>${
-              releaseLabel
-                ? 'Sortie le ' + releaseLabel
-                : 'Aucune date de sortie renseignée'
-            }
-          </span>
-
-          <span style="display:block; margin-top:3px;">
-            ${
-              submission.contact_email
-                ? `<i class="eq-i eq-i-mail"></i><a href="mailto:${escapeAttribute(submission.contact_email)}"
-                        style="color:var(--blue);">${escapeHtml(submission.contact_email)}</a>`
-                : '<i class="eq-i eq-i-mail"></i>Aucun email renseigné'
-            }
-          </span>
-
-          ${
-            isScheduled
-              ? `<span style="display:block; margin-top:3px;">
-                   <i class="eq-i eq-i-clock"></i>Pas encore visible sur le site.
-                 </span>`
-              : ''
-          }
-
-          <div class="listen-row" style="margin-top:10px;">
-            ${listenIconsHtml(listenLinksFrom(submission))}
-          </div>
-
-        </div>
-
-        <div
-          class="admin-actions"
-          style="flex-direction:column; align-items:stretch;"
-        >
-
-          <button
-            type="button"
-            onclick="startEditRelease('${id}')"
-          >
-            Modifier
-          </button>
-
-          <button
-            class="reject"
-            type="button"
-            onclick="askDeleteRelease('${id}')"
-          >
-            Supprimer
-          </button>
-
-        </div>
-
-      </div>
-
-
-      <!-- ---------- CONFIRMATION DE RETRAIT ---------- -->
-
-      <div class="confirm-panel danger" id="release-confirm-${id}">
-
-        <p>
-          Supprimer définitivement
-          <strong>${escapeHtml(submission.track_title)}</strong> ?
-          La sortie disparaît du catalogue, sa fiche et sa cover sont
-          effacées de la base. <strong>Cette action est irréversible :</strong>
-          ni le lien, ni l'email de l'artiste, ni la cover ne pourront
-          être récupérés. L'artiste devra soumettre à nouveau.
-        </p>
-
-        <div class="inline-actions">
-
-          <button
-            type="button"
-            class="btn btn-primary"
-            onclick="deleteRelease('${id}')"
-          >
-            Oui, supprimer définitivement
-          </button>
-
-          <button
-            type="button"
-            class="btn btn-ghost"
-            onclick="closeDeleteConfirm('${id}')"
-          >
-            Annuler
-          </button>
-
-        </div>
-
-      </div>
-
-      <div class="form-msg" id="release-msg-${id}"></div>
-
-
-      <!-- ---------- ÉDITION ---------- -->
 
       <div class="release-edit" id="release-edit-${id}">
 
@@ -24361,6 +24551,178 @@ function releaseRowHtml(submission){
         <div class="form-msg" id="edit-msg-${id}"></div>
 
       </div>
+
+  `;
+}
+
+
+function releaseRowHtml(submission){
+
+  const today =
+    new Date().toLocaleDateString('sv-SE');
+
+  const isScheduled =
+    !!submission.release_date &&
+    submission.release_date > today;
+
+  const catalogLabel =
+    'LW–' +
+    String(submission.catalog_number || 0)
+      .padStart(3, '0');
+
+  const releaseLabel =
+    formatFrDate(submission.release_date);
+
+  const badge = isScheduled
+    ? `<span class="release-badge scheduled">Programmée</span>`
+    : `<span class="release-badge live">En ligne</span>`;
+
+  const id = submission.id;
+
+
+  return `
+
+    <div
+      class="admin-row stacked"
+      id="release-${id}"
+    >
+
+      <!-- ---------- AFFICHAGE ---------- -->
+
+      <div class="admin-row-main">
+
+        <img
+          src="${escapeAttribute(submission.cover_url)}"
+          alt="${escapeHtml(submission.track_title)}"
+          style="width:90px; height:90px; flex-shrink:0; object-fit:cover;"
+        >
+
+        <div class="meta" style="padding-top:2px;">
+
+          <span class="mono" style="color:var(--blue); font-weight:600;">
+            ${catalogLabel}
+          </span>
+          ${badge}
+          ${
+            submission.source
+              ? originePastille(submission)
+              : ''
+          }
+
+          <h4 style="margin-top:6px;">
+            ${escapeHtml(submission.track_title)}
+            ${
+              submission.release_type
+                ? `<span style="font-weight:500; color:var(--muted);">
+                     — ${escapeHtml(submission.release_type)}
+                   </span>`
+                : ''
+            }
+          </h4>
+
+          <span style="display:flex; align-items:center; gap:8px;">
+            ${artistPhotoThumbHtml(submission)}
+            ${escapeHtml(submission.artist_name)}
+            ${instagramLinkHtml(submission)}
+          </span>
+
+          <span style="display:block; margin-top:5px;">
+            <i class="eq-i eq-i-go"></i>${
+              releaseLabel
+                ? 'Sortie le ' + releaseLabel
+                : 'Aucune date de sortie renseignée'
+            }
+          </span>
+
+          <span style="display:block; margin-top:3px;">
+            ${
+              submission.contact_email
+                ? `<i class="eq-i eq-i-mail"></i><a href="mailto:${escapeAttribute(submission.contact_email)}"
+                        style="color:var(--blue);">${escapeHtml(submission.contact_email)}</a>`
+                : '<i class="eq-i eq-i-mail"></i>Aucun email renseigné'
+            }
+          </span>
+
+          ${
+            isScheduled
+              ? `<span style="display:block; margin-top:3px;">
+                   <i class="eq-i eq-i-clock"></i>Pas encore visible sur le site.
+                 </span>`
+              : ''
+          }
+
+          <div class="listen-row" style="margin-top:10px;">
+            ${listenIconsHtml(listenLinksFrom(submission))}
+          </div>
+
+        </div>
+
+        <div
+          class="admin-actions"
+          style="flex-direction:column; align-items:stretch;"
+        >
+
+          <button
+            type="button"
+            onclick="startEditRelease('${id}')"
+          >
+            Modifier
+          </button>
+
+          <button
+            class="reject"
+            type="button"
+            onclick="askDeleteRelease('${id}')"
+          >
+            Supprimer
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <!-- ---------- CONFIRMATION DE RETRAIT ---------- -->
+
+      <div class="confirm-panel danger" id="release-confirm-${id}">
+
+        <p>
+          Supprimer définitivement
+          <strong>${escapeHtml(submission.track_title)}</strong> ?
+          La sortie disparaît du catalogue, sa fiche et sa cover sont
+          effacées de la base. <strong>Cette action est irréversible :</strong>
+          ni le lien, ni l'email de l'artiste, ni la cover ne pourront
+          être récupérés. L'artiste devra soumettre à nouveau.
+        </p>
+
+        <div class="inline-actions">
+
+          <button
+            type="button"
+            class="btn btn-primary"
+            onclick="deleteRelease('${id}')"
+          >
+            Oui, supprimer définitivement
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-ghost"
+            onclick="closeDeleteConfirm('${id}')"
+          >
+            Annuler
+          </button>
+
+        </div>
+
+      </div>
+
+      <div class="form-msg" id="release-msg-${id}"></div>
+
+
+      <!-- ---------- ÉDITION ---------- -->
+
+      ${releaseEditFormHtml(submission)}
 
     </div>
   `;
@@ -24563,8 +24925,10 @@ function startEditRelease(submissionId){
   releaseEditingId = submissionId;
   releaseEditCoverDataUrl = null;
 
+  // Une sortie publiée (liste du catalogue) ou en attente (soumissions).
   const row =
-    document.getElementById('release-' + submissionId);
+    document.getElementById('release-' + submissionId) ||
+    document.getElementById('submission-' + submissionId);
 
   if(row){
     row.classList.add('editing');
@@ -24575,7 +24939,8 @@ function startEditRelease(submissionId){
 function cancelEditRelease(submissionId){
 
   const row =
-    document.getElementById('release-' + submissionId);
+    document.getElementById('release-' + submissionId) ||
+    document.getElementById('submission-' + submissionId);
 
   if(row){
     row.classList.remove('editing');
@@ -24588,6 +24953,9 @@ function cancelEditRelease(submissionId){
   // réellement enregistrées en base.
   const submission =
     approvedReleasesData.find(
+      item => item.id === submissionId
+    ) ||
+    attente.data.find(
       item => item.id === submissionId
     );
 
@@ -24762,14 +25130,28 @@ async function saveReleaseEdit(submissionId){
     console.log('✅ Sortie modifiée :', data);
 
 
-    await loadApprovedReleases();
-    await renderCatalogue();
+    // Une sortie en attente reste dans la file : elle n'est pas publiée par la modification.
+    if(attente.data.some(item => item.id === submissionId)){
 
-    setRowMessage(
-      'releasesActionMsg',
-      '✅ Sortie mise à jour : ' + data.track_title + '.',
-      'ok'
-    );
+      await loadArtistSubmissions({ garderMessage: true });
+
+      setRowMessage(
+        'adminActionMsg',
+        '✅ Sortie modifiée : ' + data.track_title + '. Elle attend toujours ta validation.',
+        'ok'
+      );
+
+    }else{
+
+      await loadApprovedReleases();
+      await renderCatalogue();
+
+      setRowMessage(
+        'releasesActionMsg',
+        '✅ Sortie mise à jour : ' + data.track_title + '.',
+        'ok'
+      );
+    }
 
 
   } catch(error){
@@ -27611,20 +27993,18 @@ document.getElementById('adminAddForm').addEventListener('submit', async (e)=>{
     }
 
     // L'insertion ne renvoie pas la ligne créée : on la retrouve parmi
-    // les sorties en attente, triées de la plus récente à la plus
-    // ancienne.
+    // les sorties en attente (la file contient aussi les sorties
+    // repérées automatiquement, d'où la recherche ciblée).
     const {
       data: enAttente,
       error: listError
-    } = await BD.sortiesEnAttente();
+    } = await BD.sortieEnAttenteRecente(title, artist);
 
     if(listError){
       throw listError;
     }
 
-    const ligne = (enAttente || []).find(s =>
-      s.track_title === title && s.artist_name === artist
-    );
+    const ligne = (enAttente || [])[0];
 
     if(!ligne){
       throw new Error(
