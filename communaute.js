@@ -7973,7 +7973,9 @@ const FEUILLE = String.raw`
 }
 .com-av img{width:100%; height:100%; object-fit:cover; border-radius:50%;}
 /* Cadre d'avatar (cosmétique de la garde-robe) : un anneau derrière la photo, fixe, qui respire ou qui tourne. */
-.com-av.com-av-cadre{overflow:visible; isolation:isolate; --gap:#0b0f15; box-shadow:0 0 0 2px var(--gap) !important;}
+.com-av.com-av-cadre{overflow:visible; isolation:isolate; --gap:#0b0f15; box-shadow:0 0 0 2px var(--gap) !important; background:none;}
+/* Sans photo, le fond de l'initiale passe devant l'anneau (un enfant à z-index négatif se peint par-dessus le fond de son parent). */
+.com-av-cadre::after{content:''; position:absolute; inset:0; border-radius:50%; z-index:-1; background:linear-gradient(145deg, hsl(var(--h,210) 58% 40%), hsl(calc(var(--h,210) + 46) 62% 26%));}
 .com-av-cadre::before{
   content:''; position:absolute; inset:-5px; border-radius:50%; z-index:-1;
   background:linear-gradient(135deg, var(--ca,#fff), var(--cb,#fff));
