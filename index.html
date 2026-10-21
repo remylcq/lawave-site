@@ -4139,6 +4139,10 @@
       </button>
       <button class="navlink" data-page="content">Contenu</button>
       <button class="navlink" data-page="carte">Carte</button>
+      <button class="navlink" data-page="cartes">
+        Cartes
+        <span class="nav-pastille" id="navCartesPastille" hidden></span>
+      </button>
       <button class="navlink" data-page="community">
         Communauté
         <span class="nav-pastille" id="navComPastille" hidden></span>
@@ -4696,6 +4700,22 @@
           <p id="stat-updated-at" style="margin-top:20px; font-size:13px; color:var(--muted);"></p>
         </div>
       </div>
+    </section>
+  </section>
+
+  <!-- ================= CARTES : LE JEU ================= -->
+  <section id="page-cartes" class="page">
+    <section>
+      <div class="section-head">
+        <div>
+          <h2>Le jeu de cartes</h2>
+          <p class="desc">
+            Ouvre des packs, collectionne les sorties du catalogue et complète la discographie de tes artistes.
+          </p>
+        </div>
+      </div>
+      <!-- Dessiné par cartes.js, chargé à la demande quand cette page s'ouvre. -->
+      <div id="cartes-racine"></div>
     </section>
   </section>
 
@@ -6913,6 +6933,11 @@ const BD = {
     return supabaseClient.rpc('xp_succes_liste', { p_user: userId || null });
   },
 
+  // Le jeu de cartes (sql/cartes.sql) : toutes ses demandes passent par ici.
+  jeuAppel(nom, args){
+    return supabaseClient.rpc(nom, args || {});
+  },
+
   waveursReclamerDefi(id){
     return supabaseClient.rpc('waveurs_defi_reclamer', { p_defi: id });
   },
@@ -7228,6 +7253,7 @@ const BD = {
   // quitte la page, sinon elle consomme du processeur en arrière-plan.
   if(pageId === 'carte') renderCarte(); else arreterCarte();
   if(pageId === 'community') renderCommunity();
+  if(pageId === 'cartes') renderCartes(); else if(window.Cartes) window.Cartes.quitter();
   if(pageId === 'profile') renderProfileForm();
   // Le compte à rebours des fiches ne tourne que sur leur page.
   if(pageId === 'accreditations') renderAccreditations(); else arreterCompteursAccred();
@@ -11026,6 +11052,7 @@ function refreshAccountUI(){
   // la carte de la page l'est.
   if(ongletWaveursVisible()) renderWaveurs();
   else if(document.getElementById('page-community').classList.contains('active')) renderCommunity();
+  if(document.getElementById('page-cartes').classList.contains('active')) renderCartes();
 
   if(currentUser){
     loggedOut.style.display = 'none';
@@ -12129,6 +12156,51 @@ function chargerCommunaute(){
   return communauteChargement;
 }
 
+// Le jeu de cartes (cartes.js, sql/cartes.sql) : chargé à la demande, comme la communauté.
+const CARTES_FICHIER = 'cartes.js?v=1';
+
+function chargerCartes(){
+  return chargerModuleSite(CARTES_FICHIER, 'Cartes', 'du jeu de cartes (cartes.js)');
+}
+
+async function renderCartes(){
+
+  const racine = document.getElementById('cartes-racine');
+  if(!racine) return;
+
+  try{
+    await chargerCartes();
+    await window.Cartes.monter(racine);
+  }catch(erreur){
+    racine.innerHTML = `<div class="empty-state">${escapeHtml(erreur.message)}</div>`;
+  }
+}
+
+// La pastille du menu : un cadeau, une roue, un coffre ou une mission à récupérer. cartes.js la remet à jour à chaque
+// geste ; la demande du connexion (jeuPastilleDemarrer) la remplit avant même d'ouvrir le jeu.
+function majPastilleCartes(etat){
+
+  const pastille = document.getElementById('navCartesPastille');
+  if(!pastille) return;
+
+  const total = etat
+    ? (etat.cadeau_pret ? 1 : 0) + (etat.roue_prete ? 1 : 0) + (etat.coffres_prets || 0) + (etat.missions_pretes || 0)
+    : 0;
+
+  pastille.hidden = !total;
+  pastille.textContent = total > 9 ? '9+' : String(total || '');
+}
+
+async function jeuPastilleDemarrer(){
+
+  if(!currentUser){ majPastilleCartes(null); return; }
+
+  try{
+    const { data, error } = await BD.jeuAppel('jeu_etat');
+    if(!error && data) majPastilleCartes(data);
+  }catch(erreur){ /* le SQL du jeu n'est pas passé : la pastille reste cachée */ }
+}
+
 async function renderCommunity(){
 
   if(currentUser){
@@ -12340,8 +12412,10 @@ function majDefisFlottant(){
 
   if(currentUser){
     xpDemarrer();
+    jeuPastilleDemarrer();
     renderChallenges();
   }else{
+    majPastilleCartes(null);
     fermerDefis();
     if(window.Xp) window.Xp.reinitialiser();
   }
