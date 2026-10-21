@@ -22,7 +22,6 @@ on:
       - parcours.js
       - profil.js
       - xp.js
-      - engagement.js
       - modeles/**
       - decor/**
       - logos/**

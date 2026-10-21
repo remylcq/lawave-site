@@ -447,12 +447,7 @@
       <div class="xp-titre-bloc"><span>Quêtes du jour</span><span>${faites}/${quetes.length || 3}</span></div>
       ${liste || '<div class="xp-vide">Les quêtes arrivent…</div>'}
       ${coffre}
-      <button type="button" class="xp-lien" data-xp-aller="succes">Mes succès${e.succes ? ' · ' + e.succes.obtenus + '/' + e.succes.total : ''}</button>
-      <div class="xp-liens">
-        <button type="button" data-xp-aller="semaine">Ma semaine</button>
-        <button type="button" data-xp-aller="saison">Saison</button>
-        <button type="button" data-xp-aller="garderobe">Garde-robe</button>
-      </div>`;
+      <button type="button" class="xp-lien" data-xp-aller="succes">Mes succès${e.succes ? ' · ' + e.succes.obtenus + '/' + e.succes.total : ''}</button>`;
   }
 
   document.addEventListener('click', (ev) => {
@@ -462,13 +457,7 @@
 
     if(typeof fermerDefis === 'function') fermerDefis();
 
-    const quoi = cible.dataset.xpAller;
-
-    if(quoi === 'semaine' || quoi === 'saison' || quoi === 'garderobe'){
-      if(typeof chargerEngagement === 'function'){
-        chargerEngagement().then(() => window.Engagement.ouvrir(quoi)).catch(() => {});
-      }
-    }else if(typeof ouvrirMesSucces === 'function'){
+    if(typeof ouvrirMesSucces === 'function'){
       ouvrirMesSucces();
     }
   });

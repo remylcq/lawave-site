@@ -3396,48 +3396,6 @@ VUES.favoris = {
 
 
 
-// La saison et tout ce qui l'entoure (duel, chapitres, récompenses, classement, garde-robe, ma semaine) : dessinée par
-// engagement.js, chargé à la première visite.
-VUES.saison = {
-
-  titre: () => 'Saison',
-
-  creer(V){
-    V.el.innerHTML = `<div data-saison></div>`;
-  },
-
-  async montrer(V){
-
-    const hote = $('[data-saison]', V.el);
-
-    if(!moi()){
-      hote.innerHTML = etatVide({ icone: 'trophee', titre: 'La saison t\'attend', texte: 'Connecte-toi pour relever les défis, voter aux duels et gagner des récompenses.',
-        bouton: { libelle: 'Se connecter', attrs: 'data-act="connexion" data-mode="login"' } });
-      V.charge = false;
-      return;
-    }
-
-    // Relue à chaque visite, sans effacer l'écran quand elle est déjà là.
-    if(V.charge && Date.now() - V.chargeLe < 30000) return;
-
-    try{
-      if(!V.charge) hote.innerHTML = '<div class="com-chargement" style="padding:30px;text-align:center;color:var(--muted)">Chargement…</div>';
-      await chargerEngagement();
-      await window.Engagement.page(hote);
-      V.charge = true;
-      V.chargeLe = Date.now();
-    }catch(e){
-      if(!V.charge) hote.innerHTML = etatVide({ icone: 'trophee', titre: 'La saison n\'a pas pu s\'ouvrir', texte: e.message || 'Réessaie dans un instant.' });
-    }
-  },
-
-  pause(){
-    if(window.Engagement && window.Engagement.pause) window.Engagement.pause();
-  }
-};
-
-
-
 // ---------------------------------------------------------------------
 // Ce que l'on fait d'un message
 // ---------------------------------------------------------------------
@@ -6448,9 +6406,11 @@ VUES.notifications = {
       return;
     }
 
-    // Une annonce du site : engagement.js l'ouvre (résumé, duel, saison, garde-robe) ou la fiche de la sortie.
-    if(!n.acteur && typeof chargerEngagement === 'function'){
-      chargerEngagement().then(() => window.Engagement.ouvrirNotif(n)).catch(() => {});
+    // Une annonce du site (sans membre derrière) : seule une sortie a une page à ouvrir.
+    if(!n.acteur){
+      const d = n.donnees || {};
+      const numero = d.numero || (d.sortie && d.sortie.numero);
+      if(numero && typeof ouvrirSortieParNumero === 'function') ouvrirSortieParNumero(numero);
       return;
     }
 
@@ -6579,7 +6539,7 @@ VUES.recherche = {
 // ---------------------------------------------------------------------
 
 const ROUTES_AVEC_PARAMETRE = ['post', 'membre', 'tag', 'sujet'];
-const ROUTES_SIMPLES = ['explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche', 'saison'];
+const ROUTES_SIMPLES = ['explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche'];
 
 function pageActive(){
   const p = document.getElementById('page-community');
@@ -6609,7 +6569,7 @@ function lireRoute(){
   return { nom: 'accueil', param: null, cle: 'accueil' };
 }
 
-const VUES_PERMANENTES = ['accueil', 'explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche', 'saison'];
+const VUES_PERMANENTES = ['accueil', 'explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche'];
 const VUES_DETAIL_MAX = 6;
 
 function profondeur(){
@@ -6784,7 +6744,7 @@ function majCoque(){
   const actif = {
     accueil: 'accueil', sujet: 'accueil', tag: 'accueil', post: 'accueil',
     explorer: 'explorer', recherche: 'explorer',
-    collabs: 'explorer', messages: 'messages', notifications: 'notifications', favoris: 'favoris', saison: 'saison'
+    collabs: 'explorer', messages: 'messages', notifications: 'notifications', favoris: 'favoris'
   }[route.nom] || null;
 
   const monProfil = route.nom === 'membre' && u && route.param.toLowerCase() === u.pseudo.toLowerCase();
@@ -6834,7 +6794,6 @@ function navItemHtml(cle, ic, libelle, badge, vers, classe){
 const ELEMENTS_NAV = [
   ['accueil', 'accueil', 'Accueil', null, ''],
   ['explorer', 'explorer', 'Explorer', null, 'explorer'],
-  ['saison', 'trophee', 'Saison', null, 'saison'],
   ['messages', 'messages', 'Messages', 'messages', 'messages'],
   ['notifications', 'cloche', 'Alertes', 'notifications', 'notifications'],
   ['favoris', 'signet', 'Enregistrés', null, 'favoris']
@@ -7856,12 +7815,6 @@ window.Com = {
   majOnboarding(){
     const v = S.vues.get('accueil');
     if(v && v.hotes) VUES.accueil.onboarding(v);
-  },
-
-  // L'onglet Saison (le panneau d'XP et les notifications y envoient).
-  saison(){
-    history.pushState({ com: 1 }, '', '#community/saison');
-    goTo('community', { sansAdresse: true });
   },
 
   // Son propre profil, ouvert sur un onglet précis (le panneau d'XP envoie sur les succès). Attend que la page
@@ -9368,7 +9321,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-entete-moi .com-av{width:32px; height:32px; font-size:14px;}
 
   .com-barre{
-    position:fixed; left:0; right:0; bottom:0; z-index:95; display:grid; grid-template-columns:repeat(6, 1fr);
+    position:fixed; left:0; right:0; bottom:0; z-index:95; display:grid; grid-template-columns:repeat(5, 1fr);
     padding:6px 2px calc(6px + env(safe-area-inset-bottom));
     background:rgba(8,11,16,0.9); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
     border-top:1px solid var(--line);
