@@ -7,7 +7,8 @@
      la page Saison              l'onglet de la communauté : la saison (30 paliers, 4 chapitres, événements, citrouille du
                                   jour, défis, classement), le duel du moment, ma semaine et la garde-robe
      « Ma semaine »               le résumé du lundi au dimanche, partageable en image
-     la garde-robe                cadres d'avatar, titres, couleurs de pseudo, emblèmes (aucun avantage, que du style)
+     le vestiaire                 un écran de jeu pour s'habiller : cadres d'avatar, titres, couleurs de pseudo, emblèmes
+                                  (aucun avantage, que du style), collections par rareté, aperçu avant d'équiper
                                   + le statut de découvreur (les pépites repérées avant tout le monde)
      l'accès équipe               créer / retirer des duels, régler les saisons
 
@@ -179,6 +180,9 @@
     box-shadow:0 0 0 2px #0b0f15;
   }
   .eng-av img{width:100%; height:100%; border-radius:50%; object-fit:cover; display:block;}
+  .eng-av b{font-size:calc(var(--t, 44px) * .42);}
+  .eng-av.cadre{background:none;}
+  .eng-av.cadre::after{content:''; position:absolute; inset:0; border-radius:50%; z-index:-1; background:linear-gradient(145deg, hsl(var(--h, 210) 58% 40%), hsl(calc(var(--h, 210) + 46) 62% 26%));}
   .eng-av.cadre::before{
     content:''; position:absolute; inset:-5px; border-radius:50%; z-index:-1;
     background:linear-gradient(135deg, var(--ca), var(--cb));
@@ -367,6 +371,183 @@
   .eng-rang .pts{font-size:13px; color:var(--ink-soft); font-variant-numeric:tabular-nums; white-space:nowrap;}
   .eng-bande.deux{grid-template-columns:repeat(2, 1fr);}
 
+
+  /* ---- Le vestiaire ---- */
+  .vst-voile{position:fixed; inset:0; z-index:420; display:flex; align-items:center; justify-content:center; background:rgba(3,5,8,.84); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); animation:engVoile .25s ease both;}
+  .vst{
+    --eng-bord:rgba(255,255,255,.10); --eng-fond:rgba(255,255,255,.045);
+    position:relative; width:min(1140px, 100vw); height:min(800px, 100dvh); display:grid; grid-template-columns:minmax(300px, 390px) minmax(0, 1fr); grid-template-rows:auto minmax(0, 1fr);
+    border-radius:28px; overflow:hidden; border:1px solid var(--line-strong); color:var(--ink);
+    background:radial-gradient(90% 60% at 0% 0%, rgba(124,92,255,.14), transparent 60%), radial-gradient(80% 60% at 100% 100%, rgba(255,160,64,.1), transparent 60%), #080b11;
+    box-shadow:0 40px 140px rgba(0,0,0,.65); animation:engMonte .4s var(--ease, ease) both;
+  }
+  .vst .eng-barre{background:rgba(255,255,255,.12);}
+  .vst .eng-barre i{background:linear-gradient(90deg, #ffb340, #ffd166);}
+  .vst-attente{grid-column:1 / -1; grid-row:1 / -1; display:grid; place-content:center; text-align:center; color:var(--muted); font-size:14px;}
+  .vst-tete{grid-column:1 / -1; display:flex; align-items:center; gap:14px; padding:16px 20px; border-bottom:1px solid var(--eng-bord);}
+  .vst-anneau{width:48px; height:48px; flex:none; border-radius:50%; display:grid; place-items:center; background:conic-gradient(#ffb340 calc(var(--p) * 1%), rgba(255,255,255,.1) 0);}
+  .vst-anneau b{width:38px; height:38px; border-radius:50%; display:grid; place-items:center; background:#0a0e15; font-size:13px; font-variant-numeric:tabular-nums;}
+  .vst-anneau small{font-size:8px; margin-left:1px; color:var(--muted);}
+  .vst-titre-bloc{flex:1; min-width:0;}
+  .vst-titre-bloc h2{margin:0; font-size:20px; letter-spacing:.01em;}
+  .vst-titre-bloc span{font-size:12px; color:var(--muted);}
+
+  .vst-gauche{display:flex; flex-direction:column; gap:12px; padding:16px; overflow-y:auto; scrollbar-width:thin; border-right:1px solid var(--eng-bord); min-height:0;}
+  .vst-droite{display:flex; flex-direction:column; min-width:0; min-height:0;}
+
+  .vst-scene{
+    position:relative; flex:none; height:300px; border-radius:22px; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+    border:1px solid color-mix(in srgb, var(--aura) 45%, transparent);
+    background:radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--aura) 26%, #0d1220), #06080e 72%);
+    box-shadow:inset 0 0 60px color-mix(in srgb, var(--aura) 14%, transparent);
+  }
+  .vst-lumiere{position:absolute; top:-30%; left:50%; width:150%; height:130%; transform:translateX(-50%); pointer-events:none; filter:blur(12px);
+    background:conic-gradient(from 180deg at 50% 0, transparent 158deg, color-mix(in srgb, var(--aura) 26%, transparent) 180deg, transparent 202deg); animation:vstBalaye 7s ease-in-out infinite alternate;}
+  .vst-poussieres i{position:absolute; bottom:-6px; left:var(--x); width:var(--z); height:var(--z); border-radius:50%; background:var(--aura); opacity:0; box-shadow:0 0 8px var(--aura); animation:vstMonte var(--d) linear var(--t) infinite;}
+  .vst-socle{position:absolute; bottom:18px; left:50%; width:200px; height:44px; transform:translateX(-50%); border-radius:50%; border:1px solid color-mix(in srgb, var(--aura) 55%, transparent);
+    background:radial-gradient(closest-side, color-mix(in srgb, var(--aura) 45%, transparent), transparent); box-shadow:0 0 36px color-mix(in srgb, var(--aura) 38%, transparent);}
+  .vst-socle::after{content:''; position:absolute; inset:-7px; border-radius:50%; border:1px dashed color-mix(in srgb, var(--aura) 55%, transparent); animation:engTourne 22s linear infinite;}
+  .vst-perso{position:relative; z-index:2; display:flex; flex-direction:column; align-items:center; gap:8px; margin-bottom:34px; transform:perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition:transform .18s ease-out;}
+  .vst-avatar{filter:drop-shadow(0 8px 22px color-mix(in srgb, var(--aura) 40%, transparent)); animation:vstFlotte 4.5s ease-in-out infinite;}
+  .vst-avatar .eng-av.cadre::before{inset:-9px;}
+  .vst-nom{font-size:19px; font-weight:700; text-align:center; max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .vst-vide{font-size:11px; color:var(--muted); letter-spacing:.06em;}
+  .vst-apercu{position:absolute; top:12px; left:12px; z-index:3; padding:4px 10px; border-radius:99px; font-size:11px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; background:rgba(0,0,0,.55); border:1px solid color-mix(in srgb, var(--aura) 60%, transparent); color:#fff;}
+  .vst-burst{position:absolute; left:50%; top:46%; z-index:4; pointer-events:none;}
+  .vst-burst i{position:absolute; width:7px; height:7px; margin:-3px; border-radius:50%; background:var(--c); box-shadow:0 0 10px var(--c); animation:vstJaillit .85s cubic-bezier(.12,.8,.3,1) both;}
+
+  .vst-slots{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; flex:none;}
+  .vst-slot{all:unset; box-sizing:border-box; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:2px; min-width:0; padding:8px 4px 7px; border-radius:14px; text-align:center;
+    border:1px solid color-mix(in srgb, var(--rc) 55%, transparent); background:linear-gradient(170deg, color-mix(in srgb, var(--rc) 14%, #0c111a), #090d14); transition:transform .15s, box-shadow .15s;}
+  .vst-slot:hover{transform:translateY(-2px); box-shadow:0 8px 20px color-mix(in srgb, var(--rc) 25%, transparent);}
+  .vst-slot:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+  .vst-slot.actif{box-shadow:0 0 0 2px var(--rc);}
+  .vst-slot .ic{height:32px; display:grid; place-items:center; font-size:20px; opacity:.9;}
+  .vst-slot:not(.plein) .ic{opacity:.45;}
+  .vst-slot .lb{font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
+  .vst-slot b{max-width:100%; font-size:11px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  .vst-com{flex:none; padding:12px; border-radius:16px; border:1px solid var(--eng-bord); background:var(--eng-fond);}
+  .vst-com-tete{margin-bottom:8px; font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);}
+  .vst-com-msg{display:flex; gap:10px; align-items:flex-start;}
+  .vst-com-msg .l{display:flex; align-items:center; flex-wrap:wrap; gap:6px; font-size:13.5px; font-weight:600;}
+  .vst-com-msg .l small{font-weight:400; font-size:11px; color:var(--muted);}
+  .vst-com-msg p{margin:3px 0 0; font-size:13px; color:var(--ink-soft); line-height:1.4;}
+  .vst-rar{display:grid; gap:6px; flex:none;}
+  .vst-rar-ligne{display:grid; grid-template-columns:78px 1fr 40px; align-items:center; gap:8px; font-size:11.5px; color:var(--ink-soft);}
+  .vst-rar-ligne span{color:var(--rc);}
+  .vst-rar-ligne em{font-style:normal; text-align:right; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .vst-rar-ligne .eng-barre{height:5px; margin:0;}
+  .vst .vst-rar-ligne .eng-barre i{background:var(--rc);}
+
+  .vst-vues{display:flex; gap:6px; padding:12px 16px 4px; flex:none;}
+  .vst-vue{all:unset; box-sizing:border-box; cursor:pointer; padding:8px 16px; border-radius:99px; font-size:13px; font-weight:600; color:var(--muted); border:1px solid transparent;}
+  .vst-vue:hover{color:var(--ink);}
+  .vst-vue.actif{color:#06101a; background:var(--ink);}
+  .vst-vue:focus-visible, .vst-type:focus-visible, .vst-puce:focus-visible, .vst-carte:focus-visible, .vst-coll:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+  .vst-corps{flex:1; min-height:0; display:flex; flex-direction:column; padding:0 16px;}
+  .vst-types{display:flex; gap:6px; padding:8px 0 4px; overflow-x:auto; scrollbar-width:none; flex:none;}
+  .vst-type{all:unset; box-sizing:border-box; cursor:pointer; flex:none; display:flex; align-items:baseline; gap:6px; padding:7px 12px; border-radius:12px; font-size:13px; color:var(--ink-soft); border:1px solid var(--eng-bord); background:var(--eng-fond);}
+  .vst-type em{font-style:normal; font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .vst-type.actif{color:var(--ink); background:rgba(255,255,255,.12); border-color:var(--line-strong);}
+  .vst-filtres{display:flex; flex-wrap:wrap; gap:6px; padding:4px 0 10px; flex:none;}
+  .vst-puce{all:unset; box-sizing:border-box; cursor:pointer; padding:5px 11px; border-radius:99px; font-size:12px; color:var(--muted); border:1px solid var(--eng-bord);}
+  .vst-puce.actif{color:var(--ink); background:rgba(255,255,255,.1); border-color:var(--line-strong);}
+  .vst-grille{flex:1; min-height:0; overflow-y:auto; scrollbar-width:thin; display:grid; grid-template-columns:repeat(auto-fill, minmax(124px, 1fr)); grid-auto-rows:min-content; gap:10px; padding:4px 2px 16px;}
+
+  .vst .rar-commun{--rc:#9aa7b8;} .vst .rar-rare{--rc:#4aa8ff;} .vst .rar-epique{--rc:#b36bff;} .vst .rar-legendaire{--rc:#ffb340;}
+  .vst-carte{
+    all:unset; box-sizing:border-box; position:relative; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:5px; padding:16px 8px 10px; min-height:158px; border-radius:16px; text-align:center; overflow:hidden;
+    border:1px solid color-mix(in srgb, var(--rc) 50%, transparent); background:linear-gradient(160deg, color-mix(in srgb, var(--rc) 17%, #0c111a), #090d14 72%);
+    transition:transform .18s var(--ease, ease), box-shadow .18s;
+  }
+  .vst-carte:hover{transform:translateY(-3px); box-shadow:0 12px 28px color-mix(in srgb, var(--rc) 26%, transparent);}
+  .vst-carte.sel{box-shadow:0 0 0 2px var(--rc), 0 14px 34px color-mix(in srgb, var(--rc) 32%, transparent);}
+  .vst-carte.rar-legendaire::before{content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(115deg, transparent 38%, rgba(255,255,255,.2) 50%, transparent 62%); background-size:260% 100%; animation:vstBrille 3.6s linear infinite;}
+  .vst-carte.rar-epique{animation:vstPulse 3.2s ease-in-out infinite;}
+  .vst-visuel{flex:1; display:grid; place-items:center; min-height:56px; max-width:100%;}
+  .vst-carte b{font-size:12.5px; line-height:1.25; max-width:100%; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+  .vst-carte small{font-size:10.5px; line-height:1.3; color:var(--rc); max-width:100%; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+  .vst-carte.equipe{padding-bottom:26px;}
+  .vst-carte.verrou small{color:var(--muted);}
+  .vst-carte.verrou .vst-visuel{filter:grayscale(1) brightness(.55); opacity:.75;}
+  .vst-carte.verrou{border-color:var(--eng-bord); background:#0a0e15;}
+  .vst-src{position:absolute; top:6px; right:7px; font-size:12px; opacity:.75;}
+  .vst-new{position:absolute; top:7px; left:7px; padding:2px 7px; border-radius:99px; font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#06101a; background:#7be0a4; animation:vstPulse 1.8s ease-in-out infinite;}
+  .vst-equipe-tag{position:absolute; bottom:0; left:0; right:0; padding:3px 0; font-size:9.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#06101a; background:var(--rc);}
+  .vst-emoji{line-height:1;}
+  .vst-aa{font-weight:700;}
+  .vst-titre{max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+  .vst-detail{flex:none; display:flex; align-items:center; gap:14px; margin:0 16px 16px; padding:12px 14px; border-radius:18px; border:1px solid color-mix(in srgb, var(--rc, #fff) 50%, transparent); background:linear-gradient(135deg, color-mix(in srgb, var(--rc, #fff) 14%, #0c111a), #090d14);}
+  .vst-detail.vide{--rc:#ffffff; justify-content:center; color:var(--muted); font-size:13px; border-style:dashed; min-height:84px;}
+  .vst-detail.vide span{font-size:22px;}
+  .vst-detail.vide p{margin:0;}
+  .vst-detail-visuel{width:70px; flex:none; display:grid; place-items:center;}
+  .vst-detail .tx{flex:1; min-width:0;}
+  .vst-rar-nom{display:block; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--rc);}
+  .vst-detail .tx b{display:block; font-size:16px; margin-top:1px;}
+  .vst-detail .tx p{margin:3px 0 0; font-size:12.5px; color:var(--ink-soft); line-height:1.4;}
+  .vst-detail .tx small{display:block; margin-top:4px; font-size:11.5px; color:var(--muted);}
+  .vst-detail .tx .msg{color:#7be0a4;}
+  .vst-detail .act{flex:none;}
+
+  .vst-collections{flex:1; min-height:0; overflow-y:auto; scrollbar-width:thin; display:grid; gap:10px; padding:10px 2px 16px; grid-auto-rows:min-content;}
+  .vst-coll{all:unset; box-sizing:border-box; cursor:pointer; display:block; padding:14px; border-radius:18px; border:1px solid var(--eng-bord); background:var(--eng-fond); transition:background .18s, transform .18s;}
+  .vst-coll:hover{background:rgba(255,255,255,.08); transform:translateY(-2px);}
+  .vst-coll.complet{border-color:#ffb340; background:rgba(255,179,64,.07);}
+  .vst-coll-tete{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .vst-coll-tete span{font-size:20px;}
+  .vst-coll-tete b{flex:1; font-size:15px;}
+  .vst-coll-tete em{font-style:normal; font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .vst-coll-mini{display:flex; flex-wrap:wrap; gap:6px; margin-top:12px;}
+  .vst-coll-mini span{width:38px; height:38px; display:grid; place-items:center; border-radius:10px; overflow:hidden; border:1px solid color-mix(in srgb, var(--rc) 55%, transparent); background:color-mix(in srgb, var(--rc) 10%, #0a0e15);}
+  .vst-coll-mini span.verrou{filter:grayscale(1) brightness(.5);}
+  .vst-coll-mini .eng-av{--t:26px !important;}
+
+  .vst-statut{padding:10px 2px 16px; overflow-y:auto; min-height:0; scrollbar-width:thin;}
+  .vst-statut-haut{display:flex; align-items:center; gap:14px; padding:16px; border-radius:20px; border:1px solid rgba(143,216,255,.4); background:linear-gradient(135deg, rgba(143,216,255,.14), rgba(124,92,255,.1));}
+  .vst-statut-gem{font-size:34px; filter:drop-shadow(0 0 12px rgba(143,216,255,.7));}
+  .vst-statut-haut > div{flex:1;}
+  .vst-statut-haut small{display:block; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);}
+  .vst-statut-haut b{font-size:20px;}
+  .vst-statut-haut em{font-style:normal; font-size:13px; color:var(--ink-soft);}
+  .vst-echelle{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:14px 0 4px;}
+  .vst-marche{display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 6px; border-radius:14px; border:1px solid var(--eng-bord); background:var(--eng-fond); text-align:center; font-size:11.5px; color:var(--muted);}
+  .vst-marche i{width:30px; height:30px; display:grid; place-items:center; border-radius:50%; font-style:normal; font-weight:700; background:rgba(255,255,255,.08);}
+  .vst-marche.fait{border-color:#8fd8ff; color:var(--ink);}
+  .vst-marche.fait i{background:#8fd8ff; color:#06101a;}
+
+  @keyframes vstBalaye{from{transform:translateX(-56%) rotate(-5deg);} to{transform:translateX(-44%) rotate(5deg);}}
+  @keyframes vstMonte{0%{transform:translateY(0); opacity:0;} 12%{opacity:.85;} 100%{transform:translateY(-300px); opacity:0;}}
+  @keyframes vstFlotte{0%,100%{transform:translateY(0);} 50%{transform:translateY(-7px);}}
+  @keyframes vstBrille{from{background-position:130% 0;} to{background-position:-130% 0;}}
+  @keyframes vstPulse{0%,100%{filter:brightness(1);} 50%{filter:brightness(1.18);}}
+  @keyframes vstJaillit{from{transform:translate(0, 0) scale(1.2); opacity:1;} to{transform:translate(var(--dx), var(--dy)) scale(.2); opacity:0;}}
+
+  @media (max-width:820px){
+    .vst{width:100vw; height:100dvh; border-radius:0; border:0; grid-template-columns:minmax(0, 1fr); grid-template-rows:auto auto minmax(0, 1fr);}
+    .vst-gauche{border-right:0; border-bottom:1px solid var(--eng-bord); padding:10px 12px; gap:8px; overflow:visible;}
+    .vst-scene{height:200px;}
+    .vst-perso{margin-bottom:22px; gap:5px;}
+    .vst-avatar .eng-av{--t:84px !important;}
+    .vst-nom{font-size:16px;}
+    .vst-socle{width:150px; height:32px; bottom:12px;}
+    .vst-com, .vst-rar{display:none;}
+    .vst-slot .ic{height:26px;}
+    .vst-grille{grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px;}
+    .vst-carte{min-height:140px; padding:14px 5px 9px;}
+    .vst-detail{margin:0 10px 10px; gap:10px; padding:10px;}
+    .vst-detail .tx p{display:none;}
+    .vst-detail-visuel{width:50px;}
+    .vst-corps{padding:0 10px;}
+    .vst-vues{padding:10px 10px 2px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .vst-lumiere, .vst-poussieres i, .vst-socle::after, .vst-avatar, .vst-carte.rar-legendaire::before, .vst-carte.rar-epique, .vst-new, .vst-burst i{animation:none !important;}
+    .vst-perso{transition:none;}
+  }
+
   @keyframes engVoile{from{opacity:0;} to{opacity:1;}}
   @keyframes engMonte{from{opacity:0; transform:translateY(24px);} to{opacity:1; transform:none;}}
   @keyframes engTourne{to{transform:rotate(360deg);}}
@@ -421,14 +602,6 @@
       return `<span class="eng-nom-couleur" style="--na:${hexa(couleur.a, '#ffffff')};--nb:${hexa(couleur.b, '#ffffff')}">${esc(pseudo)}</span>${emb}`;
     }
     return esc(pseudo) + emb;
-  }
-
-  // Ce que montre un cosmétique dans la garde-robe, selon son type.
-  function objetApercu(o){
-    if(o.type === 'cadre') return avatarApercu(currentUser ? currentUser.pseudo : '?', currentUser ? currentUser.avatar : '', o.style, 40);
-    if(o.type === 'couleur') return `<span class="eng-nom-couleur" style="--na:${hexa(o.style.a, '#fff')};--nb:${hexa(o.style.b, '#fff')}">${esc(currentUser ? currentUser.pseudo : 'Pseudo')}</span>`;
-    if(o.type === 'embleme') return `<span class="eng-emoji">${esc((o.style && o.style.emoji) || '✨')}</span>`;
-    return `<span class="eng-titre-pastille">${esc(o.nom)}</span>`;
   }
 
   function reste(fin){
@@ -1238,106 +1411,474 @@
     PG.message = null;
 
     await charger();
-    dessiner();
+
+    try{
+      dessiner();
+    }catch(e){
+      console.error('Saison :', e);
+      throw new Error('Affichage de la saison impossible (' + (e && e.message ? e.message : e) + ').');
+    }
   }
 
   function pause(){}
 
   // ---------------------------------------------------------------------
-  // La garde-robe (et le statut de découvreur)
+  // Le vestiaire : un écran de jeu pour s'habiller
+  //
+  // À gauche la scène (ton personnage, ses quatre emplacements, ton rendu dans la communauté), à droite l'inventaire
+  // (par type, par collection, avec ton statut de découvreur). Toucher un objet l'essaie sur la scène avant de
+  // l'équiper, même verrouillé : on voit ce qu'on vise.
   // ---------------------------------------------------------------------
+
+  const RAR = { commun: ['Commun', '#9aa7b8'], rare: ['Rare', '#4aa8ff'], epique: ['Épique', '#b36bff'], legendaire: ['Légendaire', '#ffb340'] };
+  const RANG = { commun: 0, rare: 1, epique: 2, legendaire: 3 };
+  const SLOTS = [['cadre', 'Cadre', '⭕'], ['titre', 'Titre', '🏷️'], ['couleur', 'Couleur', '🎨'], ['embleme', 'Emblème', '✨']];
+  const SOURCES = { defaut: '🎁', niveau: '⭐', succes: '🏅', saison: '🏆', chapitre: '📖', classement: '👑' };
+  const CLE_VUS = 'lw-vestiaire-vus';
+
+  // Les objets déjà vus : ce qui est nouveau depuis la dernière visite porte une pastille. La toute première visite ne
+  // marque rien comme nouveau.
+  function lireVus(obtenus){
+    try{
+      const brut = localStorage.getItem(CLE_VUS);
+      if(brut === null){
+        localStorage.setItem(CLE_VUS, JSON.stringify(obtenus));
+        return new Set(obtenus);
+      }
+      return new Set(JSON.parse(brut));
+    }catch(e){
+      return new Set(obtenus);
+    }
+  }
+
+  function noterVus(ids){
+    try{ localStorage.setItem(CLE_VUS, JSON.stringify(ids)); }catch(e){}
+  }
+
+  // La collection d'un objet : une saison, les niveaux, les succès…
+  function ensembleDe(o){
+    const m = /^saison-(\d+)-/.exec(o.id);
+    if(m){
+      const t = /\(([^)]+)\)/.exec(o.description || '');
+      return { cle: 'saison-' + m[1], nom: 'Saison ' + m[1] + (t ? ' · ' + t[1] : ''), icone: '🏆' };
+    }
+    if(o.source === 'niveau') return { cle: 'niveau', nom: 'Niveaux', icone: '⭐' };
+    if(o.source === 'succes') return { cle: 'succes', nom: 'Succès', icone: '🏅' };
+    return { cle: 'offerts', nom: 'Offerts', icone: '🎁' };
+  }
+
+  // L'objet, dessiné à la taille voulue.
+  function visuelObjet(o, t, compact){
+    const st = o.style || {};
+    if(o.type === 'cadre') return avatarApercu(currentUser ? currentUser.pseudo : '?', currentUser ? currentUser.avatar : '', st, t);
+    if(o.type === 'couleur') return `<span class="eng-nom-couleur vst-aa" style="--na:${hexa(st.a, '#fff')};--nb:${hexa(st.b, '#fff')};font-size:${Math.round(t * .62)}px">Aa</span>`;
+    if(o.type === 'embleme') return `<span class="vst-emoji" style="font-size:${Math.round(t * .8)}px">${esc(st.emoji || '✨')}</span>`;
+    if(compact) return '<span class="vst-emoji" style="font-size:' + Math.round(t * .75) + 'px">🏷️</span>';
+    return `<span class="eng-titre-pastille vst-titre">${esc(o.nom)}</span>`;
+  }
 
   async function garderobe(){
 
-    const f = ouvrirFeuille('Garde-robe');
-    f.corps.innerHTML = '<div class="eng-vide">Chargement…</div>';
+    poserFeuille();
+    if(feuilleOuverte) feuilleOuverte.fermer();
+
+    const voile = document.createElement('div');
+    voile.className = 'vst-voile';
+    voile.innerHTML = '<div class="vst" role="dialog" aria-modal="true" aria-label="Vestiaire"><div class="vst-attente">Ouverture du vestiaire…</div></div>';
+
+    const racine = voile.firstElementChild;
+    const precedent = document.activeElement;
+    const avant = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = 'hidden';
+    document.body.appendChild(voile);
+
+    let etat = null;
+
+    function fermer(){
+      if(!voile.parentNode) return;
+      if(etat) noterVus(etat.catalogue.filter(o => o.obtenu).map(o => o.id));
+      voile.remove();
+      document.documentElement.style.overflow = avant;
+      document.removeEventListener('keydown', touche);
+      if(feuilleOuverte && feuilleOuverte.voile === voile) feuilleOuverte = null;
+      if(precedent && precedent.focus) try{ precedent.focus(); }catch(e){}
+    }
+
+    function touche(ev){ if(ev.key === 'Escape') fermer(); }
+
+    voile.addEventListener('click', (ev) => { if(ev.target === voile) fermer(); });
+    document.addEventListener('keydown', touche);
+    feuilleOuverte = { voile, corps: racine, fermer };
 
     const [r, d] = await Promise.all([BD.cosmetiquesMoi(), BD.decouvreurFiche(null)]);
 
-    if(r.error || !r.data){ f.corps.innerHTML = `<div class="eng-vide">${esc(erreurTexte(r.error))}</div>`; return; }
+    if(!voile.parentNode) return;
+
+    if(r.error || !r.data){
+      racine.innerHTML = `<div class="vst-attente">${esc(erreurTexte(r.error))}<br><button type="button" class="eng-btn discret" data-act="fermer" style="margin-top:14px">Fermer</button></div>`;
+      racine.addEventListener('click', (ev) => { if(ev.target.closest('[data-act="fermer"]')) fermer(); });
+      return;
+    }
 
     const catalogue = r.data.catalogue || [];
-    const equipe = r.data.equipe || {};
-    const fiche = d && !d.error ? d.data : null;
-    let message = '';
+    const vus = lireVus(catalogue.filter(o => o.obtenu).map(o => o.id));
+
+    etat = {
+      catalogue,
+      parId: {},
+      equipe: Object.assign({ cadre: null, titre: null, couleur: null, embleme: null }, r.data.equipe || {}),
+      fiche: d && !d.error ? d.data : null,
+      vue: 'inventaire', type: 'tout', filtre: 'tous', ensemble: null,
+      sel: null, message: '', burst: null,
+      nouveaux: new Set(catalogue.filter(o => o.obtenu && !vus.has(o.id)).map(o => o.id))
+    };
+    catalogue.forEach(o => { etat.parId[o.id] = o; });
+
+    const pseudo = currentUser ? currentUser.pseudo : 'Toi';
+
+    // ---- la scène : le personnage tel qu'il serait habillé
+    function sceneHtml(){
+
+      const porte = Object.assign({}, etat.equipe);
+      const essai = etat.sel ? etat.parId[etat.sel] : null;
+      if(essai) porte[essai.type] = essai.id;
+
+      const cadre = etat.parId[porte.cadre];
+      const titre = etat.parId[porte.titre];
+      const couleur = etat.parId[porte.couleur];
+      const embleme = etat.parId[porte.embleme];
+
+      const aura = Object.keys(porte).map(k => etat.parId[porte[k]]).filter(Boolean)
+        .reduce((m, o) => (RANG[o.rarete] > m ? RANG[o.rarete] : m), 0);
+      const couleurAura = RAR[['commun', 'rare', 'epique', 'legendaire'][aura]][1];
+
+      const diffEssai = essai && etat.equipe[essai.type] !== essai.id;
+      const poussieres = Array.from({ length: 14 }, (_, k) =>
+        `<i style="--x:${(k * 37 + 11) % 100}%;--d:${5 + (k * 7) % 6}s;--t:${-((k * 13) % 9)}s;--z:${3 + (k % 4)}px"></i>`).join('');
+
+      return `
+        <section class="vst-scene" style="--aura:${couleurAura}" data-aura="${aura}">
+          <div class="vst-lumiere"></div>
+          <div class="vst-poussieres">${poussieres}</div>
+          <div class="vst-perso" data-perso>
+            <div class="vst-avatar">${avatarApercu(pseudo, currentUser ? currentUser.avatar : '', cadre ? cadre.style : null, 132)}</div>
+            <div class="vst-nom">${nomApercu(pseudo, couleur ? couleur.style : null, embleme && embleme.style ? embleme.style.emoji : null)}</div>
+            ${titre ? `<span class="eng-titre-pastille">${esc(titre.nom)}</span>` : '<span class="vst-vide">Aucun titre</span>'}
+          </div>
+          <div class="vst-socle"></div>
+          <div class="vst-burst" data-burst></div>
+          ${diffEssai ? `<span class="vst-apercu">Aperçu${essai.obtenu ? '' : ' · verrouillé'}</span>` : ''}
+        </section>`;
+    }
+
+    // ---- les quatre emplacements
+    function slotsHtml(){
+      return `<div class="vst-slots">${SLOTS.map(([type, nom, icone]) => {
+        const o = etat.parId[etat.equipe[type]];
+        const rc = o ? RAR[o.rarete][1] : '#3a4354';
+        return `
+          <button type="button" class="vst-slot${etat.type === type ? ' actif' : ''}${o ? ' plein' : ''}" style="--rc:${rc}" data-act="slot" data-type="${type}" aria-label="${esc(nom)} : ${o ? esc(o.nom) : 'vide'}">
+            <span class="ic">${o ? visuelObjet(o, 30) : icone}</span>
+            <span class="lb">${esc(nom)}</span>
+            <b>${o ? esc(o.nom) : 'Vide'}</b>
+          </button>`;
+      }).join('')}</div>`;
+    }
+
+    // ---- ce que les autres voient dans la communauté
+    function communauteHtml(){
+
+      const porte = Object.assign({}, etat.equipe);
+      const essai = etat.sel ? etat.parId[etat.sel] : null;
+      if(essai) porte[essai.type] = essai.id;
+
+      const cadre = etat.parId[porte.cadre];
+      const titre = etat.parId[porte.titre];
+      const couleur = etat.parId[porte.couleur];
+      const embleme = etat.parId[porte.embleme];
+
+      return `
+        <div class="vst-com" aria-hidden="true">
+          <div class="vst-com-tete">Dans la communauté</div>
+          <div class="vst-com-msg">
+            ${avatarApercu(pseudo, currentUser ? currentUser.avatar : '', cadre ? cadre.style : null, 36)}
+            <div>
+              <div class="l">${nomApercu(pseudo, couleur ? couleur.style : null, embleme && embleme.style ? embleme.style.emoji : null)}
+                ${titre ? `<span class="eng-titre-pastille">${esc(titre.nom)}</span>` : ''}<small>à l'instant</small></div>
+              <p>Cette sortie est incroyable, je la mets en boucle 🔥</p>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ---- la collection en chiffres
+    function progressionHtml(){
+
+      const total = catalogue.length;
+      const obtenus = catalogue.filter(o => o.obtenu).length;
+      const pct = total ? Math.round(obtenus / total * 100) : 0;
+
+      const lignes = ['legendaire', 'epique', 'rare', 'commun'].map((k) => {
+        const tous = catalogue.filter(o => o.rarete === k);
+        const mes = tous.filter(o => o.obtenu).length;
+        return `<div class="vst-rar-ligne" style="--rc:${RAR[k][1]}"><span>${esc(RAR[k][0])}</span><div class="eng-barre"><i style="width:${tous.length ? Math.round(mes / tous.length * 100) : 0}%"></i></div><em>${mes}/${tous.length}</em></div>`;
+      }).join('');
+
+      return { pct, obtenus, total, html: `<div class="vst-rar">${lignes}</div>` };
+    }
+
+    function listeFiltree(){
+
+      let l = catalogue.slice();
+
+      if(etat.type !== 'tout') l = l.filter(o => o.type === etat.type);
+      if(etat.ensemble) l = l.filter(o => ensembleDe(o).cle === etat.ensemble);
+      if(etat.filtre === 'debloques') l = l.filter(o => o.obtenu);
+      if(etat.filtre === 'verrouilles') l = l.filter(o => !o.obtenu);
+
+      const equipe = (o) => (etat.equipe[o.type] === o.id ? 1 : 0);
+
+      return l.sort((a, b) =>
+        (equipe(b) - equipe(a)) || (Number(b.obtenu) - Number(a.obtenu)) ||
+        (Number(etat.nouveaux.has(b.id)) - Number(etat.nouveaux.has(a.id))) ||
+        (RANG[b.rarete] - RANG[a.rarete]) || String(a.nom).localeCompare(String(b.nom), 'fr'));
+    }
+
+    function carteHtml(o){
+
+      const equipe = etat.equipe[o.type] === o.id;
+      const infos = o.obtenu ? esc(RAR[o.rarete][0]) : '🔒 ' + esc(o.condition);
+
+      return `
+        <button type="button" class="vst-carte rar-${esc(o.rarete)}${o.obtenu ? '' : ' verrou'}${equipe ? ' equipe' : ''}${etat.sel === o.id ? ' sel' : ''}" data-act="carte" data-id="${esc(o.id)}" style="--rc:${RAR[o.rarete][1]}">
+          ${etat.nouveaux.has(o.id) ? '<span class="vst-new">Nouveau</span>' : ''}
+          <span class="vst-src" title="${esc(o.source)}">${SOURCES[o.source] || '🎁'}</span>
+          <span class="vst-visuel">${visuelObjet(o, 46)}</span>
+          <b>${esc(o.nom)}</b>
+          <small>${infos}</small>
+          ${equipe ? '<span class="vst-equipe-tag">Équipé</span>' : ''}
+        </button>`;
+    }
+
+    function inventaireHtml(){
+
+      const types = [['tout', 'Tout']].concat(SLOTS.map(([t, n]) => [t, n + 's']));
+      const compte = (t) => {
+        const l = catalogue.filter(o => t === 'tout' || o.type === t);
+        return l.filter(o => o.obtenu).length + '/' + l.length;
+      };
+      const l = listeFiltree();
+      const ens = etat.ensemble ? catalogue.map(ensembleDe).find(e => e.cle === etat.ensemble) : null;
+
+      return `
+        <div class="vst-types" role="tablist">${types.map(([t, n]) => `
+          <button type="button" role="tab" aria-selected="${etat.type === t}" class="vst-type${etat.type === t ? ' actif' : ''}" data-act="type" data-type="${t}">${esc(n)}<em>${compte(t)}</em></button>`).join('')}</div>
+        <div class="vst-filtres">
+          ${[['tous', 'Tous'], ['debloques', 'Débloqués'], ['verrouilles', 'À débloquer']].map(([f, n]) => `
+            <button type="button" class="vst-puce${etat.filtre === f ? ' actif' : ''}" data-act="filtre" data-f="${f}">${n}</button>`).join('')}
+          ${ens ? `<button type="button" class="vst-puce actif ens" data-act="ens-vider">${esc(ens.icone)} ${esc(ens.nom)} ✕</button>` : ''}
+        </div>
+        <div class="vst-grille" data-grille>${l.length ? l.map(carteHtml).join('') : '<div class="eng-vide" style="grid-column:1/-1">Rien ici pour le moment.</div>'}</div>`;
+    }
+
+    function collectionsHtml(){
+
+      const groupes = {};
+      catalogue.forEach((o) => {
+        const e = ensembleDe(o);
+        (groupes[e.cle] = groupes[e.cle] || { e, items: [] }).items.push(o);
+      });
+
+      const liste = Object.keys(groupes).map(k => groupes[k])
+        .sort((a, b) => (Number(b.e.cle.startsWith('saison')) - Number(a.e.cle.startsWith('saison'))) || b.e.cle.localeCompare(a.e.cle, 'fr'));
+
+      return `<div class="vst-collections">${liste.map(({ e, items }) => {
+        const mes = items.filter(o => o.obtenu).length;
+        const complet = mes === items.length;
+        return `
+          <button type="button" class="vst-coll${complet ? ' complet' : ''}" data-act="ens" data-cle="${esc(e.cle)}">
+            <div class="vst-coll-tete"><span>${esc(e.icone)}</span><b>${esc(e.nom)}</b><em>${mes}/${items.length}${complet ? ' ✓' : ''}</em></div>
+            <div class="eng-barre"><i style="width:${Math.round(mes / items.length * 100)}%"></i></div>
+            <div class="vst-coll-mini">${items.slice().sort((a, b) => RANG[b.rarete] - RANG[a.rarete]).slice(0, 12).map(o => `
+              <span class="rar-${esc(o.rarete)}${o.obtenu ? '' : ' verrou'}" style="--rc:${RAR[o.rarete][1]}">${visuelObjet(o, 26, true)}</span>`).join('')}</div>
+          </button>`;
+      }).join('')}</div>`;
+    }
+
+    function statutHtml(){
+
+      const f = etat.fiche;
+      if(!f) return '<div class="eng-vide">Ton statut n\'est pas disponible pour le moment.</div>';
+
+      const paliers = Object.keys(RANGS).map(Number).sort((a, b) => a - b);
+
+      return `
+        <div class="vst-statut">
+          <div class="vst-statut-haut">
+            <span class="vst-statut-gem">💎</span>
+            <div><small>Statut de découvreur</small><b>${f.rang ? esc(f.rang) : 'Pas encore de rang'}</b></div>
+            <em>${nf(f.nombre)} pépite${f.nombre > 1 ? 's' : ''}</em>
+          </div>
+          <div class="vst-echelle">${paliers.map((n) => `
+            <div class="vst-marche${f.nombre >= n ? ' fait' : ''}"><i>${f.nombre >= n ? '✓' : n}</i><span>${esc(RANGS[n])}</span></div>`).join('')}</div>
+          <p class="eng-note">${f.prochain
+            ? `Encore ${nf(f.prochain - f.nombre)} pépite${f.prochain - f.nombre > 1 ? 's' : ''} pour devenir « ${esc(RANGS[f.prochain])} ».`
+            : 'Tu as atteint le plus haut rang.'}
+            Une pépite : une sortie que tu as bien notée parmi les premiers, et que la communauté a ensuite confirmée.</p>
+          ${f.liste && f.liste.length ? `<div class="eng-pepites">${f.liste.map(s => `<button type="button" data-act="fiche" data-numero="${esc(s.numero)}" title="${esc(s.titre)} · ${esc(s.artiste)}"><img src="${esc(safeUrl(s.cover))}" alt="${esc(s.titre)}"></button>`).join('')}</div>` : ''}
+        </div>`;
+    }
+
+    function detailHtml(){
+
+      const o = etat.sel ? etat.parId[etat.sel] : null;
+
+      if(!o){
+        return `<div class="vst-detail vide"><span>👆</span><p>${esc(etat.message) || 'Touche un objet pour l\'essayer sur ton personnage, même verrouillé.'}</p></div>`;
+      }
+
+      const equipe = etat.equipe[o.type] === o.id;
+      const typeNom = (SLOTS.find(x => x[0] === o.type) || [null, o.type])[1];
+      const date = o.obtenu_le ? new Date(o.obtenu_le).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : '';
+
+      return `
+        <div class="vst-detail rar-${esc(o.rarete)}" style="--rc:${RAR[o.rarete][1]}">
+          <span class="vst-detail-visuel">${visuelObjet(o, 54)}</span>
+          <div class="tx">
+            <span class="vst-rar-nom">${esc(RAR[o.rarete][0])} · ${esc(typeNom)} · ${esc(ensembleDe(o).nom)}</span>
+            <b>${esc(o.nom)}</b>
+            <p>${esc(o.description || '')}</p>
+            <small>${o.obtenu ? '✓ Obtenu' + (date ? ' le ' + esc(date) : '') : '🔒 ' + esc(o.condition)}</small>
+            ${etat.message ? `<small class="msg" aria-live="polite">${esc(etat.message)}</small>` : ''}
+          </div>
+          <div class="act">
+            ${o.obtenu
+              ? `<button type="button" class="eng-btn${equipe ? ' discret' : ''}" data-act="${equipe ? 'retirer' : 'equiper'}">${equipe ? 'Retirer' : 'Équiper'}</button>`
+              : '<button type="button" class="eng-btn discret" disabled>Verrouillé</button>'}
+          </div>
+        </div>`;
+    }
 
     function dessiner(){
 
-      const parId = {};
-      catalogue.forEach(o => { parId[o.id] = o; });
+      const scroll = racine.querySelector('[data-grille]');
+      const haut = scroll ? scroll.scrollTop : 0;
+      const prog = progressionHtml();
 
-      const cadre = parId[equipe.cadre];
-      const titre = parId[equipe.titre];
-      const couleur = parId[equipe.couleur];
-      const embleme = parId[equipe.embleme];
-      const pseudo = currentUser ? currentUser.pseudo : 'Toi';
-      const nbObtenus = catalogue.filter(o => o.obtenu).length;
-
-      let html = `
-        <div class="eng-ap">
-          ${avatarApercu(pseudo, currentUser ? currentUser.avatar : '', cadre ? cadre.style : null, 56)}
-          <div>
-            <div class="nom">${nomApercu(pseudo, couleur ? couleur.style : null, embleme && embleme.style ? embleme.style.emoji : null)}</div>
-            ${titre ? `<span class="eng-titre-pastille">${esc(titre.nom)}</span>` : ''}
-          </div>
+      racine.innerHTML = `
+        <header class="vst-tete">
+          <div class="vst-anneau" style="--p:${prog.pct}"><b>${prog.pct}<small>%</small></b></div>
+          <div class="vst-titre-bloc"><h2>Vestiaire</h2><span>${prog.obtenus} objet${prog.obtenus > 1 ? 's' : ''} sur ${prog.total}</span></div>
+          <button type="button" class="eng-fermer" data-act="fermer" aria-label="Fermer">×</button>
+        </header>
+        <div class="vst-gauche">
+          ${sceneHtml()}
+          ${slotsHtml()}
+          ${communauteHtml()}
+          ${prog.html}
+        </div>
+        <div class="vst-droite">
+          <nav class="vst-vues" role="tablist">${[['inventaire', 'Inventaire'], ['collections', 'Collections'], ['statut', 'Statut']].map(([v, n]) => `
+            <button type="button" role="tab" aria-selected="${etat.vue === v}" class="vst-vue${etat.vue === v ? ' actif' : ''}" data-act="vue" data-v="${v}">${n}</button>`).join('')}</nav>
+          <div class="vst-corps">${etat.vue === 'inventaire' ? inventaireHtml() : (etat.vue === 'collections' ? collectionsHtml() : statutHtml())}</div>
+          ${etat.vue === 'inventaire' ? detailHtml() : ''}
         </div>`;
 
-      if(fiche){
-        const prochain = fiche.prochain;
-        html += `
-          <div class="eng-decouvreur">
-            <div class="rang"><b>${fiche.rang ? '💎 ' + esc(fiche.rang) : 'Découvreur'}</b><span>${nf(fiche.nombre)} pépite${fiche.nombre > 1 ? 's' : ''}</span></div>
-            <p class="eng-note" style="margin-top:6px">${prochain
-              ? `Encore ${nf(prochain - fiche.nombre)} pépite${prochain - fiche.nombre > 1 ? 's' : ''} pour devenir « ${esc(RANGS[prochain])} ».`
-              : 'Tu as atteint le plus haut rang.'}
-              Une pépite : une sortie que tu as bien notée parmi les premiers, et que la communauté a ensuite confirmée.</p>
-            ${fiche.liste && fiche.liste.length ? `<div class="eng-pepites">${fiche.liste.map(s => `<button type="button" data-fiche="${esc(s.numero)}" title="${esc(s.titre)} · ${esc(s.artiste)}"><img src="${esc(safeUrl(s.cover))}" alt="${esc(s.titre)}"></button>`).join('')}</div>` : ''}
-          </div>`;
+      const grille = racine.querySelector('[data-grille]');
+      if(grille) grille.scrollTop = haut;
+
+      if(etat.burst !== null){
+        const rc = RAR[etat.burst][1];
+        const zone = racine.querySelector('[data-burst]');
+        if(zone){
+          zone.innerHTML = Array.from({ length: 22 }, (_, k) => {
+            const a = k / 22 * Math.PI * 2;
+            const dist = 70 + (k * 29) % 60;
+            return `<i style="--dx:${Math.round(Math.cos(a) * dist)}px;--dy:${Math.round(Math.sin(a) * dist)}px;--c:${rc};animation-delay:${(k % 5) * 25}ms"></i>`;
+          }).join('');
+        }
+        etat.burst = null;
+      }
+    }
+
+    async function equiper(o, retirer){
+
+      racine.querySelectorAll('.vst-detail .act button').forEach(b => { b.disabled = true; });
+
+      const { error } = await BD.cosmetiqueEquiper(o.type, retirer ? null : o.id);
+
+      if(error){ etat.message = erreurTexte(error); dessiner(); return; }
+
+      etat.equipe[o.type] = retirer ? null : o.id;
+      etat.message = retirer ? o.nom + ' retiré.' : o.nom + ' équipé. Les autres le verront en rechargeant la page.';
+      etat.burst = retirer ? null : o.rarete;
+      etat.sel = o.id;
+      etat.nouveaux.delete(o.id);
+      dessiner();
+
+      if(navigator.vibrate) try{ navigator.vibrate(retirer ? 8 : [12, 40, 12]); }catch(e){}
+    }
+
+    racine.addEventListener('click', (ev) => {
+
+      const b = ev.target.closest('[data-act]');
+      if(!b) return;
+
+      const act = b.dataset.act;
+
+      if(act === 'fermer') return fermer();
+
+      if(act === 'carte'){
+        etat.sel = etat.sel === b.dataset.id ? null : b.dataset.id;
+        etat.message = '';
+        if(etat.sel) etat.nouveaux.delete(etat.sel);
+        return dessiner();
       }
 
-      ['cadre', 'titre', 'couleur', 'embleme'].forEach((type) => {
-        const objets = catalogue.filter(o => o.type === type);
-        if(!objets.length) return;
-        html += `<div class="eng-titre-bloc">${esc(TYPES[type])}</div><div class="eng-grille">${objets.map(o => `
-          <button type="button" class="eng-objet eng-rar-${esc(o.rarete)}${equipe[type] === o.id ? ' equipe' : ''}${o.obtenu ? '' : ' verrouille'}"
-            data-objet="${esc(o.id)}" aria-pressed="${equipe[type] === o.id}">
-            <span class="apercu">${objetApercu(o)}</span>
-            <b>${esc(o.nom)}</b>
-            <small>${o.obtenu ? (equipe[type] === o.id ? 'Équipé · toucher pour retirer' : esc(RARETES[o.rarete] || '') + ' · toucher pour équiper') : '🔒 ' + esc(o.condition)}</small>
-          </button>`).join('')}</div>`;
+      if(act === 'equiper' || act === 'retirer'){
+        const o = etat.sel ? etat.parId[etat.sel] : null;
+        if(o) equiper(o, act === 'retirer');
+        return;
+      }
+
+      if(act === 'slot'){
+        etat.vue = 'inventaire';
+        etat.type = etat.type === b.dataset.type ? 'tout' : b.dataset.type;
+        etat.sel = null;
+        return dessiner();
+      }
+
+      if(act === 'type'){ etat.type = b.dataset.type; return dessiner(); }
+      if(act === 'filtre'){ etat.filtre = b.dataset.f; return dessiner(); }
+      if(act === 'vue'){ etat.vue = b.dataset.v; return dessiner(); }
+      if(act === 'ens'){ etat.ensemble = b.dataset.cle; etat.vue = 'inventaire'; etat.type = 'tout'; etat.filtre = 'tous'; return dessiner(); }
+      if(act === 'ens-vider'){ etat.ensemble = null; return dessiner(); }
+
+      if(act === 'fiche'){
+        fermer();
+        if(typeof ouvrirSortieParNumero === 'function') ouvrirSortieParNumero(b.dataset.numero);
+      }
+    });
+
+    // Le personnage suit le pointeur, à peine.
+    if(window.matchMedia && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+      racine.addEventListener('pointermove', (ev) => {
+        const scene = ev.target.closest && ev.target.closest('.vst-scene');
+        const perso = scene && scene.querySelector('[data-perso]');
+        if(!perso || ev.pointerType === 'touch') return;
+        const r = scene.getBoundingClientRect();
+        perso.style.setProperty('--ry', (((ev.clientX - r.left) / r.width - .5) * 16).toFixed(1) + 'deg');
+        perso.style.setProperty('--rx', ((.5 - (ev.clientY - r.top) / r.height) * 12).toFixed(1) + 'deg');
       });
-
-      html += `<p class="eng-note" aria-live="polite" data-msg>${esc(message) || `${nbObtenus} sur ${catalogue.length} débloqués. Aucun cosmétique ne donne d'avantage : c'est ta marque, rien d'autre.`}</p>`;
-
-      f.corps.innerHTML = html;
-
-      f.corps.querySelectorAll('[data-fiche]').forEach((b) => b.addEventListener('click', () => {
-        f.fermer();
-        if(typeof ouvrirSortieParNumero === 'function') ouvrirSortieParNumero(b.dataset.fiche);
-      }));
-
-      f.corps.querySelectorAll('[data-objet]').forEach((b) => b.addEventListener('click', async () => {
-
-        const o = parId[b.dataset.objet];
-
-        if(!o.obtenu){
-          message = 'Verrouillé : ' + o.condition + '.';
-          dessiner();
-          return;
-        }
-
-        const cible = equipe[o.type] === o.id ? null : o.id;
-        const { error } = await BD.cosmetiqueEquiper(o.type, cible);
-
-        if(error){ message = erreurTexte(error); dessiner(); return; }
-
-        equipe[o.type] = cible;
-        message = cible ? o.nom + ' équipé. Les autres le verront en rechargeant la page.' : o.nom + ' retiré.';
-        dessiner();
-      }));
+      racine.addEventListener('pointerleave', () => {
+        const perso = racine.querySelector('[data-perso]');
+        if(perso){ perso.style.setProperty('--ry', '0deg'); perso.style.setProperty('--rx', '0deg'); }
+      });
     }
 
     dessiner();
+    const fermerBtn = racine.querySelector('.eng-fermer');
+    if(fermerBtn) fermerBtn.focus();
   }
 
   // ---------------------------------------------------------------------
