@@ -69,6 +69,12 @@
     background:rgba(255,255,255,.06); border:1px solid var(--line); color:var(--ink);
   }
   .xp-lien:hover{background:rgba(255,255,255,.1);}
+  .xp-liens{display:flex; gap:6px; margin-top:8px;}
+  .xp-liens button{
+    flex:1; min-width:0; padding:8px 4px; border-radius:10px; font-size:12px; cursor:pointer; white-space:nowrap;
+    background:transparent; border:1px solid var(--line); color:var(--ink-soft);
+  }
+  .xp-liens button:hover{background:rgba(255,255,255,.08); color:var(--ink);}
   .xp-vide{padding:14px 0; font-size:13px; color:var(--muted);}
 
   /* ---- L'écran de niveau ---- */
@@ -291,6 +297,12 @@
       else if(e.type === 'coffre'){
         file.push({ sorte: 'toast', titre: 'Trois quêtes faites', options: { type: 'succes', icone: '🎁', detail: 'Bonus du jour : +' + d.xp + ' XP', duree: 4500 }});
       }
+      else if(e.type === 'cosmetique'){
+        file.push({ sorte: 'toast', titre: 'Nouveau cosmétique', options: { type: 'succes', icone: '✨', detail: d.nom + ' : à équiper dans la garde-robe', duree: 5000 }});
+      }
+      else if(e.type === 'pepite'){
+        file.push({ sorte: 'toast', titre: 'Pépite repérée', options: { type: 'succes', icone: '💎', detail: 'Tu avais noté « ' + d.titre + ' » avant tout le monde', duree: 5000 }});
+      }
       else if(e.type === 'succes'){
         file.push({ sorte: 'toast', titre: 'Succès : ' + d.nom, options: { type: 'succes', icone: d.icone, detail: d.description + ' · +' + d.xp + ' XP', duree: 5000 }});
       }
@@ -432,7 +444,12 @@
       <div class="xp-titre-bloc"><span>Quêtes du jour</span><span>${faites}/${quetes.length || 3}</span></div>
       ${liste || '<div class="xp-vide">Les quêtes arrivent…</div>'}
       ${coffre}
-      <button type="button" class="xp-lien" data-xp-aller="succes">Mes succès${e.succes ? ' · ' + e.succes.obtenus + '/' + e.succes.total : ''}</button>`;
+      <button type="button" class="xp-lien" data-xp-aller="succes">Mes succès${e.succes ? ' · ' + e.succes.obtenus + '/' + e.succes.total : ''}</button>
+      <div class="xp-liens">
+        <button type="button" data-xp-aller="semaine">Ma semaine</button>
+        <button type="button" data-xp-aller="saison">Saison</button>
+        <button type="button" data-xp-aller="garderobe">Garde-robe</button>
+      </div>`;
   }
 
   document.addEventListener('click', (ev) => {
@@ -442,7 +459,13 @@
 
     if(typeof fermerDefis === 'function') fermerDefis();
 
-    if(typeof ouvrirMesSucces === 'function'){
+    const quoi = cible.dataset.xpAller;
+
+    if(quoi === 'semaine' || quoi === 'saison' || quoi === 'garderobe'){
+      if(typeof chargerEngagement === 'function'){
+        chargerEngagement().then(() => window.Engagement.ouvrir(quoi)).catch(() => {});
+      }
+    }else if(typeof ouvrirMesSucces === 'function'){
       ouvrirMesSucces();
     }
   });
