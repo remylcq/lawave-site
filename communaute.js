@@ -185,7 +185,6 @@ const ICONES = {
   jeu:       '<rect x="3" y="7" width="18" height="12" rx="3"/><path d="M8 11v4M6 13h4M16 12h.01M18 14h.01"/>',
   smiley:    '<circle cx="11" cy="12" r="8.5"/><path d="M7.4 14.2a4.2 4.2 0 0 0 7.2 0M8.6 9.8h.01M13.4 9.8h.01"/><path d="M19.5 3.5v5M17 6h5"/>',
   ondes:     '<path d="M3 12h1.5M7.5 8v8M11.5 4.5v15M15.5 8.5v7M19.5 10.5v3"/>',
-  boutique:  '<rect x="3" y="9" width="18" height="12" rx="2"/><path d="M12 9v12M3 13h18M12 9C10 4.5 5.5 5 5.5 7.4S9.6 9 12 9zM12 9c2-4.5 6.5-4 6.5-1.6S14.4 9 12 9z"/>',
   pastille:  '<circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>'
 };
 
@@ -3367,39 +3366,6 @@ VUES.favoris = {
 
 
 
-// La boutique des boosters de cartes et les classeurs : dessinée par boutique.js, chargé à la première visite.
-VUES.boutique = {
-
-  titre: () => 'Boutique',
-
-  creer(V){
-    V.el.innerHTML = `<div data-boutique></div>`;
-  },
-
-  async montrer(V){
-
-    const hote = $('[data-boutique]', V.el);
-
-    if(!moi()){
-      hote.innerHTML = etatVide({ icone: 'boutique', titre: 'Connecte-toi', texte: 'Pour acheter des boosters et collectionner des cartes, il faut un compte.',
-        bouton: { libelle: 'Se connecter', attrs: 'data-act="connexion" data-mode="login"' } });
-      return;
-    }
-
-    try{
-      if(!V.charge) hote.innerHTML = '<div class="com-chargement" style="padding:30px;text-align:center;color:var(--muted)">Chargement…</div>';
-      await chargerBoutique();
-      V.charge = true;
-      await window.Boutique.monter(hote);
-    }catch(e){
-      hote.innerHTML = etatVide({ icone: 'boutique', titre: 'La boutique n\'a pas pu s\'ouvrir', texte: e.message || 'Réessaie dans un instant.' });
-    }
-  },
-
-  pause(){}
-};
-
-
 // ---------------------------------------------------------------------
 // Ce que l'on fait d'un message
 // ---------------------------------------------------------------------
@@ -6482,7 +6448,7 @@ VUES.recherche = {
 // ---------------------------------------------------------------------
 
 const ROUTES_AVEC_PARAMETRE = ['post', 'membre', 'tag', 'sujet'];
-const ROUTES_SIMPLES = ['explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche', 'boutique'];
+const ROUTES_SIMPLES = ['explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche'];
 
 function pageActive(){
   const p = document.getElementById('page-community');
@@ -6512,7 +6478,7 @@ function lireRoute(){
   return { nom: 'accueil', param: null, cle: 'accueil' };
 }
 
-const VUES_PERMANENTES = ['accueil', 'explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche', 'boutique'];
+const VUES_PERMANENTES = ['accueil', 'explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche'];
 const VUES_DETAIL_MAX = 6;
 
 function profondeur(){
@@ -6687,7 +6653,7 @@ function majCoque(){
   const actif = {
     accueil: 'accueil', sujet: 'accueil', tag: 'accueil', post: 'accueil',
     explorer: 'explorer', recherche: 'explorer',
-    collabs: 'explorer', messages: 'messages', notifications: 'notifications', favoris: 'favoris', boutique: 'boutique'
+    collabs: 'explorer', messages: 'messages', notifications: 'notifications', favoris: 'favoris'
   }[route.nom] || null;
 
   const monProfil = route.nom === 'membre' && u && route.param.toLowerCase() === u.pseudo.toLowerCase();
@@ -6739,8 +6705,7 @@ const ELEMENTS_NAV = [
   ['explorer', 'explorer', 'Explorer', null, 'explorer'],
   ['messages', 'messages', 'Messages', 'messages', 'messages'],
   ['notifications', 'cloche', 'Alertes', 'notifications', 'notifications'],
-  ['favoris', 'signet', 'Enregistrés', null, 'favoris'],
-  ['boutique', 'boutique', 'Boutique', null, 'boutique']
+  ['favoris', 'signet', 'Enregistrés', null, 'favoris']
 ];
 
 function coqueHtml(){
@@ -7759,12 +7724,6 @@ window.Com = {
   majOnboarding(){
     const v = S.vues.get('accueil');
     if(v && v.hotes) VUES.accueil.onboarding(v);
-  },
-
-  // L'onglet Boutique (le panneau d'XP y envoie).
-  boutique(){
-    history.pushState({ com: 1 }, '', '#community/boutique');
-    goTo('community', { sansAdresse: true });
   },
 
   // Son propre profil, ouvert sur un onglet précis (le panneau d'XP envoie sur les succès). Attend que la page
@@ -9242,7 +9201,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-entete-moi .com-av{width:32px; height:32px; font-size:14px;}
 
   .com-barre{
-    position:fixed; left:0; right:0; bottom:0; z-index:95; display:grid; grid-template-columns:repeat(6, 1fr);
+    position:fixed; left:0; right:0; bottom:0; z-index:95; display:grid; grid-template-columns:repeat(5, 1fr);
     padding:6px 2px calc(6px + env(safe-area-inset-bottom));
     background:rgba(8,11,16,0.9); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
     border-top:1px solid var(--line);

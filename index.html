@@ -4914,7 +4914,6 @@
       <symbol id="eq-sortie" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
       <symbol id="eq-membres" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.6 6-5.6s6 2.3 6 5.6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.6c1.8.7 3 2.6 3 5.4"/></symbol>
       <symbol id="eq-verifie" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.7 7 9 4-1.3 7-4.6 7-9V6z"/><path d="m9 12 2.2 2.2L15.4 10"/></symbol>
-      <symbol id="eq-cartes" viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M12 9v12M3 13h18M12 9C10 4.5 5.5 5 5.5 7.4S9.6 9 12 9zM12 9c2-4.5 6.5-4 6.5-1.6S14.4 9 12 9z"/></symbol>
       <symbol id="eq-actualiser" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
     </defs>
   </svg>
@@ -4978,12 +4977,6 @@
         <svg class="eq-ic" aria-hidden="true"><use href="#eq-etoile"/></svg>
         <span class="admin-tab-label">Sélection</span>
         <span class="admin-tab-count" id="adminCount-selection"></span>
-      </button>
-
-      <button type="button" class="admin-tab" id="adminTab-boosters"
-        role="tab" onclick="switchAdminTab('boosters')" title="Les boosters de cartes : composer, créer">
-        <svg class="eq-ic" aria-hidden="true"><use href="#eq-cartes"/></svg>
-        <span class="admin-tab-label">Boosters</span>
       </button>
 
       <button type="button" class="admin-tab" id="adminTab-accreditations"
@@ -5355,27 +5348,6 @@
 
   </div>
 
-
-  <!-- ================= BOOSTERS DE CARTES ================= -->
-
-  <div class="admin-section" id="adminSection-boosters">
-
-    <div class="section-head">
-      <div>
-        <span class="eyebrow mono">Communauté</span>
-        <h3>Boosters de cartes</h3>
-        <p class="desc">
-          Compose les boosters de la boutique : choisis les sorties du catalogue qui deviennent des cartes, donne-leur une rareté
-          (Commun, Peu commun, Rare, Ultra rare, Légendaire, Secret Wave), règle le prix en WC, les dates de vente, les couleurs et
-          l'image du booster. Tu peux aussi en créer d'autres.
-        </p>
-      </div>
-      <button type="button" class="btn btn-ghost" onclick="chargerBoostersEquipe()">Actualiser</button>
-    </div>
-
-    <div id="boostersEquipe" style="margin-top:20px;"></div>
-
-  </div>
 
   <!-- ================= SÉLECTION DE L'ACCUEIL ================= -->
 
@@ -6850,57 +6822,6 @@ const BD = {
 
   xpSuccesListe(userId){
     return supabaseClient.rpc('xp_succes_liste', { p_user: userId || null });
-  },
-
-  // Les Waves Coins, les coffres et les cartes (sql/coffres-cartes.sql) : tout se passe dans la base,
-  // boutique.js ne fait que lire et dessiner.
-  wcSolde(){
-    return supabaseClient.rpc('wc_solde');
-  },
-
-  boutiqueListe(){
-    return supabaseClient.rpc('boutique_liste');
-  },
-
-  classeurCollection(collection){
-    return supabaseClient.rpc('classeur_collection', { p_collection: collection });
-  },
-
-  coffreAcheter(collection, quantite){
-    return supabaseClient.rpc('coffre_acheter', { p_collection: collection, p_quantite: quantite || 1 });
-  },
-
-  coffreOuvrir(collection){
-    return supabaseClient.rpc('coffre_ouvrir', { p_collection: collection });
-  },
-
-  // L'aperçu d'un booster (la Secret Wave y reste cachée) et l'accès équipe pour les composer (sql/boosters.sql).
-  boosterApercu(collection){
-    return supabaseClient.rpc('booster_apercu', { p_collection: collection });
-  },
-
-  boosterEquipeListe(){
-    return supabaseClient.rpc('booster_equipe_liste');
-  },
-
-  boosterEquipeSauver(champs){
-    return supabaseClient.rpc('booster_equipe_sauver', champs);
-  },
-
-  boosterEquipeSupprimer(id, forcer){
-    return supabaseClient.rpc('booster_equipe_supprimer', { p_id: id, p_force: !!forcer });
-  },
-
-  boosterEquipeCarteAjouter(collection, release, rarete){
-    return supabaseClient.rpc('booster_equipe_carte_ajouter', { p_collection: collection, p_release: release, p_rarete: rarete });
-  },
-
-  boosterEquipeCarteRetirer(carte){
-    return supabaseClient.rpc('booster_equipe_carte_retirer', { p_carte: carte });
-  },
-
-  boosterEquipeCarteRarete(carte, rarete){
-    return supabaseClient.rpc('booster_equipe_carte_rarete', { p_carte: carte, p_rarete: rarete });
   },
 
   waveursReclamerDefi(id){
@@ -11989,40 +11910,6 @@ async function saveProfile(){
 // fonction et non dans une constante : cette fonction peut servir avant que le script n'ait fini de se lire.
 function chargerXp(){
   return chargerModuleSite('xp.js?v=1', 'Xp', "de l'XP (xp.js)");
-}
-
-// La boutique des coffres et les classeurs (onglet « Boutique » de la communauté). Même principe : le numéro reçoit
-// l'empreinte du fichier à la mise en ligne, et le nom est écrit dans la fonction.
-function chargerBoutique(){
-  return chargerModuleSite('boutique.js?v=1', 'Boutique', 'de la boutique (boutique.js)');
-}
-
-// L'onglet « Boosters » de l'espace équipe : composer les boosters, en créer d'autres (dessiné par boutique.js).
-async function chargerBoostersEquipe(){
-
-  const zone = document.getElementById('boostersEquipe');
-  if(!zone) return;
-
-  try{
-    await chargerBoutique();
-    await window.Boutique.equipe(zone);
-  }catch(erreur){
-    zone.innerHTML = `<div class="empty-state">${escapeHtml(erreur.message)}</div>`;
-  }
-}
-
-// Ouvre l'onglet Boutique de la communauté (le panneau d'XP y envoie).
-async function ouvrirBoutique(){
-
-  if(!currentUser){
-    openAuthModal('login');
-    return;
-  }
-
-  try{
-    await chargerCommunaute();
-    if(window.Com && window.Com.boutique) window.Com.boutique();
-  }catch(erreur){}
 }
 
 // Un membre est connecté : on lit son état et on annonce ce qui l'attend. Sans effet s'il est déjà lu.
@@ -21747,7 +21634,6 @@ const ADMIN_TABS = [
   'support',
   'profils',
   'selection',
-  'boosters',
   'membres',
   'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
@@ -21844,10 +21730,6 @@ function switchAdminTab(nom){
 
   if(nom === 'selection'){
     chargerSelectionEquipe();
-  }
-
-  if(nom === 'boosters'){
-    chargerBoostersEquipe();
   }
 
   // ACCÈS TESTEURS (TEMPORAIRE)
