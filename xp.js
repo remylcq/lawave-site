@@ -22,7 +22,6 @@
 
   let etat = null;            // ce que rend xp_moi
   let succes = null;          // ce que rend xp_succes_liste (les siens)
-  let wc = null;              // le solde de Waves Coins (null : pas encore de WC côté base)
   let indispo = false;        // le SQL n'est pas passé
   let demarreePour = null;    // le membre pour lequel on a démarré
   let minuteur = null;
@@ -161,14 +160,6 @@
     etat = data;
     if(currentUser) currentUser.xp = data.xp;
 
-    // Le solde de Waves Coins (sql/coffres-cartes.sql) : sans lui, le panneau n'affiche simplement pas les WC.
-    try{
-      const reponse = await BD.wcSolde();
-      wc = reponse && !reponse.error && typeof reponse.data === 'number' ? reponse.data : null;
-    }catch(erreur){
-      wc = null;
-    }
-
     return data;
   }
 
@@ -284,10 +275,9 @@
 
     if(gains.length){
       const total = gains.reduce((s, e) => s + (e.donnees.xp || 0), 0);
-      const totalWc = gains.reduce((s, e) => s + (e.donnees.wc || 0), 0);
       const libelles = [];
       gains.forEach(e => { if(!libelles.includes(e.donnees.libelle)) libelles.push(e.donnees.libelle); });
-      file.push({ sorte: 'toast', titre: '+' + total + ' XP' + (totalWc ? ' · +' + totalWc + ' WC' : ''), options: {
+      file.push({ sorte: 'toast', titre: '+' + total + ' XP', options: {
         type: 'xp', icone: '⚡', detail: libelles.slice(0, 2).join(' · ') + (libelles.length > 2 ? ' · …' : ''), duree: 3200 }});
     }
 
@@ -300,9 +290,6 @@
       }
       else if(e.type === 'coffre'){
         file.push({ sorte: 'toast', titre: 'Trois quêtes faites', options: { type: 'succes', icone: '🎁', detail: 'Bonus du jour : +' + d.xp + ' XP', duree: 4500 }});
-      }
-      else if(e.type === 'defi_wc'){
-        file.push({ sorte: 'toast', titre: 'Défi spécial accompli', options: { type: 'xp', icone: d.icone || '🏅', detail: d.libelle + ' · +' + d.wc + ' WC', duree: 5000 }});
       }
       else if(e.type === 'succes'){
         file.push({ sorte: 'toast', titre: 'Succès : ' + d.nom, options: { type: 'succes', icone: d.icone, detail: d.description + ' · +' + d.xp + ' XP', duree: 5000 }});
@@ -445,7 +432,6 @@
       <div class="xp-titre-bloc"><span>Quêtes du jour</span><span>${faites}/${quetes.length || 3}</span></div>
       ${liste || '<div class="xp-vide">Les quêtes arrivent…</div>'}
       ${coffre}
-      ${wc === null ? '' : `<button type="button" class="xp-lien" data-xp-aller="boutique">Boutique · ${nf(wc)} WC</button>`}
       <button type="button" class="xp-lien" data-xp-aller="succes">Mes succès${e.succes ? ' · ' + e.succes.obtenus + '/' + e.succes.total : ''}</button>`;
   }
 
@@ -456,9 +442,7 @@
 
     if(typeof fermerDefis === 'function') fermerDefis();
 
-    if(cible.dataset.xpAller === 'boutique'){
-      if(typeof ouvrirBoutique === 'function') ouvrirBoutique();
-    }else if(typeof ouvrirMesSucces === 'function'){
+    if(typeof ouvrirMesSucces === 'function'){
       ouvrirMesSucces();
     }
   });
