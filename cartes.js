@@ -845,7 +845,7 @@
       return;
     }
 
-    const demande = (location.hash.split('/')[1] || '').toLowerCase();
+    const demande = (location.hash.split('/')[2] || '').toLowerCase();
     S.vue = VUES.some(v => v[0] === demande) ? demande : (VUES.some(v => v[0] === S.vue) ? S.vue : 'packs');
 
     hote.innerHTML = `
@@ -887,7 +887,7 @@
   function changerVue(v){
     if(S.vue === v && S.corps && S.corps.children.length) return;
     S.vue = v;
-    try{ history.replaceState(history.state, '', '#cartes/' + v); }catch(e){}
+    try{ history.replaceState(history.state, '', '#community/cartes/' + v); }catch(e){}
     majEntete();
     afficherVue(v);
   }

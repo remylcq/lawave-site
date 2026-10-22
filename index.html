@@ -4139,10 +4139,6 @@
       </button>
       <button class="navlink" data-page="content">Contenu</button>
       <button class="navlink" data-page="carte">Carte</button>
-      <button class="navlink" data-page="cartes">
-        Cartes
-        <span class="nav-pastille" id="navCartesPastille" hidden></span>
-      </button>
       <button class="navlink" data-page="community">
         Communauté
         <span class="nav-pastille" id="navComPastille" hidden></span>
@@ -4700,22 +4696,6 @@
           <p id="stat-updated-at" style="margin-top:20px; font-size:13px; color:var(--muted);"></p>
         </div>
       </div>
-    </section>
-  </section>
-
-  <!-- ================= CARTES : LE JEU ================= -->
-  <section id="page-cartes" class="page">
-    <section>
-      <div class="section-head">
-        <div>
-          <h2>Cartes</h2>
-          <p class="desc">
-            Ouvre des packs et collectionne les artistes de la scène francophone.
-          </p>
-        </div>
-      </div>
-      <!-- Dessiné par cartes.js, chargé à la demande quand cette page s'ouvre. -->
-      <div id="cartes-racine"></div>
     </section>
   </section>
 
@@ -7296,7 +7276,8 @@ const BD = {
   // quitte la page, sinon elle consomme du processeur en arrière-plan.
   if(pageId === 'carte') renderCarte(); else arreterCarte();
   if(pageId === 'community') renderCommunity();
-  if(pageId === 'cartes') renderCartes(); else if(window.Cartes) window.Cartes.quitter();
+  // Le jeu de cartes vit dans la communauté (vue #community/cartes) : il se met en pause en la quittant.
+  if(pageId !== 'community' && window.Cartes) window.Cartes.quitter();
   if(pageId === 'profile') renderProfileForm();
   // Le compte à rebours des fiches ne tourne que sur leur page.
   if(pageId === 'accreditations') renderAccreditations(); else arreterCompteursAccred();
@@ -7426,6 +7407,10 @@ function lireAdresse(evenement){
     const pays = decoderAdresse(parametre || '');
     cartePays = paysCarteValide(pays) ? pays : 'france';
     goTo('carte');
+  } else if(page === 'cartes'){
+    // Ancienne adresse du jeu : il est maintenant dans la communauté.
+    history.replaceState(null, '', '#community/cartes' + (parametre ? '/' + parametre : ''));
+    goTo('community');
   } else if(page === 'waveurs' || document.getElementById('page-' + page)){
     // 'waveurs' n'a plus de page : goTo l'ouvre comme onglet de la communauté.
     goTo(page);
@@ -10984,7 +10969,7 @@ async function majCompteursCommunaute(){
   try{
     const { data, error } = await supabaseClient.rpc('com_compteurs');
     if(error || !data) return;
-    majBadgeCommunaute((data.messages || 0) + (data.notifications || 0));
+    majBadgeCommunaute((data.messages || 0) + (data.notifications || 0) + (window.cartesPastilleNb || 0));
   }catch(erreur){}
 }
 
@@ -11095,7 +11080,7 @@ function refreshAccountUI(){
   // la carte de la page l'est.
   if(ongletWaveursVisible()) renderWaveurs();
   else if(document.getElementById('page-community').classList.contains('active')) renderCommunity();
-  if(document.getElementById('page-cartes').classList.contains('active')) renderCartes();
+  if(window.Com && /^#community\/cartes/.test(location.hash)) window.Com.rouvrirCartes();
 
   if(currentUser){
     loggedOut.style.display = 'none';
@@ -12206,32 +12191,23 @@ function chargerCartes(){
   return chargerModuleSite(CARTES_FICHIER, 'Cartes', 'du jeu de cartes (cartes.js)');
 }
 
-async function renderCartes(){
-
-  const racine = document.getElementById('cartes-racine');
-  if(!racine) return;
-
-  try{
-    await chargerCartes();
-    await window.Cartes.monter(racine);
-  }catch(erreur){
-    racine.innerHTML = `<div class="empty-state">${escapeHtml(erreur.message)}</div>`;
-  }
-}
-
 // La pastille du menu : un cadeau, une roue, un coffre ou une mission à récupérer. cartes.js la remet à jour à chaque
 // geste ; la demande du connexion (jeuPastilleDemarrer) la remplit avant même d'ouvrir le jeu.
 function majPastilleCartes(etat){
-
-  const pastille = document.getElementById('navCartesPastille');
-  if(!pastille) return;
 
   const total = etat
     ? (etat.cadeau_pret ? 1 : 0) + (etat.roue_prete ? 1 : 0) + (etat.coffres_prets || 0) + (etat.missions_pretes || 0)
     : 0;
 
-  pastille.hidden = !total;
-  pastille.textContent = total > 9 ? '9+' : String(total || '');
+  window.cartesPastilleNb = total;
+
+  // Dans la communauté, l'onglet Cartes et la pastille « Communauté » du menu s'en nourrissent.
+  if(window.Com){
+    window.Com.majBadges();
+  }else{
+    compteursCommunauteLe = 0;
+    majCompteursCommunaute();
+  }
 }
 
 async function jeuPastilleDemarrer(){
