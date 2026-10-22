@@ -184,6 +184,7 @@ const ICONES = {
   verrou:    '<rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   bouclier:  '<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="m9 12 2.2 2.2L15.5 10"/>',
   rouage:    '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  cartes:    '<rect x="4.5" y="6" width="11" height="15" rx="2.2"/><path d="M8.5 6 9.4 4a2 2 0 0 1 2.6-1.1l7 2.8a2 2 0 0 1 1.1 2.6L17 17.2M8.5 12.5h4M8.5 16h2.5"/>',
   jeu:       '<rect x="3" y="7" width="18" height="12" rx="3"/><path d="M8 11v4M6 13h4M16 12h.01M18 14h.01"/>',
   smiley:    '<circle cx="11" cy="12" r="8.5"/><path d="M7.4 14.2a4.2 4.2 0 0 0 7.2 0M8.6 9.8h.01M13.4 9.8h.01"/><path d="M19.5 3.5v5M17 6h5"/>',
   ondes:     '<path d="M3 12h1.5M7.5 8v8M11.5 4.5v15M15.5 8.5v7M19.5 10.5v3"/>',
@@ -3365,6 +3366,28 @@ VUES.tag = {
   pause(V){ V.liste.arreter(); }
 };
 
+// Le jeu de cartes (cartes.js, sql/cartes.sql) : chargé à la demande, il se dessine dans cette vue.
+VUES.cartes = {
+
+  titre: () => 'Cartes',
+
+  creer(V){
+    V.hote = document.createElement('div');
+    V.el.appendChild(V.hote);
+  },
+
+  async montrer(V){
+    try{
+      await window.chargerCartes();
+      await window.Cartes.monter(V.hote);
+    }catch(e){
+      V.hote.innerHTML = `<div class="empty-state">${esc(e.message)}</div>`;
+    }
+  },
+
+  pause(){ if(window.Cartes) window.Cartes.quitter(); }
+};
+
 VUES.favoris = {
 
   titre: () => 'Enregistrés',
@@ -6539,7 +6562,7 @@ VUES.recherche = {
 // ---------------------------------------------------------------------
 
 const ROUTES_AVEC_PARAMETRE = ['post', 'membre', 'tag', 'sujet'];
-const ROUTES_SIMPLES = ['explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche'];
+const ROUTES_SIMPLES = ['explorer', 'collabs', 'cartes', 'messages', 'notifications', 'favoris', 'recherche'];
 
 function pageActive(){
   const p = document.getElementById('page-community');
@@ -6569,7 +6592,7 @@ function lireRoute(){
   return { nom: 'accueil', param: null, cle: 'accueil' };
 }
 
-const VUES_PERMANENTES = ['accueil', 'explorer', 'collabs', 'messages', 'notifications', 'favoris', 'recherche'];
+const VUES_PERMANENTES = ['accueil', 'explorer', 'collabs', 'cartes', 'messages', 'notifications', 'favoris', 'recherche'];
 const VUES_DETAIL_MAX = 6;
 
 function profondeur(){
@@ -6744,7 +6767,7 @@ function majCoque(){
   const actif = {
     accueil: 'accueil', sujet: 'accueil', tag: 'accueil', post: 'accueil',
     explorer: 'explorer', recherche: 'explorer',
-    collabs: 'explorer', messages: 'messages', notifications: 'notifications', favoris: 'favoris'
+    collabs: 'explorer', cartes: 'cartes', messages: 'messages', notifications: 'notifications', favoris: 'favoris'
   }[route.nom] || null;
 
   const monProfil = route.nom === 'membre' && u && route.param.toLowerCase() === u.pseudo.toLowerCase();
@@ -6794,6 +6817,7 @@ function navItemHtml(cle, ic, libelle, badge, vers, classe){
 const ELEMENTS_NAV = [
   ['accueil', 'accueil', 'Accueil', null, ''],
   ['explorer', 'explorer', 'Explorer', null, 'explorer'],
+  ['cartes', 'cartes', 'Cartes', 'cartes', 'cartes'],
   ['messages', 'messages', 'Messages', 'messages', 'messages'],
   ['notifications', 'cloche', 'Alertes', 'notifications', 'notifications'],
   ['favoris', 'signet', 'Enregistrés', null, 'favoris']
@@ -6891,8 +6915,8 @@ function majBadges(){
 
   if(!S.coque) return;
 
-  ['messages', 'notifications'].forEach(cle => {
-    const n = S.compteurs[cle] || 0;
+  ['messages', 'notifications', 'cartes'].forEach(cle => {
+    const n = cle === 'cartes' ? (window.cartesPastilleNb || 0) : (S.compteurs[cle] || 0);
     $$('[data-badge="' + cle + '"]', S.coque).forEach(b => {
       b.hidden = !n;
       b.textContent = n > 9 ? '9+' : String(n);
@@ -6900,7 +6924,7 @@ function majBadges(){
   });
 
   if(typeof window.majBadgeCommunaute === 'function'){
-    window.majBadgeCommunaute((S.compteurs.messages || 0) + (S.compteurs.notifications || 0));
+    window.majBadgeCommunaute((S.compteurs.messages || 0) + (S.compteurs.notifications || 0) + (window.cartesPastilleNb || 0));
   }
 }
 
@@ -7779,6 +7803,12 @@ async function ouvrirReel(){
 
 window.Com = {
   ouvrir,
+  majBadges,
+  // La session a changé : le jeu de cartes se relit s'il est à l'écran.
+  rouvrirCartes(){
+    const V = S.vues.get('cartes');
+    if(V && S.courante === V) VUES.cartes.montrer(V);
+  },
   reglages: ouvrirReglagesProfil,
   avatarRecadre,
   banniereRecadree,
@@ -8895,7 +8925,8 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 .com-centre{min-width:0;}
 .com-vue{max-width:760px; margin-left:auto; margin-right:auto;}
 .com[data-vue="explorer"] .com-vue, .com[data-vue="collabs"] .com-vue,
-.com[data-vue="messages"] .com-vue, .com[data-vue="membre"] .com-vue{max-width:none;}
+.com[data-vue="messages"] .com-vue, .com[data-vue="membre"] .com-vue,
+.com[data-vue="cartes"] .com-vue{max-width:none;}
 
 .com-entete{display:none; align-items:center; gap:10px; max-width:760px; min-height:46px; margin:0 auto 14px;}
 .com-entete.avec-retour{display:flex;}
@@ -9321,7 +9352,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-entete-moi .com-av{width:32px; height:32px; font-size:14px;}
 
   .com-barre{
-    position:fixed; left:0; right:0; bottom:0; z-index:95; display:grid; grid-template-columns:repeat(5, 1fr);
+    position:fixed; left:0; right:0; bottom:0; z-index:95; display:grid; grid-template-columns:repeat(6, 1fr);
     padding:6px 2px calc(6px + env(safe-area-inset-bottom));
     background:rgba(8,11,16,0.9); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
     border-top:1px solid var(--line);
