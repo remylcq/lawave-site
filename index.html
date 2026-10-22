@@ -4708,9 +4708,9 @@
     <section>
       <div class="section-head">
         <div>
-          <h2>Le jeu de cartes</h2>
+          <h2>Cartes</h2>
           <p class="desc">
-            Ouvre des packs, collectionne les sorties du catalogue et complète la discographie de tes artistes.
+            Ouvre des packs et collectionne les artistes de la scène francophone.
           </p>
         </div>
       </div>
@@ -5299,6 +5299,10 @@
               onclick="ouvrirBannis()">
         Artistes bannis <span id="artistesBannisNb"></span>
       </button>
+      <button type="button" class="btn btn-ghost" id="artistesLangueBtn"
+              onclick="ouvrirLangue()">
+        Non francophones
+      </button>
       <button type="button" class="btn btn-primary"
               onclick="ouvrirAjoutArtiste()">
         Ajouter un artiste
@@ -5346,6 +5350,36 @@
       <div class="bannir-suggestions" id="bannirSuggestions" hidden></div>
 
       <div id="artisteBannisListe" class="admin-list"></div>
+    </div>
+
+    <!-- Les artistes non francophones : masqués comme les bannis, mais triés
+         automatiquement (sql/cartes-artistes.sql). On rétablit ici celui qui a
+         été rangé là par erreur, ou on en masque un autre. Rempli par renderLangue. -->
+    <div class="artiste-ajout" id="artisteLangue" hidden>
+      <div class="artiste-ajout-tete">
+        <h4>Artistes non francophones</h4>
+        <button type="button" class="btn btn-ghost"
+                onclick="fermerLangue()">Fermer</button>
+      </div>
+      <p class="desc" style="margin:0 0 14px;">
+        Le site ne garde que les artistes francophones. Ceux-ci ont été triés
+        automatiquement (Wikidata, artistes similaires sur Deezer, collaborations) :
+        leur profil, leurs sorties et leur carte de jeu sont masqués partout, toi
+        compris. « Rétablir » corrige une erreur ; pour masquer un artiste encore
+        visible, cherche-le dans le premier champ.
+      </p>
+      <div class="field">
+        <label for="langueMasquerNom">Masquer un artiste encore visible</label>
+        <input type="text" id="langueMasquerNom" autocomplete="off"
+               oninput="langueMasquerSaisie()" placeholder="Son nom">
+      </div>
+      <div id="langueMasquerListe" class="admin-list"></div>
+      <div class="field" style="margin-top:14px;">
+        <label for="langueRecherche">Chercher parmi les artistes masqués</label>
+        <input type="text" id="langueRecherche" autocomplete="off"
+               oninput="langueRechercheSaisie()" placeholder="Son nom">
+      </div>
+      <div id="artisteLangueListe" class="admin-list"></div>
     </div>
 
     <!-- Chercher un artiste sur Deezer pour l'ajouter, ou pour relier à
@@ -6750,6 +6784,15 @@ const BD = {
 
   artistesBannis(){
     return supabaseClient.rpc('bannis_liste');
+  },
+
+  // Le tri des artistes par langue (sql/cartes-artistes.sql).
+  langueListe(q, page){
+    return supabaseClient.rpc('langue_equipe_liste', { p_q: q || null, p_page: page || 1 });
+  },
+
+  langueRegler(id, francophone){
+    return supabaseClient.rpc('langue_equipe_regler', { p_artist: id, p_francophone: francophone });
   },
 
   // Passe par une fonction de la base : une écriture directe
@@ -25761,6 +25804,211 @@ function ouvrirBannis(){
 function fermerBannis(){
   const panneau = document.getElementById('artisteBannis');
   if(panneau) panneau.hidden = true;
+}
+
+
+// ---- Artistes non francophones ----
+//
+// Masqués par la base comme les bannis (sql/cartes-artistes.sql) : ils ne
+// figurent plus dans aucune liste. On ne les retrouve que par
+// langue_equipe_liste(), d'où le panneau « Non francophones ».
+
+const langueEtat = { q: '', page: 1, donnees: null, occupe: false };
+let langueMinuteur = null;
+
+function ouvrirLangue(){
+
+  const panneau = document.getElementById('artisteLangue');
+  if(!panneau) return;
+
+  panneau.hidden = false;
+  panneau.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  chargerLangue();
+}
+
+
+function fermerLangue(){
+  const panneau = document.getElementById('artisteLangue');
+  if(panneau) panneau.hidden = true;
+}
+
+
+async function chargerLangue(){
+
+  const zone = document.getElementById('artisteLangueListe');
+  if(!zone) return;
+
+  const { data, error } = await BD.langueListe(langueEtat.q, langueEtat.page);
+
+  if(error){
+    zone.innerHTML = `<div class="form-msg err">${escapeHtml(error.message)}</div>`;
+    return;
+  }
+
+  langueEtat.donnees = data;
+  renderLangue();
+}
+
+
+function langueRechercheSaisie(){
+
+  clearTimeout(langueMinuteur);
+
+  langueMinuteur = setTimeout(() => {
+    const champ = document.getElementById('langueRecherche');
+    langueEtat.q = champ ? champ.value.trim() : '';
+    langueEtat.page = 1;
+    chargerLangue();
+  }, 300);
+}
+
+
+function langueLigne(photo, nom, details, bouton){
+  const image = safeUrl(photo);
+  return `
+    <div class="artiste-resultat">
+      <div class="artiste-resultat-photo">${
+        image
+          ? `<img src="${escapeAttribute(image)}" alt="" loading="lazy">`
+          : escapeHtml(artistInitial(nom))
+      }</div>
+      <div class="artiste-resultat-infos">
+        <b>${escapeHtml(nom || '')}</b>
+        <span>${details}</span>
+      </div>
+      ${bouton}
+    </div>`;
+}
+
+
+function renderLangue(){
+
+  const zone = document.getElementById('artisteLangueListe');
+  const d = langueEtat.donnees;
+  if(!zone || !d) return;
+
+  if(!d.artistes.length){
+    zone.innerHTML = '<div class="empty-state">Aucun artiste masqué ne correspond.</div>';
+    return;
+  }
+
+  const sources = {
+    'tri-auto': 'tri automatique', wikidata: 'Wikidata', deezer: 'artistes similaires',
+    collaborations: 'collaborations', equipe: "masqué par l'équipe"
+  };
+
+  zone.innerHTML =
+    `<p class="desc" style="margin:0 0 10px;">${d.total} artiste${d.total > 1 ? 's' : ''} masqué${d.total > 1 ? 's' : ''}</p>` +
+    d.artistes.map((a, i) => langueLigne(
+      a.photo,
+      a.nom,
+      [
+        a.fans ? Number(a.fans).toLocaleString('fr-FR') + ' fans' : '',
+        a.sorties ? a.sorties + ' sortie' + (a.sorties > 1 ? 's' : '') : '',
+        sources[a.source] || '',
+        a.deezer_id
+          ? `<a href="https://www.deezer.com/artist/${encodeURIComponent(a.deezer_id)}" target="_blank" rel="noopener noreferrer" style="color:var(--blue);">Deezer ↗</a>`
+          : ''
+      ].filter(Boolean).join(' · '),
+      `<button type="button" class="btn btn-ghost" onclick="retablirLangue(${i})">Rétablir</button>`
+    )).join('') +
+    (d.pages > 1
+      ? `<div class="inline-actions" style="justify-content:center; align-items:center; margin-top:12px;">
+           <button type="button" class="btn btn-ghost" onclick="pageLangue(-1)" ${d.page <= 1 ? 'disabled' : ''}>Précédents</button>
+           <span class="desc" style="margin:0;">Page ${d.page} sur ${d.pages}</span>
+           <button type="button" class="btn btn-ghost" onclick="pageLangue(1)" ${d.page >= d.pages ? 'disabled' : ''}>Suivants</button>
+         </div>`
+      : '');
+}
+
+
+function pageLangue(sens){
+  langueEtat.page = Math.max(1, langueEtat.page + sens);
+  chargerLangue();
+}
+
+
+async function reglerLangue(id, nom, francophone){
+
+  if(!isAdmin || langueEtat.occupe) return;
+
+  langueEtat.occupe = true;
+  setRowMessage('artistsActionMsg', '');
+
+  try{
+
+    const { data, error } = await BD.langueRegler(id, francophone);
+
+    if(error){
+      setRowMessage('artistsActionMsg', error.message, 'err');
+      return;
+    }
+
+    const sorties = (data && data.sorties) || 0;
+    const quoi = sorties + ' sortie' + (sorties > 1 ? 's' : '');
+
+    setRowMessage(
+      'artistsActionMsg',
+      francophone
+        ? '✅ ' + nom + ' est rétabli : son profil et ' + quoi + ' reviennent.'
+        : '✅ ' + nom + ' est masqué : son profil et ' + quoi + ' disparaissent du site.',
+      'ok'
+    );
+
+    const champ = document.getElementById('langueMasquerNom');
+    if(champ) champ.value = '';
+    langueMasquerSaisie();
+
+    await loadArtistProfiles();
+    chargerLangue();
+
+  }finally{
+
+    langueEtat.occupe = false;
+  }
+}
+
+
+function retablirLangue(i){
+  const a = langueEtat.donnees && langueEtat.donnees.artistes[i];
+  if(a) reglerLangue(a.id, a.nom, true);
+}
+
+
+// Masquer un artiste encore visible : on le cherche dans la liste déjà chargée.
+function langueMasquerSaisie(){
+
+  const champ = document.getElementById('langueMasquerNom');
+  const zone = document.getElementById('langueMasquerListe');
+  if(!champ || !zone) return;
+
+  const q = normeArtiste(champ.value);
+
+  if(q.length < 2){
+    zone.innerHTML = '';
+    return;
+  }
+
+  const trouves = (artistProfilesData || [])
+    .filter(p => normeArtiste(p.display_name || p.instagram_handle).includes(q))
+    .sort((a, b) => (b.deezer_fans || 0) - (a.deezer_fans || 0))
+    .slice(0, 6);
+
+  zone.innerHTML = trouves.length
+    ? trouves.map(p => langueLigne(
+        p.photo_url,
+        p.display_name || p.instagram_handle,
+        p.deezer_fans ? Number(p.deezer_fans).toLocaleString('fr-FR') + ' fans' : '@' + escapeHtml(p.instagram_handle),
+        `<button type="button" class="btn btn-ghost" onclick="masquerLangue('${escapeAttribute(p.id)}')">Masquer</button>`
+      )).join('')
+    : '<div class="empty-state">Aucun artiste visible ne correspond.</div>';
+}
+
+
+function masquerLangue(id){
+  const p = (artistProfilesData || []).find(x => x.id === id);
+  if(p) reglerLangue(p.id, p.display_name || p.instagram_handle, false);
 }
 
 
