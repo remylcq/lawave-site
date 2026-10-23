@@ -605,6 +605,8 @@
     scroll-snap-type:x mandatory; scrollbar-width:none; -webkit-overflow-scrolling:touch;
   }
   .sel-piste::-webkit-scrollbar{display:none;}
+  .sel-piste.saut{scroll-snap-type:none;}
+  .sel-piste.saut .sel-slide{transition:none !important;}
   .sel-piste:focus-visible{outline:2px solid var(--blue-bright); outline-offset:-2px; border-radius:var(--radius);}
   .sel-slide{
     flex:0 0 var(--sel-w); scroll-snap-align:center; text-align:center;
@@ -831,6 +833,104 @@
   }
   .lien-evitement:focus{top:12px; outline:2px solid #fff; outline-offset:2px;}
   main:focus{outline:none;}
+
+  /* ---------- ANIMATIONS GÉNÉRALES ----------
+     Des mouvements discrets, sur opacity et transform seulement (rien qui force la mise en page), et coupés pour
+     ceux qui demandent moins d'animation (prefers-reduced-motion). */
+  @media (prefers-reduced-motion:no-preference){
+
+    /* Les blocs entrent en douceur quand on arrive dessus (data-reveal posé par la fin du script). */
+    html.anim [data-reveal]{
+      opacity:0; transform:translateY(26px);
+      transition:opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1);
+      transition-delay:var(--rev, 0ms);
+    }
+    html.anim [data-reveal].vu{opacity:1; transform:none;}
+
+    /* Le logo de l'accueil arrive en fondu, puis flotte très doucement. */
+    .hero-logo-only img{animation:logoEntre 1.1s cubic-bezier(.16,1,.3,1) both, logoFlotte 9s ease-in-out 1.2s infinite;}
+    @keyframes logoEntre{from{opacity:0; transform:scale(.9) translateY(12px); filter:blur(8px);} to{opacity:1; transform:none; filter:blur(0);}}
+    @keyframes logoFlotte{0%,100%{transform:translateY(0);} 50%{transform:translateY(-7px);}}
+
+    /* Les réseaux apparaissent l'un après l'autre. */
+    .page.active .social-row .social-icon{animation:iconeEntre .6s cubic-bezier(.16,1,.3,1) both;}
+    .social-row .social-icon:nth-child(1){animation-delay:.25s;}
+    .social-row .social-icon:nth-child(2){animation-delay:.33s;}
+    .social-row .social-icon:nth-child(3){animation-delay:.41s;}
+    .social-row .social-icon:nth-child(4){animation-delay:.49s;}
+    @keyframes iconeEntre{from{opacity:0; transform:translateY(14px) scale(.8);} to{opacity:1; transform:none;}}
+
+    /* Boutons : on sent l'appui ; le bouton principal est traversé d'un reflet au survol. */
+    .btn{transition:transform .2s var(--ease), box-shadow .25s var(--ease), background .2s var(--ease), border-color .2s var(--ease), color .2s var(--ease);}
+    .btn:not(:disabled):active{transform:scale(.96);}
+    .btn-primary{position:relative; overflow:hidden; isolation:isolate;}
+    .btn-primary::after{
+      content:''; position:absolute; inset:0; z-index:-1; pointer-events:none;
+      background:linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.26) 50%, transparent 70%);
+      transform:translateX(-130%); transition:transform .8s var(--ease);
+    }
+    .btn-primary:hover::after{transform:translateX(130%);}
+
+    /* La carte de l'actualité se soulève, sa pochette respire. */
+    .news-card{transition:transform .5s var(--ease), box-shadow .5s var(--ease);}
+    .news-card:hover{transform:translateY(-5px);}
+    .news-cover img{transition:transform .9s var(--ease);}
+    .news-card:hover .news-cover img{transform:scale(1.045);}
+
+    /* Les liens du menu : un trait glisse sous celui qu'on survole. */
+    .navlink{position:relative;}
+    .navlink::after{
+      content:''; position:absolute; left:16px; right:16px; bottom:5px; height:2px; border-radius:2px;
+      background:var(--blue-bright); transform:scaleX(0); transform-origin:center; opacity:.9;
+      transition:transform .35s var(--ease);
+    }
+    .navlink:hover::after{transform:scaleX(1);}
+    .navlink.active::after{display:none;}
+
+    /* Pages de texte, aide : les cartes se soulèvent, la flèche avance. */
+    .aide-carte{transition:transform .3s var(--ease), border-color .3s, background .3s, box-shadow .3s;}
+    .aide-carte:hover{transform:translateY(-4px); border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.07); box-shadow:var(--ombre-2);}
+    .aide-carte:hover .aide-fleche{transform:translateX(5px); color:var(--blue-bright);}
+    .aide-fleche{transition:transform .3s var(--ease), color .3s;}
+    .doc a{transition:color .2s;}
+    .faq details{transition:border-color .25s, background .25s;}
+    .faq details[open]{background:rgba(255,255,255,0.06);}
+    .faq details[open] p{animation:faqOuvre .45s var(--ease) both;}
+    @keyframes faqOuvre{from{opacity:0; transform:translateY(-6px);}}
+
+    /* Le pied de page se dessine au passage. */
+    footer{animation:footEntre .9s var(--ease) both;}
+    @keyframes footEntre{from{opacity:0;}}
+  }
+
+  /* La barre de lecture : un filet bleu tout en haut, qui suit le défilement de la page. */
+  #progressionLecture{
+    position:fixed; top:0; left:0; right:0; height:2px; z-index:950; pointer-events:none;
+    background:linear-gradient(90deg, #0f78c4, var(--blue-bright));
+    transform:scaleX(var(--p, 0)); transform-origin:left; opacity:0; transition:opacity .3s;
+  }
+  #progressionLecture.on{opacity:.9;}
+  @media (prefers-reduced-motion:reduce){ #progressionLecture{display:none;} }
+
+  /* ---------- PAGE AIDE ---------- */
+  .aide-grille{display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin:26px 0 22px;}
+  .aide-carte{
+    display:flex; align-items:center; gap:16px; padding:20px; border:1px solid var(--line); border-radius:var(--radius);
+    background:var(--bg-alt); text-decoration:none; color:var(--ink);
+  }
+  .doc a.aide-carte{color:var(--ink); text-decoration:none;}
+  .aide-ic{
+    flex:0 0 46px; width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center;
+    background:rgba(79,180,255,0.12); color:var(--blue-bright);
+  }
+  .aide-ic svg{width:22px; height:22px;}
+  .aide-texte{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;}
+  .aide-texte b{font-size:15px; font-weight:600;}
+  .aide-texte small{font-size:13px; color:var(--muted); line-height:1.45;}
+  .aide-fleche{font-size:18px; color:var(--muted);}
+  .doc .aide-bas{display:flex; flex-wrap:wrap; gap:6px 22px; margin-top:28px; padding-top:20px; border-top:1px solid var(--line); font-size:13px;}
+  .doc .aide-bas a{color:var(--muted); text-decoration:none;}
+  .doc .aide-bas a:hover{color:var(--ink);}
 
   /* ---------- NOTIFICATIONS ---------- */
   .notif-zone{
@@ -3667,10 +3767,32 @@
     display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;
   }
   .footer-inner .mono{font-size:12px; color:var(--muted);}
-  .footer-admin-link{
-    font-size:12px; color:var(--muted); border-bottom:1px dotted var(--muted);
-    /* Zone de clic confortable au doigt sans changer l'aspect. */
-    display:inline-block; padding:8px 0;
+  .footer-marque{display:flex; flex-direction:column; gap:3px;}
+  .footer-nom{font-weight:700; letter-spacing:-0.01em; color:var(--ink); font-size:15px;}
+  .footer-sous{font-size:12px; color:var(--muted);}
+  .footer-liens{display:flex; align-items:center; flex-wrap:wrap; gap:2px 22px;}
+  .footer-liens a{
+    position:relative; font-size:13px; color:var(--muted); text-decoration:none; padding:11px 0;
+    transition:color .2s var(--ease);
+  }
+  /* Un trait qui se dessine sous le lien au survol. */
+  .footer-liens a:not(.footer-aide)::after{
+    content:''; position:absolute; left:0; right:0; bottom:7px; height:1px; background:currentColor;
+    transform:scaleX(0); transform-origin:left; transition:transform .3s var(--ease);
+  }
+  .footer-liens a:hover, .footer-liens a:focus-visible{color:var(--ink);}
+  .footer-liens a:hover::after, .footer-liens a:focus-visible::after{transform:scaleX(1);}
+  .footer-liens .footer-aide{
+    color:var(--ink-soft); border:1px solid var(--line); border-radius:999px; padding:9px 16px; margin-left:4px;
+    background:var(--bg-alt); transition:color .2s, border-color .2s, background .2s, transform .2s var(--ease);
+  }
+  .footer-liens .footer-aide span{display:inline-block; transition:transform .25s var(--ease);}
+  .footer-liens .footer-aide:hover{border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.08);}
+  .footer-liens .footer-aide:hover span{transform:translateX(4px);}
+  @media (max-width:620px){
+    .footer-inner{flex-direction:column; align-items:flex-start;}
+    .footer-liens{gap:0 18px;}
+    .footer-liens .footer-aide{margin:8px 0 0;}
   }
 
   /* =====================================================================
@@ -4775,6 +4897,48 @@
   </section>
 
 
+
+  <!-- ================= AIDE ET INFORMATIONS ================= -->
+  <section id="page-aide" class="page">
+    <section class="doc">
+      <span class="eyebrow mono">Tout sur La Wave</span>
+      <h1>Aide et informations</h1>
+      <p>Les réponses, les règles du site et les espaces dédiés, au même endroit.</p>
+
+      <div class="aide-grille">
+        <a class="aide-carte" href="#faq" onclick="goTo('faq'); return false;">
+          <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.6M12 17h.01"/></svg></span>
+          <span class="aide-texte"><b>Questions fréquentes</b><small>Compte, sorties, XP : les réponses rapides.</small></span>
+          <span class="aide-fleche" aria-hidden="true">→</span>
+        </a>
+        <a class="aide-carte" href="#cgu" onclick="goTo('cgu'); return false;">
+          <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></span>
+          <span class="aide-texte"><b>Conditions d'utilisation</b><small>Les règles pour publier et participer.</small></span>
+          <span class="aide-fleche" aria-hidden="true">→</span>
+        </a>
+        <a class="aide-carte" href="#about" onclick="goTo('about'); return false;">
+          <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+          <span class="aide-texte"><b>À propos</b><small>La ligne éditoriale et les chiffres de La Wave.</small></span>
+          <span class="aide-fleche" aria-hidden="true">→</span>
+        </a>
+        <a class="aide-carte" href="#bugreport" onclick="goTo('bugreport'); return false;">
+          <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg></span>
+          <span class="aide-texte"><b>Signaler un problème</b><small>Un bug, un artiste, une demande sur tes données.</small></span>
+          <span class="aide-fleche" aria-hidden="true">→</span>
+        </a>
+        <a class="aide-carte" href="#accreditations" onclick="goTo('accreditations'); return false;">
+          <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+          <span class="aide-texte"><b>Espace photographe</b><small>Les accréditations et les concerts à couvrir.</small></span>
+          <span class="aide-fleche" aria-hidden="true">→</span>
+        </a>
+      </div>
+
+      <p class="aide-bas">
+        <a href="#admin" onclick="goTo('admin'); return false;">Espace équipe</a>
+      </p>
+    </section>
+  </section>
+
   <!-- ================= MENTIONS LÉGALES ================= -->
   <section id="page-mentions" class="page">
     <section class="doc">
@@ -4827,7 +4991,8 @@
       <p>Nous ne vendons pas tes données et nous n'affichons pas de publicité.</p>
 
       <h2>Cookies et traceurs</h2>
-      <p>La Wave n'utilise <b>aucun cookie de suivi, de mesure d'audience ni de publicité</b>. Le navigateur garde seulement ce qui est nécessaire : ta session de connexion et quelques préférences (par exemple le son du jeu). Ces éléments sont indispensables au service : c'est pourquoi aucun bandeau de consentement n'est affiché. Si nous ajoutons un jour un outil de mesure, cette page sera mise à jour et ton accord sera demandé avant.</p>
+      <p>La Wave n'utilise <b>aucun cookie</b> de suivi ni de publicité, et ne te suit pas d'un site à l'autre. Le navigateur garde seulement ce qui est nécessaire : ta session de connexion et quelques préférences (par exemple le son du jeu). Ces éléments sont indispensables au service.</p>
+      <p><b>Mesure d'audience.</b> Pour savoir quelles pages sont lues, le site compte des visites : un compteur par jour, par page, par type d'appareil (téléphone, tablette, ordinateur) et par provenance (Google, Instagram, lien direct…). Ce comptage est <b>anonyme</b> : ni adresse IP, ni identifiant, ni compte, ni pseudo ne sont enregistrés, et aucun service extérieur n'y participe : il est fait par La Wave elle-même. Il n'est pas effectué si ton navigateur envoie « Ne pas me suivre » (Do Not Track) ou « Global Privacy Control ». Un simple marqueur de session, sans identifiant et effacé à la fermeture de l'onglet, évite de compter plusieurs visites dans un même onglet. Ce comptage ne servant qu'à mesurer l'audience, aucun bandeau de consentement n'est nécessaire.</p>
       <p>Les vidéos YouTube ne se chargent que si tu les lances, via le mode « sans cookie » de YouTube. La police du site est servie par La Wave elle-même.</p>
 
       <h2>Qui reçoit des données</h2>
@@ -5184,6 +5349,7 @@
       <symbol id="eq-bulle" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
       <symbol id="eq-photo" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></symbol>
       <symbol id="eq-bouee" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/></symbol>
+      <symbol id="eq-courbe" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 5-6"/></symbol>
       <symbol id="eq-cle" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M16 7l3 3M14 9l2 2"/></symbol>
       <symbol id="eq-sortie" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
       <symbol id="eq-membres" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.6 6-5.6s6 2.3 6 5.6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.6c1.8.7 3 2.6 3 5.4"/></symbol>
@@ -5290,6 +5456,12 @@
       </button>
 
       <p class="eq-groupe">Site</p>
+
+      <button type="button" class="admin-tab" id="adminTab-audience"
+        role="tab" onclick="switchAdminTab('audience')" title="Fréquentation du site (anonyme)">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-courbe"/></svg>
+        <span class="admin-tab-label">Audience</span>
+      </button>
 
       <button type="button" class="admin-tab" id="adminTab-settings"
         role="tab" onclick="switchAdminTab('settings')" title="Chiffres réseaux">
@@ -5635,6 +5807,54 @@
 
 
   <!-- ================= RÉGLAGES ================= -->
+
+  <!-- ================= AUDIENCE ================= -->
+  <div class="admin-section" id="adminSection-audience">
+
+    <style>
+      #adminSection-audience .aud-periode{display:inline-flex; gap:4px; padding:4px; border:1px solid var(--line); border-radius:999px; background:var(--bg-alt);}
+      #adminSection-audience .aud-periode button{padding:8px 16px; border:0; border-radius:999px; background:transparent; color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; transition:background .2s, color .2s;}
+      #adminSection-audience .aud-periode button.on{background:rgba(255,255,255,0.12); color:var(--ink);}
+      #adminSection-audience .aud-cartes{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin:22px 0;}
+      #adminSection-audience .aud-carte{padding:18px; border:1px solid var(--line); border-radius:14px; background:var(--bg-alt);}
+      #adminSection-audience .aud-carte b{display:block; font-size:30px; line-height:1.1; letter-spacing:-0.02em; font-variant-numeric:tabular-nums; color:var(--ink);}
+      #adminSection-audience .aud-carte span{display:block; margin-top:6px; font-size:12px; color:var(--muted);}
+      #adminSection-audience .aud-boite{padding:20px; border:1px solid var(--line); border-radius:14px; background:var(--bg-alt); margin-bottom:14px;}
+      #adminSection-audience .aud-boite h4{margin:0 0 14px; font-size:14px; font-weight:600; color:var(--ink);}
+      #adminSection-audience .aud-barres{display:flex; align-items:flex-end; gap:3px; height:150px;}
+      #adminSection-audience .aud-barres i{flex:1; min-width:2px; height:var(--h); border-radius:3px 3px 0 0; background:linear-gradient(to top, #0f78c4, var(--blue-bright)); transform-origin:bottom; animation:audBarre .7s var(--ease) both; animation-delay:calc(var(--k, 0) * 12ms);}
+      #adminSection-audience .aud-barres i:hover{filter:brightness(1.3);}
+      #adminSection-audience .aud-axe{display:flex; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--muted);}
+      #adminSection-audience .aud-listes{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px;}
+      #adminSection-audience .aud-liste{list-style:none; margin:0; padding:0; display:grid; gap:8px;}
+      #adminSection-audience .aud-liste li{position:relative; display:flex; justify-content:space-between; gap:10px; padding:9px 12px; border-radius:10px; font-size:13px; color:var(--ink-soft); overflow:hidden;}
+      #adminSection-audience .aud-liste li::before{content:''; position:absolute; inset:0; width:var(--p); background:rgba(79,180,255,0.14); border-radius:10px; transform-origin:left; animation:audBarreX .8s var(--ease) both;}
+      #adminSection-audience .aud-liste li > *{position:relative;}
+      #adminSection-audience .aud-liste b{font-variant-numeric:tabular-nums; color:var(--ink);}
+      #adminSection-audience .aud-note{margin:14px 0 0; font-size:12px; color:var(--muted); line-height:1.6;}
+      @keyframes audBarre{from{transform:scaleY(0);}}
+      @keyframes audBarreX{from{transform:scaleX(0);}}
+      @media (max-width:900px){ #adminSection-audience .aud-cartes{grid-template-columns:repeat(2, minmax(0, 1fr));} #adminSection-audience .aud-listes{grid-template-columns:1fr;} }
+    </style>
+
+    <div class="section-head">
+      <div>
+        <span class="eyebrow mono">Mesure d'audience</span>
+        <h3>Fréquentation du site</h3>
+        <p class="desc">
+          Des compteurs anonymes, tenus par La Wave elle-même : ni cookie, ni adresse IP, ni identifiant. Les visites de
+          l'équipe, les navigateurs « Ne pas me suivre » et les robots ne sont pas comptés.
+        </p>
+      </div>
+      <div class="aud-periode" role="group" aria-label="Période">
+        <button type="button" data-j="7" onclick="chargerAudience(7)">7 jours</button>
+        <button type="button" data-j="30" class="on" onclick="chargerAudience(30)">30 jours</button>
+        <button type="button" data-j="90" onclick="chargerAudience(90)">90 jours</button>
+      </div>
+    </div>
+
+    <div id="audienceCorps"></div>
+  </div>
 
   <div class="admin-section" id="adminSection-settings">
 
@@ -6430,19 +6650,17 @@
 
 <footer>
   <div class="footer-inner">
-    <span class="mono">© La Wave — média musical</span>
-    <div style="display:flex; gap:18px; flex-wrap:wrap;">
-      <a class="footer-admin-link" onclick="goTo('faq'); return false;" href="#faq">FAQ</a>
-      <a class="footer-admin-link" onclick="goTo('cgu'); return false;" href="#cgu">Conditions d'utilisation</a>
-      <a class="footer-admin-link" onclick="goTo('confidentialite'); return false;" href="#confidentialite">Confidentialité</a>
-      <a class="footer-admin-link" onclick="goTo('mentions'); return false;" href="#mentions">Mentions légales</a>
-      <a class="footer-admin-link" onclick="goTo('admin'); return false;" href="#admin">Espace équipe</a>
-      <!-- Le lien du menu n'apparaît qu'aux photographes : celui-ci reste
-           visible de tous, c'est par lui qu'on découvre que ça existe. -->
-      <a class="footer-admin-link" onclick="goTo('accreditations'); return false;" href="#accreditations">Espace photographe</a>
-      <a class="footer-admin-link" onclick="goTo('bugreport'); return false;" href="#bugreport">Signaler un problème</a>
-      <a class="footer-admin-link" onclick="goTo('about'); return false;" href="#about">À propos</a>
+    <div class="footer-marque">
+      <span class="footer-nom">La Wave</span>
+      <span class="footer-sous">Média musical · © 2026</span>
     </div>
+    <!-- Ce qui doit rester visible partout : les mentions légales et la politique de confidentialité. Le reste (FAQ,
+         conditions, à propos, signalement, espaces dédiés) est sur la page « Aide et informations ». -->
+    <nav class="footer-liens" aria-label="Informations légales et aide">
+      <a href="#mentions" onclick="goTo('mentions'); return false;">Mentions légales</a>
+      <a href="#confidentialite" onclick="goTo('confidentialite'); return false;">Confidentialité</a>
+      <a class="footer-aide" href="#aide" onclick="goTo('aide'); return false;">Aide et informations <span aria-hidden="true">→</span></a>
+    </nav>
   </div>
 </footer>
 
@@ -7490,6 +7708,7 @@ const BD = {
       confidentialite: 'Politique de confidentialité',
       cgu: "Conditions d'utilisation",
       faq: 'Questions fréquentes',
+      aide: 'Aide et informations',
       artiste: detail || 'Artiste'
     };
     const t = titres[pageId] || titres.home;
@@ -7503,6 +7722,82 @@ const BD = {
       if(h){ h.setAttribute('role', 'heading'); h.setAttribute('aria-level', '1'); }
     }
   }
+
+  // Mesure d'audience anonyme (sql/mesure-audience.sql) : une page vue = un compteur. Ni cookie, ni identifiant, ni
+  // adresse IP ; rien n'est envoyé si le navigateur dit « Ne pas me suivre », hors du vrai site, pour les robots, pour
+  // l'équipe, ni tant que le portail d'accès est fermé. Déclarations de fonctions : goTo tourne avant la fin du script.
+  var mesureEnAttente = null;
+  var mesureDerniere = { page: '', le: 0 };
+
+  function mesureProvenance(){
+    let h = '';
+    try{ h = new URL(document.referrer).hostname.replace(/^www\./, '').toLowerCase(); }catch(e){}
+    if(!h) return 'direct';
+    if(h === location.hostname.replace(/^www\./, '')) return 'interne';
+    if(/(^|\.)google\./.test(h)) return 'google';
+    if(/(^|\.)(bing\.com|duckduckgo\.com|qwant\.com|ecosia\.org|yahoo\.com|search\.brave\.com)$/.test(h)) return 'moteur';
+    if(/(^|\.)instagram\.com$/.test(h)) return 'instagram';
+    if(/(^|\.)tiktok\.com$/.test(h)) return 'tiktok';
+    if(/(^|\.)(x\.com|twitter\.com|t\.co)$/.test(h)) return 'x';
+    if(/(^|\.)(youtube\.com|youtu\.be)$/.test(h)) return 'youtube';
+    if(/(^|\.)(facebook\.com|fb\.com|fb\.me)$/.test(h)) return 'facebook';
+    if(/(^|\.)spotify\.com$/.test(h)) return 'spotify';
+    if(/(^|\.)deezer\.com$/.test(h)) return 'deezer';
+    return 'autre';
+  }
+
+  function mesureAudience(pageId){
+
+    try{
+
+      const pages = {
+        home: 'accueil', catalogue: 'catalogue', artiste: 'artiste', carte: 'carte', content: 'contenu',
+        submit: 'soumettre', accreditations: 'accreditations', about: 'a-propos', community: 'communaute',
+        profile: 'profil', bugreport: 'signalement', aide: 'aide', faq: 'faq', cgu: 'conditions',
+        confidentialite: 'confidentialite', mentions: 'mentions'
+      };
+
+      const page = pages[pageId];
+
+      if(!page) return;
+      if(!/^(www\.)?lawave\.fr$/.test(location.hostname)) return;
+      if(navigator.doNotTrack === '1' || window.doNotTrack === '1' || navigator.globalPrivacyControl) return;
+      if(/bot|crawl|spider|slurp|headless|lighthouse|preview/i.test(navigator.userAgent)) return;
+
+      // Le portail d'accès est fermé : on compte la page quand il s'ouvre.
+      if(document.documentElement.classList.contains('portail-actif')){ mesureEnAttente = pageId; return; }
+
+      // La même page redemandée dans la seconde (double déclenchement) ne compte qu'une fois.
+      if(mesureDerniere.page === page && Date.now() - mesureDerniere.le < 1500) return;
+      mesureDerniere = { page, le: Date.now() };
+
+      setTimeout(() => {
+
+        try{
+
+          if(currentUser && currentUser.isAdmin) return;
+
+          let visite = false;
+          try{
+            if(!sessionStorage.getItem('lw-visite')){ sessionStorage.setItem('lw-visite', '1'); visite = true; }
+          }catch(e){}
+
+          const w = window.innerWidth;
+          const appareil = w < 700 ? 'mobile' : (w < 1100 ? 'tablette' : 'ordinateur');
+
+          supabaseClient
+            .rpc('mesure_enregistrer', { p_page: page, p_appareil: appareil, p_source: visite ? mesureProvenance() : 'interne', p_visite: visite })
+            .then(() => {}, () => {});
+
+        }catch(e){}
+      }, 1200);
+
+    }catch(e){}
+  }
+
+  document.addEventListener('portail:leve', () => {
+    if(mesureEnAttente){ const p = mesureEnAttente; mesureEnAttente = null; mesureAudience(p); }
+  });
 
   function goTo(pageId, options){
     const opt = options || {};
@@ -7536,6 +7831,7 @@ const BD = {
 
     document.querySelectorAll('.navlink').forEach(b=>b.classList.remove('active'));
   majTitreDocument(pageId);
+  mesureAudience(pageId);
   const navBtn = document.querySelector(`.navlink[data-page="${pageId}"]`);
   if(navBtn) navBtn.classList.add('active');
   document.getElementById('navLinks').classList.remove('open');
@@ -7545,6 +7841,7 @@ const BD = {
     ecrireAdresse(adresse, opt.parametre);
   }
 
+  if(pageId === 'home') recentrerSelectionAccueil();
   if(pageId === 'catalogue' || pageId === 'home') renderCatalogueSiPerime();
   if(pageId === 'catalogue') catalogueEntrer();
   if(pageId === 'admin'){ autoOpenAdminIfAllowed(); renderForumModeration(); }
@@ -19358,8 +19655,7 @@ function dessinerSelectionAccueil(elements){
                  aria-roledescription="diapositive" aria-label="${escapeAttribute(s.title + ' — ' + noms)}">
           <button type="button" class="sel-cover" onclick="openCatalogueModal('${escapeAttribute(s.id)}')"
                   ${copie ? 'tabindex="-1"' : ''} aria-label="Ouvrir ${escapeAttribute(s.title)}">
-            <img src="${escapeAttribute(safeUrl(s.cover))}" alt="${copie ? '' : escapeAttribute(s.title)}"
-                 ${k === (boucle ? 1 : 0) && rang === 0 ? '' : 'loading="lazy"'}>
+            <img src="${escapeAttribute(safeUrl(s.cover))}" alt="${copie ? '' : escapeAttribute(s.title)}" decoding="async">
           </button>
           <div class="sel-legende">
             <strong>${escapeHtml(s.title)}</strong>
@@ -19406,11 +19702,31 @@ function dessinerSelectionAccueil(elements){
       if(e.key === 'ArrowLeft'){ e.preventDefault(); defilerSelection(-1); }
     });
 
+    // Tant qu'un doigt ou un bouton de souris est posé sur la piste, le saut de la boucle attend : replacer la piste
+    // sous le geste la faisait sauter ou « accrocher ».
+    const poser = (oui) => () => {
+      selectionAccueil.doigt = oui;
+      if(!oui){
+        clearTimeout(selectionAccueil.rebond);
+        selectionAccueil.rebond = setTimeout(rebondirSelection, 220);
+      }
+    };
+    piste.addEventListener('pointerdown', poser(true), { passive: true });
+    ['pointerup', 'pointercancel'].forEach(nom => window.addEventListener(nom, () => { if(selectionAccueil.doigt) poser(false)(); }, { passive: true }));
+    piste.addEventListener('touchstart', poser(true), { passive: true });
+    ['touchend', 'touchcancel'].forEach(nom => piste.addEventListener(nom, poser(false), { passive: true }));
+
+    // Quand le défilement s'arrête vraiment (navigateurs qui le disent), on replace tout de suite.
+    piste.addEventListener('scrollend', () => {
+      clearTimeout(selectionAccueil.rebond);
+      selectionAccueil.rebond = setTimeout(rebondirSelection, 40);
+    });
+
     // Une fenêtre redimensionnée change la largeur des pochettes : on recentre.
     let redim = null;
     window.addEventListener('resize', () => {
       clearTimeout(redim);
-      redim = setTimeout(() => allerALaSelection(selectionAccueil.index, true), 160);
+      redim = setTimeout(() => sauterSelection(selectionAccueil.index), 160);
     });
   }
 
@@ -19442,7 +19758,7 @@ function majSelectionActive(){
   marquerSelection(meilleur);
 
   clearTimeout(selectionAccueil.rebond);
-  selectionAccueil.rebond = setTimeout(rebondirSelection, 160);
+  selectionAccueil.rebond = setTimeout(rebondirSelection, 180);
 }
 
 function rebondirSelection(){
@@ -19451,11 +19767,45 @@ function rebondirSelection(){
 
   if(!selectionAccueil.boucle) return;
 
+  // Un geste est en cours : on repasse plus tard.
+  if(selectionAccueil.doigt){
+    clearTimeout(selectionAccueil.rebond);
+    selectionAccueil.rebond = setTimeout(rebondirSelection, 240);
+    return;
+  }
+
   const g = selectionAccueil.index;
 
   if(g >= n && g < 2 * n) return;
 
-  allerALaSelection(g < n ? g + n : g - n, true);
+  sauterSelection(g < n ? g + n : g - n);
+}
+
+// Un saut instantané vers la pochette i, sans animation : la même pochette, la suite d'à côté. Les transitions et
+// l'aimantation sont coupées le temps du saut ; sinon la pochette d'arrivée repartait de « atténuée » et se rallumait
+// à chaque tour de boucle (un clignotement), et l'aimantation pouvait reprendre la main en plein saut.
+function sauterSelection(i){
+
+  const piste = document.getElementById('selectionPiste');
+
+  if(!piste) return;
+
+  piste.classList.add('saut');
+
+  allerALaSelection(i, true);
+
+  piste.getBoundingClientRect();
+
+  requestAnimationFrame(() => requestAnimationFrame(() => piste.classList.remove('saut')));
+}
+
+// Revenir sur l'accueil : la piste est replacée sur la pochette en cours (un écran masqué peut avoir perdu sa position).
+function recentrerSelectionAccueil(){
+
+  try{
+    if(!selectionAccueil || !selectionAccueil.n) return;
+    requestAnimationFrame(() => sauterSelection(selectionAccueil.index));
+  }catch(e){}
 }
 
 // La diapositive « active » : la pochette en pleine lumière, le point allumé, l'index retenu (de 0 à 3n - 1 en boucle).
@@ -19526,6 +19876,132 @@ function demarrerDefileSelection(){
 function arreterDefileSelection(){
   clearInterval(selectionAccueil.minuteur);
   selectionAccueil.minuteur = null;
+}
+
+
+// ---- Espace équipe : l'audience (sql/mesure-audience.sql) ----
+
+var audienceJours = 30;
+
+const AUDIENCE_PAGES = {
+  accueil: 'Accueil', catalogue: 'Catalogue', artiste: 'Pages artiste', carte: 'Carte', contenu: 'Contenu',
+  soumettre: 'Soumettre une sortie', accreditations: 'Accréditations', 'a-propos': 'À propos', communaute: 'Communauté',
+  profil: 'Mon profil', signalement: 'Signaler un problème', aide: 'Aide et informations', faq: 'FAQ',
+  conditions: "Conditions d'utilisation", confidentialite: 'Confidentialité', mentions: 'Mentions légales'
+};
+
+const AUDIENCE_SOURCES = {
+  direct: 'Direct (lien tapé, favori, appli)', interne: 'Navigation sur le site', google: 'Google', moteur: 'Autres moteurs',
+  instagram: 'Instagram', tiktok: 'TikTok', x: 'X / Twitter', youtube: 'YouTube', facebook: 'Facebook',
+  spotify: 'Spotify', deezer: 'Deezer', autre: 'Autres sites'
+};
+
+const AUDIENCE_APPAREILS = { mobile: 'Téléphone', tablette: 'Tablette', ordinateur: 'Ordinateur' };
+
+function audienceNb(n){
+  return Number(n || 0).toLocaleString('fr-FR');
+}
+
+function audienceListe(titre, lignes){
+
+  const max = Math.max(1, ...lignes.map(l => l[1]));
+
+  return `
+    <div class="aud-boite">
+      <h4>${escapeHtml(titre)}</h4>
+      ${lignes.length
+        ? `<ul class="aud-liste">${lignes.map(([nom, n]) => `<li style="--p:${Math.max(4, Math.round(n / max * 100))}%"><span>${escapeHtml(nom)}</span><b>${audienceNb(n)}</b></li>`).join('')}</ul>`
+        : '<p class="desc" style="margin:0;">Rien pour le moment.</p>'}
+    </div>`;
+}
+
+function audienceHtml(d){
+
+  const t = d.total || { vues: 0, visites: 0 };
+  const jours = d.par_jour || [];
+  const aujourdhui = jours.length ? jours[jours.length - 1] : { visites: 0, vues: 0 };
+  const max = Math.max(1, ...jours.map(j => j.visites));
+  const parVisite = t.visites ? (t.vues / t.visites).toFixed(1).replace('.', ',') : '—';
+
+  if(!t.vues){
+    return `<div class="empty-state">Aucune donnée pour l'instant : les premières visites apparaissent dès que le site est ouvert au public (le portail d'accès testeurs bloque le comptage tant qu'il est fermé).</div>`;
+  }
+
+  const barres = jours.map((j, k) => {
+    const lib = new Date(j.jour + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const titre = `${lib} : ${j.visites} visite${j.visites > 1 ? 's' : ''}, ${j.vues} page${j.vues > 1 ? 's' : ''} vue${j.vues > 1 ? 's' : ''}`;
+    return `<i style="--h:${Math.max(2, Math.round(j.visites / max * 100))}%; --k:${k}" title="${escapeAttribute(titre)}"></i>`;
+  }).join('');
+
+  const debut = jours.length ? new Date(jours[0].jour + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
+
+  return `
+    <div class="aud-cartes">
+      <div class="aud-carte"><b data-compte="${t.visites}">${audienceNb(t.visites)}</b><span>visites sur ${d.jours} jours</span></div>
+      <div class="aud-carte"><b data-compte="${t.vues}">${audienceNb(t.vues)}</b><span>pages vues</span></div>
+      <div class="aud-carte"><b>${parVisite}</b><span>pages par visite</span></div>
+      <div class="aud-carte"><b data-compte="${aujourdhui.visites}">${audienceNb(aujourdhui.visites)}</b><span>visites aujourd'hui</span></div>
+    </div>
+
+    <div class="aud-boite">
+      <h4>Visites par jour</h4>
+      <div class="aud-barres" role="img" aria-label="Visites par jour sur ${d.jours} jours">${barres}</div>
+      <div class="aud-axe"><span>${escapeHtml(debut)}</span><span>aujourd'hui</span></div>
+    </div>
+
+    <div class="aud-listes">
+      ${audienceListe('Pages les plus vues', (d.pages || []).map(x => [AUDIENCE_PAGES[x.page] || x.page, x.vues]))}
+      ${audienceListe("D'où viennent les visites", (d.sources || []).map(x => [AUDIENCE_SOURCES[x.source] || x.source, x.visites]))}
+      ${audienceListe('Appareils', (d.appareils || []).map(x => [AUDIENCE_APPAREILS[x.appareil] || x.appareil, x.vues]))}
+    </div>
+
+    <p class="aud-note">Une « visite » est comptée une fois par onglet ouvert ; une « page vue », à chaque page affichée. Sans identifiant, impossible de distinguer deux personnes : ce sont des visites, pas des visiteurs uniques.</p>`;
+}
+
+async function chargerAudience(jours){
+
+  if(jours) audienceJours = jours;
+
+  const corps = document.getElementById('audienceCorps');
+
+  if(!corps) return;
+
+  document.querySelectorAll('#adminSection-audience .aud-periode button').forEach(b => {
+    b.classList.toggle('on', Number(b.dataset.j) === audienceJours);
+  });
+
+  corps.innerHTML = '<div class="empty-state chargement">Chargement...</div>';
+
+  const { data, error } = await supabaseClient.rpc('mesure_lire', { p_jours: audienceJours });
+
+  if(error){
+    const absent = error.code === 'PGRST202' || /mesure_lire/.test(error.message || '');
+    corps.innerHTML = `<div class="form-msg err">${escapeHtml(absent ? "La mesure d'audience n'est pas encore activée (le SQL n'a pas été passé)." : (error.message || 'Erreur'))}</div>`;
+    return;
+  }
+
+  corps.innerHTML = audienceHtml(data || {});
+
+  corps.querySelectorAll('[data-compte]').forEach(el => animerNombre(el, Number(el.dataset.compte)));
+}
+
+// Un nombre qui monte jusqu'à sa valeur (rien si l'animation est réduite).
+function animerNombre(el, valeur){
+
+  if(!el || !isFinite(valeur) || valeur < 2) return;
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const debut = performance.now();
+  const duree = 900;
+
+  const pas = (t) => {
+    const k = Math.min(1, (t - debut) / duree);
+    const e = 1 - Math.pow(1 - k, 3);
+    el.textContent = Math.round(valeur * e).toLocaleString('fr-FR');
+    if(k < 1) requestAnimationFrame(pas);
+  };
+
+  requestAnimationFrame(pas);
 }
 
 
@@ -22098,6 +22574,7 @@ const ADMIN_TABS = [
   'profils',
   'selection',
   'membres',
+  'audience',
   'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
 
@@ -22193,6 +22670,10 @@ function switchAdminTab(nom){
 
   if(nom === 'selection'){
     chargerSelectionEquipe();
+  }
+
+  if(nom === 'audience'){
+    chargerAudience();
   }
 
   // ACCÈS TESTEURS (TEMPORAIRE)
@@ -28581,6 +29062,11 @@ async function renderAboutStats(){
   igEl.textContent = stats.instagram || '—';
   ttEl.textContent = stats.tiktok || '—';
   twEl.textContent = stats.twitter || '—';
+  // Un chiffre « 1 720 » monte jusqu'à sa valeur ; « 1,7 K » ou « — » restent tels quels.
+  [igEl, ttEl, twEl].forEach(el => {
+    const brut = el.textContent.trim();
+    if(/^[0-9][0-9\s\u202f\u00a0.]*$/.test(brut)) animerNombre(el, Number(brut.replace(/[^0-9]/g, '')));
+  });
   if(stats.updated_at){
     const d = new Date(stats.updated_at);
     updEl.textContent = 'Mis à jour le ' + d.toLocaleDateString('fr-FR') + ' à ' + d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'});
@@ -29274,6 +29760,85 @@ function showPostCanvas(canvas, sub){
 // déclarée plus haut, et les const ne sont pas remontées comme le
 // sont les déclarations de fonction.
 proposerBienvenue();
+
+// ---------------------------------------------------------------------------
+// Animations générales : les blocs entrent à l'écran, une barre suit la lecture.
+// Rien n'est caché si l'observateur manque ou si l'animation est réduite : la classe « anim » n'est posée qu'ensuite.
+// ---------------------------------------------------------------------------
+(function(){
+
+  if(!('IntersectionObserver' in window)) return;
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const CIBLES = [
+    '.section-head', '.news-header', '.news-card', '.hero-cta', '.about-grid > div', '.cat-recherche',
+    '.doc > *', '.aide-carte', '.aud-carte', '.aud-boite', '.eq-groupe'
+  ].join(',');
+
+  const observateur = new IntersectionObserver((entrees) => {
+    entrees.forEach(e => {
+      if(!e.isIntersecting) return;
+      const el = e.target;
+      observateur.unobserve(el);
+      el.classList.add('vu');
+      // Une fois posé, l'élément rend la main à ses propres transitions (survol, ouverture...).
+      setTimeout(() => { el.removeAttribute('data-reveal'); el.classList.remove('vu'); el.style.removeProperty('--rev'); }, 1300);
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+
+  function marquer(racine){
+
+    (racine || document).querySelectorAll(CIBLES).forEach(el => {
+
+      if(el.dataset.revealFait) return;
+      el.dataset.revealFait = '1';
+
+      // Dans un même parent, les frères arrivent en cascade.
+      const frere = Array.prototype.indexOf.call(el.parentNode ? el.parentNode.children : [], el);
+      el.style.setProperty('--rev', Math.min(Math.max(frere, 0), 7) * 70 + 'ms');
+      el.setAttribute('data-reveal', '');
+      observateur.observe(el);
+    });
+  }
+
+  function demarrer(){
+
+    marquer(document);
+    document.documentElement.classList.add('anim');
+
+    // Filet de sécurité : un observateur qui ne répond pas (fenêtre masquée) ne doit jamais laisser une page vide.
+    setTimeout(() => {
+      document.querySelectorAll('.page.active [data-reveal]:not(.vu)').forEach(el => el.classList.add('vu'));
+    }, 3500);
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', demarrer);
+  else demarrer();
+
+  // Les pages qui se dessinent après coup (aide, audience, À propos) sont marquées quand on y arrive.
+  window.addEventListener('hashchange', () => setTimeout(() => marquer(document), 60));
+
+  // La barre de lecture.
+  const barre = document.createElement('div');
+  barre.id = 'progressionLecture';
+  barre.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(barre);
+
+  let attente = false;
+
+  window.addEventListener('scroll', () => {
+    if(attente) return;
+    attente = true;
+    requestAnimationFrame(() => {
+      attente = false;
+      const haut = document.documentElement.scrollTop || document.body.scrollTop;
+      const total = document.documentElement.scrollHeight - window.innerHeight;
+      barre.style.setProperty('--p', total > 0 ? Math.min(1, haut / total).toFixed(4) : 0);
+      barre.classList.toggle('on', haut > 40);
+    });
+  }, { passive: true });
+
+})();
 </script>
 </body>
 </html>
