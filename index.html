@@ -511,6 +511,7 @@
     transition:color .2s var(--ease), background .2s var(--ease);
   }
   .cat-seg button:hover{color:var(--ink);}
+  @media (hover:none){ .cat-seg button{padding:10px 15px;} }
   .cat-seg button.on{background:rgba(255,255,255,0.12); color:var(--ink);}
   .cat-select{
     -webkit-appearance:none; appearance:none; cursor:pointer;
@@ -603,6 +604,9 @@
     background:rgba(255,255,255,0.22); transition:background .25s var(--ease), transform .25s var(--ease);
   }
   .sel-point.on{background:var(--blue-bright); transform:scale(1.25);}
+  /* Un point de 8 px ne se touche pas au doigt : la zone sensible déborde sans changer le dessin. */
+  .sel-point{position:relative;}
+  .sel-point::after{content:''; position:absolute; inset:-14px -6px;}
   @media (max-width:620px){
     .sel-piste{gap:16px;}
     .sel-fleche{width:40px; height:40px; font-size:22px;}
@@ -988,6 +992,7 @@
   .cat-tile:hover .tile-plus, .cat-tile:focus-within .tile-plus, .tile-plus:focus-visible{opacity:1; transform:none;}
   .tile-plus:hover{background:var(--blue);}
   @media (hover:none){ .tile-plus{opacity:1; transform:none; width:30px; height:30px;} }
+  .tile-plus::after{content:''; position:absolute; inset:-8px;}
   @keyframes tilePop{from{opacity:0; transform:scale(.7);} to{opacity:1; transform:none;}}
 
   .ajout-rapide{
