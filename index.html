@@ -793,12 +793,12 @@
   .notif.erreur{border-color:rgba(229,105,92,0.5);}
   .notif-fermer{
     background:none; border:none; color:var(--muted); font-size:15px;
-    padding:0 2px; line-height:1; flex-shrink:0;
+    padding:9px; margin:-9px -7px -9px 0; line-height:1; flex-shrink:0;
   }
   .notif-fermer:hover{color:var(--ink);}
   .notif-actions{display:flex; gap:8px; margin-top:11px; flex-wrap:wrap;}
   .notif-action{
-    font-size:12px; font-weight:600; padding:7px 13px;
+    font-size:12px; font-weight:600; padding:10px 16px;
     border-radius:var(--radius-pill); border:1px solid var(--line);
     background:transparent; color:var(--ink-soft);
   }
@@ -825,6 +825,7 @@
     .notif-zone{
       top:auto; bottom:74px; left:16px; right:16px; max-width:none;
     }
+    .notif-action{padding:13px 18px; font-size:13px;}
     @keyframes notifEntre{
       from{opacity:0; transform:translateY(24px) scale(.96);}
       to{opacity:1; transform:translateY(0) scale(1);}
