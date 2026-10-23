@@ -470,6 +470,7 @@
     .ct-res{flex:1 1 auto; justify-content:center; gap:6px; padding:0 9px; min-width:0;}
     .ct-res small:not([data-recharge]){display:none;}
     .ct-res small[data-recharge]{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+    .ct-res:has(small[data-recharge]){flex:2.4 1 auto;}
     .ct-btn-ico{flex:none;}
     .ct-hero-pack{min-height:236px;}
     .ct-hero-pack .ct-pack{--pk-w:150px;}
@@ -477,10 +478,10 @@
     .ct-onglet .ct-ico{display:none;}
     .ct-hero-actions .ct-btn.grand{flex:1 1 auto; min-height:46px; padding:0 14px;}
     .ct-grille{grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px 9px;}
-    .ct-raretes{gap:5px;}
-    .ct-rar-btn{padding:8px 7px;}
-    .ct-rar-btn .nom{font-size:10px;}
-    .ct-rar-btn .nb{font-size:11.5px;}
+    .ct-raretes{grid-template-columns:repeat(6, minmax(0, 1fr)); gap:6px;}
+    .ct-rar-btn{grid-column:span 2; padding:9px 10px;}
+    .ct-rar-btn:nth-child(n+4){grid-column:span 3;}
+    .ct-prog-droite .lib span:last-child{white-space:nowrap;}
     .ct-legende b{font-size:12.5px;} .ct-legende div{font-size:10.5px;}
     .ct-donne{gap:34px 10px;}
     .ct-serie{gap:4px;}

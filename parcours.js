@@ -2176,6 +2176,7 @@
 
     ouvert.scene.replaceChildren(el);
     ouvert.scene.scrollTop = 0;
+    ouvert.fond.scrollTop = 0;
 
     // L'étape change de hauteur quand son contenu change : on regarde ce qu'elle occupe.
     if(ouvert.observeur){
