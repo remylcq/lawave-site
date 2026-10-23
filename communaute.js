@@ -3366,6 +3366,11 @@ VUES.tag = {
   pause(V){ V.liste.arreter(); }
 };
 
+// Le jeu de cartes n'est ouvert qu'à l'équipe (même règle que l'espace des waveurs, voir waveursOuvertes).
+function equipeCartes(){
+  return typeof window.waveursOuvertes === 'function' && window.waveursOuvertes();
+}
+
 // Le jeu de cartes (cartes.js, sql/cartes.sql) : chargé à la demande, il se dessine dans cette vue.
 VUES.cartes = {
 
@@ -3377,6 +3382,14 @@ VUES.cartes = {
   },
 
   async montrer(V){
+
+    // Fermé au public, comme l'espace des waveurs : seule l'équipe entre.
+    if(!equipeCartes()){
+      if(window.Cartes) window.Cartes.quitter();
+      V.hote.innerHTML = etatVide({ icone: 'cartes', titre: 'Bientôt disponible', texte: 'Le jeu de cartes ouvre prochainement.' });
+      return;
+    }
+
     try{
       await window.chargerCartes();
       await window.Cartes.monter(V.hote);
@@ -6791,6 +6804,7 @@ function majCoque(){
   $('.com-fab', S.coque).hidden = !(route.nom === 'accueil' || route.nom === 'collabs');
 
   majTitreCourant();
+  majBadges();
 }
 
 function enteteHtml(){
@@ -6915,6 +6929,10 @@ function majBadges(){
 
   if(!S.coque) return;
 
+  // L'onglet Cartes n'existe que pour l'équipe.
+  const ouvertCartes = equipeCartes();
+  $$('[data-nav="cartes"]', S.coque).forEach(a => { a.style.display = ouvertCartes ? '' : 'none'; });
+
   ['messages', 'notifications', 'cartes'].forEach(cle => {
     const n = cle === 'cartes' ? (window.cartesPastilleNb || 0) : (S.compteurs[cle] || 0);
     $$('[data-badge="' + cle + '"]', S.coque).forEach(b => {
@@ -6924,7 +6942,7 @@ function majBadges(){
   });
 
   if(typeof window.majBadgeCommunaute === 'function'){
-    window.majBadgeCommunaute((S.compteurs.messages || 0) + (S.compteurs.notifications || 0) + (window.cartesPastilleNb || 0));
+    window.majBadgeCommunaute((S.compteurs.messages || 0) + (S.compteurs.notifications || 0) + (ouvertCartes ? window.cartesPastilleNb || 0 : 0));
   }
 }
 
@@ -9352,7 +9370,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-entete-moi .com-av{width:32px; height:32px; font-size:14px;}
 
   .com-barre{
-    position:fixed; left:0; right:0; bottom:0; z-index:95; display:grid; grid-template-columns:repeat(6, 1fr);
+    position:fixed; left:0; right:0; bottom:0; z-index:95; display:grid; grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:1fr;
     padding:6px 2px calc(6px + env(safe-area-inset-bottom));
     background:rgba(8,11,16,0.9); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
     border-top:1px solid var(--line);
