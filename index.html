@@ -821,6 +821,29 @@
   .faq summary::after{content:'+'; color:var(--blue-bright); font-size:22px; line-height:1; flex-shrink:0;}
   .faq details[open] summary::after{content:'\2013';}
   .faq details p{margin:0 0 16px;}
+  .faq .faq-groupe{
+    font-size:12px; font-weight:600; letter-spacing:.14em; text-transform:uppercase; color:var(--muted);
+    margin:38px 0 8px;
+  }
+  .faq-recherche{position:relative; margin:24px 0 6px;}
+  .faq-recherche svg{position:absolute; left:18px; top:50%; width:18px; height:18px; margin-top:-9px; color:var(--muted); pointer-events:none;}
+  .faq-recherche input{
+    width:100%; padding:15px 20px 15px 48px; border-radius:999px; border:1px solid var(--line);
+    background:var(--bg-alt); color:var(--ink); font:inherit; font-size:16px;
+    transition:border-color .2s, box-shadow .2s, background .2s;
+  }
+  .faq-recherche input:focus{outline:none; border-color:var(--blue-bright); box-shadow:0 0 0 3px rgba(79,180,255,0.18); background:rgba(255,255,255,0.07);}
+  .faq .faq-compte{margin:6px 4px 0; font-size:12px; color:var(--muted); min-height:18px;}
+  .faq .faq-vide{padding:22px; border:1px dashed var(--line); border-radius:14px; text-align:center;}
+  .faq-contact{
+    display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap;
+    margin-top:42px; padding:22px 24px; border:1px solid var(--line); border-radius:var(--radius);
+    background:linear-gradient(135deg, rgba(20,137,222,0.14), rgba(255,255,255,0.03));
+  }
+  .faq-contact > div{display:flex; flex-direction:column; gap:4px; min-width:200px; flex:1;}
+  .faq-contact b{font-size:16px; color:var(--ink);}
+  .faq-contact small{font-size:13px; color:var(--ink-soft); line-height:1.5;}
+  .doc a.btn-primary{color:#fff; text-decoration:none;}
 
   /* ---------- APPEL À L'ACTION DE L'ACCUEIL ---------- */
   .hero-cta{display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin:6px auto 30px;}
@@ -3770,6 +3793,23 @@
   .footer-marque{display:flex; flex-direction:column; gap:3px;}
   .footer-nom{font-weight:700; letter-spacing:-0.01em; color:var(--ink); font-size:15px;}
   .footer-sous{font-size:12px; color:var(--muted);}
+  .footer-droite{display:flex; flex-direction:column; align-items:flex-end; gap:4px;}
+  .footer-prive{
+    display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:0 20px;
+    padding-top:6px; border-top:1px solid var(--line);
+  }
+  .footer-titre{
+    display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:600; letter-spacing:.14em;
+    text-transform:uppercase; color:var(--ink-soft);
+  }
+  .footer-titre svg{width:13px; height:13px; color:var(--blue-bright);}
+  .footer-prive a{position:relative; font-size:13px; color:var(--muted); text-decoration:none; padding:10px 0; transition:color .2s var(--ease);}
+  .footer-prive a::after{
+    content:''; position:absolute; left:0; right:0; bottom:6px; height:1px; background:currentColor;
+    transform:scaleX(0); transform-origin:left; transition:transform .3s var(--ease);
+  }
+  .footer-prive a:hover, .footer-prive a:focus-visible{color:var(--ink);}
+  .footer-prive a:hover::after, .footer-prive a:focus-visible::after{transform:scaleX(1);}
   .footer-liens{display:flex; align-items:center; flex-wrap:wrap; gap:2px 22px;}
   .footer-liens a{
     position:relative; font-size:13px; color:var(--muted); text-decoration:none; padding:11px 0;
@@ -3791,6 +3831,9 @@
   .footer-liens .footer-aide:hover span{transform:translateX(4px);}
   @media (max-width:620px){
     .footer-inner{flex-direction:column; align-items:flex-start;}
+    .footer-droite{align-items:flex-start; width:100%;}
+    .footer-prive{justify-content:flex-start; width:100%;}
+    .footer-titre{flex-basis:100%; padding-top:10px;}
     .footer-liens{gap:0 18px;}
     .footer-liens .footer-aide{margin:8px 0 0;}
   }
@@ -4926,15 +4969,10 @@
           <span class="aide-texte"><b>Signaler un problème</b><small>Un bug, un artiste, une demande sur tes données.</small></span>
           <span class="aide-fleche" aria-hidden="true">→</span>
         </a>
-        <a class="aide-carte" href="#accreditations" onclick="goTo('accreditations'); return false;">
-          <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
-          <span class="aide-texte"><b>Espace photographe</b><small>Les accréditations et les concerts à couvrir.</small></span>
-          <span class="aide-fleche" aria-hidden="true">→</span>
-        </a>
       </div>
 
       <p class="aide-bas">
-        <a href="#admin" onclick="goTo('admin'); return false;">Espace équipe</a>
+        L'espace photographe et l'espace équipe sont en bas de chaque page, sous « Espace privilégié ».
       </p>
     </section>
   </section>
@@ -5060,48 +5098,115 @@
     <section class="doc faq">
       <span class="eyebrow mono">Questions fréquentes</span>
       <h1>FAQ</h1>
-      <p>Une question qui n'est pas ici ? Écris-nous via <a href="#bugreport" onclick="goTo('bugreport'); return false;">Signaler un problème</a>.</p>
+      <p>Les réponses aux questions qu'on nous pose le plus. Cherche un mot, ou parcours les thèmes.</p>
 
-      <details>
-        <summary>C'est quoi La Wave ?</summary>
-        <p>Un média musical qui repère les sons et les artistes avant qu'ils soient partout. Le site archive les sorties, les met en avant, cartographie les artistes et réunit une communauté d'auditeurs, d'artistes, de beatmakers, de photographes et de médias.</p>
-      </details>
-      <details>
-        <summary>Faut-il un compte, et est-ce payant ?</summary>
-        <p>Le catalogue et la carte se parcourent sans compte. Un compte, gratuit, permet de noter les sorties, garder une collection, écrire dans la communauté et gagner de l'XP. Tout le site est gratuit.</p>
-      </details>
-      <details>
-        <summary>Comment créer un compte ?</summary>
-        <p>Clique sur « Créer un compte » : quelques étapes (pseudo, rôle, e-mail et mot de passe), ou une connexion avec Google ou Spotify. Compte deux minutes.</p>
-      </details>
-      <details>
-        <summary>Comment envoyer ma sortie à La Wave ?</summary>
-        <p>La page « Soumettre une sortie » est réservée aux artistes, beatmakers, membres de label, managers et relations presse. Remplis le formulaire (titre, type, pochette, liens d'écoute) : l'équipe relit chaque envoi avant publication.</p>
-      </details>
-      <details>
-        <summary>Mon artiste ou ma sortie n'apparaît pas dans le catalogue</summary>
-        <p>Les discographies sont importées automatiquement depuis Deezer, et le site se concentre sur la scène francophone. Si un artiste ou une sortie manque, ou si une information est fausse, signale-le : nous le vérifions.</p>
-      </details>
-      <details>
-        <summary>Comment obtenir le badge « Profil vérifié » ?</summary>
-        <p>Le badge est attribué par l'équipe après contrôle de ton identité ou de ton média. La démarche se fait depuis ton profil, quand la vérification est ouverte.</p>
-      </details>
-      <details>
-        <summary>Comment fonctionne l'espace photographe ?</summary>
-        <p>Les photographes peuvent s'inscrire aux accréditations proposées pour des concerts. Selon l'événement, les places sont attribuées par tirage au sort, et l'équipe contacte les personnes tirées.</p>
-      </details>
-      <details>
-        <summary>À quoi servent l'XP, les niveaux et les succès ?</summary>
-        <p>Chaque geste utile (noter, commenter, découvrir un artiste, revenir chaque jour) rapporte de l'XP. Elle fait monter ton niveau et débloque des succès. C'est un jeu : cela ne donne aucun avantage financier.</p>
-      </details>
-      <details>
-        <summary>Comment supprimer mon compte ou mes données ?</summary>
-        <p>Écris-nous via « Signaler un problème » en indiquant ta demande. Nous supprimons ton compte et tes contenus personnels, et nous te répondons sous un mois.</p>
-      </details>
-      <details>
-        <summary>Comment signaler un message, un artiste ou un bug ?</summary>
-        <p>Depuis la page « Signaler un problème » (en bas de chaque page) : choisis s'il s'agit du site ou d'un artiste, décris le souci, et ajoute une capture si tu veux.</p>
-      </details>
+      <div class="faq-recherche">
+        <label class="sr-only" for="faqRecherche">Chercher dans la FAQ</label>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="search" id="faqRecherche" placeholder="Chercher une question (compte, photo, carte, XP…)" autocomplete="off" oninput="faqFiltrer(this.value)">
+      </div>
+      <p class="faq-compte" id="faqCompte" aria-live="polite">18 questions</p>
+
+      <section class="faq-bloc" aria-label="Compte et connexion">
+        <h2 class="faq-groupe">Compte et connexion</h2>
+        <details>
+          <summary>Faut-il un compte, et est-ce payant ?</summary>
+          <p>Le catalogue, la carte, le contenu et cette FAQ se parcourent sans compte. Un compte, gratuit, permet de noter les sorties, garder une collection, écrire dans la communauté et gagner de l'XP. Tout le site est gratuit.</p>
+        </details>
+        <details>
+          <summary>Comment créer mon compte ?</summary>
+          <p>Clique sur « Créer un compte » : quelques étapes (pseudo, rôle, e-mail et mot de passe de 8 caractères minimum), ou une connexion avec Google ou Spotify. Ton pseudo est public : 3 à 24 caractères, lettres, chiffres, point, tiret ou tiret bas.</p>
+        </details>
+        <details>
+          <summary>Quel rôle choisir, et à quoi sert-il ?</summary>
+          <p>Le rôle (auditeur, artiste, beatmaker, DJ, photographe, manager, média…) s'affiche sur ton profil et ouvre certaines fonctions : soumettre une sortie (artiste, beatmaker, membre d'un label, manager, relation presse) ou s'inscrire aux accréditations (photographe). Tu peux ajouter jusqu'à deux autres rôles (« Je suis aussi… »). Les annonces « Je cherche / Je propose » s'adressent à ceux qui travaillent dans la musique : l'auditeur simple ne les voit pas.</p>
+        </details>
+        <details>
+          <summary>Je n'arrive pas à me connecter</summary>
+          <p>Vérifie l'adresse e-mail et le mot de passe (8 caractères minimum). Si tu t'es inscrit avec Google ou Spotify, reconnecte-toi avec le même bouton. Toujours bloqué ? Écris-nous via <a href="#bugreport" onclick="goTo('bugreport'); return false;">Signaler un problème</a> en donnant ton adresse e-mail : on regarde ton compte.</p>
+        </details>
+        <details>
+          <summary>Comment supprimer mon compte ou mes données ?</summary>
+          <p>Écris-nous via <a href="#bugreport" onclick="goTo('bugreport'); return false;">Signaler un problème</a> en indiquant ta demande. Nous supprimons ton compte et tes contenus personnels et nous te répondons sous un mois. Le détail est sur la page <a href="#confidentialite" onclick="goTo('confidentialite'); return false;">Confidentialité</a>.</p>
+        </details>
+      </section>
+      <section class="faq-bloc" aria-label="Catalogue, carte et écoute">
+        <h2 class="faq-groupe">Catalogue, carte et écoute</h2>
+        <details>
+          <summary>D'où viennent les sorties du catalogue ?</summary>
+          <p>De deux sources : les discographies des artistes, importées automatiquement depuis Deezer, et les sorties envoyées par les artistes eux-mêmes. L'équipe relit ce qui entre. Une erreur de titre, de pochette ou de date ? Signale-la, nous la corrigeons.</p>
+        </details>
+        <details>
+          <summary>Pourquoi un artiste que je cherche n'apparaît pas ?</summary>
+          <p>Le site se concentre sur la scène francophone : les artistes d'autres scènes sont masqués (sans être supprimés). Si un artiste francophone manque ou a été masqué par erreur, dis-le via <a href="#bugreport" onclick="goTo('bugreport'); return false;">Signaler un problème</a> : l'équipe le rétablit.</p>
+        </details>
+        <details>
+          <summary>Comment retrouver une sortie dans le catalogue ?</summary>
+          <p>Utilise la recherche (titre ou artiste), puis affine par type (single ou projet), par année et par ordre d'affichage. Le « + » sur une pochette l'ajoute rapidement à ta collection. Un clic ouvre la fiche, avec les liens pour écouter sur les plateformes.</p>
+        </details>
+        <details>
+          <summary>À quoi sert la carte des artistes ?</summary>
+          <p>Elle montre d'où viennent les artistes (France, Belgique, Suisse et outre-mer). Clique sur une ville pour voir ses artistes, ou cherche un artiste ou une ville. La ville d'un artiste est celle qu'il indique sur sa page.</p>
+        </details>
+      </section>
+      <section class="faq-bloc" aria-label="Communauté et collection">
+        <h2 class="faq-groupe">Communauté et collection</h2>
+        <details>
+          <summary>Que puis-je faire dans la communauté ?</summary>
+          <p>Publier un message, poser une question, partager un son, réagir et commenter, enregistrer un message pour plus tard, suivre des membres, leur écrire en message privé et chercher des profils par métier ou par ville. Tu retrouves les notifications dans l'onglet « Alertes ».</p>
+        </details>
+        <details>
+          <summary>Comment fonctionnent ma collection et mes notes ?</summary>
+          <p>Sur chaque sortie, tu peux mettre une note à la demi-étoile, écrire un avis, la marquer « J'ai écouté » ou « À écouter », et composer ton podium de trois favoris. Tout se retrouve dans l'onglet Collection de ton profil, avec ton journal d'écoute.</p>
+        </details>
+        <details>
+          <summary>Comment signaler ou bloquer quelqu'un ?</summary>
+          <p>Depuis le menu « … » d'un message ou d'un profil : signaler, ou bloquer (vous ne vous voyez plus). Pour tout autre cas, utilise <a href="#bugreport" onclick="goTo('bugreport'); return false;">Signaler un problème</a>. Les règles sont dans les <a href="#cgu" onclick="goTo('cgu'); return false;">Conditions d'utilisation</a>.</p>
+        </details>
+      </section>
+      <section class="faq-bloc" aria-label="Artistes et sorties">
+        <h2 class="faq-groupe">Artistes et sorties</h2>
+        <details>
+          <summary>Comment envoyer ma sortie à La Wave ?</summary>
+          <p>La page « Soumettre une sortie » est réservée aux comptes artiste, beatmaker, membre d'un label, manager ou relation presse. Remplis le formulaire (titre, type, date, pochette, liens d'écoute) : l'équipe relit chaque envoi avant publication.</p>
+        </details>
+        <details>
+          <summary>Comment gérer ma page artiste ?</summary>
+          <p>Sur la page de ton artiste, clique sur « Demander à la gérer » (il faut être connecté). L'équipe valide la demande ; ensuite « Modifier ma page » te permet de changer le nom affiché, la ville et les réseaux. La photo reste réglée par l'équipe.</p>
+        </details>
+        <details>
+          <summary>Comment obtenir le badge « Profil vérifié » ?</summary>
+          <p>Depuis ton profil, quand la vérification est ouverte : tu envoies une capture d'écran qui prouve ton rôle (ton compte Instagram, ta page artiste, ton site). L'équipe la regarde et valide. La capture est gardée dans un espace privé, vue par l'équipe seulement.</p>
+        </details>
+      </section>
+      <section class="faq-bloc" aria-label="Photographes">
+        <h2 class="faq-groupe">Photographes</h2>
+        <details>
+          <summary>Comment obtenir une accréditation ?</summary>
+          <p>L'espace photographe, réservé aux comptes photographe, liste les concerts pour lesquels La Wave a obtenu des places. Tu t'inscris ; les places sont tirées au sort entre les inscrits, et si tu es tiré, l'équipe te contacte avec les démarches. Ton suivi est dans « Mes accréditations ».</p>
+        </details>
+        <details>
+          <summary>Je voudrais couvrir un concert qui n'est pas dans la liste</summary>
+          <p>Dans l'espace photographe, « Proposer un concert » : indique le concert, le festival ou la salle. L'équipe ira demander l'accréditation. L'espace photographe et l'espace équipe sont en bas de chaque page, sous « Espace privilégié ».</p>
+        </details>
+      </section>
+      <section class="faq-bloc" aria-label="XP, niveaux et succès">
+        <h2 class="faq-groupe">XP, niveaux et succès</h2>
+        <details>
+          <summary>À quoi servent l'XP, les niveaux et les succès ?</summary>
+          <p>Chaque geste utile (noter, commenter, découvrir un artiste, revenir chaque jour) rapporte de l'XP, qui fait monter ton niveau et débloque des succès. Le bouton rond en bas de l'écran montre tes quêtes du jour, ta série de jours et ton objectif de la semaine. C'est un jeu : il ne donne aucun avantage financier.</p>
+        </details>
+      </section>
+
+      <p class="faq-vide" id="faqVide" hidden>Aucune question ne correspond. Écris-nous via <a href="#bugreport" onclick="goTo('bugreport'); return false;">Signaler un problème</a>, on te répond.</p>
+
+      <div class="faq-contact">
+        <div>
+          <b>Tu n'as pas trouvé ta réponse ?</b>
+          <small>Un souci, une question, une demande sur tes données : l'équipe te répond.</small>
+        </div>
+        <a class="btn btn-primary" href="#bugreport" onclick="goTo('bugreport'); return false;">Écrire à l'équipe</a>
+      </div>
     </section>
   </section>
 
@@ -6654,13 +6759,24 @@
       <span class="footer-nom">La Wave</span>
       <span class="footer-sous">Média musical · © 2026</span>
     </div>
-    <!-- Ce qui doit rester visible partout : les mentions légales et la politique de confidentialité. Le reste (FAQ,
-         conditions, à propos, signalement, espaces dédiés) est sur la page « Aide et informations ». -->
-    <nav class="footer-liens" aria-label="Informations légales et aide">
-      <a href="#mentions" onclick="goTo('mentions'); return false;">Mentions légales</a>
-      <a href="#confidentialite" onclick="goTo('confidentialite'); return false;">Confidentialité</a>
-      <a class="footer-aide" href="#aide" onclick="goTo('aide'); return false;">Aide et informations <span aria-hidden="true">→</span></a>
-    </nav>
+    <div class="footer-droite">
+      <!-- Ce qui doit rester visible partout : les mentions légales et la politique de confidentialité. Le reste (FAQ,
+           conditions, à propos, signalement) est sur la page « Aide et informations ». -->
+      <nav class="footer-liens" aria-label="Informations légales et aide">
+        <a href="#mentions" onclick="goTo('mentions'); return false;">Mentions légales</a>
+        <a href="#confidentialite" onclick="goTo('confidentialite'); return false;">Confidentialité</a>
+        <a class="footer-aide" href="#aide" onclick="goTo('aide'); return false;">Aide et informations <span aria-hidden="true">→</span></a>
+      </nav>
+      <!-- Les deux espaces réservés : photographes (accréditations) et équipe. -->
+      <nav class="footer-prive" aria-label="Espace privilégié">
+        <span class="footer-titre">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+          Espace privilégié
+        </span>
+        <a href="#accreditations" onclick="goTo('accreditations'); return false;">Espace photographe</a>
+        <a href="#admin" onclick="goTo('admin'); return false;">Espace équipe</a>
+      </nav>
+    </div>
   </div>
 </footer>
 
@@ -7798,6 +7914,45 @@ const BD = {
   document.addEventListener('portail:leve', () => {
     if(mesureEnAttente){ const p = mesureEnAttente; mesureEnAttente = null; mesureAudience(p); }
   });
+
+  // La FAQ se filtre en tapant : seules les questions qui contiennent les mots restent, un thème sans question disparaît.
+  function faqFiltrer(texte){
+
+    const norme = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const mots = norme(texte).split(/\s+/).filter(Boolean);
+
+    let visibles = 0;
+    let total = 0;
+
+    document.querySelectorAll('#page-faq .faq-bloc').forEach(bloc => {
+
+      let dansLeBloc = 0;
+
+      bloc.querySelectorAll('details').forEach(d => {
+        total++;
+        const contenu = norme(d.textContent);
+        const ok = mots.every(m => contenu.includes(m));
+        d.hidden = !ok;
+        d.open = false;
+        if(ok){ dansLeBloc++; visibles++; }
+      });
+
+      bloc.hidden = dansLeBloc === 0;
+    });
+
+    // Une recherche qui ne laisse que quelques réponses les ouvre directement.
+    if(mots.length && visibles > 0 && visibles <= 3){
+      document.querySelectorAll('#page-faq details:not([hidden])').forEach(d => { d.open = true; });
+    }
+
+    const compte = document.getElementById('faqCompte');
+    const vide = document.getElementById('faqVide');
+
+    if(compte) compte.textContent = mots.length
+      ? visibles + ' réponse' + (visibles > 1 ? 's' : '') + ' sur ' + total
+      : total + ' questions';
+    if(vide) vide.hidden = visibles > 0;
+  }
 
   function goTo(pageId, options){
     const opt = options || {};
