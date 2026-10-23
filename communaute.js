@@ -223,6 +223,17 @@ function metierDuRole(role){
   return ROLE_VERS_METIER[role] || null;
 }
 
+// « Cherche / propose » (profil, annonces) s'adresse à ceux qui travaillent dans la musique : l'auditeur simple,
+// sans autre rôle, ne le voit pas.
+function seulementAuditeur(role, supp){
+  return (!role || role === 'Auditeur / Auditrice') && !(supp && supp.length);
+}
+
+function moiSeulementAuditeur(){
+  const u = moi();
+  return !!u && seulementAuditeur(u.role, u.rolesSupp);
+}
+
 const TYPES_POST = {
   message:  { libelle: 'Message',        icone: 'bulle' },
   question: { libelle: 'Question',       icone: 'question' },
@@ -1938,7 +1949,7 @@ function composerFermeHtml(){
         <button type="button" class="com-type-rapide t-message" data-act="c-ouvrir" data-type="message">${icone('crayon', 17)}<span>Écrire</span></button>
         <button type="button" class="com-type-rapide t-son" data-act="c-ouvrir" data-type="son">${icone('casque', 17)}<span>Partager un son</span></button>
         <button type="button" class="com-type-rapide t-question" data-act="c-ouvrir" data-type="question">${icone('question', 17)}<span>Poser une question</span></button>
-        <button type="button" class="com-type-rapide t-collab" data-act="c-ouvrir" data-type="collab">${icone('collabs', 17)}<span>Chercher ou proposer</span></button>
+        ${moiSeulementAuditeur() ? '' : `<button type="button" class="com-type-rapide t-collab" data-act="c-ouvrir" data-type="collab">${icone('collabs', 17)}<span>Chercher ou proposer</span></button>`}
       </div>
     </div>`;
 }
@@ -1953,7 +1964,7 @@ function composerOuvertHtml(inst){
         ${avatarHtml({ pseudo: u.pseudo, avatar_url: u.avatar }, 'm')}
         <div class="com-comp-zone">
           <div class="com-comp-types" role="radiogroup" aria-label="Type de message">
-            ${Object.keys(TYPES_POST).map(k => `
+            ${Object.keys(TYPES_POST).filter(k => k !== 'collab' || !moiSeulementAuditeur()).map(k => `
               <button type="button" role="radio" class="com-chip t-${k}${inst.type === k ? ' actif' : ''}" data-act="c-type" data-type="${k}" aria-checked="${inst.type === k}">
                 ${icone(TYPES_POST[k].icone, 15)}<span>${esc(TYPES_POST[k].libelle)}</span>
               </button>`).join('')}
@@ -2112,7 +2123,7 @@ function ouvrirComposer(inst, o){
     if(opt.sansAnimation) appliquer(); else animerHauteur(inst.carte, appliquer);
   }
 
-  if(opt.type) definirTypeComposer(inst, opt.type, true);
+  if(opt.type) definirTypeComposer(inst, opt.type === 'collab' && moiSeulementAuditeur() ? 'message' : opt.type, true);
 
   if(opt.image){
     const f = champ(inst, 'fichiers');
@@ -4957,8 +4968,10 @@ function profilEnteteHtml(V){
 
   const banniere = safeUrl(p.banniere_url);
 
+  const auditeur = seulementAuditeur(p.role, p.roles_supp);
+
   const actions = soi
-    ? `<button type="button" class="com-btn com-btn-fantome com-pleine" data-act="profil-modifier">${icone('crayon', 15)} Modifier mes recherches</button>`
+    ? `<button type="button" class="com-btn com-btn-fantome com-pleine" data-act="profil-modifier">${icone('crayon', 15)} ${auditeur ? 'Modifier mon profil' : 'Modifier mes recherches'}</button>`
     : bloque
       ? `<button type="button" class="com-btn com-btn-fantome com-pleine" data-act="debloquer" data-id="${attr(p.id)}">Débloquer</button>`
       : `${boutonSuivre(p, !!rel.suit)}
@@ -5005,7 +5018,7 @@ function profilEnteteHtml(V){
         ${bloque ? `<p class="com-profil-note">${icone('interdit', 16)} Tu as bloqué ce membre. Vous ne vous voyez plus.</p>` : ''}
         ${p.bio && !bloque ? `<p class="com-profil-bio">${esc(p.bio)}</p>` : ''}
 
-        ${!bloque && aDuContenu ? `
+        ${!bloque && !auditeur && aDuContenu ? `
           <div class="com-profil-duo">
             <div class="com-profil-bloc cherche">
               <span class="com-profil-bloc-titre">${icone('loupe', 15)} Cherche</span>
@@ -5019,7 +5032,7 @@ function profilEnteteHtml(V){
 
         ${!bloque && p.genres && p.genres.length ? `<div class="com-profil-styles">${p.genres.map(g => `<span class="com-puce">${esc(g)}</span>`).join('')}</div>` : ''}
 
-        ${soi && !aDuContenu ? `
+        ${soi && !aDuContenu && !auditeur ? `
           <button type="button" class="com-invite-profil" data-act="profil-modifier">
             ${icone('etincelle', 18)}
             <span><b>Dis ce que tu cherches</b><small>Un beatmaker, un vidéaste, un mix… ça aide les autres à te trouver.</small></span>
@@ -5166,19 +5179,28 @@ VUES.membre = {
 
       if(!silencieux){
 
-        const onglets = [{ cle: 'messages', libelle: 'Messages' }, { cle: 'annonces', libelle: 'Annonces' }];
+        // Ordre : Collection, Journal, À écouter, Messages, Annonces, Succès. Les annonces (cherche / propose)
+        // n'existent pas chez l'auditeur simple.
+        let avant = [];
+        let apres = [];
+        const messages = [{ cle: 'messages', libelle: 'Messages' }];
+        if(!seulementAuditeur(V.profil.role, V.profil.roles_supp)) messages.push({ cle: 'annonces', libelle: 'Annonces' });
 
         // La collection est dans un fichier à part : on la charge avant de dessiner les onglets.
         try{
           await preparerCollection(V.profil.id);
           window.Profil.poserFeuille();
-          onglets.push(...window.Profil.onglets(!!V.rel.soi));
+          const profil = window.Profil.onglets(!!V.rel.soi);
+          avant = profil.filter(o => o.cle !== 'succes');
+          apres = profil.filter(o => o.cle === 'succes');
         }catch(erreur){
           console.warn('⚠️ Collection indisponible :', erreur);
         }
 
-        // Chez soi, on arrive sur sa collection : c'est elle que « Mon profil » montrait.
-        if(V.rel.soi && !V.dejaOuvert && V.etat.onglet === 'messages') V.etat.onglet = 'collection';
+        const onglets = [...avant, ...messages, ...apres];
+
+        // On arrive sur la collection, premier onglet, chez soi comme chez les autres.
+        if(!V.dejaOuvert && V.etat.onglet === 'messages' && avant.length) V.etat.onglet = 'collection';
         V.dejaOuvert = true;
 
         // Un onglet réservé à soi n'existe pas chez les autres.
@@ -5404,6 +5426,7 @@ function chipsMetiersHtml(selection, nom){
 async function modifierMonProfil(V){
 
   const p = V.profil;
+  const auditeur = seulementAuditeur(p.role, p.roles_supp);
 
   const etat = {
     cherche: (p.cherche || []).slice(),
@@ -5414,13 +5437,13 @@ async function modifierMonProfil(V){
   const r = await ouvrirDialogue({
     titre: 'Mon profil',
     corps: `
-      <p class="com-dialogue-texte">Dis aux autres qui tu es et ce que tu cherches : c'est ce qui te fait trouver. Ta photo se change sur ton profil ; ton pseudo, ta bio et tes réseaux dans <a href="#profile" data-act="reglages">les réglages du compte</a>.</p>
+      <p class="com-dialogue-texte">${auditeur ? 'Dis aux autres qui tu es.' : "Dis aux autres qui tu es et ce que tu cherches : c'est ce qui te fait trouver."} Ta photo se change sur ton profil ; ton pseudo, ta bio et tes réseaux dans <a href="#profile" data-act="reglages">les réglages du compte</a>.</p>
       <label class="com-champ"><span>Ville ou région</span>
         <input type="text" data-d="ville" maxlength="60" placeholder="Paris, Lyon, Bruxelles…" autocomplete="off"></label>
-      <div class="com-champ"><span>Je cherche <i>(8 au plus)</i></span>
+      ${auditeur ? '' : `<div class="com-champ"><span>Je cherche <i>(8 au plus)</i></span>
         <div class="com-chips-bloc" data-d="cherche">${chipsMetiersHtml(etat.cherche, 'cherche')}</div></div>
       <div class="com-champ"><span>Je propose <i>(8 au plus)</i></span>
-        <div class="com-chips-bloc" data-d="propose">${chipsMetiersHtml(etat.propose, 'propose')}</div></div>
+        <div class="com-chips-bloc" data-d="propose">${chipsMetiersHtml(etat.propose, 'propose')}</div></div>`}
       <div class="com-champ"><span>Mes styles <i>(6 au plus)</i></span>
         <div class="com-styles" data-d="genres"><span class="com-styles-liste"></span>
           <input type="text" data-d="genre-saisie" maxlength="24" placeholder="Trap, boom bap…" autocomplete="off" aria-label="Ajouter un style"></div>
@@ -6761,6 +6784,12 @@ function majTitreCourant(){
 
   const h1 = $('.com-entete-titre', S.coque);
   if(h1) h1.textContent = titre;
+
+  const titrePage = $('[data-com-h1]', S.coque);
+  if(titrePage) titrePage.textContent = (titre && titre !== 'Communauté' ? titre + ' — ' : '') + 'Communauté La Wave';
+
+  // Le titre de l'onglet du navigateur suit la page de la communauté ouverte.
+  if(pageActive()) document.title = (titre && titre !== 'Communauté' ? titre + ' · ' : '') + 'Communauté — La Wave';
 }
 
 // Ce qui change d'une page à l'autre dans la structure : navigation active,
@@ -6812,7 +6841,7 @@ function enteteHtml(){
   return `
     <header class="com-entete">
       <button type="button" class="com-icone-btn com-entete-retour" data-act="retour" aria-label="Retour" hidden>${icone('retour', 22)}</button>
-      <h1 class="com-entete-titre">Communauté</h1>
+      <h2 class="com-entete-titre">Communauté</h2>
       <div class="com-entete-actions">
         <button type="button" class="com-icone-btn" data-act="aller" data-vers="recherche" aria-label="Rechercher">${icone('loupe', 21)}</button>
         <button type="button" class="com-icone-btn com-entete-moi" data-act="menu-moi" aria-label="Mon compte" aria-haspopup="menu" data-puce-mobile></button>
@@ -6841,6 +6870,8 @@ function coqueHtml(){
 
   return `
     <div class="com" data-vue="accueil">
+
+      <h1 class="sr-only" data-com-h1>Communauté La Wave</h1>
 
       <div class="com-haut">
         <nav class="com-dock" aria-label="Navigation de la communauté">
@@ -8057,8 +8088,8 @@ const FEUILLE = String.raw`
 }
 .com-btn:active{transform:translateY(1px) scale(.985);}
 .com-btn[disabled]{opacity:.45; cursor:not-allowed;}
-.com-btn-plein{background:var(--blue); border-color:transparent; color:#fff; box-shadow:var(--ombre-1), var(--reflet-int);}
-.com-btn-plein:hover:not([disabled]){background:#1a97ee; box-shadow:var(--ombre-2), var(--reflet-int);}
+.com-btn-plein{background:#0f78c4; border-color:transparent; color:#fff; box-shadow:var(--ombre-1), var(--reflet-int);}
+.com-btn-plein:hover:not([disabled]){background:var(--blue); box-shadow:var(--ombre-2), var(--reflet-int);}
 .com-btn-plein.danger{background:var(--danger);}
 .com-btn-fantome{background:rgba(255,255,255,0.06); box-shadow:var(--reflet-int);}
 .com-btn-fantome:hover:not([disabled]){background:rgba(255,255,255,0.12); border-color:rgba(255,255,255,0.3);}

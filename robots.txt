@@ -1,0 +1,9 @@
+# La Wave — robots.txt
+#
+# Tant que le portail d'accès testeurs est en place (voir portail.js), chaque page porte
+# <meta name="robots" content="noindex, nofollow"> : rien n'est indexé. Au retrait du portail, la balise
+# disparaît et le site devient indexable, sans autre changement ici.
+User-agent: *
+Allow: /
+
+Sitemap: https://lawave.fr/sitemap.xml

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Page introuvable — La Wave</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#05070a">
+<link rel="icon" type="image/png" sizes="32x32" href="/img/favicon-32.png">
+<link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+<style>
+  @font-face{
+    font-family:'Public Sans'; font-style:normal; font-weight:300 700; font-display:swap;
+    src:url(/lib/fonts/public-sans-latin.woff2) format('woff2');
+    unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+    font-family:'Public Sans', system-ui, sans-serif; color:#F4F5F6; text-align:center;
+    background:radial-gradient(ellipse at 50% 38%, rgba(20,137,222,0.22), rgba(5,7,10,0) 62%), #05070a;
+  }
+  main{max-width:460px;}
+  img{width:96px; height:96px; border-radius:22px; margin-bottom:22px;}
+  .code{font-size:13px; letter-spacing:.14em; color:#838A92; text-transform:uppercase; margin:0 0 10px;}
+  h1{font-size:clamp(28px, 6vw, 38px); letter-spacing:-0.02em; margin:0 0 12px; line-height:1.15;}
+  p{color:#C4C9D0; line-height:1.6; margin:0 0 26px;}
+  .actions{display:flex; gap:12px; justify-content:center; flex-wrap:wrap;}
+  a{
+    display:inline-flex; align-items:center; justify-content:center; min-height:46px; padding:0 24px; border-radius:999px;
+    font-weight:600; text-decoration:none; color:#F4F5F6; border:1px solid rgba(255,255,255,0.22);
+  }
+  a.principal{background:#1489de; border-color:#1489de; color:#fff;}
+  a:hover{filter:brightness(1.12);}
+  a:focus-visible{outline:2px solid #fff; outline-offset:3px;}
+</style>
+</head>
+<body>
+  <main>
+    <img src="/img/icon-192.png" alt="La Wave" width="96" height="96">
+    <p class="code">Erreur 404</p>
+    <h1>Cette page s'est perdue en route</h1>
+    <p>L'adresse demandée n'existe pas, ou plus. Retourne à l'accueil, ou parcours le catalogue des sorties.</p>
+    <div class="actions">
+      <a class="principal" href="/">Retour à l'accueil</a>
+      <a href="/#catalogue">Voir le catalogue</a>
+    </div>
+  </main>
+</body>
+</html>

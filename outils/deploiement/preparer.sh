@@ -14,7 +14,7 @@ dest="${1:-_publication}"
 rm -rf "$dest"
 mkdir -p "$dest"
 
-for f in index.html waveurs.js communaute.js portail.js verification.js parcours.js profil.js xp.js cartes.js; do
+for f in index.html 404.html robots.txt sitemap.xml site.webmanifest waveurs.js communaute.js portail.js verification.js parcours.js profil.js xp.js cartes.js; do
   [ -f "$f" ] || { echo "Fichier manquant : $f" >&2; exit 1; }
   cp "$f" "$dest/$f"
 done
@@ -27,6 +27,11 @@ fi
 # Les matières et les meubles du décor (Poly Haven, ambientCG : CC0), s'il y en a.
 if [ -d decor ]; then
   cp -r decor "$dest/decor"
+fi
+
+# Les images du site : fond, actualité, icônes, aperçu de partage.
+if [ -d img ]; then
+  cp -r img "$dest/img"
 fi
 
 # Les logos des médias vérifiés posés par l'équipe (voir sql/logo-media.sql), s'il y en a.
