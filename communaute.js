@@ -9359,6 +9359,11 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 /* Téléphone : la barre du bas remplace le dock. */
 @media (max-width:760px){
 
+  /* Cibles tactiles d'au moins 34 px de haut (les autres suivent leur contenu). */
+  .com-btn-plein, .com-btn{min-height:34px;}
+  .com-voir-plus, .com-sujet-lien{position:relative;}
+  .com-voir-plus::after, .com-sujet-lien::after{content:''; position:absolute; inset:-9px -4px;}
+
   .com{padding-bottom:130px;}
   .com-haut{display:none;}
   .com-vue, .com-entete{max-width:none;}
