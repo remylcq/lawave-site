@@ -307,6 +307,15 @@ function avatarHtml(u, taille){
   return `<span class="com-av com-av-${t}${classe}" style="--h:${h};${vars}" aria-hidden="true"><b>${esc(artistInitial(pseudo))}</b></span>`;
 }
 
+// Sa propre photo, dans le composeur : un lien vers son profil.
+function avatarMoiHtml(u){
+
+  const pseudo = (u && u.pseudo) || '';
+
+  return `<a class="com-comp-moi" href="#community/membre/${attr(encodeURIComponent(pseudo))}" data-act="membre" data-cle="${attr(pseudo)}"
+              aria-label="Voir mon profil" title="Mon profil">${avatarHtml({ pseudo: u.pseudo, avatar_url: u.avatar }, 'm')}</a>`;
+}
+
 function roleHtml(role, petit){
 
   const r = roleInfo(role || 'Auditeur');
@@ -1942,7 +1951,7 @@ function composerFermeHtml(){
   return `
     <div class="com-comp-ferme">
       <div class="com-comp-haut">
-        ${avatarHtml({ pseudo: u.pseudo, avatar_url: u.avatar }, 'm')}
+        ${avatarMoiHtml(u)}
         <button type="button" class="com-comp-invite" data-act="c-ouvrir">Quoi de neuf, ${esc(u.pseudo)} ?</button>
       </div>
       <div class="com-types-rapides">
@@ -1961,7 +1970,7 @@ function composerOuvertHtml(inst){
   return `
     <div class="com-comp-ouvert">
       <div class="com-comp-ligne">
-        ${avatarHtml({ pseudo: u.pseudo, avatar_url: u.avatar }, 'm')}
+        ${avatarMoiHtml(u)}
         <div class="com-comp-zone">
           <div class="com-comp-types" role="radiogroup" aria-label="Type de message">
             ${Object.keys(TYPES_POST).filter(k => k !== 'collab' || !moiSeulementAuditeur()).map(k => `
@@ -9096,6 +9105,9 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 
 .com-comp-ferme{display:flex; flex-direction:column; align-items:stretch; gap:12px; cursor:default;}
 .com-comp-haut{display:flex; align-items:center; gap:12px;}
+.com-comp-moi{display:inline-flex; flex:none; border-radius:50%; text-decoration:none; transition:transform .25s var(--ease), box-shadow .25s var(--ease);}
+.com-comp-moi:hover{transform:scale(1.08); box-shadow:0 0 0 3px rgba(79,180,255,0.35);}
+.com-comp-moi:focus-visible{outline:2px solid var(--blue-bright); outline-offset:3px;}
 .com-comp-invite{flex:1;}
 .com-types-rapides{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px;}
 .com-type-rapide span{overflow:hidden; text-overflow:ellipsis;}
