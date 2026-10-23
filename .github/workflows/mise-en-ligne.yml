@@ -15,6 +15,11 @@ on:
     branches: [main]
     paths:
       - index.html
+      - 404.html
+      - robots.txt
+      - sitemap.xml
+      - site.webmanifest
+      - img/**
       - waveurs.js
       - communaute.js
       - portail.js

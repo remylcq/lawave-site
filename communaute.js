@@ -6784,6 +6784,12 @@ function majTitreCourant(){
 
   const h1 = $('.com-entete-titre', S.coque);
   if(h1) h1.textContent = titre;
+
+  const titrePage = $('[data-com-h1]', S.coque);
+  if(titrePage) titrePage.textContent = (titre && titre !== 'Communauté' ? titre + ' — ' : '') + 'Communauté La Wave';
+
+  // Le titre de l'onglet du navigateur suit la page de la communauté ouverte.
+  if(pageActive()) document.title = (titre && titre !== 'Communauté' ? titre + ' · ' : '') + 'Communauté — La Wave';
 }
 
 // Ce qui change d'une page à l'autre dans la structure : navigation active,
@@ -6835,7 +6841,7 @@ function enteteHtml(){
   return `
     <header class="com-entete">
       <button type="button" class="com-icone-btn com-entete-retour" data-act="retour" aria-label="Retour" hidden>${icone('retour', 22)}</button>
-      <h1 class="com-entete-titre">Communauté</h1>
+      <h2 class="com-entete-titre">Communauté</h2>
       <div class="com-entete-actions">
         <button type="button" class="com-icone-btn" data-act="aller" data-vers="recherche" aria-label="Rechercher">${icone('loupe', 21)}</button>
         <button type="button" class="com-icone-btn com-entete-moi" data-act="menu-moi" aria-label="Mon compte" aria-haspopup="menu" data-puce-mobile></button>
@@ -6864,6 +6870,8 @@ function coqueHtml(){
 
   return `
     <div class="com" data-vue="accueil">
+
+      <h1 class="sr-only" data-com-h1>Communauté La Wave</h1>
 
       <div class="com-haut">
         <nav class="com-dock" aria-label="Navigation de la communauté">
@@ -8080,8 +8088,8 @@ const FEUILLE = String.raw`
 }
 .com-btn:active{transform:translateY(1px) scale(.985);}
 .com-btn[disabled]{opacity:.45; cursor:not-allowed;}
-.com-btn-plein{background:var(--blue); border-color:transparent; color:#fff; box-shadow:var(--ombre-1), var(--reflet-int);}
-.com-btn-plein:hover:not([disabled]){background:#1a97ee; box-shadow:var(--ombre-2), var(--reflet-int);}
+.com-btn-plein{background:#0f78c4; border-color:transparent; color:#fff; box-shadow:var(--ombre-1), var(--reflet-int);}
+.com-btn-plein:hover:not([disabled]){background:var(--blue); box-shadow:var(--ombre-2), var(--reflet-int);}
 .com-btn-plein.danger{background:var(--danger);}
 .com-btn-fantome{background:rgba(255,255,255,0.06); box-shadow:var(--reflet-int);}
 .com-btn-fantome:hover:not([disabled]){background:rgba(255,255,255,0.12); border-color:rgba(255,255,255,0.3);}

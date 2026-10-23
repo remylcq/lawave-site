@@ -1,11 +1,11 @@
 # Mise en ligne automatique
 
 Chaque fusion sur `main` qui touche un fichier du site (`index.html`, `waveurs.js`, `communaute.js`,
-`portail.js`, `verification.js`, `parcours.js`, `profil.js`, `xp.js`, `cartes.js`, `modeles/`, `decor/`, `lib/`) l'envoie sur l'hébergement OVH par SFTP (SSH, chiffré), puis vérifie que `lawave.fr` sert bien
+`portail.js`, `verification.js`, `parcours.js`, `profil.js`, `xp.js`, `cartes.js`, `404.html`, `robots.txt`, `sitemap.xml`, `site.webmanifest`, `img/`, `modeles/`, `decor/`, `lib/`) l'envoie sur l'hébergement OVH par SFTP (SSH, chiffré), puis vérifie que `lawave.fr` sert bien
 les fichiers envoyés. Le workflow est `.github/workflows/mise-en-ligne.yml`.
 
 **Jamais envoyés :** `sql/` (à passer dans Supabase), `outils/`, `.github/` et le `.htaccess` de la racine (qui reste sur le
-serveur, à la main). Ce qui est déjà sur le serveur sans être dans le dépôt (par exemple `musique/`) n'est pas touché.
+serveur, à la main : après un changement du `.htaccess` du dépôt — page 404, cache, en-têtes de sécurité —, recopier son contenu dans celui de `www/`). Ce qui est déjà sur le serveur sans être dans le dépôt (par exemple `musique/`) n'est pas touché.
 
 Les adresses des scripts reçoivent l'empreinte du fichier à l'envoi (`waveurs.js?v=1a2b3c4d`) : plus de
 numéro `?v=` à augmenter. Dans le dépôt, `index.html` garde son numéro ; sur le site, il porte l'empreinte.

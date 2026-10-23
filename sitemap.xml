@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Le site est une page unique à routage par ancre (#catalogue, #communauté…) : les moteurs de recherche ignorent
+  la partie après « # », seule l'adresse de la racine compte. Des pages indexables par artiste ou par sortie
+  demanderaient un rendu côté serveur.
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://lawave.fr/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>
