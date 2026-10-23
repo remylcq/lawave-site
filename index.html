@@ -12212,7 +12212,7 @@ function majPastilleCartes(etat){
 
 async function jeuPastilleDemarrer(){
 
-  if(!currentUser){ majPastilleCartes(null); return; }
+  if(!currentUser || !waveursOuvertes()){ majPastilleCartes(null); return; }
 
   try{
     const { data, error } = await BD.jeuAppel('jeu_etat');
