@@ -23,6 +23,7 @@ on:
       - waveurs.js
       - communaute.js
       - portail.js
+      - sondage.js
       - verification.js
       - parcours.js
       - profil.js

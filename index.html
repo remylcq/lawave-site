@@ -4959,6 +4959,11 @@
     </section>
   </section>
 
+  <!-- ================= SONDAGE DES TESTEURS (TEMPORAIRE) — rempli par sondage.js ================= -->
+  <section id="page-sondage" class="page">
+    <section class="doc sdg" id="sondageRacine"></section>
+  </section>
+
   <!-- ================= MENTIONS LÉGALES ================= -->
   <section id="page-mentions" class="page">
     <section class="doc">
@@ -5576,6 +5581,13 @@
         role="tab" onclick="switchAdminTab('settings')" title="Chiffres réseaux">
         <svg class="eq-ic" aria-hidden="true"><use href="#eq-reglages"/></svg>
         <span class="admin-tab-label">Réglages</span>
+      </button>
+
+      <!-- SONDAGE DES TESTEURS (TEMPORAIRE) — onglet -->
+      <button type="button" class="admin-tab" id="adminTab-sondage"
+        role="tab" onclick="switchAdminTab('sondage')" title="Réponses au sondage des testeurs (temporaire)">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-etoile"/></svg>
+        <span class="admin-tab-label">Sondage testeurs</span>
       </button>
 
       <!-- ACCÈS TESTEURS (TEMPORAIRE) — onglet -->
@@ -6302,6 +6314,17 @@
   </div>
 
 
+  <!-- SONDAGE DES TESTEURS (TEMPORAIRE) — section, remplie par sondage.js (Sondage.chargerEquipe). -->
+  <div class="admin-section" id="adminSection-sondage">
+    <div class="section-head">
+      <div>
+        <h2>Sondage des testeurs</h2>
+        <p class="desc">Les réponses des testeurs au sondage du site : synthèse par question, réponses libres, détail par testeur, export CSV.</p>
+      </div>
+    </div>
+    <div id="sondageEquipe"></div>
+  </div>
+
   <!-- ACCÈS TESTEURS (TEMPORAIRE) — section. RETRAIT : supprimer jusqu'à « fin ». -->
 
   <div class="admin-section" id="adminSection-acces">
@@ -6809,6 +6832,9 @@
 
 <!-- Version figée (celle servie au 23 octobre 2026) avec son empreinte : une mise à jour de la bibliothèque ne change plus le site
      sans qu'on l'ait choisi, et un fichier altéré serait refusé par le navigateur. -->
+<!-- SONDAGE DES TESTEURS (TEMPORAIRE) : page, bouton flottant et onglet équipe (voir sondage.js) -->
+<script src="sondage.js?v=1"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0" integrity="sha384-UagCvVPT5XXA0Hx+nJYUAGBFseHT9zBgpJMSebsAxl9lciTwbT+39j5VfRjdP5Tp" crossorigin="anonymous"></script>
 
 <script>
@@ -7825,6 +7851,7 @@ const BD = {
       bugreport: 'Signaler un problème',
       admin: 'Espace équipe',
       mentions: 'Mentions légales',
+      sondage: 'Sondage des testeurs',
       confidentialite: 'Politique de confidentialité',
       cgu: "Conditions d'utilisation",
       faq: 'Questions fréquentes',
@@ -8020,6 +8047,8 @@ const BD = {
   if(pageId === 'accreditations') renderAccreditations(); else arreterCompteursAccred();
   if(pageId === 'submit') jouerEntreeSoumission();
   if(pageId === 'bugreport') preparerSignalement();
+  // SONDAGE DES TESTEURS (TEMPORAIRE) : sondage.js remplit la page à l'ouverture.
+  if(pageId === 'sondage' && window.Sondage) window.Sondage.ouvrir();
   // La salle recouvre l'écran : on la ferme dès qu'on quitte la page
   // Communauté, ou qu'on y revient sur l'onglet Communauté. L'onglet
   // Waveurs, lui, ne l'arrête pas (voir afficherOngletCommunaute).
@@ -22738,6 +22767,7 @@ const ADMIN_TABS = [
   'selection',
   'membres',
   'audience',
+  'sondage',   // SONDAGE DES TESTEURS (TEMPORAIRE)
   'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
 
@@ -22839,6 +22869,11 @@ function switchAdminTab(nom){
     chargerAudience();
   }
 
+  // SONDAGE DES TESTEURS (TEMPORAIRE)
+  if(nom === 'sondage' && window.Sondage){
+    window.Sondage.chargerEquipe();
+  }
+
   // ACCÈS TESTEURS (TEMPORAIRE)
   if(nom === 'acces'){
     renderAdminAcces();
@@ -22916,7 +22951,13 @@ function accesMessageInvitation(nom, email, motDePasse){
     'Mot de passe : ' + motDePasse + '\n\n' +
     'Il suffit de saisir ces deux informations sur la première page. ' +
     'Tes identifiants sont personnels : merci de ne pas les partager.\n\n' +
-    "N'hésite pas à me dire tout ce qui te paraît bizarre ou pas clair, c'est tout l'intérêt du test !";
+    'Le but : que tu fasses le tour du site (catalogue, carte, communauté, profil, soumission de sortie…) et que tu me dises franchement ce que tu en penses.\n\n' +
+    '📝 Le sondage : en bas à gauche de chaque page, tu verras un petit bouton bleu « Ton avis ». Il ouvre un sondage qui couvre tout le site, en 16 sections. ' +
+    "Aucune question n'est obligatoire, tout s'enregistre au fur et à mesure et tu peux t'arrêter et reprendre quand tu veux (compte 15 à 25 minutes en tout). " +
+    'Tu peux y revenir autant de fois que tu veux pour compléter ou modifier tes réponses.\n\n' +
+    'Lien direct vers le sondage : ' + accesAdresseSite() + '#sondage\n\n' +
+    "Et si tu tombes sur un bug ou un truc bizarre, dis-le-moi tout de suite (ou via « Signaler un problème » en bas du site) : c'est tout l'intérêt du test !\n\n" +
+    'Merci pour ton aide 🙏';
 }
 
 
