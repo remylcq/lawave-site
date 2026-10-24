@@ -1252,7 +1252,7 @@
     preremplirContacts();
 
     // La bienvenue des visiteurs n'a plus lieu d'être.
-    document.querySelectorAll('#notifZone .notif.invitation').forEach(n => n.remove());
+    document.querySelectorAll('#notifZone .notif-invitation').forEach(n => n.remove());
     if(typeof fermerBienvenue === 'function') fermerBienvenue();
 
     // Le catalogue se prépare pendant que la photo se choisit.
@@ -2664,7 +2664,7 @@
     requestAnimationFrame(() => requestAnimationFrame(() => fond.classList.add('ouvert')));
 
     // La bienvenue des visiteurs a fait son office.
-    document.querySelectorAll('#notifZone .notif.invitation').forEach(n => n.remove());
+    document.querySelectorAll('#notifZone .notif-invitation').forEach(n => n.remove());
     if(typeof fermerBienvenue === 'function') fermerBienvenue();
 
     // Ce qui servira plus loin se prépare déjà.

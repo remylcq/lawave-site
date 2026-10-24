@@ -926,15 +926,6 @@
     @keyframes footEntre{from{opacity:0;}}
   }
 
-  /* La barre de lecture : un filet bleu tout en haut, qui suit le défilement de la page. */
-  #progressionLecture{
-    position:fixed; top:0; left:0; right:0; height:2px; z-index:950; pointer-events:none;
-    background:linear-gradient(90deg, #0f78c4, var(--blue-bright));
-    transform:scaleX(var(--p, 0)); transform-origin:left; opacity:0; transition:opacity .3s;
-  }
-  #progressionLecture.on{opacity:.9;}
-  @media (prefers-reduced-motion:reduce){ #progressionLecture{display:none;} }
-
   /* ---------- PAGE AIDE ---------- */
   .aide-grille{display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin:26px 0 22px;}
   .aide-carte{
@@ -955,71 +946,68 @@
   .doc .aide-bas a{color:var(--muted); text-decoration:none;}
   .doc .aide-bas a:hover{color:var(--ink);}
 
-  /* ---------- NOTIFICATIONS ---------- */
+  /* ---------- NOTIFICATIONS ----------
+     Une carte sobre : un petit repère de couleur, un titre, un détail discret. Ni emoji, ni bordure colorée. */
   .notif-zone{
-    position:fixed; top:82px; right:20px; z-index:400;
-    display:flex; flex-direction:column; gap:10px;
-    pointer-events:none; max-width:330px;
+    position:fixed; top:84px; right:20px; z-index:400;
+    display:flex; flex-direction:column; gap:8px;
+    pointer-events:none; width:min(340px, calc(100vw - 32px));
   }
   .notif{
-    display:flex; align-items:flex-start; gap:12px; pointer-events:auto;
-    padding:14px 16px; border-radius:var(--radius);
-    background:rgba(13,17,22,0.92); border:1px solid var(--line);
-    box-shadow:0 12px 40px rgba(0,0,0,0.45);
-    backdrop-filter:blur(var(--glass-blur));
-    -webkit-backdrop-filter:blur(var(--glass-blur));
-    animation:notifEntre .32s cubic-bezier(.2,.9,.3,1.2);
+    display:flex; align-items:flex-start; gap:11px; pointer-events:auto; cursor:pointer;
+    padding:12px 14px; border-radius:14px;
+    background:#0d1117; border:1px solid var(--line);
+    box-shadow:0 8px 24px rgba(0,0,0,0.35);
+    animation:notifEntre .3s var(--ease) both;
   }
-  .notif.sortie{animation:notifSort .28s ease forwards;}
-  .notif-icone{font-size:20px; line-height:1.1; flex-shrink:0;}
+  .notif.sortie{animation:notifSort .24s ease forwards;}
+  .notif-marque{flex:none; width:8px; height:8px; margin-top:6px; border-radius:50%; background:var(--muted);}
+  .notif-xp .notif-marque, .notif-invitation .notif-marque{background:var(--blue-bright);}
+  .notif-succes .notif-marque{background:#4cc38a;}
+  .notif-erreur .notif-marque{background:#e5695c;}
   .notif-texte{flex:1; min-width:0;}
-  .notif-titre{font-size:14px; font-weight:600; color:var(--ink); margin:0;}
-  .notif-detail{font-size:12px; color:var(--muted); margin:3px 0 0;}
-  .notif.xp{border-color:rgba(245,179,1,0.45);}
-  .notif.xp .notif-titre{color:#f5b301;}
-  .notif.succes{border-color:rgba(46,160,90,0.45);}
-  .notif.erreur{border-color:rgba(229,105,92,0.5);}
+  .notif-titre{font-size:13.5px; line-height:1.4; font-weight:500; color:var(--ink); margin:0;}
+  .notif-detail{font-size:12.5px; line-height:1.45; color:var(--muted); margin:2px 0 0;}
   .notif-fermer{
-    background:none; border:none; color:var(--muted); font-size:15px;
-    padding:9px; margin:-9px -7px -9px 0; line-height:1; flex-shrink:0;
+    background:none; border:none; color:var(--muted); font-size:13px;
+    padding:9px; margin:-8px -8px -8px 0; line-height:1; flex-shrink:0; cursor:pointer;
   }
   .notif-fermer:hover{color:var(--ink);}
-  .notif-actions{display:flex; gap:8px; margin-top:11px; flex-wrap:wrap;}
+  .notif-actions{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
   .notif-action{
-    font-size:12px; font-weight:600; padding:10px 16px;
+    font-size:12.5px; font-weight:600; padding:9px 15px; cursor:pointer;
     border-radius:var(--radius-pill); border:1px solid var(--line);
     background:transparent; color:var(--ink-soft);
   }
   .notif-action:hover{color:var(--ink); border-color:var(--ink-soft);}
-  .notif-action.primaire{
-    background:var(--blue); border-color:var(--blue); color:#fff;
-  }
+  .notif-action.primaire{background:#0f78c4; border-color:#0f78c4; color:#fff;}
   .notif-action.primaire:hover{background:var(--blue-deep); border-color:var(--blue-deep);}
-  .notif.invitation{border-color:rgba(20,137,222,0.5);}
 
   @keyframes notifEntre{
-    from{opacity:0; transform:translateX(28px) scale(.96);}
-    to{opacity:1; transform:translateX(0) scale(1);}
+    from{opacity:0; transform:translateY(-8px);}
+    to{opacity:1; transform:none;}
   }
   @keyframes notifSort{
-    to{opacity:0; transform:translateX(28px) scale(.96);}
+    to{opacity:0; transform:translateY(-6px);}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .notif, .notif.sortie{animation-duration:.01s;}
   }
 
-  /* Sur mobile, la pile passe en bas : le pouce y accède, et elle
-     ne masque pas l'en-tête. */
+  /* Sur mobile, la pile passe en bas : le pouce y accède, et elle ne masque pas l'en-tête. */
   @media (max-width:620px){
-    /* Posée au-dessus du bouton rond des défis du jour (44 px, à 16 px
-       du bas, dans le coin droit) : une notification le masquerait. */
+    /* Posée au-dessus du bouton rond des défis du jour (44 px, à 16 px du bas, dans le coin droit) et de la barre
+       d'onglets de la communauté : une notification les masquerait. */
     .notif-zone{
-      top:auto; bottom:74px; left:16px; right:16px; max-width:none;
+      top:auto; bottom:calc(76px + env(safe-area-inset-bottom)); left:16px; right:16px; width:auto;
     }
-    .notif-action{padding:13px 18px; font-size:13px;}
+    .notif-action{padding:12px 18px; font-size:13px;}
     @keyframes notifEntre{
-      from{opacity:0; transform:translateY(24px) scale(.96);}
-      to{opacity:1; transform:translateY(0) scale(1);}
+      from{opacity:0; transform:translateY(12px);}
+      to{opacity:1; transform:none;}
     }
     @keyframes notifSort{
-      to{opacity:0; transform:translateY(24px) scale(.96);}
+      to{opacity:0; transform:translateY(8px);}
     }
   }
 
@@ -3794,48 +3782,42 @@
   .footer-nom{font-weight:700; letter-spacing:-0.01em; color:var(--ink); font-size:15px;}
   .footer-sous{font-size:12px; color:var(--muted);}
   .footer-droite{display:flex; flex-direction:column; align-items:flex-end; gap:4px;}
-  .footer-prive{
-    display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:0 20px;
-    padding-top:6px; border-top:1px solid var(--line);
-  }
+  /* Les deux rangées (liens légaux, espace privilégié) suivent les mêmes règles : mêmes hauteurs, même corps de texte,
+     même trait qui se dessine au survol. */
+  .footer-liens, .footer-prive{display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:0 24px;}
+  .footer-prive{padding-top:6px; border-top:1px solid var(--line);}
   .footer-titre{
-    display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:600; letter-spacing:.14em;
-    text-transform:uppercase; color:var(--ink-soft);
+    display:inline-flex; align-items:center; gap:7px; min-height:40px; font-size:11px; font-weight:600; line-height:1;
+    letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft);
   }
-  .footer-titre svg{width:13px; height:13px; color:var(--blue-bright);}
-  .footer-prive a{position:relative; font-size:13px; color:var(--muted); text-decoration:none; padding:10px 0; transition:color .2s var(--ease);}
-  .footer-prive a::after{
-    content:''; position:absolute; left:0; right:0; bottom:6px; height:1px; background:currentColor;
+  .footer-titre svg{width:12px; height:12px; flex:none; color:var(--blue-bright);}
+  .footer-liens a, .footer-prive a{
+    position:relative; display:inline-flex; align-items:center; gap:8px; min-height:40px;
+    font-size:13px; line-height:1; color:var(--muted); text-decoration:none; transition:color .2s var(--ease);
+  }
+  .footer-liens a::after, .footer-prive a::after{
+    content:''; position:absolute; left:0; right:0; bottom:8px; height:1px; background:currentColor;
     transform:scaleX(0); transform-origin:left; transition:transform .3s var(--ease);
   }
-  .footer-prive a:hover, .footer-prive a:focus-visible{color:var(--ink);}
+  .footer-liens a:hover, .footer-liens a:focus-visible, .footer-prive a:hover, .footer-prive a:focus-visible{color:var(--ink);}
+  .footer-liens a:hover::after, .footer-liens a:focus-visible::after,
   .footer-prive a:hover::after, .footer-prive a:focus-visible::after{transform:scaleX(1);}
-  .footer-liens{display:flex; align-items:center; flex-wrap:wrap; gap:2px 22px;}
-  .footer-liens a{
-    position:relative; font-size:13px; color:var(--muted); text-decoration:none; padding:11px 0;
-    transition:color .2s var(--ease);
-  }
-  /* Un trait qui se dessine sous le lien au survol. */
-  .footer-liens a:not(.footer-aide)::after{
-    content:''; position:absolute; left:0; right:0; bottom:7px; height:1px; background:currentColor;
-    transform:scaleX(0); transform-origin:left; transition:transform .3s var(--ease);
-  }
-  .footer-liens a:hover, .footer-liens a:focus-visible{color:var(--ink);}
-  .footer-liens a:hover::after, .footer-liens a:focus-visible::after{transform:scaleX(1);}
-  .footer-liens .footer-aide{
-    color:var(--ink-soft); border:1px solid var(--line); border-radius:999px; padding:9px 16px; margin-left:4px;
-    background:var(--bg-alt); transition:color .2s, border-color .2s, background .2s, transform .2s var(--ease);
-  }
+  .footer-liens .footer-aide{color:var(--ink-soft);}
   .footer-liens .footer-aide span{display:inline-block; transition:transform .25s var(--ease);}
-  .footer-liens .footer-aide:hover{border-color:rgba(255,255,255,0.3); background:rgba(255,255,255,0.08);}
   .footer-liens .footer-aide:hover span{transform:translateX(4px);}
+  /* Téléphone : tout part du même bord gauche ; deux colonnes égales pour que « Confidentialité » et « Espace équipe »
+     démarrent au même endroit. */
   @media (max-width:620px){
-    .footer-inner{flex-direction:column; align-items:flex-start;}
-    .footer-droite{align-items:flex-start; width:100%;}
-    .footer-prive{justify-content:flex-start; width:100%;}
-    .footer-titre{flex-basis:100%; padding-top:10px;}
-    .footer-liens{gap:0 18px;}
-    .footer-liens .footer-aide{margin:8px 0 0;}
+    .footer-inner{flex-direction:column; align-items:stretch; gap:8px;}
+    .footer-droite{align-items:stretch; width:100%; gap:0;}
+    .footer-liens, .footer-prive{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); justify-content:start; column-gap:16px; width:100%;}
+    .footer-liens .footer-aide, .footer-titre{grid-column:1 / -1;}
+    .footer-liens .footer-aide{justify-self:start;}
+    .footer-prive{margin-top:6px; padding-top:8px;}
+  }
+  /* Sur téléphone, la barre d'onglets de la communauté est fixée en bas : le pied de page remonte pour passer au-dessus. */
+  @media (max-width:760px){
+    body:has(#page-community.active) footer{padding-bottom:calc(92px + env(safe-area-inset-bottom));}
   }
 
   /* =====================================================================
@@ -6765,13 +6747,13 @@
       <nav class="footer-liens" aria-label="Informations légales et aide">
         <a href="#mentions" onclick="goTo('mentions'); return false;">Mentions légales</a>
         <a href="#confidentialite" onclick="goTo('confidentialite'); return false;">Confidentialité</a>
-        <a class="footer-aide" href="#aide" onclick="goTo('aide'); return false;">Aide et informations <span aria-hidden="true">→</span></a>
+        <a class="footer-aide" href="#aide" onclick="goTo('aide'); return false;">Aide et informations<span aria-hidden="true">→</span></a>
       </nav>
       <!-- Les deux espaces réservés : photographes (accréditations) et équipe. -->
       <nav class="footer-prive" aria-label="Espace privilégié">
         <span class="footer-titre">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
           Espace privilégié
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
         </span>
         <a href="#accreditations" onclick="goTo('accreditations'); return false;">Espace photographe</a>
         <a href="#admin" onclick="goTo('admin'); return false;">Espace équipe</a>
@@ -15049,20 +15031,27 @@ function notifier(titre, options){
   const zone = zoneNotifications();
 
   const notif = document.createElement('div');
-  notif.className = 'notif ' + (opt.type || 'info');
+  // Préfixée : « succes » seul est déjà le nom des cartes de succès, dont le fond transparent s'appliquait ici.
+  notif.className = 'notif notif-' + (opt.type || 'info');
 
   // Boutons optionnels, pour les messages qui appellent une action
   // plutôt qu'une simple lecture.
   const actions = opt.actions || [];
 
+  // Le repère de couleur dit le genre du message (l'option « icone » des appelants n'est plus affichée). Un message
+  // qui attend une décision garde sa croix ; les autres se ferment d'un clic sur la carte.
+  const decision = !!(opt.persistant || actions.length);
+
+  notif.setAttribute('role', opt.type === 'erreur' ? 'alert' : 'status');
+
   notif.innerHTML = `
-    <span class="notif-icone">${opt.icone || '🔔'}</span>
+    <span class="notif-marque" aria-hidden="true"></span>
     <div class="notif-texte">
       <p class="notif-titre">${escapeHtml(titre)}</p>
       ${opt.detail ? `<p class="notif-detail">${escapeHtml(opt.detail)}</p>` : ''}
       ${actions.length ? `<div class="notif-actions"></div>` : ''}
     </div>
-    <button type="button" class="notif-fermer" aria-label="Fermer">✕</button>`;
+    ${decision ? '<button type="button" class="notif-fermer" aria-label="Fermer">✕</button>' : ''}`;
 
   const fermer = () => {
     if(!notif.isConnected) return;
@@ -15087,7 +15076,9 @@ function notifier(titre, options){
     });
   }
 
-  notif.querySelector('.notif-fermer').addEventListener('click', fermer);
+  const croix = notif.querySelector('.notif-fermer');
+  if(croix) croix.addEventListener('click', fermer);
+  else notif.addEventListener('click', fermer);
   zone.appendChild(notif);
 
   // Une notification persistante attend une décision : elle ne
@@ -29972,26 +29963,6 @@ proposerBienvenue();
 
   // Les pages qui se dessinent après coup (aide, audience, À propos) sont marquées quand on y arrive.
   window.addEventListener('hashchange', () => setTimeout(() => marquer(document), 60));
-
-  // La barre de lecture.
-  const barre = document.createElement('div');
-  barre.id = 'progressionLecture';
-  barre.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(barre);
-
-  let attente = false;
-
-  window.addEventListener('scroll', () => {
-    if(attente) return;
-    attente = true;
-    requestAnimationFrame(() => {
-      attente = false;
-      const haut = document.documentElement.scrollTop || document.body.scrollTop;
-      const total = document.documentElement.scrollHeight - window.innerHeight;
-      barre.style.setProperty('--p', total > 0 ? Math.min(1, haut / total).toFixed(4) : 0);
-      barre.classList.toggle('on', haut > 40);
-    });
-  }, { passive: true });
 
 })();
 </script>
