@@ -649,7 +649,6 @@ function toast(titre, options){
 
   notifier(titre, {
     type: o.type || 'succes',
-    icone: o.icone || (o.type === 'erreur' ? '⚠️' : '✓'),
     detail: o.detail,
     duree: o.duree || 3200
   });
@@ -9420,7 +9419,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-barre{
     position:fixed; left:0; right:0; bottom:0; z-index:95; display:grid; grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:1fr;
     padding:6px 2px calc(6px + env(safe-area-inset-bottom));
-    background:rgba(8,11,16,0.9); backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
+    background:#090c11; box-shadow:0 -10px 24px rgba(0,0,0,0.45);
     border-top:1px solid var(--line);
   }
   .com-barre .com-nav-item{flex-direction:column; gap:3px; padding:8px 0 6px; border-radius:14px; font-size:10px; background:none; min-width:0;}

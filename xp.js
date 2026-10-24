@@ -284,7 +284,7 @@
       const libelles = [];
       gains.forEach(e => { if(!libelles.includes(e.donnees.libelle)) libelles.push(e.donnees.libelle); });
       file.push({ sorte: 'toast', titre: '+' + total + ' XP', options: {
-        type: 'xp', icone: '⚡', detail: libelles.slice(0, 2).join(' · ') + (libelles.length > 2 ? ' · …' : ''), duree: 3200 }});
+        type: 'xp', detail: libelles.slice(0, 2).join(' · ') + (libelles.length > 2 ? ' · …' : ''), duree: 2600 }});
     }
 
     evenements.forEach(e => {
@@ -292,22 +292,22 @@
       const d = e.donnees || {};
 
       if(e.type === 'quete'){
-        file.push({ sorte: 'toast', titre: 'Quête accomplie', options: { type: 'succes', icone: '✓', detail: d.libelle + ' · +' + d.xp + ' XP', duree: 4000 }});
+        file.push({ sorte: 'toast', titre: 'Quête accomplie', options: { type: 'succes', detail: d.libelle + ' · +' + d.xp + ' XP', duree: 3600 }});
       }
       else if(e.type === 'coffre'){
-        file.push({ sorte: 'toast', titre: 'Trois quêtes faites', options: { type: 'succes', icone: '🎁', detail: 'Bonus du jour : +' + d.xp + ' XP', duree: 4500 }});
+        file.push({ sorte: 'toast', titre: 'Trois quêtes faites', options: { type: 'succes', detail: 'Bonus du jour : +' + d.xp + ' XP', duree: 3600 }});
       }
       else if(e.type === 'cosmetique'){
-        file.push({ sorte: 'toast', titre: 'Nouveau cosmétique', options: { type: 'succes', icone: '✨', detail: d.nom + ' : à équiper dans la garde-robe', duree: 5000 }});
+        file.push({ sorte: 'toast', titre: 'Nouveau cosmétique', options: { type: 'succes', detail: d.nom + ' : à équiper dans la garde-robe', duree: 4200 }});
       }
       else if(e.type === 'saison_gel'){
-        file.push({ sorte: 'toast', titre: 'Gel de série gagné', options: { type: 'succes', icone: '❄️', detail: 'Palier ' + d.palier + ' de la saison : un jour manqué ne casse plus ta série', duree: 5000 }});
+        file.push({ sorte: 'toast', titre: 'Gel de série gagné', options: { type: 'succes', detail: 'Palier ' + d.palier + ' de la saison : un jour manqué ne casse plus ta série', duree: 4200 }});
       }
       else if(e.type === 'pepite'){
-        file.push({ sorte: 'toast', titre: 'Pépite repérée', options: { type: 'succes', icone: '💎', detail: 'Tu avais noté « ' + d.titre + ' » avant tout le monde', duree: 5000 }});
+        file.push({ sorte: 'toast', titre: 'Pépite repérée', options: { type: 'succes', detail: 'Tu avais noté « ' + d.titre + ' » avant tout le monde', duree: 4200 }});
       }
       else if(e.type === 'succes'){
-        file.push({ sorte: 'toast', titre: 'Succès : ' + d.nom, options: { type: 'succes', icone: d.icone, detail: d.description + ' · +' + d.xp + ' XP', duree: 5000 }});
+        file.push({ sorte: 'toast', titre: 'Succès : ' + d.nom, options: { type: 'succes', detail: d.description + ' · +' + d.xp + ' XP', duree: 4200 }});
       }
       else if(e.type === 'niveau'){
         file.unshift({ sorte: 'niveau', niveau: d.niveau, titre: d.titre });
