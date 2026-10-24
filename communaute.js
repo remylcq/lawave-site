@@ -209,20 +209,6 @@ function reaction(cle){
   return REACTIONS.find(r => r.cle === cle) || null;
 }
 
-// Le rôle d'un profil, en métier (ce que l'on cherche, ce que l'on propose).
-const ROLE_VERS_METIER = {
-  'Artiste': 'artiste', 'Beatmaker': 'beatmaker', 'DJ': 'dj',
-  'Photographe': 'photographe', 'Manager': 'manager',
-  "Membre d'un label": 'label', 'Relation presse': 'media',
-  'Média / Presse': 'media', 'Autre': 'autre',
-  'Musicien / Musicienne': 'musicien', 'Ingénieur son': 'ingenieur',
-  'Danseur / Danseuse': 'danse', 'Graphiste': 'da'
-};
-
-function metierDuRole(role){
-  return ROLE_VERS_METIER[role] || null;
-}
-
 // « Cherche / propose » (profil, annonces) s'adresse à ceux qui travaillent dans la musique : l'auditeur simple,
 // sans autre rôle, ne le voit pas.
 function seulementAuditeur(role, supp){
