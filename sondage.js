@@ -31,7 +31,7 @@
 
   // ===================================================================
   // LE QUESTIONNAIRE
-  // t : note (1 à 5, ou « pas testé »), choix (une réponse), multi (plusieurs), texte, nps (0 à 10)
+  // t : note (1 à 5, ou « pas testé »), choix (une réponse), multi (plusieurs), texte
   // ===================================================================
 
   const note = (id, q) => ({ id, q, t: 'note' });
@@ -48,19 +48,18 @@
         choix('navigateur', 'Quel navigateur utilises-tu le plus ?', 'Chrome|Safari|Firefox|Edge|Samsung Internet|Autre'),
         choix('profil', 'Quel est ton profil ?', "Auditeur / Auditrice|Artiste|Beatmaker|DJ|Photographe|Manager|Membre d'un label|Média / Presse|Autre"),
         choix('decouverte', 'À quelle fréquence cherches-tu de nouveaux artistes ou de nouvelles sorties ?', 'Tous les jours|Plusieurs fois par semaine|Une fois par semaine|Rarement|Jamais'),
-        multi('plateformes', "Où écoutes-tu ta musique d'habitude ?", 'Spotify|Deezer|Apple Music|YouTube Music|SoundCloud|Instagram|TikTok|Autre'),
         choix('duree', 'Combien de temps as-tu passé sur le site, en tout ?', "Moins de 10 minutes|10 à 30 minutes|30 à 60 minutes|Plus d'une heure"),
-        multi('pages', 'Quelles parties du site as-tu parcourues ?', 'Accueil|Catalogue|Fiches artistes|Carte|Soumettre une sortie|Accréditations|Contenu|Communauté|Profil et collection|Inscription / connexion|Aide et FAQ')
+        multi('pages', 'Quelles parties du site as-tu parcourues ?', 'Accueil|Catalogue|Fiches artistes|Carte|Soumettre une sortie|Accréditations|Contenu|Communauté|Profil et collection|Inscription / connexion|Aide et FAQ', 'Seules les sections des parties que tu coches s\'ouvrent ensuite.')
       ] },
 
     { id: 'impression', titre: 'Première impression', court: 'Impression',
       intro: "Ce que tu as pensé, juste en arrivant, avant d'avoir cliqué partout.",
       q: [
         note('globale', 'Ta première impression, en général'),
-        choix('compris', "En arrivant, as-tu compris ce qu'est La Wave ?", 'Oui, tout de suite|Oui, après quelques instants|Pas vraiment|Pas du tout'),
+        choix('compris', "En arrivant, as-tu compris ce que propose le site de La Wave ?", 'Oui, tout de suite|Oui, après quelques instants|Pas vraiment|Pas du tout'),
         multi('mots', 'Quels mots décrivent le mieux le site ?', 'Moderne|Clair|Chargé|Original|Professionnel|Confus|Lent|Chaleureux|Froid|Sobre|Communautaire|Utile|Ennuyeux|Fluide', "Choisis-en autant que tu veux."),
         note('portail', "L'écran d'accès (adresse e-mail + mot de passe) : était-il simple ?"),
-        texte('phrase', 'Comment décrirais-tu La Wave à un ami, en une phrase ?')
+        texte('phrase', 'Comment décrirais-tu le site de La Wave à un ami, en une phrase ?')
       ] },
 
     { id: 'design', titre: 'Design et navigation', court: 'Design',
@@ -105,19 +104,17 @@
       q: [
         note('artiste', "La page d'un artiste dans son ensemble"),
         multi('manque', 'Que voudrais-tu y trouver en plus ?', "Une biographie|Des photos|Les concerts à venir|Les réseaux sociaux|Les titres les plus écoutés|Les prochaines sorties|Des interviews|Les artistes similaires|Rien de plus"),
-        note('avis', "La note et l'avis sur un artiste"),
         choix('suivre', "Suivre des artistes pour ne rien rater de leurs sorties t'intéresserait ?", 'Oui, beaucoup|Un peu|Pas vraiment|Non'),
         texte('artiste_texte', 'Autre chose sur les pages artistes ?')
       ] },
 
     { id: 'carte', titre: 'La carte des artistes', court: 'Carte',
-      intro: 'La carte interactive, avec sa recherche par artiste ou par ville et son onglet Outre-mer.',
+      intro: 'La carte interactive, avec sa recherche par artiste ou par ville.',
       q: [
         note('carte', 'La carte dans son ensemble'),
         choix('fluide', 'La carte est-elle fluide ?', "Oui, très|Ça va|Ça rame un peu|Elle plante ou ne s'affiche pas|Je ne l'ai pas testée"),
         note('carte_recherche', 'La recherche sur la carte (artiste, ville)'),
         note('panneau', "Le panneau d'infos quand on choisit une ville ou un artiste"),
-        choix('outremer', "L'onglet Outre-mer", "Utile|Je ne l'ai pas vu|Pas utile"),
         choix('carte_usage', 'La carte te servirait à…', "Découvrir des artistes près de chez moi|Voir où se trouvent les artistes que j'aime|Repérer des artistes pour collaborer|Rien de particulier"),
         texte('carte_texte', 'Ce que tu changerais sur la carte')
       ] },
@@ -187,7 +184,7 @@
       ] },
 
     { id: 'profil', titre: 'Profil, collection et progression', court: 'Profil',
-      intro: 'Ton profil, ta collection de sorties, et la progression : XP, niveaux, succès, séries, quêtes.',
+      intro: 'Ton profil, ta collection de sorties, et la progression : XP, niveaux, succès et séries.',
       q: [
         note('profil', 'Ton profil (photo, bannière, bio, liens)'),
         note('collection', "La collection (notes à la demi-étoile, « J'ai écouté », « À écouter », podium)"),
@@ -195,8 +192,6 @@
         note('xp', "Le système d'XP et de niveaux"),
         choix('motivant', "L'XP, les succès et les séries te donnent-ils envie de revenir ?", 'Oui, beaucoup|Un peu|Pas vraiment|Non, je préférerais sans'),
         note('succes', 'Les succès'),
-        note('quetes', 'Les quêtes du jour et de la semaine, le coffre'),
-        note('classement', 'Le classement'),
         choix('parametres', 'Les réglages du profil (engrenage)', "Faciles à trouver|Cachés|Je ne les ai pas utilisés"),
         texte('profil_texte', 'Ce que tu aimerais voir sur ton profil ou dans ta progression')
       ] },
@@ -226,21 +221,24 @@
     { id: 'global', titre: 'Ton avis global', court: 'Global',
       intro: "Pour finir : ton avis d'ensemble, et ce qui compte le plus pour la suite.",
       q: [
-        { id: 'nps', q: 'Sur une échelle de 0 à 10, quelle probabilité de recommander La Wave à un proche ?', t: 'nps' },
-        note('note_globale', 'Ta note globale pour le site'),
-        choix('retour', 'Reviendrais-tu régulièrement sur La Wave ?', 'Tous les jours|Chaque semaine|Chaque mois|Rarement|Non'),
-        multi('usages', 'Pour quoi viendrais-tu sur La Wave ?', "Découvrir de nouveaux artistes|Suivre les sorties|Proposer ma musique|M'accréditer pour des concerts|Discuter avec la communauté|Tenir ma collection et noter|Gagner de l'XP et des succès|Lire du contenu|Voir la carte des artistes"),
+        note('note_globale', 'Ta note globale pour le site de La Wave'),
+        choix('retour', 'Reviendrais-tu régulièrement sur le site de La Wave ?', 'Tous les jours|Chaque semaine|Chaque mois|Rarement|Non'),
+        multi('usages', 'Pour quoi viendrais-tu sur le site de La Wave ?', "Découvrir de nouveaux artistes|Suivre les sorties|Proposer ma musique|M'accréditer pour des concerts|Discuter avec la communauté|Tenir ma collection et noter|Gagner de l'XP et des succès|Lire du contenu|Voir la carte des artistes"),
         multi('priorites', 'Que faut-il améliorer en priorité ?', "Le design|La navigation|Le catalogue|Les fiches artistes|La carte|La communauté|Les messages|La progression (XP, succès)|La vitesse|Le mobile|L'inscription|Le contenu proposé", 'Choisis-en trois au maximum.'),
         texte('aime', "Ce que tu as le plus aimé"),
         texte('naime_pas', "Ce que tu as le moins aimé"),
-        texte('manque', "Ce qui manque au site pour qu'il devienne une référence"),
-        texte('alternatives', "Que fais-tu aujourd'hui à la place de La Wave ? (sites, applis, comptes…)"),
-        choix('recontact', 'Pouvons-nous te recontacter pour en discuter de vive voix ?', 'Oui|Non'),
+        texte('manque', "Ce qui manque au site de La Wave pour qu'il devienne une référence"),
         texte('autre', 'Autre chose à nous dire ?')
       ] }
   ];
 
-  const ID_TOTAL = SECTIONS.reduce((n, s) => n + s.q.length, 0);
+  // Les sections qui s'ouvrent dépendent des parties du site que le testeur dit avoir parcourues (question toi_pages).
+  const TOUJOURS = ['toi', 'impression', 'design', 'fiabilite', 'global'];
+  const SECTION_DE_PAGE = {
+    'Accueil': 'accueil', 'Catalogue': 'catalogue', 'Fiches artistes': 'artistes', 'Carte': 'carte',
+    'Soumettre une sortie': 'soumettre', 'Accréditations': 'accreditations', 'Contenu': 'contenu',
+    'Communauté': 'communaute', 'Profil et collection': 'profil', 'Inscription / connexion': 'compte', 'Aide et FAQ': 'aide'
+  };
   const cle = (s, q) => s.id + '_' + q.id;
 
   // ===================================================================
@@ -322,6 +320,16 @@
   };
 
   let racine = null;
+
+  function visibles(){
+    const pages = Array.isArray(etat.reponses.toi_pages) ? etat.reponses.toi_pages : [];
+    const ouvertes = pages.map(p => SECTION_DE_PAGE[p]);
+    return SECTIONS.filter(s => TOUJOURS.includes(s.id) || ouvertes.includes(s.id));
+  }
+
+  function total(){
+    return visibles().reduce((n, s) => n + s.q.length, 0);
+  }
   let minuteur = null;
   let aEnvoyer = false;
 
@@ -339,12 +347,12 @@
 
   function compte(){
     let n = 0;
-    SECTIONS.forEach(s => s.q.forEach(q => { if(repondu(etat.reponses[cle(s, q)])) n++; }));
+    visibles().forEach(s => s.q.forEach(q => { if(repondu(etat.reponses[cle(s, q)])) n++; }));
     return n;
   }
 
   function pourcent(){
-    return Math.round(compte() / ID_TOTAL * 100);
+    return Math.round(compte() / total() * 100);
   }
 
   function noterFini(){
@@ -448,14 +456,6 @@
         '</div>';
     }
 
-    else if(q.t === 'nps'){
-      corps = '<div class="sdg-nps" role="radiogroup" aria-label="' + esc(q.q) + '">' +
-        Array.from({ length: 11 }, (_, i) =>
-          '<button type="button" class="sdg-n' + (v === i ? ' on' : '') + '" role="radio" aria-checked="' + (v === i) + '" data-nps="' + i + '">' + i + '</button>'
-        ).join('') +
-        '</div><div class="sdg-legende"><span>Pas du tout</span><span>Absolument</span></div>';
-    }
-
     else{
       corps = '<textarea class="sdg-texte" rows="3" maxlength="' + TEXTE_MAX + '" placeholder="' + esc(q.ph) + '" aria-label="' + esc(q.q) + '">' + esc(v || '') + '</textarea>';
     }
@@ -465,7 +465,7 @@
   }
 
   function navHtml(){
-    return '<nav class="sdg-nav" aria-label="Sections du sondage">' + SECTIONS.map((s, i) => {
+    return '<nav class="sdg-nav" aria-label="Sections du sondage">' + visibles().map((s, i) => {
       const faites = s.q.filter(q => repondu(etat.reponses[cle(s, q)])).length;
       const etatS = faites === s.q.length ? ' complet' : (faites ? ' partiel' : '');
       return '<button type="button" class="sdg-chip' + (i === etat.section ? ' actif' : '') + etatS + '" data-aller="' + i + '">' +
@@ -475,7 +475,7 @@
 
   function libelleProgression(){
     const n = compte();
-    return n + ' réponse' + (n > 1 ? 's' : '') + ' sur ' + ID_TOTAL + ' · ' + pourcent() + ' %';
+    return n + ' réponse' + (n > 1 ? 's' : '') + ' sur ' + total() + ' · ' + pourcent() + ' %';
   }
 
   function majProgression(){
@@ -512,21 +512,23 @@
       return;
     }
 
-    const s = SECTIONS[etat.section];
+    const liste = visibles();
+    if(etat.section >= liste.length) etat.section = liste.length - 1;
+    const s = liste[etat.section];
     const premiere = etat.section === 0;
-    const derniere = etat.section === SECTIONS.length - 1;
+    const derniere = etat.section === liste.length - 1;
 
     racine.innerHTML =
       '<span class="eyebrow mono">Phase de test</span>' +
-      '<h1>Ton avis sur La Wave</h1>' +
-      "<p class=\"sdg-intro\">Merci de tester le site. Ce sondage couvre toutes ses pages : compte 15 à 25 minutes, et <b>tu peux t'arrêter et reprendre quand tu veux</b> : tout est enregistré au fur et à mesure. Aucune question n'est obligatoire. Les notes vont de <b>1 (très mauvais)</b> à <b>5 (excellent)</b> ; « Pas testé » si tu n'as pas essayé. Tes réponses sont lues par l'équipe La Wave uniquement, avec ton adresse d'accès.</p>" +
+      '<h1>Ton avis sur le site de La Wave</h1>' +
+      "<p class=\"sdg-intro\">Merci de tester le site de La Wave. Dis-nous d'abord quelles parties tu as parcourues : seules les sections qui te concernent s'ouvrent (compte 10 à 25 minutes selon ce que tu as testé), et <b>tu peux t'arrêter et reprendre quand tu veux</b> : tout est enregistré au fur et à mesure. Aucune question n'est obligatoire. Les notes vont de <b>1 (très mauvais)</b> à <b>5 (excellent)</b> ; « Pas testé » si tu n'as pas essayé. Tes réponses sont lues par l'équipe La Wave uniquement, avec ton adresse d'accès.</p>" +
       (etat.erreur ? '<div class="form-msg err" style="display:block">' + esc(etat.erreur) + '</div>' : '') +
       '<div class="sdg-progression"><div class="sdg-barre"><i style="width:' + pourcent() + '%"></i></div>' +
       '<span class="sdg-progression-texte">' + libelleProgression() + '</span></div>' +
       navHtml() +
       (etat.termine && etat.montrerMerci ? remerciementHtml() :
         '<section class="sdg-section" aria-labelledby="sdgTitre">' +
-        '<p class="sdg-etape mono">Section ' + (etat.section + 1) + ' sur ' + SECTIONS.length + '</p>' +
+        '<p class="sdg-etape mono">Section ' + (etat.section + 1) + ' sur ' + liste.length + '</p>' +
         '<h2 id="sdgTitre">' + esc(s.titre) + '</h2>' +
         '<p class="sdg-section-intro">' + esc(s.intro) + '</p>' +
         s.q.map(q => questionHtml(s, q)).join('') +
@@ -549,7 +551,7 @@
   }
 
   function changerSection(i){
-    if(i < 0 || i >= SECTIONS.length) return;
+    if(i < 0 || i >= visibles().length) return;
     enregistrer(false);
     etat.section = i;
     etat.montrerMerci = false;
@@ -560,7 +562,7 @@
   function remplacerQuestion(id){
     const bloc = racine.querySelector('.sdg-q[data-id="' + id + '"]');
     if(!bloc) return;
-    const s = SECTIONS[etat.section];
+    const s = visibles()[etat.section];
     const q = s.q.find(x => cle(s, x) === id);
     if(!q) return;
     const tmp = document.createElement('div');
@@ -606,13 +608,15 @@
         if(id === 'global_priorites' && liste.length > 3) liste.shift();
       }
       reponse(id, liste);
-      remplacerQuestion(id);
-    }
 
-    else if(cible.dataset.nps !== undefined && id){
-      const v = Number(cible.dataset.nps);
-      reponse(id, etat.reponses[id] === v ? undefined : v);
-      remplacerQuestion(id);
+      // Cocher une partie du site ouvre ou ferme des sections : on redessine la page, au même endroit.
+      if(id === 'toi_pages'){
+        const y = window.scrollY;
+        rendre();
+        window.scrollTo({ top: y, behavior: 'instant' });
+      }else{
+        remplacerQuestion(id);
+      }
     }
 
     else if(cible.dataset.aller !== undefined) changerSection(Number(cible.dataset.aller));
@@ -712,6 +716,7 @@
 
   // ===================================================================
   // L'ONGLET « SONDAGE » DE L'ESPACE ÉQUIPE
+  // Sobre : un résumé, trois vues. Chaque question tient sur une ligne ; le détail s'ouvre au clic.
   // ===================================================================
 
   const equipe = { lignes: [], vue: 'synthese', filtre: 'toutes' };
@@ -720,59 +725,73 @@
     return valeurs.length ? valeurs.reduce((a, b) => a + b, 0) / valeurs.length : 0;
   }
 
+  function virgule(n){
+    return n.toFixed(1).replace('.', ',');
+  }
+
   function nomTesteur(l){
     return l.nom && l.nom.trim() ? l.nom.trim() : l.email;
   }
 
+  function pc(n, total){
+    return total ? Math.round(n / total * 100) : 0;
+  }
+
   function barre(libelle, n, total){
-    const p = total ? Math.round(n / total * 100) : 0;
-    return '<li style="--p:' + p + '%"><span>' + esc(libelle) + '</span><b>' + n + ' <small>' + p + ' %</small></b></li>';
+    return '<li style="--p:' + pc(n, total) + '%"><span>' + esc(libelle) + '</span><b>' + n + '</b></li>';
+  }
+
+  // Comptage des options d'une question à choix, de la plus citée à la moins citée.
+  function compter(q, vals){
+    return q.o
+      .map(o => ({ o, n: vals.filter(v => v === o || (Array.isArray(v) && v.includes(o))).length }))
+      .filter(x => x.n > 0)
+      .sort((a, b) => b.n - a.n);
+  }
+
+  function ligneQuestion(s, q, lignes){
+
+    const vals = lignes.map(l => l.reponses[cle(s, q)]).filter(repondu);
+    const n = vals.length;
+
+    if(!n) return '';
+
+    let resume = '';
+    let detail = '';
+
+    if(q.t === 'note'){
+      const notes = vals.filter(v => typeof v === 'number');
+      const pas = vals.filter(v => v === 'na').length;
+      resume = notes.length ? '<b>' + virgule(moyenne(notes)) + '</b> / 5' : 'Pas testé';
+      detail = [5, 4, 3, 2, 1].map(i => barre(i + ' ★', notes.filter(v => v === i).length, notes.length)).join('') +
+        (pas ? barre('Pas testé', pas, n) : '');
+    }
+
+    else if(q.t === 'texte'){
+      resume = n + (n > 1 ? ' réponses' : ' réponse');
+    }
+
+    else{
+      const compte = compter(q, vals);
+      resume = compte.slice(0, 2).map(x => esc(x.o) + ' <b>' + pc(x.n, n) + ' %</b>').join(' · ');
+      detail = compte.map(x => barre(x.o, x.n, n)).join('');
+    }
+
+    const tete = '<span class="sdg-l-q">' + esc(q.q) + '</span><span class="sdg-l-r">' + resume + '</span><span class="sdg-l-n">' + n + '</span>';
+
+    return detail
+      ? '<details class="sdg-l"><summary>' + tete + '</summary><ul class="sdg-liste">' + detail + '</ul></details>'
+      : '<div class="sdg-l sdg-l-fixe"><div class="sdg-l-sum">' + tete + '</div></div>';
   }
 
   function synthese(lignes){
 
-    return SECTIONS.map(s => {
-
-      const items = s.q.map(q => {
-
-        const id = cle(s, q);
-        const vals = lignes.map(l => l.reponses[id]).filter(repondu);
-        const n = vals.length;
-        let corps = '';
-
-        if(q.t === 'note'){
-          const notes = vals.filter(v => typeof v === 'number');
-          const pas = vals.filter(v => v === 'na').length;
-          corps = '<div class="sdg-agg-note"><b>' + (notes.length ? moyenne(notes).toFixed(1).replace('.', ',') : '–') + '</b><span>/ 5 · ' + notes.length + ' note' + (notes.length > 1 ? 's' : '') + (pas ? ' · ' + pas + ' « pas testé »' : '') + '</span></div>' +
-            '<ul class="sdg-agg-liste">' + [5, 4, 3, 2, 1].map(i => barre(i + ' ★', notes.filter(v => v === i).length, notes.length)).join('') + '</ul>';
-        }
-
-        else if(q.t === 'choix'){
-          corps = '<ul class="sdg-agg-liste">' + q.o.map(o => barre(o, vals.filter(v => v === o).length, n)).join('') + '</ul>';
-        }
-
-        else if(q.t === 'multi'){
-          corps = '<ul class="sdg-agg-liste">' + q.o.map(o => barre(o, vals.filter(v => Array.isArray(v) && v.includes(o)).length, n)).join('') + '</ul>';
-        }
-
-        else if(q.t === 'nps'){
-          const notes = vals.filter(v => typeof v === 'number');
-          const pro = notes.filter(v => v >= 9).length;
-          const det = notes.filter(v => v <= 6).length;
-          const score = notes.length ? Math.round((pro - det) / notes.length * 100) : null;
-          corps = '<div class="sdg-agg-note"><b>' + (score === null ? '–' : (score > 0 ? '+' : '') + score) + '</b><span>NPS · ' + pro + ' promoteur(s), ' + det + ' détracteur(s), ' + (notes.length - pro - det) + ' passif(s)</span></div>' +
-            '<ul class="sdg-agg-liste">' + Array.from({ length: 11 }, (_, i) => barre(String(i), notes.filter(v => v === i).length, notes.length)).join('') + '</ul>';
-        }
-
-        else{
-          corps = '<p class="sdg-agg-texte">' + n + ' réponse' + (n > 1 ? 's' : '') + ' écrite' + (n > 1 ? 's' : '') + ' : voir « Réponses libres ».</p>';
-        }
-
-        return '<div class="sdg-agg"><h5>' + esc(q.q) + ' <small>' + n + ' réponse' + (n > 1 ? 's' : '') + '</small></h5>' + corps + '</div>';
-      }).join('');
-
-      return '<details class="sdg-bloc" open><summary>' + esc(s.titre) + '</summary><div class="sdg-agg-grille">' + items + '</div></details>';
+    const html = SECTIONS.map(s => {
+      const rows = s.q.map(q => ligneQuestion(s, q, lignes)).join('');
+      return rows ? '<details class="sdg-s"><summary>' + esc(s.titre) + '</summary>' + rows + '</details>' : '';
     }).join('');
+
+    return html || '<p class="sdg-vide">Aucune réponse pour l\'instant.</p>';
   }
 
   function reponsesLibres(lignes){
@@ -788,7 +807,7 @@
 
         if(!liste.length) return '';
 
-        return '<div class="sdg-libre"><h5>' + esc(q.q) + ' <small>' + liste.length + ' réponse' + (liste.length > 1 ? 's' : '') + '</small></h5>' +
+        return '<div class="sdg-libre"><h5>' + esc(q.q) + '</h5>' +
           liste.map(x => '<blockquote><p>' + esc(x.v).replace(/\n/g, '<br>') + '</p><cite>' + esc(nomTesteur(x.l)) + '</cite></blockquote>').join('') +
           '</div>';
       }).join('');
@@ -796,7 +815,7 @@
       return blocs ? '<h4 class="sdg-sous-titre">' + esc(s.titre) + '</h4>' + blocs : '';
     }).join('');
 
-    return html || '<div class="empty-state">Aucune réponse écrite pour l\'instant.</div>';
+    return html || '<p class="sdg-vide">Aucune réponse écrite pour l\'instant.</p>';
   }
 
   function valeurLisible(q, v){
@@ -818,10 +837,11 @@
       }).join('');
 
       return '<details class="sdg-testeur"><summary>' +
-        '<span class="sdg-testeur-nom">' + esc(nomTesteur(l)) + (l.nom ? ' <small>' + esc(l.email) + '</small>' : '') + '</span>' +
-        '<span class="sdg-testeur-meta">' + (l.termine ? '<em class="ok">Envoyé</em>' : '<em>En cours</em>') + ' · ' + l.progression + ' % · ' + esc(l.appareil || '?') + ' · ' + esc(heure(l.maj_le)) + '</span></summary>' +
-        '<div class="sdg-testeur-corps">' + (detail || '<p>Aucune réponse.</p>') +
-        '<button type="button" class="btn btn-ghost sdg-suppr" data-suppr="' + esc(l.email) + '">Supprimer cette réponse</button></div></details>';
+        '<span class="sdg-testeur-nom">' + esc(nomTesteur(l)) + '</span>' +
+        '<span class="sdg-testeur-meta">' + (l.termine ? 'Envoyé' : l.progression + ' %') + ' · ' + esc(heure(l.maj_le)) + '</span></summary>' +
+        '<div class="sdg-testeur-corps">' + (l.nom ? '<p class="sdg-mail">' + esc(l.email) + (l.appareil ? ' · ' + esc(l.appareil) : '') + '</p>' : '') +
+        (detail || '<p>Aucune réponse.</p>') +
+        '<button type="button" class="sdg-lien sdg-suppr" data-suppr="' + esc(l.email) + '">Supprimer cette réponse</button></div></details>';
     }).join('');
   }
 
@@ -858,30 +878,26 @@
 
     const lignes = equipe.lignes;
     const envoyes = lignes.filter(l => l.termine).length;
-    const prog = Math.round(moyenne(lignes.map(l => l.progression)));
     const notesG = lignes.map(l => l.reponses.global_note_globale).filter(v => typeof v === 'number');
-    const nps = lignes.map(l => l.reponses.global_nps).filter(v => typeof v === 'number');
-    const score = nps.length ? Math.round((nps.filter(v => v >= 9).length - nps.filter(v => v <= 6).length) / nps.length * 100) : null;
+
+    const morceaux = [
+      '<b>' + lignes.length + '</b> testeur' + (lignes.length > 1 ? 's' : ''),
+      '<b>' + envoyes + '</b> envoyé' + (envoyes > 1 ? 's' : '')
+    ];
+    if(notesG.length) morceaux.push('note globale <b>' + virgule(moyenne(notesG)) + '</b> / 5');
 
     const vues = [['synthese', 'Synthèse'], ['libres', 'Réponses libres'], ['testeurs', 'Par testeur']];
 
     zone.innerHTML =
-      '<div class="sdg-eq-tete">' +
-      '<div class="sdg-cartes">' +
-      '<div class="sdg-carte"><b>' + lignes.length + '</b><span>testeur' + (lignes.length > 1 ? 's' : '') + ' ont répondu</span></div>' +
-      '<div class="sdg-carte"><b>' + envoyes + '</b><span>sondage' + (envoyes > 1 ? 's' : '') + ' envoyé' + (envoyes > 1 ? 's' : '') + '</span></div>' +
-      '<div class="sdg-carte"><b>' + (lignes.length ? prog + ' %' : '–') + '</b><span>de progression moyenne</span></div>' +
-      '<div class="sdg-carte"><b>' + (notesG.length ? moyenne(notesG).toFixed(1).replace('.', ',') + '/5' : '–') + '</b><span>note globale</span></div>' +
-      '<div class="sdg-carte"><b>' + (score === null ? '–' : (score > 0 ? '+' : '') + score) + '</b><span>NPS (recommandation)</span></div>' +
-      '</div>' +
-      '<div class="sdg-eq-actions"><button type="button" class="btn btn-ghost" data-recharger>Actualiser</button> ' +
-      '<button type="button" class="btn btn-ghost" data-csv' + (lignes.length ? '' : ' disabled') + '>Exporter en CSV</button></div></div>' +
+      '<div class="sdg-eq-tete"><p class="sdg-resume">' + morceaux.join(' · ') + '</p>' +
+      '<div class="sdg-eq-actions"><button type="button" class="sdg-lien" data-recharger>Actualiser</button>' +
+      '<button type="button" class="sdg-lien" data-csv' + (lignes.length ? '' : ' disabled') + '>Exporter en CSV</button></div></div>' +
       '<div class="sdg-vues" role="tablist">' + vues.map(v => '<button type="button" role="tab" class="' + (equipe.vue === v[0] ? 'on' : '') + '" data-vue="' + v[0] + '">' + v[1] + '</button>').join('') + '</div>' +
-      (equipe.vue === 'libres'
-        ? '<label class="sdg-filtre">Section <select data-filtre><option value="toutes">Toutes</option>' + SECTIONS.map(s => '<option value="' + s.id + '"' + (equipe.filtre === s.id ? ' selected' : '') + '>' + esc(s.titre) + '</option>').join('') + '</select></label>'
+      (equipe.vue === 'libres' && lignes.length
+        ? '<label class="sdg-filtre"><span>Section</span><select data-filtre><option value="toutes">Toutes</option>' + SECTIONS.map(s => '<option value="' + s.id + '"' + (equipe.filtre === s.id ? ' selected' : '') + '>' + esc(s.titre) + '</option>').join('') + '</select></label>'
         : '') +
       (!lignes.length
-        ? '<div class="empty-state">Aucune réponse pour l\'instant. Elles apparaîtront ici dès que les testeurs commenceront le sondage.</div>'
+        ? '<p class="sdg-vide">Aucune réponse pour l\'instant. Elles apparaîtront ici dès que les testeurs commenceront le sondage.</p>'
         : equipe.vue === 'synthese' ? synthese(lignes) : equipe.vue === 'libres' ? reponsesLibres(lignes) : parTesteur(lignes));
   }
 
@@ -915,7 +931,7 @@
       });
     }
 
-    zone.innerHTML = '<div class="empty-state chargement">Chargement…</div>';
+    zone.innerHTML = '<p class="sdg-vide">Chargement…</p>';
 
     return appeler('sondage_equipe_lire').then(data => {
       equipe.lignes = Array.isArray(data) ? data : [];
@@ -962,7 +978,7 @@ body:has(#page-admin.active) .sdg-flottant{display:none;}
 .sdg-barre{flex:1; height:8px; border-radius:999px; background:var(--bg-alt); overflow:hidden;}
 .sdg-barre i{display:block; height:100%; width:0; border-radius:999px; background:linear-gradient(90deg,#0f78c4,var(--blue-bright)); transition:width .35s ease;}
 .sdg-progression-texte{font-size:13px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums;}
-.sdg-nav{display:flex; gap:8px; overflow-x:auto; padding:2px 0 12px; margin:0 0 6px; scrollbar-width:thin;}
+.sdg-nav{display:flex; flex-wrap:wrap; gap:8px; padding:2px 0 12px; margin:0 0 6px;}
 .sdg-chip{flex:none; display:inline-flex; align-items:center; gap:7px; padding:8px 13px 8px 8px; border:1px solid var(--line); border-radius:999px; background:var(--bg-alt); color:var(--ink-soft); font:inherit; font-size:13px; cursor:pointer; transition:border-color .2s, background .2s, color .2s;}
 .sdg-chip:hover{border-color:rgba(255,255,255,0.28); color:var(--ink);}
 .sdg-chip-n{display:inline-grid; place-items:center; width:22px; height:22px; border-radius:50%; background:rgba(255,255,255,0.08); font-size:11px; font-weight:700;}
@@ -989,11 +1005,6 @@ body:has(#page-admin.active) .sdg-flottant{display:none;}
 .sdg-puce{padding:9px 14px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--ink-soft); font:inherit; font-size:13.5px; line-height:1.25; text-align:left; cursor:pointer; transition:border-color .15s, background .15s, color .15s;}
 .sdg-puce:hover{border-color:rgba(255,255,255,0.3); color:var(--ink);}
 .sdg-puce.on{border-color:var(--blue-bright); background:rgba(79,180,255,0.16); color:var(--ink);}
-.sdg-nps{display:grid; grid-template-columns:repeat(11, minmax(0,1fr)); gap:5px;}
-.sdg-n{padding:11px 0; border:1px solid var(--line); border-radius:9px; background:transparent; color:var(--ink-soft); font:inherit; font-size:14px; cursor:pointer; font-variant-numeric:tabular-nums;}
-.sdg-n:hover{border-color:rgba(255,255,255,0.3);}
-.sdg-n.on{border-color:var(--blue-bright); background:rgba(79,180,255,0.2); color:var(--ink); font-weight:700;}
-.sdg-legende{display:flex; justify-content:space-between; margin-top:6px; font-size:12px; color:var(--muted);}
 .sdg-texte{width:100%; min-height:84px; padding:12px 14px; border:1px solid var(--line); border-radius:10px; background:rgba(0,0,0,0.25); color:var(--ink); font:inherit; font-size:14.5px; line-height:1.55; resize:vertical;}
 .sdg-texte:focus{outline:none; border-color:var(--blue-bright);}
 .sdg-pied{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:20px; flex-wrap:wrap;}
@@ -1003,8 +1014,9 @@ body:has(#page-admin.active) .sdg-flottant{display:none;}
 .sdg-merci-ic svg{width:30px; height:30px; fill:currentColor;}
 .sdg-actions{display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-top:16px;}
 @media (max-width:700px){
+  .sdg-nav{flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none;}
+  .sdg-nav::-webkit-scrollbar{display:none;}
   .sdg-q{padding:14px;}
-  .sdg-nps{grid-template-columns:repeat(6, minmax(0,1fr));}
   .sdg-etape{margin-top:6px;}
   .sdg-progression{flex-direction:column; align-items:stretch; gap:6px;}
   .sdg-progression-texte{white-space:normal;}
@@ -1012,58 +1024,60 @@ body:has(#page-admin.active) .sdg-flottant{display:none;}
   .sdg-etat{order:3; flex-basis:100%;}
 }
 
-/* Espace équipe */
-#sondageEquipe .sdg-eq-tete{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-bottom:18px;}
-#sondageEquipe .sdg-cartes{display:grid; grid-template-columns:repeat(5, minmax(110px,1fr)); gap:10px; flex:1; min-width:280px;}
-#sondageEquipe .sdg-carte{padding:14px 16px; border:1px solid var(--line); border-radius:12px; background:var(--bg-alt);}
-#sondageEquipe .sdg-carte b{display:block; font-size:26px; line-height:1.1; color:var(--ink); font-variant-numeric:tabular-nums;}
-#sondageEquipe .sdg-carte span{display:block; margin-top:5px; font-size:12px; color:var(--muted);}
-#sondageEquipe .sdg-eq-actions{display:flex; gap:8px; flex-wrap:wrap;}
-#sondageEquipe .sdg-vues{display:inline-flex; gap:4px; padding:4px; border:1px solid var(--line); border-radius:999px; background:var(--bg-alt); margin-bottom:16px;}
-#sondageEquipe .sdg-vues button{padding:8px 16px; border:0; border-radius:999px; background:transparent; color:var(--muted); font:inherit; font-size:13px; font-weight:600; cursor:pointer;}
-#sondageEquipe .sdg-vues button.on{background:rgba(255,255,255,0.12); color:var(--ink);}
-#sondageEquipe .sdg-filtre{display:flex; align-items:center; gap:10px; margin:0 0 14px; font-size:13px; color:var(--muted);}
-#sondageEquipe .sdg-filtre select{padding:8px 12px; border:1px solid var(--line); border-radius:10px; background:var(--bg-alt); color:var(--ink); font:inherit;}
-#sondageEquipe .sdg-bloc{margin:0 0 12px; border:1px solid var(--line); border-radius:14px; background:var(--bg-alt);}
-#sondageEquipe .sdg-bloc > summary{padding:14px 18px; font-weight:600; color:var(--ink); cursor:pointer; list-style:none;}
-#sondageEquipe .sdg-bloc > summary::-webkit-details-marker{display:none;}
-#sondageEquipe .sdg-agg-grille{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; padding:0 14px 14px;}
-#sondageEquipe .sdg-agg{padding:14px; border:1px solid var(--line); border-radius:12px; background:rgba(0,0,0,0.18);}
-#sondageEquipe .sdg-agg h5{margin:0 0 10px; font-size:13.5px; line-height:1.4; color:var(--ink); font-weight:600;}
-#sondageEquipe .sdg-agg h5 small, #sondageEquipe .sdg-libre h5 small{display:block; margin-top:2px; color:var(--muted); font-weight:400; font-size:11.5px;}
-#sondageEquipe .sdg-agg-note{display:flex; align-items:baseline; gap:8px; margin-bottom:8px;}
-#sondageEquipe .sdg-agg-note b{font-size:28px; color:var(--ink); font-variant-numeric:tabular-nums;}
-#sondageEquipe .sdg-agg-note span{font-size:12px; color:var(--muted);}
-#sondageEquipe .sdg-agg-liste{list-style:none; margin:0; padding:0; display:grid; gap:5px;}
-#sondageEquipe .sdg-agg-liste li{position:relative; display:flex; justify-content:space-between; gap:10px; padding:6px 10px; border-radius:8px; font-size:12.5px; color:var(--ink-soft);}
-#sondageEquipe .sdg-agg-liste li::before{content:''; position:absolute; inset:0; width:var(--p); background:rgba(79,180,255,0.16); border-radius:8px;}
-#sondageEquipe .sdg-agg-liste li > *{position:relative;}
-#sondageEquipe .sdg-agg-liste b{color:var(--ink); font-variant-numeric:tabular-nums; white-space:nowrap;}
-#sondageEquipe .sdg-agg-liste small{color:var(--muted); font-weight:400;}
-#sondageEquipe .sdg-agg-texte{margin:0; font-size:12.5px; color:var(--muted);}
-#sondageEquipe .sdg-sous-titre{margin:22px 0 10px; font-size:15px; color:var(--ink);}
-#sondageEquipe .sdg-libre{margin:0 0 16px;}
-#sondageEquipe .sdg-libre h5{margin:0 0 8px; font-size:13.5px; color:var(--ink-soft);}
-#sondageEquipe blockquote{margin:0 0 8px; padding:11px 14px; border-left:3px solid var(--blue-bright); border-radius:0 10px 10px 0; background:var(--bg-alt);}
-#sondageEquipe blockquote p{margin:0 0 4px; color:var(--ink); font-size:14px; line-height:1.55;}
+/* Espace équipe : sobre, sans cartes */
+#sondageEquipe .sdg-eq-tete{display:flex; align-items:center; justify-content:space-between; gap:12px 20px; flex-wrap:wrap; margin:0 0 20px;}
+#sondageEquipe .sdg-resume{margin:0; font-size:14px; color:var(--muted);}
+#sondageEquipe .sdg-resume b{color:var(--ink); font-weight:600;}
+#sondageEquipe .sdg-eq-actions{display:flex; align-items:center; gap:8px;}
+#sondageEquipe .sdg-lien{display:inline-flex; align-items:center; margin:0; padding:7px 14px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--ink-soft); font:inherit; font-size:13px; line-height:1.2; cursor:pointer; transition:border-color .15s, color .15s;}
+#sondageEquipe .sdg-lien:hover:not([disabled]){border-color:rgba(255,255,255,0.3); color:var(--ink);}
+#sondageEquipe .sdg-lien[disabled]{opacity:.4; cursor:default;}
+#sondageEquipe .sdg-vues{display:flex; gap:24px; margin:0 0 8px; border-bottom:1px solid var(--line);}
+#sondageEquipe .sdg-vues button{margin:0 0 -1px; padding:10px 0; border:0; border-bottom:2px solid transparent; background:none; color:var(--muted); font:inherit; font-size:14px; cursor:pointer;}
+#sondageEquipe .sdg-vues button.on{color:var(--ink); border-bottom-color:var(--blue-bright);}
+#sondageEquipe .sdg-filtre{display:flex; align-items:center; gap:10px; margin:14px 0 4px; font-size:13px; color:var(--muted);}
+#sondageEquipe .sdg-filtre select{color-scheme:dark; padding:7px 12px; border:1px solid var(--line); border-radius:10px; background:#0d1117; color:var(--ink); font:inherit; font-size:13px;}
+#sondageEquipe .sdg-filtre option{background:#0d1117; color:#F4F5F6;}
+#sondageEquipe .sdg-vide{margin:22px 0; font-size:14px; color:var(--muted);}
+#sondageEquipe summary{list-style:none; cursor:pointer;}
+#sondageEquipe summary::-webkit-details-marker{display:none;}
+#sondageEquipe .sdg-s{border-bottom:1px solid var(--line);}
+#sondageEquipe .sdg-s > summary{display:flex; align-items:center; justify-content:space-between; padding:16px 2px; font-weight:600; color:var(--ink);}
+#sondageEquipe .sdg-s > summary::after{content:''; width:8px; height:8px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); transform:rotate(45deg); transition:transform .2s;}
+#sondageEquipe .sdg-s[open] > summary::after{transform:rotate(-135deg);}
+#sondageEquipe .sdg-s[open]{padding-bottom:10px;}
+#sondageEquipe .sdg-l{border-top:1px solid rgba(255,255,255,0.06);}
+#sondageEquipe .sdg-l > summary, #sondageEquipe .sdg-l-sum{display:grid; grid-template-columns:minmax(0,1fr) auto 28px; align-items:baseline; gap:14px; padding:10px 2px;}
+#sondageEquipe .sdg-l-q{font-size:13.5px; color:var(--ink-soft); line-height:1.4;}
+#sondageEquipe .sdg-l-r{font-size:13px; color:var(--muted); text-align:right;}
+#sondageEquipe .sdg-l-r b{color:var(--ink); font-weight:600;}
+#sondageEquipe .sdg-l-n{font-size:12px; color:var(--muted); text-align:right; font-variant-numeric:tabular-nums;}
+#sondageEquipe .sdg-liste{list-style:none; margin:0 0 10px; padding:0 2px; display:grid; gap:4px;}
+#sondageEquipe .sdg-liste li{position:relative; display:flex; justify-content:space-between; gap:10px; padding:5px 10px; border-radius:7px; font-size:12.5px; color:var(--ink-soft);}
+#sondageEquipe .sdg-liste li::before{content:''; position:absolute; inset:0; width:var(--p); background:rgba(79,180,255,0.14); border-radius:7px;}
+#sondageEquipe .sdg-liste li > *{position:relative;}
+#sondageEquipe .sdg-liste b{color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums;}
+#sondageEquipe .sdg-sous-titre{margin:24px 0 8px; font-size:14px; font-weight:600; color:var(--ink);}
+#sondageEquipe .sdg-libre{margin:0 0 14px;}
+#sondageEquipe .sdg-libre h5{margin:0 0 8px; font-size:13px; font-weight:500; color:var(--muted);}
+#sondageEquipe blockquote{margin:0 0 8px; padding:2px 0 2px 14px; border-left:2px solid var(--line);}
+#sondageEquipe blockquote p{margin:0 0 3px; color:var(--ink); font-size:14px; line-height:1.55;}
 #sondageEquipe blockquote cite{font-size:12px; color:var(--muted); font-style:normal;}
-#sondageEquipe .sdg-testeur{margin:0 0 8px; border:1px solid var(--line); border-radius:12px; background:var(--bg-alt);}
-#sondageEquipe .sdg-testeur > summary{display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:12px 16px; cursor:pointer; list-style:none;}
-#sondageEquipe .sdg-testeur > summary::-webkit-details-marker{display:none;}
+#sondageEquipe .sdg-testeur{border-bottom:1px solid var(--line);}
+#sondageEquipe .sdg-testeur > summary{display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:14px 2px;}
 #sondageEquipe .sdg-testeur-nom{font-weight:600; color:var(--ink);}
-#sondageEquipe .sdg-testeur-nom small{margin-left:6px; font-weight:400; color:var(--muted);}
 #sondageEquipe .sdg-testeur-meta{font-size:12.5px; color:var(--muted);}
-#sondageEquipe .sdg-testeur-meta em{font-style:normal; color:var(--ink-soft);}
-#sondageEquipe .sdg-testeur-meta em.ok{color:#7be0a8;}
-#sondageEquipe .sdg-testeur-corps{padding:4px 18px 16px; border-top:1px solid var(--line);}
-#sondageEquipe .sdg-testeur-corps h5{margin:16px 0 6px; font-size:13px; color:var(--blue-bright);}
+#sondageEquipe .sdg-testeur-corps{padding:0 2px 18px;}
+#sondageEquipe .sdg-mail{margin:0 0 4px; font-size:12.5px; color:var(--muted);}
+#sondageEquipe .sdg-testeur-corps h5{margin:16px 0 4px; font-size:12.5px; font-weight:600; color:var(--blue-bright);}
 #sondageEquipe .sdg-testeur-corps dl{margin:0;}
 #sondageEquipe .sdg-testeur-corps dt{margin-top:8px; font-size:12.5px; color:var(--muted);}
 #sondageEquipe .sdg-testeur-corps dd{margin:2px 0 0; font-size:14px; color:var(--ink); line-height:1.5;}
-#sondageEquipe .sdg-suppr{margin-top:16px; color:var(--danger); border-color:var(--danger);}
-@media (max-width:900px){
-  #sondageEquipe .sdg-cartes{grid-template-columns:repeat(2, minmax(0,1fr));}
-  #sondageEquipe .sdg-agg-grille{grid-template-columns:1fr;}
+#sondageEquipe .sdg-suppr{margin-top:18px; color:var(--danger); border-color:rgba(229,105,92,0.45);}
+@media (max-width:700px){
+  #sondageEquipe .sdg-l > summary, #sondageEquipe .sdg-l-sum{grid-template-columns:minmax(0,1fr) auto;}
+  #sondageEquipe .sdg-l-n{display:none;}
+  #sondageEquipe .sdg-vues{gap:16px; overflow-x:auto;}
 }
 `;
 
