@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Version du site : « dev » ici, remplacée par une empreinte à chaque mise en ligne (outils/deploiement/preparer.sh). -->
+<meta name="version-site" content="dev">
 <title>La Wave — média musical</title>
 
 <!-- ACCÈS TESTEURS (TEMPORAIRE) — début.
@@ -7430,10 +7432,13 @@ const BD = {
 
   // Chacun ne reçoit que ses propres lignes : c'est la policy qui
   // filtre, pas la requête.
+  // Seulement celles du compte connecté : la base laisse l'équipe lire toutes les inscriptions, qui
+  // s'afficheraient sinon comme siennes (les mêmes événements, plusieurs fois).
   mesInscriptionsAccreditation(){
     return supabaseClient
       .from('inscriptions_accreditation')
       .select('*')
+      .eq('user_id', currentUser ? currentUser.id : null)
       .order('cree_le', { ascending: false });
   },
 
@@ -30025,5 +30030,87 @@ proposerBienvenue();
 
 })();
 </script>
+<!-- MISE À JOUR DISPONIBLE : le site relit sa version (version.txt) de temps en temps ; si elle a changé depuis le chargement
+     de la page, une petite pastille propose d'actualiser. Rien en essai local (version « dev »). -->
+<script>
+(function(){
+  'use strict';
+
+  const meta = document.querySelector('meta[name="version-site"]');
+  const miene = meta ? meta.content : '';
+  const EMPREINTE = /^[0-9a-f]{12}$/;
+
+  if(!EMPREINTE.test(miene)) return;
+
+  let pastille = null;
+  let ecartee = '';
+  let dernier = Date.now();
+
+  const style = document.createElement('style');
+  style.textContent = `
+.maj-dispo{position:fixed; left:50%; bottom:18px; z-index:86; display:flex; align-items:center; gap:4px; padding:5px 5px 5px 14px;
+  border:1px solid var(--line); border-radius:999px; background:rgba(13,17,23,0.92); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  color:var(--ink-soft); font-size:12.5px; line-height:1; box-shadow:0 6px 20px rgba(0,0,0,0.35);
+  transform:translate(-50%, 12px); opacity:0; transition:transform .35s ease, opacity .35s ease;}
+.maj-dispo.visible{transform:translate(-50%, 0); opacity:1;}
+.maj-dispo button{font:inherit; cursor:pointer; border:0;}
+.maj-dispo .maj-ok{display:inline-flex; align-items:center; gap:6px; padding:8px 12px; border-radius:999px; background:rgba(79,180,255,0.14); color:var(--blue-bright); font-weight:600;}
+.maj-dispo .maj-ok:hover{background:rgba(79,180,255,0.24);}
+.maj-dispo .maj-ok svg{width:13px; height:13px;}
+.maj-dispo .maj-x{width:28px; height:28px; border-radius:50%; background:transparent; color:var(--muted); font-size:16px;}
+.maj-dispo .maj-x:hover{color:var(--ink);}
+.maj-dispo button:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+@media (max-width:700px){ .maj-dispo{bottom:76px;} }
+body.com-actif .maj-dispo{bottom:140px;}
+html.portail-actif .maj-dispo{display:none;}
+@media (prefers-reduced-motion:reduce){ .maj-dispo{transition:none;} }`;
+  document.head.appendChild(style);
+
+  function montrer(version){
+
+    if(pastille) return;
+
+    pastille = document.createElement('div');
+    pastille.className = 'maj-dispo';
+    pastille.setAttribute('role', 'status');
+    pastille.innerHTML =
+      '<span>Mise à jour disponible</span>' +
+      '<button type="button" class="maj-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Actualiser</button>' +
+      '<button type="button" class="maj-x" aria-label="Plus tard">×</button>';
+
+    pastille.querySelector('.maj-ok').addEventListener('click', () => location.reload());
+
+    pastille.querySelector('.maj-x').addEventListener('click', () => {
+      ecartee = version;
+      pastille.classList.remove('visible');
+      const p = pastille;
+      pastille = null;
+      setTimeout(() => p.remove(), 400);
+    });
+
+    document.body.appendChild(pastille);
+    setTimeout(() => { if(pastille) pastille.classList.add('visible'); }, 30);
+  }
+
+  function verifier(){
+
+    if(document.hidden || Date.now() - dernier < 60 * 1000) return;
+    dernier = Date.now();
+
+    fetch('version.txt?t=' + Date.now(), { cache: 'no-store' })
+      .then(r => r.ok ? r.text() : '')
+      .then(texte => {
+        const v = texte.trim();
+        if(EMPREINTE.test(v) && v !== miene && v !== ecartee) montrer(v);
+      })
+      .catch(() => {});
+  }
+
+  setInterval(verifier, 5 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) verifier(); });
+  setTimeout(() => { dernier = 0; verifier(); }, 45 * 1000);
+})();
+</script>
+
 </body>
 </html>
