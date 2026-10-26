@@ -54,5 +54,17 @@ for js in waveurs communaute portail sondage verification parcours profil xp car
   echo "${js}.js -> ?v=${empreinte}"
 done
 
+# La version du site : une empreinte d'index.html (donc de tous les scripts, dont les adresses portent la leur),
+# posée dans sa balise « version-site » et dans version.txt. Le site relit version.txt de temps en temps et propose
+# d'actualiser quand elle a changé (voir « MISE À JOUR DISPONIBLE » dans index.html).
+version=$(sha256sum "$dest/index.html" | cut -c1-12)
+sed -i "s/<meta name=\"version-site\" content=\"dev\">/<meta name=\"version-site\" content=\"${version}\">/" "$dest/index.html"
+if ! grep -q "<meta name=\"version-site\" content=\"${version}\">" "$dest/index.html"; then
+  echo "index.html n'a pas de balise version-site : la version n'a pas pu être posée." >&2
+  exit 1
+fi
+printf '%s' "$version" > "$dest/version.txt"
+echo "version -> ${version}"
+
 echo "Dossier prêt : $dest"
 find "$dest" -type f | sort | sed 's/^/  /'
