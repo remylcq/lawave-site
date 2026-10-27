@@ -583,6 +583,7 @@
   .ct-points button.actif{width:26px; background:var(--acc);}
   .ct-points button:focus-visible{outline:2px solid var(--ct-accent); outline-offset:3px;}
 
+  .ct-car-item .ct-vinyle{margin-top:-4px;}
   .ct-vit-info{max-width:620px; margin:14px auto 0; min-height:210px;}
   .ct-vit-info-in{animation:ctFondu .35s ease both;}
   .ct-serie-tag{display:inline-block; padding:4px 11px; border-radius:99px; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--acc); background:color-mix(in srgb, var(--acc) 14%, transparent); border:1px solid color-mix(in srgb, var(--acc) 35%, transparent);}
@@ -644,6 +645,15 @@
     background:radial-gradient(circle, #fff 0%, var(--teinte, #4FB4FF) 22%, transparent 62%); opacity:0;}
   .ct-pk-pile{position:absolute; inset:0; border-radius:12px; background:linear-gradient(160deg, #0b2f55, #0a1730); border:1px solid rgba(255,255,255,.12);}
   .ct-pk-nombre{position:absolute; z-index:5; right:-12px; top:-12px; min-width:40px; height:40px; padding:0 10px; border-radius:99px; display:grid; place-items:center; font-size:15px; font-weight:800; color:#05070a; background:#fff; box-shadow:0 8px 20px rgba(0,0,0,.4);}
+  /* le vinyle : une image carrée ; --dech (le geste) l'incline */
+  .ct-pack.ct-vinyle{aspect-ratio:1; width:calc(var(--pk-w) * 1.18); filter:drop-shadow(0 22px 28px rgba(0,0,0,.5)) drop-shadow(0 0 34px color-mix(in srgb, var(--teinte) 35%, transparent));}
+  .ct-vi-img{position:absolute; inset:0; width:100%; height:100%; max-width:none; display:block; border-radius:6px; transform:rotate(calc(var(--dech, 0) * 7deg)) scale(calc(1 + var(--dech, 0) * .07)); user-select:none; -webkit-user-drag:none;}
+  .ct-vinyle .ct-pk-haut{display:none;}
+  .ct-vinyle .ct-pk-ligne{top:50%; left:50%; width:0 !important; background:none; box-shadow:none;}
+  .ct-vinyle .ct-pk-lumiere{top:50%;}
+  .ct-vinyle .ct-pk-pile{border-radius:6px; background:linear-gradient(160deg, #20364a, #0b1620);}
+  .ct-vinyle .ct-pk-indice{top:50%;}
+  .ct-scene-pack.tremble .ct-vinyle{animation:ctTremble .12s linear infinite;}
   .ct-pk-indice{position:absolute; z-index:6; left:8%; top:14%; width:30px; height:30px; margin-top:-15px; border-radius:50%; background:rgba(255,255,255,.9); box-shadow:0 0 0 6px rgba(255,255,255,.18), 0 0 24px rgba(255,255,255,.6); animation:ctIndice 1.8s cubic-bezier(.5,0,.2,1) infinite; pointer-events:none;}
 
   /* ---------- la scène d'ouverture ---------- */
@@ -1336,6 +1346,20 @@
     o = o || {};
     const b = o.booster || REPLI[0];
     const t = theme(b.theme);
+
+    // Un booster à vinyle : un disque carré qui tourne, à la place du paquet (le geste d'ouverture l'incline et l'agrandit).
+    if(/^img\/[\w.-]+$/.test(b.visuel || '')){
+      return `
+      <div class="ct-pack ct-vinyle" style="--teinte:${couleurOk(b.accent)}"${o.attrs || ''}>
+        ${o.pile ? Array.from({ length: o.pile }, (_, k) => `<div class="ct-pk-pile" style="transform:translate(${(k + 1) * 8}px, ${(k + 1) * -6}px); z-index:-${k + 1}"></div>`).join('') : ''}
+        <img class="ct-vi-img" src="${esc(b.visuel)}" alt="${esc(b.nom)}" draggable="false" decoding="async">
+        <div class="ct-pk-haut"></div>
+        <div class="ct-pk-ligne"></div>
+        <div class="ct-pk-lumiere"></div>
+        ${o.nombre > 1 ? `<div class="ct-pk-nombre">×${o.nombre}</div>` : ''}
+      </div>`;
+    }
+
     return `
       <div class="ct-pack t-${t}" style="--teinte:${couleurOk(b.accent)}"${o.attrs || ''}>
         ${o.pile ? Array.from({ length: o.pile }, (_, k) => `<div class="ct-pk-pile" style="transform:translate(${(k + 1) * 7}px, ${(k + 1) * -5}px) rotate(${(k + 1) * 2.5}deg); z-index:-${k + 1}"></div>`).join('') : ''}
@@ -1628,7 +1652,10 @@
       const pack = zonePack.querySelector('.ct-pack');
       pack.style.setProperty('--teinte', teinteMeilleure);
       pack.insertAdjacentHTML('beforeend', '<div class="ct-pk-indice"></div>');
-      pied.innerHTML = `<p>${'ontouchstart' in window ? 'Glisse ton doigt sur le pack pour le déchirer' : 'Glisse sur le pack pour le déchirer, ou clique dessus'}</p>`;
+      const disque = !!pack.querySelector('.ct-vi-img');
+      pied.innerHTML = disque
+        ? `<p>${'ontouchstart' in window ? "Glisse ton doigt sur le vinyle pour l'ouvrir" : "Glisse sur le vinyle pour l'ouvrir, ou clique dessus"}</p>`
+        : `<p>${'ontouchstart' in window ? 'Glisse ton doigt sur le pack pour le déchirer' : 'Glisse sur le pack pour le déchirer, ou clique dessus'}</p>`;
 
       // Le geste : on suit le doigt d'un bord à l'autre ; au-delà de 60 %, le pack se déchire.
       let geste = null;
