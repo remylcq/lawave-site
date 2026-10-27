@@ -555,14 +555,13 @@
   .ct-ruban::-webkit-scrollbar{display:none;}
 
   /* ---------- Packs : la vitrine à boosters ---------- */
-  .ct-vitrine{position:relative; overflow:hidden; padding:22px 20px 22px; text-align:center; --acc:#4FB4FF;
-    background:radial-gradient(62% 62% at 50% 34%, color-mix(in srgb, var(--acc) 26%, transparent), transparent 72%), radial-gradient(50% 60% at 50% 110%, color-mix(in srgb, var(--acc) 14%, transparent), transparent 70%), linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
-    border-color:color-mix(in srgb, var(--acc) 22%, rgba(255,255,255,.08));}
+  .ct-vitrine{position:relative; overflow-x:clip; padding:4px 0 8px; text-align:center; --acc:#4FB4FF;
+    background:radial-gradient(60% 52% at 50% 36%, color-mix(in srgb, var(--acc) 24%, transparent), transparent 74%);}
   .ct-vit-tete{display:flex; align-items:center; justify-content:space-between; gap:12px; text-align:left;}
   .ct-surtitre{display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ct-accent);}
   .ct-compte{font-size:12.5px; font-weight:600; color:var(--muted); font-variant-numeric:tabular-nums;}
 
-  .ct-car{position:relative; height:376px; margin:2px -20px 0; perspective:1200px; touch-action:pan-y; user-select:none; -webkit-user-select:none; outline:none;}
+  .ct-car{position:relative; height:376px; margin:0; perspective:1200px; touch-action:pan-y; user-select:none; -webkit-user-select:none; outline:none;}
   .ct-car:focus-visible{outline:2px solid var(--ct-accent); outline-offset:-4px; border-radius:16px;}
   .ct-car-piste{position:absolute; inset:0; display:grid; place-items:center; transform-style:preserve-3d;}
   .ct-car-item{grid-area:1 / 1; --pas:min(236px, 30vw); --o:0; --abs:0; position:relative; cursor:pointer; transform-style:preserve-3d;
@@ -584,7 +583,7 @@
   .ct-points button:focus-visible{outline:2px solid var(--ct-accent); outline-offset:3px;}
 
   .ct-car-item .ct-vinyle{margin-top:-4px;}
-  .ct-vit-info{max-width:620px; margin:14px auto 0; min-height:210px;}
+  .ct-vit-info{max-width:560px; margin:10px auto 0; min-height:104px;}
   .ct-vit-info-in{animation:ctFondu .35s ease both;}
   .ct-serie-tag{display:inline-block; padding:4px 11px; border-radius:99px; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--acc); background:color-mix(in srgb, var(--acc) 14%, transparent); border:1px solid color-mix(in srgb, var(--acc) 35%, transparent);}
   .ct-vit-info h2{margin:10px 0 0; font-size:clamp(26px, 3.6vw, 36px); line-height:1.05; letter-spacing:-.025em;}
@@ -677,7 +676,23 @@
   .ct-rayons.on{opacity:.7;}
   .ct-scene.secousse .ct-scene-centre{animation:ctSecousse .55s cubic-bezier(.36,.07,.19,.97);}
   .ct-scene-pack{position:relative; transition:transform .6s cubic-bezier(.2,.8,.2,1), opacity .5s;}
-  .ct-scene-pack .ct-pack{--pk-w:min(240px, 56vw); animation:ctArrivee .7s cubic-bezier(.2,1.3,.4,1) both;}
+    .ct-scene-pack .ct-pack{--pk-w:min(240px, 56vw); animation:ctPose .45s cubic-bezier(.2,.9,.3,1) both;}
+  .ct-scene-pack .ct-vinyle{--pk-w:min(290px, 66vw);}
+  .ct-scene-pack.plonge{transform:scale(var(--zoom, 12)); opacity:0; transition:transform .78s cubic-bezier(.55,0,.95,.5), opacity .3s .5s linear; will-change:transform;}
+  @keyframes ctPose{from{opacity:0; transform:scale(.86);}}
+  @keyframes ctSurgit{from{opacity:0; transform:scale(2.4) translateY(50px);}}
+  @keyframes ctSort{to{opacity:0; transform:translate(-95%, -35%) rotate(-18deg) scale(.7);}}
+  @keyframes ctSheen{to{transform:translateX(130%);}}
+  /* la pile de cartes : la carte du dessus se soulève, se retourne, part ; la suivante prend sa place */
+  .ct-pile{position:relative; width:var(--lc, 240px); aspect-ratio:5 / 7;}
+  .ct-pile .ct-place{position:absolute; inset:0; width:auto; max-width:none; cursor:pointer; --k:0; transform:translate(calc(var(--k) * 7px), calc(var(--k) * -5px)) rotate(calc(var(--k) * 1.8deg)); transition:transform .32s cubic-bezier(.2,.8,.2,1);}
+  .ct-pile.entre .ct-place{animation:ctSurgit .7s cubic-bezier(.2,.9,.25,1) backwards; animation-delay:calc(var(--k) * 70ms);}
+  .ct-pile .ct-place.retournee{transform:none;}
+  .ct-pile .ct-place.leve{transform:translateY(-16px) scale(1.05);}
+  .ct-pile .ct-place.sort{animation:ctSort .5s cubic-bezier(.5,0,.8,.4) forwards; pointer-events:none;}
+  .ct-sheen{position:absolute; inset:3px; border-radius:10px; overflow:hidden; pointer-events:none; z-index:5;}
+  .ct-sheen::after{content:''; position:absolute; inset:0; background:linear-gradient(105deg, transparent 38%, rgba(255,255,255,.6) 50%, transparent 62%); transform:translateX(-130%);}
+  .ct-place.retournee .ct-sheen::after{animation:ctSheen .9s .45s ease-out both;}
   .ct-scene-pack.tremble .ct-pack{animation:ctTremble .12s linear infinite;}
   .ct-pk-haut.part{transition:transform .65s cubic-bezier(.3,.6,.2,1), opacity .65s; transform:translate(-18%, -230%) rotate(-28deg); opacity:0;}
   .ct-pk-lumiere.on{animation:ctLumiere .9s ease-out forwards;}
@@ -853,8 +868,6 @@
   @keyframes ctIndice{0%{left:8%; opacity:0;} 15%{opacity:1;} 70%{left:88%; opacity:1;} 100%{left:88%; opacity:0;}}
 
   @media (max-width:820px){
-    .ct-vitrine{padding:18px 14px 20px;}
-    .ct-car{margin:2px -14px 0;}
     .ct-deux, .ct-bonus{grid-template-columns:1fr;}
     .ct-bonus .ct-panneau.roue{grid-row:auto;}
     .ct-fiche{grid-template-columns:1fr;}
@@ -894,8 +907,9 @@
     .ct-fen{padding:20px 16px;}
   }
   @media (prefers-reduced-motion:reduce){
-    .ct-carte, .ct-c-reflet, .ct-pack, .ct-car-item.centre .ct-pack, .ct-vit-info-in, .ct-pk-haut::after, .ct-pk-corps::before, .ct-dos, .ct-rayons, .ct-pk-indice{animation:none !important;}
+    .ct-carte, .ct-c-reflet, .ct-pack, .ct-car-item.centre .ct-pack, .ct-vit-info-in, .ct-pile .ct-place, .ct-pk-haut::after, .ct-pk-corps::before, .ct-dos, .ct-rayons, .ct-pk-indice{animation:none !important;}
     .ct-volte, .ct-roue-disque{transition-duration:.01s !important;}
+    .ct-pile .ct-place.sort{opacity:0 !important;}
   }`;
 
   function poserStyle(){
@@ -1398,8 +1412,7 @@
     const plusieurs = boosters.length > 1;
 
     S.corps.innerHTML = `
-      <section class="ct-panneau ct-vitrine">
-        <div class="ct-vit-tete"><span class="ct-surtitre">${ico('pack', 15)}Wave Cards</span><span class="ct-compte" data-compte></span></div>
+      <section class="ct-vitrine">
         <div class="ct-car" tabindex="0" role="group" aria-roledescription="carrousel" aria-label="Choisis un booster">
           <div class="ct-car-piste">
             ${boosters.map((b, i) => `<div class="ct-car-item" data-i="${i}" role="group" aria-label="${esc(b.nom)}">${packHtml({ booster: b })}</div>`).join('')}
@@ -1429,24 +1442,10 @@
     // Les cartes de la fiche d'un booster : ses chances, ses événements, ses boutons d'ouverture.
     function majInfo(){
       const b = boosters[cur];
-      const taux = (b.taux || []).map(Number);
-      const lignes = [1, 2, 3, 4, 5].filter(k => taux[k - 1] > 0);
-      const holoP = Number(ev.holo || 0.005) * Number(b.holo_x || 1);
       zoneInfo.innerHTML = `
         <div class="ct-vit-info-in">
-          <span class="ct-serie-tag">${esc(b.serie || 'Booster')}</span>
           <h2>${esc(b.nom)}</h2>
           <p>${esc(b.description || '')}</p>
-          <div class="ct-vit-taux">
-            <div class="ct-taux">${lignes.map(k => `<i style="flex:${Math.max(taux[k - 1], 1.2)}; background:${RAR[k].c}"></i>`).join('')}</div>
-            <div class="ct-legende">${lignes.map(k => `<div style="--rc:${RAR[k].c}"><b>${fmt(taux[k - 1])}</b>${esc(RAR[k].nom)}</div>`).join('')}</div>
-          </div>
-          <div class="ct-evts">
-            ${b.classeur ? `<button type="button" class="ct-evt ct-evt-lien" data-classeur="${esc(b.id)}">${ico('cartes', 15)}Classeur exclusif · ${nf(b.nb_cartes || 0)} cartes${b.fin ? ' · jusqu\'au ' + esc(new Date(b.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })) : ''}${ico('fleche', 14)}</button>` : ''}
-            <span class="ct-evt">${ico('etoile', 15)}Holo : 1 chance sur ${Math.round(1 / holoP)}</span>
-            ${b.id === 'scene' && ev.lundi ? `<span class="ct-evt">${ico('etoile', 15)}Lundi des légendes : Épique et mieux ×2</span>` : ''}
-            ${ev.heure_holo ? `<span class="ct-evt">${ico('etoile', 15)}Heure holo jusqu'à 22 h</span>` : ''}
-          </div>
         </div>`;
       const cout = Number(b.cout || 1);
       zoneOuvrir.innerHTML = [1, 5, 10].map(n => `<button type="button" class="ct-btn ${n === 1 ? 'principal ' : ''}grand" data-ouvrir="${n}" ${e.tirages < n * cout ? 'disabled' : ''}>${n > 1 ? n + ' packs' : 'Ouvrir un pack'}<span class="cout">${ico('eclair', 12)}${n * cout}</span></button>`).join('');
@@ -1572,10 +1571,10 @@
 
   // ---------------------------------------------------------------------
   // La scène d'ouverture
-  //   1. le pack arrive ; on le déchire d'un geste (ou d'un toucher) ;
-  //   2. les cartes sortent face cachée, leur lueur annonce leur rareté ;
-  //   3. on les retourne une à une (ou toutes) ; les grandes cartes ont leur moment ;
-  //   4. le bilan, rouvrir ou terminer.
+  //   1. la pochette se pose, puis la caméra plonge dedans : un zoom qui remplit l'écran ;
+  //   2. les cartes surgissent en pile, face cachée (la lueur du dos annonce la rareté) ;
+  //   3. on touche : la carte du dessus se soulève, se retourne, puis part ; la suivante prend sa place ;
+  //   4. le bilan : toutes les cartes à plat, rouvrir ou terminer.
   // Renvoie vrai si le joueur veut rouvrir le même nombre de packs.
   // ---------------------------------------------------------------------
 
@@ -1589,6 +1588,7 @@
       const n = cartes.length;
       const meilleure = cartes.reduce((m, c) => Math.max(m, Number(c.rarete) || 1), 1);
       const teinteMeilleure = meilleure >= 3 ? RAR[meilleure].c : '#4FB4FF';
+      const teinteBooster = couleurOk(booster.accent);
 
       const ov = el('div', 'ct-scene');
       ov.setAttribute('role', 'dialog');
@@ -1611,12 +1611,11 @@
       const flash = ov.querySelector('.ct-flash');
       const rayons = ov.querySelector('.ct-rayons');
       const fx = Effets(ov.querySelector('canvas'));
-      let fini = false, phase = 'pack', occupe = false;
-      const retournees = new Set();
+      let fini = false, phase = 'entree', occupe = false, courante = 0, pile = null, places = [];
 
       const teinte = (c) => ov.style.setProperty('--teinte', c);
       const eclair = () => { flash.classList.remove('on'); void flash.offsetWidth; flash.classList.add('on'); };
-      teinte('#1489DE');
+      teinte(teinteBooster);
 
       function fermer(rouvrir){
         if(fini) return;
@@ -1638,143 +1637,80 @@
         if(ev.key !== ' ' && ev.key !== 'Enter') return;
         if(ev.target && ev.target.closest && ev.target.closest('button')) return;
         ev.preventDefault();
-        if(phase === 'pack') dechirer();
-        else if(phase === 'cartes') suivante();
+        suite();
       }
       document.addEventListener('keydown', touche);
       ov.querySelector('.ct-scene-x').addEventListener('click', () => fermer(false));
 
       const centreDe = (elm) => { const b = elm.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; };
 
-      // ---- 1. le pack
-      const zonePack = el('div', 'ct-scene-pack', packHtml({ booster, nombre: n, pile: n > 1 ? Math.min(n - 1, 3) : 0 }));
+      // ---- 1. la pochette, puis le zoom qui nous fait entrer dedans
+      const zonePack = el('div', 'ct-scene-pack', packHtml({ booster, nombre: n }));
       centre.appendChild(zonePack);
       const pack = zonePack.querySelector('.ct-pack');
-      pack.style.setProperty('--teinte', teinteMeilleure);
-      pack.insertAdjacentHTML('beforeend', '<div class="ct-pk-indice"></div>');
-      const disque = !!pack.querySelector('.ct-vi-img');
-      pied.innerHTML = disque
-        ? `<p>${'ontouchstart' in window ? "Glisse ton doigt sur le vinyle pour l'ouvrir" : "Glisse sur le vinyle pour l'ouvrir, ou clique dessus"}</p>`
-        : `<p>${'ontouchstart' in window ? 'Glisse ton doigt sur le pack pour le déchirer' : 'Glisse sur le pack pour le déchirer, ou clique dessus'}</p>`;
+      pack.style.setProperty('--teinte', teinteBooster);
 
-      // Le geste : on suit le doigt d'un bord à l'autre ; au-delà de 60 %, le pack se déchire.
-      let geste = null;
-      pack.addEventListener('pointerdown', (ev) => {
-        if(phase !== 'pack') return;
-        geste = { x: ev.clientX, l: pack.getBoundingClientRect().width, max: 0 };
-        try{ pack.setPointerCapture(ev.pointerId); }catch(e){}
-        const ind = pack.querySelector('.ct-pk-indice'); if(ind) ind.remove();
-      });
-      pack.addEventListener('pointermove', (ev) => {
-        if(!geste || phase !== 'pack') return;
-        const p = Math.min(1, Math.abs(ev.clientX - geste.x) / (geste.l * .9));
-        geste.max = Math.max(geste.max, p);
-        pack.style.setProperty('--dech', geste.max.toFixed(3));
-        if(geste.max > .12) zonePack.classList.add('tremble');
-        if(geste.max >= .6){ geste = null; dechirer(); }
-      });
-      pack.addEventListener('pointerup', () => {
-        if(!geste || phase !== 'pack') return;
-        const p = geste.max; geste = null;
-        if(p < .05) dechirer();
-        else{ zonePack.classList.remove('tremble'); pack.style.setProperty('--dech', '0'); }
-      });
-      pack.addEventListener('pointercancel', () => { geste = null; pack.style.setProperty('--dech', '0'); zonePack.classList.remove('tremble'); });
-
-      async function dechirer(){
-        if(phase !== 'pack') return;
-        phase = 'dechire';
-        const ind = pack.querySelector('.ct-pk-indice'); if(ind) ind.remove();
-        pied.innerHTML = '';
-        zonePack.classList.add('tremble');
-
-        // La ligne court jusqu'au bout, puis le haut s'envole.
-        const debut = parseFloat(pack.style.getPropertyValue('--dech')) || 0;
-        const t0 = performance.now();
-        await new Promise((ok) => {
-          const pas = (t) => {
-            const k = Math.min(1, (t - t0) / 220);
-            pack.style.setProperty('--dech', (debut + (1 - debut) * k).toFixed(3));
-            if(k < 1) requestAnimationFrame(pas); else ok();
-          };
-          requestAnimationFrame(pas);
-        });
+      async function plonger(){
+        await attendre(calme() ? 30 : 520);
         if(fini) return;
-
+        phase = 'plonge';
+        const b = pack.getBoundingClientRect();
+        const zoom = Math.max(window.innerWidth, window.innerHeight) / Math.min(b.width, b.height) * 2;
+        pack.style.filter = 'none';
+        zonePack.style.setProperty('--zoom', zoom.toFixed(2));
         Son.jouer('dechire');
         vibre(meilleure >= 4 ? [20, 30, 60] : 25);
-        zonePack.classList.remove('tremble');
-        pack.querySelector('.ct-pk-haut').classList.add('part');
-        pack.querySelector('.ct-pk-lumiere').classList.add('on');
+        zonePack.classList.add('plonge');
+        await attendre(calme() ? 40 : 760);
+        if(fini) return;
         teinte(teinteMeilleure);
-        const h = pack.querySelector('.ct-pk-ligne').getBoundingClientRect();
-        fx.gerbe(h.left + h.width / 2, h.top, ['#ffffff', teinteMeilleure, teinteMeilleure], meilleure >= 4 ? 70 : 40, { vitesse: 9, monte: 3, vie: 55 });
-        if(meilleure >= 4) eclair();
-
-        await attendre(calme() ? 50 : 520);
-        if(!fini) distribuer();
+        eclair();
+        if(meilleure >= 4) fx.gerbe(window.innerWidth / 2, window.innerHeight / 2, ['#ffffff', teinteMeilleure], 60, { vitesse: 10, vie: 50 });
+        await attendre(calme() ? 40 : 260);
+        if(fini) return;
+        zonePack.remove();
+        distribuer();
       }
+      plonger();
 
-      // ---- 2. les cartes sortent du pack
-      let places = [];
+      // ---- 2. les cartes surgissent en pile
+      const indice = (texte) => `<p>${texte}</p>${n > 1 ? '<div class="boutons"><button type="button" class="ct-btn" data-passer>Tout voir</button></div>' : ''}`;
+
       function distribuer(){
-        phase = 'cartes';
-        const donne = el('div', 'ct-donne' + (n === 1 ? ' seule' : ''));
-        const etroit = window.innerWidth < 640;
-        const cols = n === 1 ? 1 : (etroit ? (n === 5 ? 3 : 4) : 5);
-        donne.style.setProperty('--cols', cols);
-        if(n > 1){
-          // Assez petites pour tenir à l'écran sans défiler.
-          const lignes = Math.ceil(n / cols);
-          const hDispo = window.innerHeight - 64 - 130 - (lignes - 1) * 40 - 30;
-          const lc = Math.max(70, Math.min(180, (hDispo / lignes) * 5 / 7, (Math.min(window.innerWidth, 1000) - 32 - (cols - 1) * 14) / cols));
-          donne.style.setProperty('--lc', Math.floor(lc) + 'px');
-        }
-        donne.innerHTML = cartes.map((c, i) => `
-          <div class="ct-place" data-i="${i}" style="--rc:${rar(c.rarete).c}">
-            <div class="ct-volte" role="button" tabindex="0" aria-label="Retourner la carte ${i + 1}">
+        phase = 'pile';
+        const lc = Math.max(150, Math.floor(Math.min(300, window.innerWidth * .66, (window.innerHeight - 250) / 1.4)));
+        pile = el('div', 'ct-pile entre');
+        pile.style.setProperty('--lc', lc + 'px');
+        pile.innerHTML = cartes.map((c, i) => `
+          <div class="ct-place" data-i="${i}" style="--rc:${rar(c.rarete).c}; --k:${Math.min(i, 4)}; z-index:${n - i}">
+            <div class="ct-volte">
               <div class="ct-dos" data-r="${c.rarete}"><div class="ct-dos-in">${EMBLEME}</div></div>
-              <div class="ct-face">${carteHtml(c, { vivante: true, eager: true })}</div>
+              <div class="ct-face">${carteHtml(c, { vivante: true, eager: true })}<span class="ct-sheen"></span></div>
             </div>
           </div>`).join('');
-
-        const depart = centreDe(pack);
-        zonePack.classList.add('parti');
-        zonePack.style.position = 'absolute';
-        centre.appendChild(donne);
-
-        places = [...donne.querySelectorAll('.ct-place')];
-        places.forEach((p, i) => {
-          const c = centreDe(p);
-          p.style.setProperty('--dx', (depart.x - c.x).toFixed(0) + 'px');
-          p.style.setProperty('--dy', (depart.y - c.y).toFixed(0) + 'px');
-          p.style.setProperty('--rot', ((i % 2 ? 1 : -1) * (6 + i * 2)) + 'deg');
-          p.style.animationDelay = (i * 70) + 'ms';
-          p.classList.add('donne');
-          setTimeout(() => { if(!fini) Son.jouer('donne'); }, i * 70);
-          const v = p.querySelector('.ct-volte');
-          v.addEventListener('click', () => { if(phase === 'bilan') fiche(cartes[i].id, cartes[i].classeur || null); else retourner(i); });
-          v.addEventListener('keydown', (ev) => { if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); ev.stopPropagation(); v.click(); } });
-        });
-        setTimeout(() => zonePack.remove(), 700);
-
-        pied.innerHTML = `<p>${n === 1 ? 'Touche la carte pour la retourner' : 'Touche une carte pour la retourner'}</p>${n > 1 ? '<div class="boutons"><button type="button" class="ct-btn blanc" data-tout>Tout retourner</button></div>' : ''}`;
-        const bt = pied.querySelector('[data-tout]');
-        if(bt) bt.addEventListener('click', toutRetourner);
+        centre.appendChild(pile);
+        places = [...pile.querySelectorAll('.ct-place')];
+        pile.addEventListener('click', suite);
+        Son.jouer('donne');
+        pied.innerHTML = indice(n === 1 ? 'Touche la carte pour la révéler' : 'Touche la carte du dessus pour la révéler');
       }
 
-      function suivante(){
-        const i = cartes.findIndex((c, k) => !retournees.has(k));
-        if(i >= 0) retourner(i);
+      pied.addEventListener('click', (ev) => { if(ev.target.closest('[data-passer]')) passer(); });
+
+      function suite(){
+        if(fini) return;
+        if(phase === 'pile') reveler();
+        else if(phase === 'revelee') avancer();
       }
 
-      // ---- 3. retourner une carte
-      async function retourner(i){
-        if(fini || retournees.has(i) || occupe) return;
+      // ---- 3. révéler la carte du dessus
+      async function reveler(){
+        if(phase !== 'pile' || occupe) return;
+        phase = 'revele';
         occupe = true;
-        retournees.add(i);
-        const c = cartes[i], r = Number(c.rarete) || 1, p = places[i];
+        const i = courante, c = cartes[i], r = Number(c.rarete) || 1, p = places[i];
         const pos = centreDe(p);
+        pied.innerHTML = '';
 
         if(r >= 3 && !calme()){
           // L'attente : la carte vibre, la lumière se rassemble.
@@ -1787,6 +1723,9 @@
         }
         if(fini){ occupe = false; return; }
 
+        p.classList.add('leve');
+        await attendre(calme() ? 10 : 150);
+        if(fini){ occupe = false; return; }
         p.classList.add('retournee');
         Son.jouer('volte');
         setTimeout(() => {
@@ -1797,11 +1736,11 @@
 
         setTimeout(() => {
           if(fini) return;
-          // L'étiquette : la rareté pour une grande carte seule, sinon nouvelle carte ou doublon.
+          // L'étiquette : la rareté pour les grandes cartes, sinon nouvelle carte ou doublon.
           let classe = 'double', texte = 'Doublon ×' + c.quantite;
           if(c.nouvelle){ classe = 'nouveau'; texte = 'Nouveau'; }
           else if(c.nouveau_holo){ classe = 'nouveau'; texte = 'Nouveau holo'; }
-          if(n === 1 && r >= 3){ classe = ''; texte = RAR[r].nom + (c.nouvelle ? ' · Nouveau' : ''); }
+          if(r >= 3){ classe = ''; texte = RAR[r].nom + (c.nouvelle ? ' · Nouveau' : ''); }
           p.insertAdjacentHTML('beforeend', `<div class="ct-etiq ${classe}">${esc(texte)}</div>`);
 
           if(r >= 2) fx.gerbe(pos.x, pos.y, [RAR[r].c, '#ffffff'], r >= 5 ? 110 : (r >= 4 ? 80 : (r >= 3 ? 48 : 18)), { vitesse: r >= 4 ? 11 : 7, vie: r >= 4 ? 70 : 45 });
@@ -1815,31 +1754,88 @@
             const titre = el('div', 'ct-titre-rar', esc(RAR[r].nom));
             ov.appendChild(titre);
             setTimeout(() => titre.remove(), 1700);
-            if(n > 1) setTimeout(() => rayons.classList.remove('on'), 1800);
           }else if(r === 3){
             teinte(RAR[3].c);
           }
         }, 330);
 
-        await attendre(calme() ? 120 : (r >= 4 ? 900 : (r >= 3 ? 520 : 260)));
+        await attendre(calme() ? 120 : (r >= 4 ? 1000 : (r >= 3 ? 620 : 420)));
         occupe = false;
-        if(retournees.size === n && !fini) bilan();
+        if(fini) return;
+        phase = 'revelee';
+        pied.innerHTML = indice(courante < n - 1 ? 'Touche pour passer à la carte suivante' : 'Touche pour voir tes cartes');
       }
 
-      async function toutRetourner(){
-        const bt = pied.querySelector('[data-tout]');
-        if(bt) bt.disabled = true;
-        for(let i = 0; i < n && !fini; i++){
-          if(retournees.has(i)) continue;
-          while(occupe && !fini) await attendre(60);
-          await retourner(i);
-          await attendre(Number(cartes[i].rarete) >= 3 ? 250 : 90);
+      // ---- la carte part, la suivante prend sa place
+      function avancer(){
+        if(phase !== 'revelee') return;
+        phase = 'sort';
+        const p = places[courante];
+        const et = p.querySelector('.ct-etiq'); if(et) et.remove();
+        rayons.classList.remove('on');
+        teinte(teinteBooster);
+        p.classList.add('sort');
+        Son.jouer('donne');
+        courante++;
+        pied.innerHTML = '';
+        if(courante >= n){
+          setTimeout(() => { if(!fini) bilan(); }, calme() ? 20 : 420);
+          return;
         }
+        for(let j = courante; j < n; j++) places[j].style.setProperty('--k', Math.min(j - courante, 4));
+        setTimeout(() => {
+          if(fini) return;
+          phase = 'pile';
+          pied.innerHTML = indice('Touche la carte pour la révéler');
+        }, calme() ? 20 : 320);
+      }
+
+      function passer(){
+        if(fini || occupe || (phase !== 'pile' && phase !== 'revelee')) return;
+        bilan();
       }
 
       // ---- 4. le bilan
       function bilan(){
         phase = 'bilan';
+        rayons.classList.remove('on');
+        teinte(teinteBooster);
+        if(pile){ pile.remove(); pile = null; }
+
+        const donne = el('div', 'ct-donne' + (n === 1 ? ' seule' : ''));
+        const etroit = window.innerWidth < 640;
+        const cols = n === 1 ? 1 : (etroit ? (n === 5 ? 3 : 4) : 5);
+        donne.style.setProperty('--cols', cols);
+        if(n > 1){
+          // Assez petites pour tenir à l'écran sans défiler.
+          const lignes = Math.ceil(n / cols);
+          const hDispo = window.innerHeight - 64 - 130 - (lignes - 1) * 40 - 30;
+          const lc = Math.max(70, Math.min(180, (hDispo / lignes) * 5 / 7, (Math.min(window.innerWidth, 1000) - 32 - (cols - 1) * 14) / cols));
+          donne.style.setProperty('--lc', Math.floor(lc) + 'px');
+        }
+        donne.innerHTML = cartes.map((c, i) => {
+          let classe = 'double', texte = 'Doublon ×' + c.quantite;
+          if(c.nouvelle){ classe = 'nouveau'; texte = 'Nouveau'; }
+          else if(c.nouveau_holo){ classe = 'nouveau'; texte = 'Nouveau holo'; }
+          if(n === 1 && Number(c.rarete) >= 3){ classe = ''; texte = RAR[Number(c.rarete)].nom + (c.nouvelle ? ' · Nouveau' : ''); }
+          return `
+          <div class="ct-place retournee donne" data-i="${i}" style="--rc:${rar(c.rarete).c}; --rot:${(i % 2 ? 1 : -1) * 4}deg; animation-delay:${i * 60}ms">
+            <div class="ct-volte" role="button" tabindex="0" aria-label="Voir la fiche de ${esc(c.nom)}">
+              <div class="ct-dos" data-r="1"><div class="ct-dos-in">${EMBLEME}</div></div>
+              <div class="ct-face">${carteHtml(c, { vivante: true, eager: true })}</div>
+            </div>
+            <div class="ct-etiq ${classe}">${esc(texte)}</div>
+          </div>`;
+        }).join('');
+        centre.appendChild(donne);
+        donne.querySelectorAll('.ct-place').forEach((p) => {
+          const i = Number(p.dataset.i);
+          const v = p.querySelector('.ct-volte');
+          v.addEventListener('click', () => fiche(cartes[i].id, cartes[i].classeur || null));
+          v.addEventListener('keydown', (ev) => { if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); ev.stopPropagation(); v.click(); } });
+        });
+        Son.jouer('gain');
+
         const nouvelles = cartes.filter(c => c.nouvelle).length;
         const holos = cartes.filter(c => c.holo).length;
         const par = [5, 4, 3].map(r => [r, cartes.filter(c => Number(c.rarete) === r).length]).filter(x => x[1]);
