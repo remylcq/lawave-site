@@ -103,7 +103,7 @@ begin
     'pv', round((i ->> 'pv')::numeric * k), 'pv_max', round((i ->> 'pv')::numeric * k),
     'pui', round((i ->> 'pui')::numeric * k), 'def', round((i ->> 'def')::numeric * k), 'vit', round((i ->> 'vit')::numeric * k),
     'mods', jsonb_build_object('pui', 0, 'def', 0, 'vit', 0), 'statut', jsonb_build_object('etourdi', 0, 'poison', 0, 'poison_pct', 0),
-    'attaques', i -> 'attaques', 'capacite', i -> 'capacite', 'ko', false, 'ouv', false, 'surv', false);
+    'attaques', i -> 'attaques', 'capacite', i -> 'capacite', 'ko', false, 'ouv', false, 'surv', false, 'soins', 0);
 end $$;
 
 -- Les quatre unités d'un combat : p_a (le joueur) aux indices 0-1, p_b aux indices 2-3 ; l'aura de star est posée ici.
@@ -241,6 +241,13 @@ begin
   if array_length(cibles, 1) is null then return st; end if;
   nb := array_length(cibles, 1);
   if cap = 'ouverture' and not (me ->> 'ouv')::boolean then ouv := 1 + capv / 100; end if;
+  -- Les soins sont limités à 2 par carte et par combat (sinon un soigneur rend le combat interminable).
+  if ef = 'soin' and pu = 0 then
+    if coalesce((me ->> 'soins')::integer, 0) >= 2 then
+      return jsonb_set(st, '{ev}', (st -> 'ev') || jsonb_build_object('t', 'epuise', 'u', i, 'a', att ->> 'nom'));
+    end if;
+    st := jsonb_set(st, array['u', i::text, 'soins'], to_jsonb(coalesce((me ->> 'soins')::integer, 0) + 1));
+  end if;
   st := jsonb_set(st, '{ev}', (st -> 'ev') || jsonb_build_object('t', 'usage', 'u', i, 'a', att ->> 'nom', 'type', att ->> 'type', 'cible', ct, 'c', to_jsonb(cibles)));
 
   foreach t in array cibles loop
@@ -357,7 +364,9 @@ begin
         sc := e;
         if e >= (tu ->> 'pv')::numeric then sc := sc + 25; end if;
       end if;
-      if ef = 'soin' then
+      if ef = 'soin' and pu = 0 and coalesce((me ->> 'soins')::integer, 0) >= 2 then
+        sc := sc - 1000;
+      elsif ef = 'soin' then
         lack := 1 - (tu ->> 'pv')::numeric / greatest((tu ->> 'pv_max')::numeric, 1);
         if lack > 0.3 then sc := sc + 70 * lack * va / 30; end if;
       elsif ef in ('pui+', 'def+', 'vit+') then
