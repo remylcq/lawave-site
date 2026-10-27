@@ -204,3 +204,6 @@ grant execute on function public.combat_equipe_catalogue(), public.combat_equipe
   public.combat_equipe_regler_carte(uuid, jsonb), public.combat_equipe_attaque_sauver(jsonb), public.combat_equipe_capacite_sauver(jsonb),
   public.combat_equipe_type_sauver(jsonb), public.combat_equipe_affinite(text, text, numeric), public.combat_equipe_arene_sauver(jsonb),
   public.combat_equipe_simuler(jsonb, jsonb) to authenticated;
+
+-- La garde est interne : appelée seulement par les fonctions ci-dessus.
+revoke all on function public.combat_equipe_garde() from authenticated;
