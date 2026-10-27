@@ -29,6 +29,11 @@
   const el = (tag, classe, html) => { const e = document.createElement(tag); if(classe) e.className = classe; if(html !== undefined) e.innerHTML = html; return e; };
   const attendre = (ms) => new Promise(r => setTimeout(r, ms));
   const calme = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  // Les packs se paient en vinyles. Un ancien « tirage » vaut 50 vinyles : le serveur crédite toute récompense en vinyles
+  // (sql/cartes-vinyles-wc.sql) ; ces deux aides remettent en vinyles ce qu'il nomme encore des tirages.
+  const VAL_TIRAGE = 50;
+  const vin = (g) => (Number(g.tirages) || 0) * VAL_TIRAGE + (Number(g.vinyles) || 0);
+  const libVin = (l) => String(l || '').replace(/(\d+)\s*tirages?/i, (_, n) => { const v = Number(n) * VAL_TIRAGE; return (v >= 1000 ? court(v) : nf(v)) + ' vinyles'; });
   const numero = (n) => '#' + String(n || 0).padStart(3, '0');
 
   const RAR = [null,
@@ -48,6 +53,7 @@
 
   const ICONES = {
     eclair: '<path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2z"/>',
+    piece: '<circle cx="12" cy="12" r="9"/><path d="M7.5 13c1.5-3.2 3-3.2 4.5 0s3 3.2 4.5 0"/>',
     vinyle: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.6"/><path d="M12 5.5a6.5 6.5 0 0 1 6.5 6.5"/>',
     cadeau: '<rect x="3.5" y="8.5" width="17" height="12" rx="2"/><path d="M12 8.5v12M3.5 13h17M12 8.5c-2-4.2-6.5-3.6-6.5-1.2S9.7 8.5 12 8.5zM12 8.5c2-4.2 6.5-3.6 6.5-1.2S14.3 8.5 12 8.5z"/>',
     roue: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2"/><path d="M12 3v7M12 14v7M3 12h7M14 12h7"/>',
@@ -350,6 +356,13 @@
   .ct-res{display:flex; align-items:center; gap:8px; height:38px; padding:0 12px; border-radius:11px; border:1px solid var(--ct-trait); background:var(--ct-surface); font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap;}
   .ct-res .ct-ico{color:var(--ct-accent);}
   .ct-res.vinyles .ct-ico{color:#F2C14E;}
+  .ct-res.wc{cursor:pointer; color:inherit; font:inherit; font-weight:700;}
+  .ct-res.wc .ct-ico{color:#4FB4FF;}
+  .ct-res.wc:hover{border-color:rgba(79,180,255,.5);}
+  .ct-echange{display:grid; gap:12px; margin-top:16px;}
+  .ct-echange-choix{display:flex; flex-wrap:wrap; gap:8px;}
+  .ct-echange-champ{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--ink-soft);}
+  .ct-echange-champ input{width:120px; height:42px; padding:0 12px; border-radius:12px; border:1px solid var(--ct-trait); background:var(--ct-surface); color:var(--ink); font:inherit; font-weight:700;}
   .ct-res.garanti{cursor:pointer; color:inherit; font:inherit; font-weight:700; border-color:rgba(168,121,255,.45); background:rgba(168,121,255,.1);}
   .ct-res.garanti .ct-ico{color:var(--r3);}
   .ct-res small{font-size:11.5px; font-weight:500; color:var(--muted);}
@@ -782,9 +795,7 @@
     .ct-tete{flex-wrap:wrap; gap:10px 12px;}
     .ct-ress{width:100%; flex-wrap:nowrap; justify-content:flex-start; gap:6px;}
     .ct-res{flex:1 1 auto; justify-content:center; gap:6px; padding:0 9px; min-width:0;}
-    .ct-res small:not([data-recharge]){display:none;}
-    .ct-res small[data-recharge]{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-    .ct-res:has(small[data-recharge]){flex:2.4 1 auto;}
+    .ct-res small{display:none;}
     .ct-btn-ico{flex:none;}
     .ct-car{height:296px;}
     .ct-car .ct-pack{--pk-w:156px;}
@@ -1082,8 +1093,8 @@
       </div>
       <div class="ct-qui"><b>Niveau ${e.niveau}</b><small>${nf(e.xp - e.xp_depart)} / ${nf(e.xp_fin - e.xp_depart)} XP · ${nf(e.uniques)} / ${nf(e.total_cartes)} artistes</small></div>
       <div class="ct-ress">
-        <div class="ct-res" title="Un tirage = un pack. +3 toutes les 10 minutes, jusqu'à ${e.plafond}.">${ico('eclair', 17)}${nf(e.tirages)}<small>/ ${e.plafond}</small><small data-recharge></small></div>
-        <div class="ct-res vinyles" title="Vinyles : gagnés en recyclant tes doublons, dépensés à l'atelier.">${ico('vinyle', 17)}${nf(e.vinyles)}</div>
+        <div class="ct-res vinyles" title="Vinyles : ils paient l'ouverture des packs.">${ico('vinyle', 17)}${nf(e.vinyles)}</div>
+        <button type="button" class="ct-res wc" data-echange title="Wave Coins : échange-les contre des vinyles (1 pour 1).">${ico('piece', 17)}${nf(e.wc || 0)}<small>Échanger</small></button>
         ${e.garantis > 0 ? `<button type="button" class="ct-res garanti" data-garanti title="Ouvrir un pack Épique garanti">${ico('pack', 17)}${e.garantis}<small>Épique garanti</small></button>` : ''}
         <button type="button" class="ct-btn-ico" data-son aria-label="${Son.actif() ? 'Couper le son' : 'Remettre le son'}">${ico(Son.actif() ? 'son' : 'muet', 18)}</button>
       </div>`;
@@ -1110,21 +1121,6 @@
     const n = S.hote.querySelector('.ct-onglets');
     if(n) n.innerHTML = ongletsHtml();
     if(typeof majPastilleCartes === 'function') majPastilleCartes(S.etat);
-    tic();
-  }
-
-  function tic(){
-    const e = S.etat;
-    const z = S.hote && S.hote.querySelector('[data-recharge]');
-    if(!e || !z) return;
-    if(e.tirages >= e.plafond || e.prochain_dans === null || e.prochain_dans === undefined){ z.textContent = ''; return; }
-    const restant = e.prochain_dans - Math.floor((Date.now() - (e._le || Date.now())) / 1000);
-    if(restant <= 0){
-      z.textContent = '· …';
-      if(!S.occupe) rafraichirEtat();
-      return;
-    }
-    z.textContent = '· +3 dans ' + duree(restant);
   }
 
   async function rafraichirEtat(){
@@ -1188,12 +1184,10 @@
         const v = ev.target.closest('[data-vue]');
         if(v && hote.contains(v)){ changerVue(v.dataset.vue); return; }
         if(ev.target.closest('.ct-tete [data-garanti]')){ ouvrir(1, true); return; }
+        if(ev.target.closest('[data-echange]')){ fenetreEchange(); return; }
         if(ev.target.closest('.ct-tete [data-son]')){ Son.basculer(); if(Son.actif()) Son.jouer('tic'); majEntete(); }
       });
     }
-
-    clearInterval(S.minuteur);
-    S.minuteur = setInterval(() => { if(S.hote && S.hote.isConnected) tic(); else clearInterval(S.minuteur); }, 1000);
 
     await afficherVue(S.vue);
 
@@ -1231,11 +1225,10 @@
   }
 
   const gainsHtml = (g) => [
-    g.tirages ? `<span class="ct-gain">${ico('eclair', 13)}+${g.tirages}</span>` : '',
-    g.vinyles ? `<span class="ct-gain v">${ico('vinyle', 13)}+${g.vinyles}</span>` : '',
+    vin(g) ? `<span class="ct-gain v">${ico('vinyle', 13)}+${nf(vin(g))}</span>` : '',
     g.garantis ? `<span class="ct-gain g">${ico('pack', 13)}Épique</span>` : ''
   ].join('');
-  const gainsTexte = (g) => [g.tirages ? '+' + g.tirages + ' tirages' : '', g.vinyles ? '+' + g.vinyles + ' vinyles' : '', g.garantis ? 'un pack Épique garanti' : ''].filter(Boolean).join(', ');
+  const gainsTexte = (g) => [vin(g) ? '+' + nf(vin(g)) + ' vinyles' : '', g.garantis ? 'un pack Épique garanti' : ''].filter(Boolean).join(', ');
 
   // ---------------------------------------------------------------------
   // Packs
@@ -1314,7 +1307,7 @@
         ${plusieurs ? `<div class="ct-points">${boosters.map((b, i) => `<button type="button" data-i="${i}" aria-label="${esc(b.nom)}"></button>`).join('')}</div>` : ''}
         <div class="ct-vit-info" data-info></div>
         <div class="ct-ouvrir" data-zone-ouvrir></div>
-        <div class="ct-hero-note">${ico('horloge', 15)}${e.tirages >= e.plafond ? 'Tes tirages sont au maximum.' : '+3 tirages toutes les 10 minutes, jusqu\'à ' + e.plafond + '.'}</div>
+        <div class="ct-hero-note">${ico('vinyle', 15)}Les packs se paient en vinyles.<button type="button" class="ct-lien" data-echange>Échanger des Wave Coins</button></div>
       </section>
 
       ${attente ? `<button type="button" class="ct-attente" data-aller="${aRecuperer(e) ? 'bonus' : 'missions'}">${ico('cadeau', 22)}<div><b>${pluriel(attente, 'récompense')} à récupérer</b><span>${[e.cadeau_pret ? 'cadeau du jour' : '', e.roue_prete ? 'roue' : '', e.coffres_prets ? 'coffre' : '', e.missions_pretes ? 'missions' : ''].filter(Boolean).join(' · ')}</span></div>${ico('fleche', 18)}</button>` : ''}
@@ -1337,7 +1330,7 @@
           ${b.classeur ? `<button type="button" class="ct-lien ct-voir" data-voir>Voir les ${nf(b.nb_cartes)} cartes${ico('fleche', 14)}</button>` : ''}
         </div>`;
       const cout = Number(b.cout || 1);
-      zoneOuvrir.innerHTML = [1, 5, 10].map(n => `<button type="button" class="ct-btn ${n === 1 ? 'principal ' : ''}grand" data-ouvrir="${n}" ${e.tirages < n * cout ? 'disabled' : ''}>${n > 1 ? n + ' packs' : 'Ouvrir un pack'}<span class="cout">${ico('eclair', 12)}${n * cout}</span></button>`).join('');
+      zoneOuvrir.innerHTML = [1, 5, 10].map(n => `<button type="button" class="ct-btn ${n === 1 ? 'principal ' : ''}grand" data-ouvrir="${n}" ${e.vinyles < n * cout ? 'disabled' : ''}>${n > 1 ? n + ' packs' : 'Ouvrir un pack'}<span class="cout">${ico('vinyle', 12)}${n * cout}</span></button>`).join('');
     }
 
     function poser(){
@@ -1435,7 +1428,7 @@
             <span class="ct-pj-type">${fin ? 'Collection · jusqu\'au ' + esc(fin) : 'Collection permanente'}</span>
             <h2>${esc(b.nom)}</h2>
             <p class="ct-pj-stat">La Wave · ${pluriel(cartes.length, 'carte')} · ${nf(obtenues)} obtenue${obtenues > 1 ? 's' : ''}</p>
-            <div class="ct-ouvrir">${[1, 5, 10].map(n => `<button type="button" class="ct-btn ${n === 1 ? 'principal ' : ''}grand" data-ouvrir="${n}" ${e.tirages < n * cout ? 'disabled' : ''}>${n > 1 ? n + ' packs' : 'Ouvrir un pack'}<span class="cout">${ico('eclair', 12)}${n * cout}</span></button>`).join('')}</div>
+            <div class="ct-ouvrir">${[1, 5, 10].map(n => `<button type="button" class="ct-btn ${n === 1 ? 'principal ' : ''}grand" data-ouvrir="${n}" ${e.vinyles < n * cout ? 'disabled' : ''}>${n > 1 ? n + ' packs' : 'Ouvrir un pack'}<span class="cout">${ico('vinyle', 12)}${n * cout}</span></button>`).join('')}</div>
           </div>
         </header>
         ${b.description ? `<p class="ct-pj-desc">${esc(b.description)}</p>` : ''}
@@ -1457,12 +1450,44 @@
     S.corps.querySelectorAll('.ct-track').forEach((x) => x.addEventListener('click', () => fiche(cartes[Number(x.dataset.i)].id, b.id)));
   }
 
+  // Échanger des Wave Coins contre des vinyles (1 pour 1).
+  function fenetreEchange(){
+    const wc = Number(S.etat.wc || 0);
+    const choix = [100, 250, 500, 1000].filter(n => n < wc);
+    const f = fenetre(`
+      <h2>Échanger des Wave Coins</h2>
+      <p class="sous">1 Wave Coin = 1 vinyle, et les vinyles paient l'ouverture des packs. Tu as <b>${nf(wc)} Wave Coins</b> et <b>${nf(S.etat.vinyles)} vinyles</b>.</p>
+      ${wc >= 10
+        ? `<div class="ct-echange">
+            <div class="ct-echange-choix">${choix.map(n => `<button type="button" class="ct-btn" data-n="${n}">${nf(n)}</button>`).join('')}<button type="button" class="ct-btn" data-n="${wc}">Tout (${nf(wc)})</button></div>
+            <label class="ct-echange-champ"><input type="number" inputmode="numeric" min="10" max="${wc}" step="1" value="${Math.min(wc, 100)}" data-wc aria-label="Wave Coins à échanger"> Wave Coins</label>
+          </div>`
+        : '<div class="ct-panneau ct-vide" style="margin-top:14px"><b>Pas encore assez de Wave Coins</b>Ils se gagnent avec l\'XP du site : 1 XP = 1 Wave Coin.</div>'}
+      <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Fermer</button>${wc >= 10 ? '<button type="button" class="ct-btn principal" data-oui>Échanger</button>' : ''}</div>`);
+    f.corps.querySelector('[data-non]').addEventListener('click', f.fermer);
+    const champ = f.corps.querySelector('[data-wc]');
+    f.corps.querySelectorAll('[data-n]').forEach((b) => b.addEventListener('click', () => { champ.value = b.dataset.n; }));
+    const ok = f.corps.querySelector('[data-oui]');
+    if(ok) ok.addEventListener('click', async () => {
+      const n = Math.floor(Number(champ.value));
+      if(!(n >= 10 && n <= wc)){ toast('Choisis entre 10 et ' + nf(wc) + ' Wave Coins.', 'err'); return; }
+      ok.disabled = true;
+      try{
+        poserEtat(await appel('jeu_vinyles_acheter', { p_wc: n }));
+        majEntete(); Son.jouer('gain'); vibre(25);
+        toast('+' + nf(n) + ' vinyles');
+        f.fermer();
+        if(S.vue === 'packs' || S.vue === 'collection') afficherVue(S.vue);
+      }catch(e){ toast(e.message, 'err'); ok.disabled = false; }
+    });
+  }
+
   async function ouvrir(n, garanti, booster){
 
     if(S.occupe) return;
     const b = booster || (S.boosters || REPLI).find(x => x.id === S.booster) || REPLI[0];
     const cout = garanti ? 0 : Number(b.cout || 1);
-    if(!garanti && S.etat && S.etat.tirages < n * cout){ toast('Pas assez de tirages pour l\'instant.', 'err'); return; }
+    if(!garanti && S.etat && S.etat.vinyles < n * cout){ toast('Il te manque ' + nf(n * cout - S.etat.vinyles) + ' vinyles : échange des Wave Coins.', 'err'); return; }
     S.occupe = true;
     Son.pret();
 
@@ -1500,7 +1525,6 @@
           <span class="ct-surtitre" style="justify-content:center">${ico('etoile', 15)}Niveau supérieur</span>
           <div style="font-size:72px; font-weight:900; line-height:1.05; margin:10px 0 6px; letter-spacing:-.03em; background:linear-gradient(180deg, #fff, #8fcfff); -webkit-background-clip:text; background-clip:text; color:transparent">${nv.niveau}</div>
           <div class="ct-gains" style="justify-content:center">${gainsHtml(nv)}</div>
-          <p class="sous" style="margin-top:12px">Ton plafond de tirages grandit avec ton niveau.</p>
           <div style="margin-top:20px"><button type="button" class="ct-btn principal" data-ok>Continuer</button></div>
         </div>`, false, fin);
       f.corps.querySelector('[data-ok]').addEventListener('click', f.fermer);
@@ -1777,7 +1801,7 @@
         const nouvelles = cartes.filter(c => c.nouvelle).length;
         const holos = cartes.filter(c => c.holo).length;
         const par = [5, 4, 3].map(r => [r, cartes.filter(c => Number(c.rarete) === r).length]).filter(x => x[1]);
-        const peutRouvrir = !garanti && S.etat && S.etat.tirages >= n * cout;
+        const peutRouvrir = !garanti && S.etat && S.etat.vinyles >= n * cout;
         pied.innerHTML = `
           <div class="ct-bilan">
             <span>${nouvelles ? pluriel(nouvelles, 'nouvel artiste', 'nouveaux artistes') : 'Aucun nouvel artiste'}</span>
@@ -1785,7 +1809,7 @@
             ${holos ? `<span>${pluriel(holos, 'holo')}</span>` : ''}
           </div>
           <div class="boutons">
-            ${peutRouvrir ? `<button type="button" class="ct-btn principal" data-encore>${n > 1 ? 'Rouvrir ' + n + ' packs' : 'Rouvrir un pack'}<span class="cout">${ico('eclair', 12)}${n * cout}</span></button>` : ''}
+            ${peutRouvrir ? `<button type="button" class="ct-btn principal" data-encore>${n > 1 ? 'Rouvrir ' + n + ' packs' : 'Rouvrir un pack'}<span class="cout">${ico('vinyle', 12)}${n * cout}</span></button>` : ''}
             <button type="button" class="ct-btn ${peutRouvrir ? '' : 'blanc'}" data-fin>Terminer</button>
           </div>`;
         pied.querySelector('[data-fin]').addEventListener('click', () => fermer(false));
@@ -2033,8 +2057,8 @@
       const fait = g.jour < c.jour || (!c.pret && g.jour === c.jour);
       return `
       <div class="ct-jour${fait ? ' fait' : ''}${c.pret && g.jour === c.jour ? ' aujourdhui' : ''}${g.jour === 7 ? ' sept' : ''}">
-        <span>J${g.jour}</span>${ico(fait ? 'coche' : (g.garantis ? 'pack' : (g.vinyles ? 'vinyle' : 'eclair')), 17)}
-        <b>${g.tirages ? '+' + g.tirages : ''}${g.vinyles ? (g.tirages ? '<br>' : '') + '+' + g.vinyles + 'v' : ''}</b>
+        <span>J${g.jour}</span>${ico(fait ? 'coche' : (g.garantis ? 'pack' : 'vinyle'), 17)}
+        <b>+${nf(vin(g))}</b>
       </div>`;
     }).join('')}</div>`;
   }
@@ -2076,7 +2100,7 @@
       const a0 = (k - .5) * ang - 90, a1 = (k + .5) * ang - 90;
       const pt = (a) => [R * Math.cos(a * Math.PI / 180), R * Math.sin(a * Math.PI / 180)];
       const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
-      const lib = s.libelle.replace(/JACKPOT\s*·\s*/i, '').replace(/\s*💿/, ' vinyles');
+      const lib = libVin(s.libelle).replace(/JACKPOT\s*·\s*/i, '').replace(/\s*💿/, ' vinyles');
       const mots = lib.split(' ');
       const or = jackpot(s.libelle);
       return `<path d="M0 0 L${x0.toFixed(2)} ${y0.toFixed(2)} A${R} ${R} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z" fill="${or ? 'url(#ctOr)' : couleurs[k % couleurs.length]}" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
@@ -2099,7 +2123,7 @@
                 <g transform="translate(-19 -19) scale(.38)" style="color:#4FB4FF">${EMBLEME.replace('class="ct-embleme"', 'width="100" height="100"')}</g>
               </svg>
             </div>
-            <div class="ct-roue-res" data-res>${roue.dernier ? 'Aujourd\'hui : <b>' + esc(roue.dernier.libelle) + '</b>' : 'Des tirages, des vinyles, un pack Épique… et un gros lot.'}</div>
+            <div class="ct-roue-res" data-res>${roue.dernier ? 'Aujourd\'hui : <b>' + esc(libVin(roue.dernier.libelle)) + '</b>' : 'Des vinyles, un pack Épique… et un gros lot.'}</div>
             <button type="button" class="ct-btn principal grand" data-tourner ${roue.prete ? '' : 'disabled'}>${roue.prete ? 'Tourner la roue' : 'Déjà tournée aujourd\'hui'}</button>
           </div>
         </section>
@@ -2111,12 +2135,12 @@
         </section>
 
         <section class="ct-panneau">
-          <div class="ct-entete-panneau"><div><h3>Coffre</h3><p class="sous">8 tirages à 9 h, 13 h, 18 h et 22 h, à prendre dans les 8 heures.</p></div></div>
+          <div class="ct-entete-panneau"><div><h3>Coffre</h3><p class="sous">Des vinyles à 9 h, 13 h, 18 h et 22 h, à prendre dans les 8 heures.</p></div></div>
           <div class="ct-creneaux">${coffre.cadeaux.map((x) => `
             <div class="ct-creneau ${x.etat}">
               <span class="h">${String(x.heure).padStart(2, '0')} h</span>
               <small>${x.etat === 'pret' ? 'jusqu\'à ' + heure(x.fin) : (x.etat === 'a_venir' ? 'à venir' : (x.etat === 'prise' ? 'récupéré' : 'expiré'))}</small>
-              <button type="button" class="ct-btn ${x.etat === 'pret' ? 'principal' : ''} petit" data-coffre="${esc(x.cle)}" ${x.etat === 'pret' ? '' : 'disabled'} aria-label="Récupérer ${x.tirages} tirages">${x.etat === 'prise' ? ico('coche', 15) : ico('eclair', 14) + '+' + x.tirages}</button>
+              <button type="button" class="ct-btn ${x.etat === 'pret' ? 'principal' : ''} petit" data-coffre="${esc(x.cle)}" ${x.etat === 'pret' ? '' : 'disabled'} aria-label="Récupérer ${nf(vin(x))} vinyles">${x.etat === 'prise' ? ico('coche', 15) : ico('vinyle', 14) + '+' + nf(vin(x))}</button>
             </div>`).join('')}</div>
         </section>
       </div>`;
@@ -2141,9 +2165,9 @@
       poserEtat(x.etat); majEntete();
       Son.jouer(jackpot(x.libelle) ? 'r5' : 'gain'); vibre([25, 40, 25]);
       const res = S.corps.querySelector('[data-res]');
-      if(res) res.innerHTML = 'Gagné : <b>' + esc(x.libelle) + '</b>';
+      if(res) res.innerHTML = 'Gagné : <b>' + esc(libVin(x.libelle)) + '</b>';
       t.textContent = 'Déjà tournée aujourd\'hui';
-      toast('Roue du jour : ' + x.libelle);
+      toast('Roue du jour : ' + libVin(x.libelle));
     });
 
     const cb = S.corps.querySelector('[data-cadeau]');
@@ -2154,7 +2178,7 @@
       try{
         const x = await appel('jeu_coffre_prendre', { p_cle: b.dataset.coffre });
         poserEtat(x.etat); majEntete(); Son.jouer('gain'); vibre(20);
-        toast('+' + x.gain.tirages + ' tirages');
+        toast('+' + nf(vin(x.gain)) + ' vinyles');
         vueBonus();
       }catch(e){ toast(e.message, 'err'); b.disabled = false; }
     }));
