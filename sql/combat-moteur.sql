@@ -32,7 +32,7 @@ returns jsonb language plpgsql stable set search_path to 'public' as $$
 declare
   c public.jeu_cartes; s public.combat_surcharges; ty public.combat_types; v_t text;
   n numeric; m numeric; hm numeric; h numeric; v_pv integer; v_pui integer; v_def integer; v_vit integer;
-  ids text[]; a1 text; a2 text; cp text; j1 jsonb; j2 jsonb; jc jsonb; faibles text[]; resiste text[];
+  ids text[]; a1 text; a2 text; cp text; j1 jsonb; j2 jsonb; jc jsonb; faibles jsonb; resiste jsonb;
 begin
   select * into c from public.jeu_cartes where artist_id = p_artist;
   if not found then raise exception 'Carte inconnue.'; end if;
@@ -65,12 +65,12 @@ begin
     if array_length(ids, 1) is null then ids := array(select id from public.combat_attaques where actif and id <> a1 order by id); end if;
     a2 := ids[1 + abs(hashtext(p_artist::text || 'a2')) % array_length(ids, 1)];
   end if;
-  select jsonb_build_object('id', id, 'nom', nom, 'type', type, 'role', role, 'puissance', puissance, 'justesse', justesse,
-           'effet', effet, 'valeur', valeur, 'chance', chance, 'cible', cible, 'description', description)
-    into j1 from public.combat_attaques where id = a1;
-  select jsonb_build_object('id', id, 'nom', nom, 'type', type, 'role', role, 'puissance', puissance, 'justesse', justesse,
-           'effet', effet, 'valeur', valeur, 'chance', chance, 'cible', cible, 'description', description)
-    into j2 from public.combat_attaques where id = a2;
+  select jsonb_build_object('id', a.id, 'nom', a.nom, 'type', a.type, 'type_nom', t.nom, 'couleur', t.couleur, 'role', a.role, 'puissance', a.puissance,
+           'justesse', a.justesse, 'effet', a.effet, 'valeur', a.valeur, 'chance', a.chance, 'cible', a.cible, 'description', a.description)
+    into j1 from public.combat_attaques a left join public.combat_types t on t.id = a.type where a.id = a1;
+  select jsonb_build_object('id', a.id, 'nom', a.nom, 'type', a.type, 'type_nom', t.nom, 'couleur', t.couleur, 'role', a.role, 'puissance', a.puissance,
+           'justesse', a.justesse, 'effet', a.effet, 'valeur', a.valeur, 'chance', a.chance, 'cible', a.cible, 'description', a.description)
+    into j2 from public.combat_attaques a left join public.combat_types t on t.id = a.type where a.id = a2;
 
   cp := s.capacite;
   if cp is null then
@@ -80,15 +80,19 @@ begin
   select jsonb_build_object('id', id, 'nom', nom, 'code', code, 'valeur', valeur, 'description', description)
     into jc from public.combat_capacites where id = cp;
 
-  faibles := array(select att from public.combat_affinites where def = v_t and mult > 1 order by att);
-  resiste := array(select att from public.combat_affinites where def = v_t and mult < 1 order by att);
+  select coalesce(jsonb_agg(jsonb_build_object('id', t.id, 'nom', t.nom, 'couleur', t.couleur, 'mult', a.mult) order by t.ordre), '[]'::jsonb) into faibles
+    from public.combat_affinites a join public.combat_types t on t.id = a.att where a.def = v_t and a.mult > 1;
+  select coalesce(jsonb_agg(jsonb_build_object('id', t.id, 'nom', t.nom, 'couleur', t.couleur, 'mult', a.mult) order by t.ordre), '[]'::jsonb) into resiste
+    from public.combat_affinites a join public.combat_types t on t.id = a.att where a.def = v_t and a.mult < 1;
 
   return jsonb_build_object(
     'artist_id', p_artist, 'nom', c.nom, 'photo', c.photo, 'rarete', p_rarete, 'holo', p_holo,
     'type', v_t, 'type_nom', ty.nom, 'couleur', ty.couleur, 'citation', coalesce(s.citation, ty.citation),
     'pv', v_pv, 'pui', v_pui, 'def', v_def, 'vit', v_vit,
     'attaques', jsonb_build_array(j1, j2), 'capacite', jc,
-    'faiblesses', to_jsonb(faibles), 'resistances', to_jsonb(resiste),
+    'faiblesses', faibles, 'resistances', resiste,
+    'base', jsonb_build_object('pv', coalesce(s.pv, round(80 + 50 * n)), 'pui', coalesce(s.pui, round(45 + 25 * n)), 'def', coalesce(s.def, round(40 + 25 * n)), 'vit', coalesce(s.vit, round(45 + 50 * h))),
+    'mult_rarete', m,
     'surcharge', case when s.artist_id is null then null else jsonb_strip_nulls(to_jsonb(s) - 'artist_id' - 'maj_le') end);
 end $$;
 
@@ -103,7 +107,9 @@ begin
     'pv', round((i ->> 'pv')::numeric * k), 'pv_max', round((i ->> 'pv')::numeric * k),
     'pui', round((i ->> 'pui')::numeric * k), 'def', round((i ->> 'def')::numeric * k), 'vit', round((i ->> 'vit')::numeric * k),
     'mods', jsonb_build_object('pui', 0, 'def', 0, 'vit', 0), 'statut', jsonb_build_object('etourdi', 0, 'poison', 0, 'poison_pct', 0),
-    'attaques', i -> 'attaques', 'capacite', i -> 'capacite', 'ko', false, 'ouv', false, 'surv', false, 'soins', 0);
+    'attaques', i -> 'attaques', 'capacite', i -> 'capacite', 'ko', false, 'ouv', false, 'surv', false, 'soins', 0,
+    'faiblesses', (select coalesce(jsonb_agg(x ->> 'id'), '[]'::jsonb) from jsonb_array_elements(i -> 'faiblesses') x),
+    'resistances', (select coalesce(jsonb_agg(x ->> 'id'), '[]'::jsonb) from jsonb_array_elements(i -> 'resistances') x));
 end $$;
 
 -- Les quatre unités d'un combat : p_a (le joueur) aux indices 0-1, p_b aux indices 2-3 ; l'aura de star est posée ici.
