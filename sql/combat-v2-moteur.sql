@@ -398,7 +398,9 @@ begin
         tu := st -> 'u' -> tg;
         exit when (tu ->> 'ko')::boolean or ((st -> 'u' -> i) ->> 'ko')::boolean;
         crit := random() < 0.08;
-        mm := 1 + public.combat_sv(tu, 'marque') / 100 + case when public.combat_a(tu, 'gel') then 0.2 else 0 end;
+        -- usure : au-delà de 40 actions, chaque coup frappe 4 % plus fort que le précédent (les combats ne s'éternisent pas)
+        mm := 1 + public.combat_sv(tu, 'marque') / 100 + case when public.combat_a(tu, 'gel') then 0.2 else 0 end
+              + greatest(0, coalesce((st ->> 'n')::integer, 0) - 40) * 0.04;
         df := public.combat_stat(tu, 'def') * (1 - coalesce((tech ->> 'perce')::numeric, 0) / 100);
         d := greatest(1, round(pu * public.combat_stat(st -> 'u' -> i, 'pui') / greatest(df, 1) * 0.36 * aff * stab
                                * case when crit then 1.5 else 1 end * spread * ouv * mm * (0.9 + random() * 0.1)));
@@ -682,7 +684,7 @@ end $$;
 create or replace function public.combat_derouler(p_unites jsonb, p_jeu jsonb, p_action jsonb, p_max integer default 12) returns jsonb
 language plpgsql volatile set search_path to 'public' as $$
 declare
-  st jsonb := jsonb_build_object('u', p_unites, 'ev', '[]'::jsonb); jeu jsonb := p_jeu; auto boolean := coalesce((p_jeu ->> 'auto')::boolean, false);
+  st jsonb := jsonb_build_object('u', p_unites, 'ev', '[]'::jsonb, 'n', coalesce((p_jeu ->> 'n')::integer, 0)); jeu jsonb := p_jeu; auto boolean := coalesce((p_jeu ->> 'auto')::boolean, false);
   n integer := coalesce((p_jeu ->> 'n')::integer, 0); actif integer := nullif(p_jeu ->> 'actif', '')::integer; act jsonb := p_action;
   nb integer := 0; g integer; cont boolean := false; t integer; c integer; s0 numeric; s1 numeric; me jsonb;
 begin
@@ -718,6 +720,7 @@ begin
       if me -> 'techs' -> t is null then raise exception 'Technique inconnue.'; end if;
       if coalesce((me -> 'cd' ->> t)::integer, 0) > 0 then raise exception 'Cette technique n''est pas encore prête.'; end if;
       c := case when (act ->> 'c') ~ '^[0-3]$' then (act ->> 'c')::integer else null end;
+      st := jsonb_set(st, '{n}', to_jsonb(n));
       st := public.combat_executer(st, actif, t, c);
     end if;
     st := public.combat_fin_tour(st, actif);

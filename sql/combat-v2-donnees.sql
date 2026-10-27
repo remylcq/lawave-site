@@ -18,13 +18,14 @@ create table if not exists public.combat_roles (
 );
 
 insert into public.combat_roles (id, nom, resume, ordre, m_pv, m_pui, m_def, m_vit) values
-  ('lyriciste', 'Lyriciste',  'Gros dégâts sur une seule cible.',                          1, 0.90, 1.25, 0.90, 1.00),
+  ('lyriciste', 'Lyriciste',  'Gros dégâts sur une seule cible.',                          1, 0.90, 1.20, 0.90, 1.00),
   ('pilier',    'Pilier',     'Encaisse les coups et protège ses alliés.',                  2, 1.35, 0.80, 1.30, 0.90),
-  ('beatmaker', 'Beatmaker',  'Soigne et purifie l''équipe.',                               3, 1.00, 0.85, 1.00, 1.00),
-  ('hypeman',   'Hype man',   'Bonus d''attaque, de vitesse et de jauge pour le duo.',      4, 0.95, 0.90, 0.95, 1.15),
+  ('beatmaker', 'Beatmaker',  'Soigne et purifie l''équipe.',                               3, 1.10, 0.95, 1.00, 1.00),
+  ('hypeman',   'Hype man',   'Bonus d''attaque, de vitesse et de jauge pour le duo.',      4, 1.00, 1.00, 1.00, 1.15),
   ('clasheur',  'Clasheur',   'Étourdit, gèle ou ralentit les adversaires.',                5, 0.95, 0.95, 0.95, 1.10),
-  ('briseur',   'Briseur',    'Casse les défenses et frappe plusieurs adversaires.',        6, 1.00, 1.10, 0.95, 1.00)
-on conflict (id) do nothing;
+  ('briseur',   'Briseur',    'Casse les défenses et frappe plusieurs adversaires.',        6, 1.00, 1.05, 0.95, 1.00)
+on conflict (id) do update set nom = excluded.nom, resume = excluded.resume, ordre = excluded.ordre,
+  m_pv = excluded.m_pv, m_pui = excluded.m_pui, m_def = excluded.m_def, m_vit = excluded.m_vit;
 
 -- 2. Les techniques. slot : 1 = de base (toujours prête), 2 = spéciale, 3 = ultime. type vide = le style de la carte qui la lance
 -- (donc ▲ super efficace / ▼ peu efficace et bonus de même style suivent la carte). cible : ennemi, ennemis, allie (soi compris),
@@ -73,9 +74,9 @@ insert into public.combat_techniques (id, nom, role, slot, puissance, hits, just
   ('pi-contre',      'Contre-attaque du quartier','pilier',  3, 82, 1, 95,  'ennemi',  5, 0,  '[{"k":"def+","v":25,"d":3,"sur":"soi"}]', 'Il encaisse et rend le coup, en plus solide.'),
   ('pi-impact',      'Impact de scène',         'pilier',    3, 92, 1, 90,  'ennemi',  5, 0,  '[{"k":"etourdi","d":1,"chance":40}]', 'Un choc qui peut étourdir.'),
   -- Beatmaker
-  ('be-kick',        'Coup de kick',            'beatmaker', 1, 48, 1, 100, 'ennemi',  0, 0,  '[]', 'Une grosse caisse en plein cœur.'),
-  ('be-sample',      'Sample malin',            'beatmaker', 1, 44, 1, 100, 'ennemi',  0, 0,  '[{"k":"soin","v":8,"sur":"soi"}]', 'Un bout de vieux tube qui remonte le moral.'),
-  ('be-caisse',      'Caisse claire',           'beatmaker', 1, 44, 1, 100, 'ennemi',  0, 0,  '[{"k":"jauge-","v":15,"chance":50}]', 'Un claquement qui casse le rythme adverse.'),
+  ('be-kick',        'Coup de kick',            'beatmaker', 1, 52, 1, 100, 'ennemi',  0, 0,  '[]', 'Une grosse caisse en plein cœur.'),
+  ('be-sample',      'Sample malin',            'beatmaker', 1, 50, 1, 100, 'ennemi',  0, 0,  '[{"k":"soin","v":8,"sur":"soi"}]', 'Un bout de vieux tube qui remonte le moral.'),
+  ('be-caisse',      'Caisse claire',           'beatmaker', 1, 50, 1, 100, 'ennemi',  0, 0,  '[{"k":"jauge-","v":15,"chance":50}]', 'Un claquement qui casse le rythme adverse.'),
   ('be-berceuse',    'Mélodie apaisante',       'beatmaker', 2, 0,  1, 100, 'allie',   3, 0,  '[{"k":"soin","v":38}]', 'Rend un tiers de ses PV à un allié.'),
   ('be-mixage',      'Mixage propre',           'beatmaker', 2, 0,  1, 100, 'allie',   3, 0,  '[{"k":"purif"},{"k":"soin","v":15}]', 'Efface les parasites et soigne un peu.'),
   ('be-boucle',      'Boucle réparatrice',      'beatmaker', 2, 0,  1, 100, 'allie',   3, 0,  '[{"k":"regen","v":10,"d":3}]', 'Une boucle qui soigne tour après tour.'),
@@ -83,9 +84,9 @@ insert into public.combat_techniques (id, nom, role, slot, puissance, hits, just
   ('be-remix',       'Remix salvateur',         'beatmaker', 3, 0,  1, 100, 'allies',  5, 0,  '[{"k":"soin","v":22},{"k":"regen","v":8,"d":3}]', 'Un remix qui remet tout le monde d''aplomb.'),
   ('be-drop',        'Drop libérateur',         'beatmaker', 3, 0,  1, 100, 'allies',  5, 0,  '[{"k":"soin","v":25},{"k":"jauge+","v":20}]', 'Le drop qui relance tout le duo.'),
   -- Hype man
-  ('hy-chauffer',    'Chauffer la salle',       'hypeman',   1, 40, 1, 100, 'ennemi',  0, 0,  '[{"k":"pui+","v":10,"d":2,"sur":"allies","chance":50}]', 'La salle chauffe : le duo peut gagner en Puissance.'),
-  ('hy-cri',         'Cri de ralliement',       'hypeman',   1, 42, 1, 100, 'ennemi',  0, 0,  '[{"k":"vit+","v":10,"d":2,"sur":"soi"}]', 'Un cri qui donne de l''élan.'),
-  ('hy-adlibs',      'Ad-libs',                 'hypeman',   1, 44, 1, 100, 'ennemi',  0, 0,  '[{"k":"jauge+","v":12,"sur":"allies","chance":60}]', 'Skrrt ! Skrrt ! La jauge du duo monte.'),
+  ('hy-chauffer',    'Chauffer la salle',       'hypeman',   1, 50, 1, 100, 'ennemi',  0, 0,  '[{"k":"pui+","v":10,"d":2,"sur":"allies","chance":50}]', 'La salle chauffe : le duo peut gagner en Puissance.'),
+  ('hy-cri',         'Cri de ralliement',       'hypeman',   1, 50, 1, 100, 'ennemi',  0, 0,  '[{"k":"vit+","v":10,"d":2,"sur":"soi"}]', 'Un cri qui donne de l''élan.'),
+  ('hy-adlibs',      'Ad-libs',                 'hypeman',   1, 50, 1, 100, 'ennemi',  0, 0,  '[{"k":"jauge+","v":12,"sur":"allies","chance":60}]', 'Skrrt ! Skrrt ! La jauge du duo monte.'),
   ('hy-tempo',       'Accélérer le tempo',      'hypeman',   2, 0,  1, 100, 'allies',  3, 0,  '[{"k":"vit+","v":25,"d":3}]', 'Tout le duo joue plus vite.'),
   ('hy-hype',        'Hype collective',         'hypeman',   2, 0,  1, 100, 'allies',  3, 0,  '[{"k":"pui+","v":25,"d":3}]', 'Tout le duo frappe plus fort.'),
   ('hy-micro',       'Passe le micro',          'hypeman',   2, 0,  1, 100, 'allie',   3, 0,  '[{"k":"jauge+","v":60},{"k":"pui+","v":15,"d":2}]', 'Un allié reprend la main immédiatement.'),
@@ -94,14 +95,14 @@ insert into public.combat_techniques (id, nom, role, slot, puissance, hits, just
   ('hy-feat',        'Feat surprise',           'hypeman',   3, 0,  1, 100, 'allie',   5, 0,  '[{"k":"jauge+","v":100},{"k":"pui+","v":30,"d":2}]', 'Un invité de dernière minute prend le micro tout de suite.'),
   -- Clasheur
   ('cl-pique',       'Pique bien placée',       'clasheur',  1, 50, 1, 100, 'ennemi',  0, 0,  '[{"k":"vit-","v":15,"d":2,"chance":35}]', 'Une pique qui peut ralentir.'),
-  ('cl-silence',     'Silence radio',           'clasheur',  1, 46, 1, 100, 'ennemi',  0, 0,  '[{"k":"etourdi","d":1,"chance":18}]', 'Un blanc qui peut figer l''adversaire.'),
+  ('cl-silence',     'Silence radio',           'clasheur',  1, 46, 1, 100, 'ennemi',  0, 0,  '[{"k":"etourdi","d":1,"chance":12}]', 'Un blanc qui peut figer l''adversaire.'),
   ('cl-regard',      'Regard glacial',          'clasheur',  1, 48, 1, 100, 'ennemi',  0, 0,  '[{"k":"vit-","v":20,"d":2,"chance":30}]', 'Un regard qui coupe l''élan.'),
-  ('cl-gel',         'Gel d''ambiance',         'clasheur',  2, 62, 1, 95,  'ennemi',  3, 0,  '[{"k":"gel","d":1,"chance":55}]', 'L''ambiance se glace : il peut sauter son tour.'),
-  ('cl-bruit',       'Bruit blanc',             'clasheur',  2, 55, 1, 95,  'ennemi',  3, 0,  '[{"k":"etourdi","d":1,"chance":60}]', 'Un bruit blanc qui étourdit souvent.'),
+  ('cl-gel',         'Gel d''ambiance',         'clasheur',  2, 62, 1, 95,  'ennemi',  3, 0,  '[{"k":"gel","d":1,"chance":45}]', 'L''ambiance se glace : il peut sauter son tour.'),
+  ('cl-bruit',       'Bruit blanc',             'clasheur',  2, 55, 1, 95,  'ennemi',  3, 0,  '[{"k":"etourdi","d":1,"chance":45}]', 'Un bruit blanc qui étourdit souvent.'),
   ('cl-ralenti',     'Ralentir la prod',        'clasheur',  2, 40, 1, 95,  'ennemis', 3, 0,  '[{"k":"vit-","v":25,"d":3}]', 'Les deux adversaires perdent de la Vitesse.'),
-  ('cl-blackout',    'Black-out',               'clasheur',  3, 60, 1, 95,  'ennemis', 5, 0,  '[{"k":"etourdi","d":1,"chance":50}]', 'Plus de lumière : chaque adversaire peut être étourdi.'),
-  ('cl-banc',        'Banc de touche',          'clasheur',  3, 95, 1, 90,  'ennemi',  5, 0,  '[{"k":"gel","d":1,"chance":70}]', 'Un coup qui envoie sur le banc.'),
-  ('cl-mute',        'Mute général',            'clasheur',  3, 78, 1, 90,  'ennemi',  5, 0,  '[{"k":"etourdi","d":1},{"k":"pui-","v":20,"d":2}]', 'Plus un son : étourdi et affaibli.'),
+  ('cl-blackout',    'Black-out',               'clasheur',  3, 60, 1, 95,  'ennemis', 5, 0,  '[{"k":"etourdi","d":1,"chance":40}]', 'Plus de lumière : chaque adversaire peut être étourdi.'),
+  ('cl-banc',        'Banc de touche',          'clasheur',  3, 95, 1, 90,  'ennemi',  5, 0,  '[{"k":"gel","d":1,"chance":55}]', 'Un coup qui envoie sur le banc.'),
+  ('cl-mute',        'Mute général',            'clasheur',  3, 78, 1, 90,  'ennemi',  5, 0,  '[{"k":"etourdi","d":1,"chance":55},{"k":"pui-","v":20,"d":2}]', 'Plus un son : étourdi et affaibli.'),
   -- Briseur
   ('br-rafale',      'Rafale de barres',        'briseur',   1, 36, 1, 95,  'ennemis', 0, 0,  '[]', 'Touche les deux adversaires.'),
   ('br-brise',       'Brise-glace',             'briseur',   1, 48, 1, 100, 'ennemi',  0, 20, '[{"k":"def-","v":15,"d":3,"chance":60}]', 'Fissure la défense de sa cible.'),
@@ -112,7 +113,9 @@ insert into public.combat_techniques (id, nom, role, slot, puissance, hits, just
   ('br-final',       'Final éclatant',          'briseur',   3, 90, 1, 90,  'ennemis', 5, 25, '[{"k":"marque","v":20,"d":3}]', 'Un final qui frappe tout le monde.'),
   ('br-bigbang',     'Big bang',                'briseur',   3, 120, 1, 85, 'ennemi',  5, 50, '[]', 'Ignore la moitié de la Défense.'),
   ('br-saccage',     'Saccager la scène',       'briseur',   3, 75, 1, 90,  'ennemis', 5, 0,  '[{"k":"def-","v":30,"d":3},{"k":"brulure","v":5,"d":3,"chance":60}]', 'Tout brûle, tout casse.')
-on conflict (id) do nothing;
+on conflict (id) do update set nom = excluded.nom, role = excluded.role, slot = excluded.slot, type = excluded.type, puissance = excluded.puissance,
+  hits = excluded.hits, justesse = excluded.justesse, cible = excluded.cible, recharge = excluded.recharge, perce = excluded.perce,
+  effets = excluded.effets, description = excluded.description;
 
 -- 3. Les passifs (réservés aux Légendaires et Mythiques, sauf réglage de l'équipe). Trois nouveaux codes : rythme (démarre avec de la
 -- jauge), bouclier (démarre protégé), rage (plus de Puissance sous la moitié des PV).
