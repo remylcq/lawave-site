@@ -44,7 +44,7 @@
   ];
   const rar = (r) => RAR[Math.min(Math.max(Number(r) || 1, 1), 5)];
 
-  const VUES = [['packs', 'Packs'], ['collection', 'Collection'], ['combat', 'Combat'], ['marche', 'Marché'], ['missions', 'Missions'], ['bonus', 'Bonus'], ['succes', 'Succès']];
+  const VUES = [['accueil', 'Accueil'], ['packs', 'Packs'], ['collection', 'Collection'], ['combat', 'Combat'], ['marche', 'Marché'], ['missions', 'Missions'], ['bonus', 'Bonus'], ['succes', 'Succès']];
 
   // ---------------------------------------------------------------------
   // Les icônes (un trait, la couleur du texte)
@@ -52,6 +52,11 @@
 
   const ICONES = {
     eclair: '<path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2z"/>',
+    accueil: '<path d="m3 11 9-8 9 8"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/>',
+    calendrier: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    drapeau: '<path d="M5 21V4"/><path d="M5 5h11l-2 4 2 4H5"/>',
+    boussole: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
+    utilisateur: '<circle cx="12" cy="8" r="3.8"/><path d="M4.5 20c.8-4 4-6 7.5-6s6.7 2 7.5 6"/>',
     combat: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="M13 19l6-6M16 16l4 4M19 21l2-2"/><path d="m14.5 6.5 3-3H21v3.5l-3 3"/><path d="M5 14l4 4"/>',
     marche: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
     piece: '<circle cx="12" cy="12" r="9"/><path d="M7.5 13c1.5-3.2 3-3.2 4.5 0s3 3.2 4.5 0"/>',
@@ -1073,7 +1078,7 @@
   // ---------------------------------------------------------------------
 
   const S = {
-    hote: null, etat: null, vue: 'packs', occupe: false, minuteur: null, corps: null,
+    hote: null, etat: null, vue: 'accueil', occupe: false, minuteur: null, corps: null,
     col: { page: 1, vue: 'toutes', rarete: null, q: '', tri: 'numero', classeur: null }
   };
 
@@ -1110,7 +1115,7 @@
   function ongletsHtml(){
     const e = S.etat;
     const pastilles = { missions: e.missions_pretes || 0, bonus: aRecuperer(e) };
-    const icones = { packs: 'pack', collection: 'cartes', combat: 'combat', marche: 'marche', missions: 'cible', bonus: 'cadeau', succes: 'trophee' };
+    const icones = { accueil: 'accueil', packs: 'pack', collection: 'cartes', combat: 'combat', marche: 'marche', missions: 'cible', bonus: 'cadeau', succes: 'trophee' };
     return VUES.map(([id, nom]) => `
       <button type="button" class="ct-onglet${S.vue === id ? ' actif' : ''}" data-vue="${id}" role="tab" aria-selected="${S.vue === id}">
         ${ico(icones[id], 17)}${esc(nom)}${pastilles[id] ? `<span class="ct-pastille">${pastilles[id]}</span>` : ''}
@@ -1169,7 +1174,7 @@
     }
 
     const demande = (location.hash.split('/')[2] || '').toLowerCase();
-    S.vue = VUES.some(v => v[0] === demande) ? demande : (VUES.some(v => v[0] === S.vue) ? S.vue : 'packs');
+    S.vue = VUES.some(v => v[0] === demande) ? demande : (VUES.some(v => v[0] === S.vue) ? S.vue : 'accueil');
 
     hote.innerHTML = `
       <div class="ct">
@@ -1202,7 +1207,7 @@
   }
 
   function quitter(){
-    ['WaveCombat', 'WaveMarche'].forEach((g) => { if(window[g] && typeof window[g].quitter === 'function') window[g].quitter(); });
+    ['WaveAccueil', 'WaveCombat', 'WaveMarche'].forEach((g) => { if(window[g] && typeof window[g].quitter === 'function') window[g].quitter(); });
     clearInterval(S.minuteur);
   }
 
@@ -1229,7 +1234,8 @@
   async function afficherVue(v){
     if(!S.corps.querySelector('.ct-panneau')) S.corps.innerHTML = '<div class="ct-vide">Chargement…</div>';
     try{
-      if(v === 'packs') await vuePacks();
+      if(v === 'accueil') await vueModule('accueil', 'WaveAccueil');
+      else if(v === 'packs') await vuePacks();
       else if(v === 'collection') await vueCollection();
       else if(v === 'combat') await vueModule('combat', 'WaveCombat');
       else if(v === 'marche') await vueModule('marche', 'WaveMarche');
@@ -2320,7 +2326,7 @@
   // L'interface que le jeu prête à ses modules (combat.js, marche.js, cartes-equipe.js).
   const api = {
     appel, toast, fenetre, vibre, Son, ico, esc, nf, court, pluriel, numero, RAR, rar, couleurOk, safeUrl, theme, EMBLEMES,
-    visuelOk, carteHtml, inclinable, fiche, poserEtat, majEntete, rafraichirEtat,
+    visuelOk, carteHtml, inclinable, fiche, poserEtat, majEntete, rafraichirEtat, duree, vin, gainsHtml, gainsTexte, changerVue, prendreCadeau,
     etat: () => S.etat,
     boosters: () => S.boosters || [],
     actualiser: () => (S.vue ? afficherVue(S.vue) : Promise.resolve())

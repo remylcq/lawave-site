@@ -29,6 +29,7 @@ on:
       - profil.js
       - xp.js
       - cartes.js
+      - accueil.js
       - combat.js
       - marche.js
       - cartes-equipe.js

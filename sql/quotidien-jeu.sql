@@ -337,6 +337,7 @@ begin
   return jsonb_build_object('emplacements', 3, 'plafond_jour', 8, 'gagne_jour', v_gagne,
     'en_cours', coalesce((select jsonb_agg(jsonb_build_object(
         'id', x.id, 'booster_id', x.booster_id, 'artist_id', x.artist_id, 'nom', c.nom, 'photo', c.photo, 'rarete', x.rarete, 'holo', x.holo,
+        'numero', (select bc.numero from public.jeu_booster_cartes bc where bc.booster_id = x.booster_id and bc.artist_id = x.artist_id),
         'duree', x.duree, 'fin', x.fin, 'restant', greatest(0, floor(extract(epoch from x.fin - now()))::integer), 'prete', x.fin <= now(),
         'gain', public.quotidien_gain_expedition(x.duree, x.rarete)) order by x.fin)
         from public.jeu_expeditions x join public.jeu_cartes c on c.artist_id = x.artist_id

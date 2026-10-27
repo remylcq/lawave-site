@@ -139,7 +139,7 @@
 
   const SECTIONS = [
     ['ensemble', 'Vue d\'ensemble', 'ensemble'], ['collections', 'Collections', 'pack'], ['cartes', 'Cartes', 'cartes'],
-    ['joueurs', 'Joueurs', 'joueurs'], ['combat', 'Combat', null], ['marche', 'Marché', null]
+    ['joueurs', 'Joueurs', 'joueurs'], ['combat', 'Combat', null], ['marche', 'Marché', null], ['quotidien', 'Quotidien', null]
   ];
 
   async function monter(hote, a){
@@ -149,7 +149,7 @@
     E.root.className = 'ct ee';
     E.root.innerHTML = `
       <nav class="ee-nav" role="tablist" aria-label="Wave Cards, équipe">${SECTIONS.map(([id, nom, icone]) =>
-        `<button type="button" role="tab" data-act="section" data-id="${id}" class="${id === E.section ? 'actif' : ''}" aria-selected="${id === E.section}">${icone ? ic(icone, 17) : api.ico(id === 'combat' ? 'combat' : 'marche', 17)}<span>${esc(nom)}</span></button>`).join('')}</nav>
+        `<button type="button" role="tab" data-act="section" data-id="${id}" class="${id === E.section ? 'actif' : ''}" aria-selected="${id === E.section}">${icone ? ic(icone, 17) : api.ico({ combat: 'combat', quotidien: 'calendrier' }[id] || 'marche', 17)}<span>${esc(nom)}</span></button>`).join('')}</nav>
       <div class="ee-main" data-main><div class="ct-vide">Chargement…</div></div>`;
     hote.innerHTML = '';
     hote.appendChild(E.root);
@@ -170,6 +170,7 @@
       else if(E.section === 'cartes') await sCartes();
       else if(E.section === 'joueurs') await sJoueurs();
       else if(E.section === 'combat') await sModule('combat', 'WaveCombat', 'Combat', 'Types, statistiques et attaques des cartes.');
+      else if(E.section === 'quotidien') await sModule('accueil', 'WaveAccueil', 'Quotidien', 'Événements à durée limitée et nouveautés du jeu.');
       else await sModule('marche', 'WaveMarche', 'Marché', 'Annonces, prix et ventes entre joueurs.');
     }catch(e){
       E.main.innerHTML = vide('Impossible d\'afficher cette section', e.message || String(e));
