@@ -647,7 +647,7 @@
   .ct-pk-nombre{position:absolute; z-index:5; right:-12px; top:-12px; min-width:40px; height:40px; padding:0 10px; border-radius:99px; display:grid; place-items:center; font-size:15px; font-weight:800; color:#05070a; background:#fff; box-shadow:0 8px 20px rgba(0,0,0,.4);}
   /* le vinyle : une image carrée ; --dech (le geste) l'incline */
   .ct-pack.ct-vinyle{aspect-ratio:1; width:calc(var(--pk-w) * 1.18); filter:drop-shadow(0 22px 28px rgba(0,0,0,.5)) drop-shadow(0 0 34px color-mix(in srgb, var(--teinte) 35%, transparent));}
-  .ct-vi-img{position:absolute; inset:0; width:100%; height:100%; max-width:none; display:block; border-radius:6px; transform:rotate(calc(var(--dech, 0) * 7deg)) scale(calc(1 + var(--dech, 0) * .07)); user-select:none; -webkit-user-drag:none;}
+  .ct-vi-img{image-rendering:pixelated; position:absolute; inset:0; width:100%; height:100%; max-width:none; display:block; border-radius:6px; transform:rotate(calc(var(--dech, 0) * 7deg)) scale(calc(1 + var(--dech, 0) * .07)); user-select:none; -webkit-user-drag:none;}
   .ct-vinyle .ct-pk-haut{display:none;}
   .ct-vinyle .ct-pk-ligne{top:50%; left:50%; width:0 !important; background:none; box-shadow:none;}
   .ct-vinyle .ct-pk-lumiere{top:50%;}
