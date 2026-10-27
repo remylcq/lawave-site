@@ -89,7 +89,7 @@ begin
 end $$;
 
 create or replace function public.quotidien_gain_expedition(p_duree integer, p_rarete integer)
-returns integer language sql immutable as $$
+returns integer language sql immutable set search_path to 'public' as $$
   select (case p_duree when 2 then 1 when 6 then 2 else 3 end) + (case when p_rarete >= 5 then 2 when p_rarete >= 3 then 1 else 0 end)
 $$;
 
