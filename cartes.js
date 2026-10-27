@@ -287,120 +287,6 @@
 
   const PACKS_CSS = THEMES.map((t) => `.ct-pack.t-${t}{--pk-fond:${svgUri(artPack(t))};}`).join('\n  ');
 
-  // Le fond d'une carte (250 × 350) : un décor par rareté, visible autour de la fenêtre et sous la plaque.
-  function fondCarte(r){
-    const tete = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 350" preserveAspectRatio="none">';
-    const rnd = alea(100 + r);
-    if(r === 1 || r === 2){
-      const c = r === 1 ? '#ffffff' : '#7cc8ff';
-      let v = '';
-      for(let k = 0; k < 11; k++){ const y = 214 + k * 13; v += `<path d="M-6 ${y}q31 -13 62 0t62 0t62 0t62 0t62 0" opacity="${arr(.06 + k * .006)}"/>`; }
-      let p = '';
-      if(r === 2) for(let k = 0; k < 14; k++) p += `<circle cx="${arr(rnd() * 250)}" cy="${arr(rnd() * 350)}" r="${arr(.8 + rnd() * 1.6)}" fill="${c}" opacity="${arr(.18 + rnd() * .3)}"/>`;
-      return tete + `<g fill="none" stroke="${c}" stroke-width="1.6">${v}</g>${p}</svg>`;
-    }
-    if(r === 3){
-      let e = '';
-      for(let k = 0; k < 46; k++) e += `<circle cx="${arr(rnd() * 250)}" cy="${arr(rnd() * 350)}" r="${arr(.5 + rnd() * 1.4)}" fill="#e6d4ff" opacity="${arr(.2 + rnd() * .6)}"/>`;
-      for(let k = 0; k < 5; k++) e += etincelle(arr(15 + rnd() * 220), arr(15 + rnd() * 320), arr(3 + rnd() * 4), '#f0e4ff', .8);
-      return tete + `<defs><radialGradient id="n" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#8a5bff" stop-opacity=".45"/><stop offset="1" stop-color="#8a5bff" stop-opacity="0"/></radialGradient></defs><rect width="250" height="350" fill="url(#n)"/>${e}</svg>`;
-    }
-    if(r === 4){
-      let rayons = '';
-      for(let k = 0; k < 20; k++){
-        const [x1, y1] = polaire(125, 130, 420, k * 18), [x2, y2] = polaire(125, 130, 420, k * 18 + 7);
-        rayons += `<path d="M125 130L${arr(x1)} ${arr(y1)}L${arr(x2)} ${arr(y2)}Z"/>`;
-      }
-      let e = '';
-      for(let k = 0; k < 7; k++) e += etincelle(arr(12 + rnd() * 226), arr(12 + rnd() * 326), arr(2.5 + rnd() * 3.5), '#fff1bd', arr(.5 + rnd() * .4));
-      return tete + `<defs><radialGradient id="n" cx=".5" cy=".37" r=".65"><stop offset="0" stop-color="#ffcf5a" stop-opacity=".55"/><stop offset="1" stop-color="#ffcf5a" stop-opacity="0"/></radialGradient></defs><rect width="250" height="350" fill="url(#n)"/><g fill="#ffd36b" opacity=".13">${rayons}</g>${e}</svg>`;
-    }
-    let e = '';
-    for(let k = 0; k < 9; k++) e += etincelle(arr(12 + rnd() * 226), arr(12 + rnd() * 326), arr(2.5 + rnd() * 4), '#ffffff', arr(.5 + rnd() * .45));
-    return tete + `<defs>
-      <filter id="f" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="22"/></filter>
-    </defs>
-    <g filter="url(#f)" opacity=".7"><ellipse cx="40" cy="60" rx="80" ry="60" fill="#ff5c8a"/><ellipse cx="220" cy="120" rx="70" ry="70" fill="#5cb8ff"/><ellipse cx="60" cy="250" rx="80" ry="60" fill="#5cffc8"/><ellipse cx="210" cy="300" rx="80" ry="60" fill="#b36bff"/><ellipse cx="125" cy="170" rx="70" ry="50" fill="#ffd25c"/></g>${e}</svg>`;
-  }
-
-  // Les cadres : des ornements aux quatre coins de la fenêtre (x 11–239, y 30–230), plus ou moins riches selon la rareté.
-  const coins = (d) =>
-    `<path d="${d}"/><path d="${d}" transform="translate(250 0) scale(-1 1)"/><path d="${d}" transform="translate(0 260) scale(1 -1)"/><path d="${d}" transform="translate(250 260) scale(-1 -1)"/>`;
-  const losange = (x, y, r) => `<path d="M${x} ${y - r}l${r} ${r}-${r} ${r}-${r}-${r}z"/>`;
-
-  const SPRITE = `<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
-    <linearGradient id="ct-or" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="250" y2="350"><stop offset="0" stop-color="#fff3c4"/><stop offset=".5" stop-color="#eab645"/><stop offset="1" stop-color="#b9780f"/></linearGradient>
-    <linearGradient id="ct-arc" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="250" y2="350"><stop offset="0" stop-color="#ff5c8a"/><stop offset=".25" stop-color="#ffd25c"/><stop offset=".5" stop-color="#5cffc8"/><stop offset=".75" stop-color="#5cb8ff"/><stop offset="1" stop-color="#b36bff"/></linearGradient>
-    <symbol id="ct-orn-1" viewBox="0 0 250 350" preserveAspectRatio="none">
-      <rect x="11" y="30" width="228" height="200" rx="6" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".85"/>
-      <path d="M11 240H239" stroke="currentColor" stroke-width="1" opacity=".35"/>
-      <g fill="none" stroke="currentColor" stroke-width="1.4" opacity=".6" stroke-linecap="round">${coins('M6 40V31a5 5 0 0 1 5-5H20')}</g>
-    </symbol>
-    <symbol id="ct-orn-2" viewBox="0 0 250 350" preserveAspectRatio="none">
-      <rect x="11" y="30" width="228" height="200" rx="6" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".9"/>
-      <rect x="7" y="26" width="236" height="208" rx="9" fill="none" stroke="currentColor" stroke-width=".8" opacity=".45"/>
-      <path d="M11 240H239" stroke="currentColor" stroke-width="1" opacity=".4"/>
-      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${coins('M4 46V30a6 6 0 0 1 6-6H27')}</g>
-      <g fill="currentColor">${losange(125, 240, 3)}</g>
-    </symbol>
-    <symbol id="ct-orn-3" viewBox="0 0 250 350" preserveAspectRatio="none">
-      <rect x="11" y="30" width="228" height="200" rx="6" fill="none" stroke="currentColor" stroke-width="1.6"/>
-      <rect x="7" y="26" width="236" height="208" rx="9" fill="none" stroke="currentColor" stroke-width=".8" opacity=".5"/>
-      <path d="M11 240H110M140 240H239" stroke="currentColor" stroke-width="1.2" opacity=".5"/>
-      <g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">${coins('M3 52V30a7 7 0 0 1 7-7H32M12 44V36a3 3 0 0 1 3-3H24')}</g>
-      <g fill="currentColor">${losange(125, 30, 6)}${losange(125, 240, 5)}${losange(11, 130, 4)}${losange(239, 130, 4)}${coins('M10 26l4 4-4 4-4-4z')}</g>
-    </symbol>
-    <symbol id="ct-orn-4" viewBox="0 0 250 350" preserveAspectRatio="none">
-      <rect x="11" y="30" width="228" height="200" rx="6" fill="none" stroke="url(#ct-or)" stroke-width="2"/>
-      <rect x="7" y="26" width="236" height="208" rx="9" fill="none" stroke="url(#ct-or)" stroke-width=".9" opacity=".6"/>
-      <path d="M11 240H104M146 240H239" stroke="url(#ct-or)" stroke-width="1.4" opacity=".7"/>
-      <g fill="none" stroke="url(#ct-or)" stroke-width="2.4" stroke-linecap="round">${coins('M3 58C3 38 12 24 36 22M11 50C11 40 17 32 31 31')}</g>
-      <g fill="url(#ct-or)">${coins('M8 28l5 5-5 5-5-5z')}${losange(125, 240, 6)}${losange(11, 130, 5)}${losange(239, 130, 5)}
-        <path d="M95 30 101 14l11 10 13-16 13 16 11-10 6 16z" stroke="url(#ct-or)" stroke-width="1.4" stroke-linejoin="round"/></g>
-    </symbol>
-    <symbol id="ct-orn-5" viewBox="0 0 250 350" preserveAspectRatio="none">
-      <rect x="11" y="30" width="228" height="200" rx="6" fill="none" stroke="url(#ct-arc)" stroke-width="2.4"/>
-      <rect x="7" y="26" width="236" height="208" rx="9" fill="none" stroke="url(#ct-arc)" stroke-width="1" opacity=".7"/>
-      <path d="M11 240H104M146 240H239" stroke="url(#ct-arc)" stroke-width="1.6" opacity=".8"/>
-      <g fill="none" stroke="url(#ct-arc)" stroke-width="2.6" stroke-linecap="round">${coins('M3 58C3 38 12 24 36 22M11 50C11 40 17 32 31 31')}</g>
-      <g fill="url(#ct-arc)">${coins('M8 28l5 5-5 5-5-5z')}${losange(125, 240, 6)}${losange(11, 130, 5)}${losange(239, 130, 5)}
-        <path d="M95 30 101 12l11 10 13-18 13 18 11-10 6 18z" stroke="url(#ct-arc)" stroke-width="1.4" stroke-linejoin="round"/></g>
-      <g fill="#fff">${etincelle(34, 12, 6, '#fff', 1)}${etincelle(216, 12, 6, '#fff', 1)}${etincelle(125, 338, 5, '#fff', .9)}</g>
-    </symbol>
-  </defs></svg>`;
-
-  const MOTIFS_CSS = [1, 2, 3, 4, 5].map((r) => `.ct-carte.r${r}{--ct-motif:${svgUri(fondCarte(r))};}`).join('\n  ');
-
-  // Les classeurs de collection : un fond et un cadre à eux (les Légendaires et Mythiques gardent leurs rayons et leur aurore).
-  const NOM_CLASSEUR = { glaciale: 'VAGUE GLACIALE', deferlante: 'CLASSIC WAVE' };
-
-  function fondClasseur(id){
-    const tete = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 350" preserveAspectRatio="none">';
-    const rnd = alea(id === 'glaciale' ? 7 : 9);
-    if(id === 'glaciale'){
-      let n = '';
-      for(let k = 0; k < 50; k++) n += `<circle cx="${arr(rnd() * 250)}" cy="${arr(rnd() * 350)}" r="${arr(.6 + rnd() * 1.6)}" fill="#fff" opacity="${arr(.25 + rnd() * .55)}"/>`;
-      return tete + `<defs><linearGradient id="n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc6ef" stop-opacity=".18"/><stop offset="1" stop-color="#e6f6ff" stop-opacity=".3"/></linearGradient></defs>
-        <rect width="250" height="350" fill="url(#n)"/>${flocon(125, 130, 150, 1.6)}${flocon(40, 300, 46, 1.4)}${flocon(214, 292, 38, 1.4)}${n}</svg>`;
-    }
-    let v = '';
-    for(let k = 0; k < 11; k++){ const y = 200 + k * 14; v += `<path d="M-6 ${y}q31 -16 62 0t62 0t62 0t62 0t62 0" opacity="${arr(.1 + k * .012)}"/>`; }
-    let e = '';
-    for(let k = 0; k < 30; k++) e += `<circle cx="${arr(rnd() * 250)}" cy="${arr(rnd() * 350)}" r="${arr(.6 + rnd() * 1.5)}" fill="#e8fbff" opacity="${arr(.2 + rnd() * .45)}"/>`;
-    return tete + `<defs><linearGradient id="n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1fb5d8" stop-opacity=".06"/><stop offset="1" stop-color="#1fb5d8" stop-opacity=".3"/></linearGradient></defs>
-      <rect width="250" height="350" fill="url(#n)"/><g fill="none" stroke="#9ff3ff" stroke-width="1.8">${v}</g>${e}</svg>`;
-  }
-
-  const CLASSEURS_CSS = `
-  .ct-carte.cl-glaciale:is(.r1, .r2, .r3){--ct-motif:${svgUri(fondClasseur('glaciale'))};}
-  .ct-carte.cl-glaciale:is(.r1, .r2, .r3, .r4){--ct-cadre:linear-gradient(155deg, #ffffff, #bfe6ff 35%, #6fb7e8 70%, #eaf8ff);}
-  .ct-carte.cl-glaciale{--rf:#0a1b30;}
-  .ct-carte.cl-glaciale .ct-c-in::before{content:''; position:absolute; inset:0; z-index:1; pointer-events:none; mix-blend-mode:screen;
-    background:radial-gradient(60% 38% at 0% 0%, rgba(255,255,255,.4), transparent 70%), radial-gradient(60% 38% at 100% 100%, rgba(190,230,255,.34), transparent 70%);}
-  .ct-carte.cl-deferlante:is(.r1, .r2, .r3){--ct-motif:${svgUri(fondClasseur('deferlante'))};}
-  .ct-carte.cl-deferlante:is(.r1, .r2, .r3, .r4){--ct-cadre:linear-gradient(155deg, #b6f7ff, #1fb5d8 38%, #07507c 74%, #7fe6f7);}
-  .ct-carte.cl-deferlante{--rf:#04182c;}`;
-
   // ---------------------------------------------------------------------
   // La feuille de style
   // ---------------------------------------------------------------------
@@ -477,41 +363,23 @@
   .ct-pastille{min-width:18px; height:18px; padding:0 5px; border-radius:99px; display:inline-grid; place-items:center; font-size:11px; font-weight:700; color:#fff; background:var(--ct-accent-fonce);}
 
   /* ---------- la carte d'artiste ---------- */
-  .ct-carte{position:relative; container-type:inline-size; aspect-ratio:5 / 7; border-radius:13px; padding:3px; color:#fff; text-align:left;
+  .ct-carte{position:relative; container-type:inline-size; aspect-ratio:5 / 7; border-radius:13px; padding:2px; color:#fff; text-align:left;
     background:var(--ct-cadre); box-shadow:0 14px 30px -14px rgba(0,0,0,.8); isolation:isolate; --rc:var(--r1); --rf:#10151d;}
   .ct-carte.r1{--rc:var(--r1); --rf:#10151d; --ct-cadre:linear-gradient(155deg, #eef1f5, #98a3b0 40%, #4b5563 78%, #b4bdc8);}
   .ct-carte.r2{--rc:var(--r2); --rf:#0a1a2e; --ct-cadre:linear-gradient(155deg, #c9ebff, #45a6f4 42%, #12549a 78%, #7fc6ff);}
   .ct-carte.r3{--rc:var(--r3); --rf:#150c2e; --ct-cadre:linear-gradient(155deg, #ecdcff, #9466f7 42%, #4b2399 78%, #c4a3ff);}
   .ct-carte.r4{--rc:var(--r4); --rf:#1d1507; --ct-cadre:linear-gradient(155deg, #fff6c9, #eab645 38%, #95600f 70%, #f9dc7e);}
   .ct-carte.r5{--rc:var(--r5); --rf:#190b1b; --ct-cadre:conic-gradient(from var(--ct-a), #ff5c8a, #ffb547, #fff27a, #5cffc8, #5cb8ff, #b36bff, #ff5c8a);}
-  ${MOTIFS_CSS}
-  ${CLASSEURS_CSS}
-  .ct-c-in{position:relative; width:100%; height:100%; border-radius:10px; overflow:hidden; background:linear-gradient(180deg, color-mix(in srgb, var(--rc) 20%, var(--rf)) 0%, var(--rf) 58%);}
-  .ct-c-fond{position:absolute; inset:0; background:var(--ct-motif) center / 100% 100% no-repeat;}
-  .ct-c-art{position:absolute; left:4.4%; top:8.6%; width:91.2%; height:57.1%; border-radius:2.4cqw; overflow:hidden; background:#05070a;
-    box-shadow:0 0 0 .5cqw color-mix(in srgb, var(--rc) 75%, #000), 0 0 0 1cqw rgba(0,0,0,.5), 0 2cqw 5cqw -1cqw rgba(0,0,0,.6);}
-  .ct-c-photo{position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:50% 22%; display:block; transition:transform .5s cubic-bezier(.2,.8,.2,1);}
-  .ct-c-teinte{position:absolute; inset:0; pointer-events:none; mix-blend-mode:soft-light; background:linear-gradient(180deg, transparent 30%, color-mix(in srgb, var(--rc) 70%, transparent) 100%);}
-  .ct-c-motif{position:absolute; inset:0; pointer-events:none; mix-blend-mode:overlay; opacity:0;}
-  .ct-carte.r3 .ct-c-motif{opacity:.5; background:radial-gradient(circle at 18% 24%, #fff 0 1px, transparent 1.6px), radial-gradient(circle at 76% 62%, #fff 0 1px, transparent 1.6px), radial-gradient(circle at 44% 84%, #fff 0 1px, transparent 1.6px), radial-gradient(120% 80% at 50% 110%, color-mix(in srgb, var(--rc) 80%, transparent), transparent 70%); background-size:26px 26px, 34px 34px, 19px 19px, 100% 100%;}
-  .ct-carte.r4 .ct-c-motif{opacity:.6; background:repeating-conic-gradient(from 0deg at 50% 118%, rgba(255,226,140,.55) 0deg 5deg, transparent 5deg 15deg);}
-  .ct-carte.r5 .ct-c-motif{opacity:.55; background:conic-gradient(from var(--ct-a) at 50% 50%, #ff5c8a, #ffd25c, #5cffc8, #5cb8ff, #b36bff, #ff5c8a); mix-blend-mode:color;}
-  .ct-c-art::after{content:''; position:absolute; inset:0; pointer-events:none; background:radial-gradient(120% 100% at 50% 38%, transparent 52%, rgba(0,0,0,.5)), linear-gradient(180deg, transparent 68%, rgba(0,0,0,.6));}
-  .ct-c-orn{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; color:var(--rc); overflow:visible; filter:drop-shadow(0 0 1.4cqw color-mix(in srgb, var(--rc) 55%, transparent));}
-  .ct-carte.r1 .ct-c-orn{filter:none;}
-  .ct-c-num{position:absolute; top:1.9cqw; left:5cqw; height:6.4cqw; padding:0 2.6cqw; border-radius:99px; display:flex; align-items:center; font-size:max(7px, 4.8cqw); font-weight:800; letter-spacing:.04em; font-variant-numeric:tabular-nums; color:#fff; background:rgba(5,7,10,.55); border:1px solid color-mix(in srgb, var(--rc) 55%, transparent);}
-  .ct-c-gemme{position:absolute; top:3.4cqw; right:7cqw; width:4.8cqw; height:4.8cqw; min-width:5px; min-height:5px; transform:rotate(45deg); border-radius:.9cqw; background:var(--rc); box-shadow:0 0 0 1px rgba(255,255,255,.75) inset, 0 0 10px var(--rc);}
-  .ct-c-marque{position:absolute; top:2.2cqw; left:0; right:0; text-align:center; font-size:max(5px, 3.6cqw); font-weight:800; letter-spacing:.34em; text-indent:.34em; color:rgba(255,255,255,.5); pointer-events:none;}
-  .ct-carte.r4 .ct-c-marque, .ct-carte.r5 .ct-c-marque{display:none;}
-  .ct-c-plaque{position:absolute; left:4.4%; right:4.4%; top:69.4%; bottom:3.2%; display:flex; flex-direction:column; justify-content:space-between; gap:1.2cqw;}
-  .ct-c-nom{font-size:calc(var(--nf, 1) * 11.4cqw); font-weight:800; line-height:1.1; letter-spacing:-.015em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 2px 12px rgba(0,0,0,.6); padding-top:1.2cqw;}
-  .ct-c-sous{margin-top:-.6cqw; font-size:max(6.5px, 4.9cqw); font-weight:600; letter-spacing:.03em; color:rgba(255,255,255,.62); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .ct-c-stats{display:grid; grid-template-columns:1fr 1fr 1.25fr; gap:1.8cqw;}
-  .ct-c-stat{min-width:0; padding:1.9cqw .8cqw 1.7cqw; border-radius:2.2cqw; text-align:center; line-height:1.15; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.09);}
-  .ct-c-stat b{display:block; font-size:max(7.5px, 6cqw); font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .ct-c-stat span{display:block; margin-top:.3cqw; font-size:max(5px, 3.4cqw); font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.48);}
-  .ct-c-stat.rar{background:color-mix(in srgb, var(--rc) 20%, transparent); border-color:color-mix(in srgb, var(--rc) 55%, transparent);}
-  .ct-c-stat.rar b{color:var(--rc); filter:brightness(1.2); font-size:max(7px, 5cqw);}
+  .ct-c-in{position:relative; width:100%; height:100%; border-radius:11px; overflow:hidden; background:var(--rf);}
+  .ct-c-photo{position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:50% 24%; display:block; transition:transform .5s cubic-bezier(.2,.8,.2,1);}
+  .ct-c-voile{position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(90% 38% at 50% 100%, color-mix(in srgb, var(--rc) 30%, transparent), transparent 72%), linear-gradient(180deg, rgba(3,6,10,.5) 0, transparent 20%, transparent 46%, rgba(3,6,10,.6) 68%, rgba(3,6,10,.94) 100%);}
+  .ct-c-num{position:absolute; top:5.2cqw; left:6cqw; font-size:max(7px, 5.4cqw); font-weight:700; line-height:1; letter-spacing:.08em; font-variant-numeric:tabular-nums; text-shadow:0 1px 8px rgba(0,0,0,.6);}
+  .ct-c-logo{position:absolute; top:3.8cqw; right:5.4cqw; height:9cqw; width:auto; max-width:none; display:block; opacity:.92; filter:drop-shadow(0 1px 6px rgba(0,0,0,.55));}
+  .ct-c-plaque{position:absolute; left:6cqw; right:6cqw; bottom:6.4cqw; display:flex; flex-direction:column; gap:2.2cqw;}
+  .ct-c-rar{display:flex; align-items:center; gap:2.6cqw; font-size:max(6px, 3.8cqw); font-weight:700; line-height:1; letter-spacing:.22em; text-transform:uppercase; color:var(--rc); filter:brightness(1.18);}
+  .ct-c-rar::before{content:''; flex:none; width:7cqw; height:max(1px, .6cqw); border-radius:99px; background:currentColor;}
+  .ct-c-nom{font-size:calc(var(--nf, 1) * 12cqw); font-weight:800; line-height:1.08; letter-spacing:-.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-bottom:.5cqw; text-shadow:0 2px 14px rgba(0,0,0,.55);}
   .ct-c-reflet{position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .3s;}
   .ct-carte.r4 .ct-c-reflet, .ct-carte.r5 .ct-c-reflet{opacity:1; background:linear-gradient(115deg, transparent 38%, rgba(255,255,255,.22) 48%, transparent 58%); background-size:300% 100%; background-position:var(--ct-lum, 120%) 0;}
   .ct-carte.holo .ct-c-reflet{opacity:.55; mix-blend-mode:color-dodge;
@@ -520,7 +388,6 @@
   .ct-carte.holo .ct-c-in::after{content:''; position:absolute; inset:0; pointer-events:none; opacity:.35; mix-blend-mode:overlay;
     background-image:radial-gradient(circle at 20% 30%, #fff 0 1px, transparent 1.5px), radial-gradient(circle at 70% 60%, #fff 0 1px, transparent 1.5px), radial-gradient(circle at 40% 80%, #fff 0 1px, transparent 1.5px);
     background-size:23px 23px, 31px 31px, 17px 17px;}
-  .ct-c-holo{position:absolute; top:2.1cqw; left:50%; transform:translateX(-50%); padding:0 3.4cqw; height:6cqw; display:flex; align-items:center; border-radius:99px; font-size:max(6px, 4.2cqw); font-weight:800; letter-spacing:.14em; color:#05070a; background:linear-gradient(90deg, #ff9ad5, #9af7ff, #fff59a);}
   .ct-carte.vivante.r4, .ct-carte.r4:hover{box-shadow:0 0 0 1px rgba(242,193,78,.35), 0 0 34px -6px rgba(242,193,78,.55), 0 14px 30px -14px rgba(0,0,0,.8);}
   .ct-carte.vivante.r5, .ct-carte.r5:hover{box-shadow:0 0 40px -6px rgba(255,92,138,.55), 0 14px 30px -14px rgba(0,0,0,.8);}
   .ct-carte.vivante.r5{animation:ctBord 5s linear infinite;}
@@ -532,17 +399,14 @@
   }
   .ct-carte.verrou{--ct-cadre:linear-gradient(155deg, #2c333d, #161b22 60%, #252c35); --rc:#6b7684; box-shadow:none;}
   .ct-carte.verrou .ct-c-photo{filter:grayscale(1) brightness(.26) contrast(1.15);}
-  .ct-carte.verrou .ct-c-teinte, .ct-carte.verrou .ct-c-motif, .ct-carte.verrou .ct-c-fond{opacity:.25;}
-  .ct-carte.verrou .ct-c-gemme{opacity:.45; box-shadow:none;}
+  .ct-carte.verrou .ct-c-logo{opacity:.4;}
   .ct-carte.verrou .ct-c-nom{color:rgba(255,255,255,.55); text-shadow:none;}
-  .ct-carte.verrou .ct-c-stat{opacity:.5;}
   @container (max-width:125px){
-    .ct-c-stats, .ct-c-holo, .ct-c-marque{display:none;}
-    .ct-c-nom{font-size:calc(var(--nf, 1) * 12.5cqw); white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
-    .ct-c-sous{display:none;}
-    .ct-c-plaque{justify-content:center;}
+    .ct-c-rar{display:none;}
+    .ct-c-num{font-size:6.6cqw;}
+    .ct-c-nom{font-size:calc(var(--nf, 1) * 13cqw); white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
   }
-  .ct-c-cadenas{position:absolute; left:50%; top:36%; transform:translate(-50%, -50%); width:16cqw; height:16cqw; color:rgba(255,255,255,.5); z-index:2;}
+  .ct-c-cadenas{position:absolute; left:50%; top:40%; transform:translate(-50%, -50%); width:16cqw; height:16cqw; color:rgba(255,255,255,.5); z-index:2;}
   .ct-c-cadenas svg{width:100%; height:100%;}
   .ct-c-badge{position:absolute; z-index:3; top:-7px; right:-7px; min-width:26px; height:24px; padding:0 7px; border-radius:99px; display:grid; place-items:center; font-size:12px; font-weight:800; color:#05070a; background:#F4F5F6; box-shadow:0 4px 12px rgba(0,0,0,.45); font-variant-numeric:tabular-nums;}
   .ct-c-nouveau{position:absolute; z-index:3; left:50%; top:-9px; transform:translateX(-50%); height:22px; padding:0 10px; border-radius:99px; display:grid; place-items:center; font-size:10.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#04131f; background:var(--ct-accent); box-shadow:0 4px 14px rgba(79,180,255,.5); white-space:nowrap;}
@@ -919,7 +783,6 @@
     s.textContent = STYLE;
     document.head.appendChild(s);
     // Les ornements des cartes, dessinés une fois et réutilisés par chaque carte (<use>).
-    if(!document.getElementById('ct-sprite')) document.body.insertAdjacentHTML('beforeend', SPRITE.replace('<svg ', '<svg id="ct-sprite" '));
   }
 
   // ---------------------------------------------------------------------
@@ -1117,31 +980,17 @@
     const holo = !!c.holo && !verrou;
     const lg = String(c.nom || '').length;
     const taille = lg <= 10 ? 1 : (lg <= 13 ? .86 : (lg <= 16 ? .72 : .6));
-    const sous = [c.ville, c.sorties ? pluriel(c.sorties, 'sortie') : ''].filter(Boolean).join(' · ') || 'Scène francophone';
     return `
-      <div class="ct-carte r${r}${holo ? ' holo' : ''}${verrou ? ' verrou' : ''}${o.vivante ? ' vivante' : ''}${/^[a-z-]+$/.test(c.classeur || '') ? ' cl-' + c.classeur : ''}" style="--nf:${taille}">
+      <div class="ct-carte r${r}${holo ? ' holo' : ''}${verrou ? ' verrou' : ''}${o.vivante ? ' vivante' : ''}" style="--nf:${taille}">
         <div class="ct-c-in">
-          <div class="ct-c-fond"></div>
-          <div class="ct-c-art">
-            <img class="ct-c-photo" src="${esc(safeUrl(c.photo))}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async">
-            <div class="ct-c-teinte"></div>
-            <div class="ct-c-motif"></div>
-          </div>
-          <svg class="ct-c-orn" aria-hidden="true"><use href="#ct-orn-${r}" width="100%" height="100%"/></svg>
+          <img class="ct-c-photo" src="${esc(safeUrl(c.photo))}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async">
+          <div class="ct-c-voile"></div>
           <span class="ct-c-num">${numero(c.numero)}</span>
-          ${holo ? '<span class="ct-c-holo">HOLO</span>' : `<span class="ct-c-marque">${NOM_CLASSEUR[c.classeur] || 'LA WAVE'}</span>`}
-          <span class="ct-c-gemme" aria-hidden="true"></span>
+          <img class="ct-c-logo" src="img/logo-wave.png" alt="La Wave" width="380" height="204" decoding="async">
           ${verrou ? `<span class="ct-c-cadenas">${ico('cadenas', 24)}</span>` : ''}
           <div class="ct-c-plaque">
-            <div>
-              <div class="ct-c-nom">${esc(c.nom)}</div>
-              <div class="ct-c-sous">${esc(sous)}</div>
-            </div>
-            <div class="ct-c-stats">
-              <div class="ct-c-stat"><b>${c.fans ? esc(court(c.fans)) : '—'}</b><span>Fans</span></div>
-              <div class="ct-c-stat"><b>${c.sorties ? esc(nf(c.sorties)) : '—'}</b><span>Sorties</span></div>
-              <div class="ct-c-stat rar"><b>${esc(rar(r).nom)}</b><span>Rareté</span></div>
-            </div>
+            <div class="ct-c-rar">${esc(rar(r).nom)}</div>
+            <div class="ct-c-nom">${esc(c.nom)}</div>
           </div>
           <div class="ct-c-reflet"></div>
         </div>
