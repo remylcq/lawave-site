@@ -412,8 +412,9 @@ begin
 end $$;
 
 -- Retrait forcé : la carte retourne à son vendeur.
-create or replace function public.marche_equipe_retirer(p_id bigint, p_motif text default null)
-returns void language plpgsql security definer set search_path to 'public' as $$
+drop function if exists public.marche_equipe_retirer(bigint, text);
+create function public.marche_equipe_retirer(p_id bigint, p_motif text default null)
+returns jsonb language plpgsql security definer set search_path to 'public' as $$
 declare a public.marche_annonces;
 begin
   if not public.est_equipe() then raise exception 'Réservé à l''équipe.'; end if;
@@ -423,6 +424,7 @@ begin
   update public.marche_annonces set etat = 'retiree', ferme_le = now() where id = a.id;
   insert into public.marche_journal (type, annonce_id, booster_id, artist_id, holo, rarete, vendeur, prix, note)
   values ('retrait_equipe', a.id, a.booster_id, a.artist_id, a.holo, a.rarete, a.vendeur, a.prix, left(p_motif, 300));
+  return jsonb_build_object('ok', true);
 end $$;
 
 create or replace function public.marche_equipe_journal(p_type text default null, p_q text default null, p_page integer default 1)
@@ -447,28 +449,33 @@ begin
   return jsonb_build_object('total', v_total, 'page', v_page, 'pages', greatest(1, ceil(v_total::numeric / v_taille)::integer), 'lignes', v_liste);
 end $$;
 
-create or replace function public.marche_equipe_regler(p_commission numeric, p_duree integer, p_max integer)
-returns void language plpgsql security definer set search_path to 'public' as $$
+drop function if exists public.marche_equipe_regler(numeric, integer, integer);
+create function public.marche_equipe_regler(p_commission numeric, p_duree integer, p_max integer)
+returns jsonb language plpgsql security definer set search_path to 'public' as $$
 begin
   if not public.est_equipe() then raise exception 'Réservé à l''équipe.'; end if;
   if p_commission is null or p_commission < 0 or p_commission > 50 then raise exception 'La commission va de 0 à 50 %%.'; end if;
   if p_duree is null or p_duree < 1 or p_duree > 60 then raise exception 'La durée va de 1 à 60 jours.'; end if;
   if p_max is null or p_max < 1 or p_max > 100 then raise exception 'Le plafond d''annonces va de 1 à 100.'; end if;
   update public.marche_reglages set commission_pct = p_commission, duree_jours = p_duree, max_annonces = p_max, maj_le = now() where id = 1;
+  return jsonb_build_object('ok', true);
 end $$;
 
-create or replace function public.marche_equipe_borne(p_rarete integer, p_min integer, p_max integer)
-returns void language plpgsql security definer set search_path to 'public' as $$
+drop function if exists public.marche_equipe_borne(integer, integer, integer);
+create function public.marche_equipe_borne(p_rarete integer, p_min integer, p_max integer)
+returns jsonb language plpgsql security definer set search_path to 'public' as $$
 begin
   if not public.est_equipe() then raise exception 'Réservé à l''équipe.'; end if;
   if p_rarete is null or p_rarete not between 1 and 5 then raise exception 'Rareté inconnue.'; end if;
   if p_min is null or p_min < 1 or p_max is null or p_max < p_min or p_max > 100000 then raise exception 'Bornes invalides : le minimum est d''au moins 1 vinyle et le maximum n''est pas en dessous.'; end if;
   update public.marche_bornes set prix_min = p_min, prix_max = p_max where rarete = p_rarete;
+  return jsonb_build_object('ok', true);
 end $$;
 
 -- Suspendre un joueur du marché : ses annonces en cours sont retirées et ses cartes lui reviennent.
-create or replace function public.marche_equipe_suspendre(p_pseudo text, p_motif text default null)
-returns void language plpgsql security definer set search_path to 'public' as $$
+drop function if exists public.marche_equipe_suspendre(text, text);
+create function public.marche_equipe_suspendre(p_pseudo text, p_motif text default null)
+returns jsonb language plpgsql security definer set search_path to 'public' as $$
 declare v_id uuid; a public.marche_annonces;
 begin
   if not public.est_equipe() then raise exception 'Réservé à l''équipe.'; end if;
@@ -482,13 +489,16 @@ begin
     insert into public.marche_journal (type, annonce_id, booster_id, artist_id, holo, rarete, vendeur, prix, note)
     values ('retrait_equipe', a.id, a.booster_id, a.artist_id, a.holo, a.rarete, a.vendeur, a.prix, 'Suspension du marché');
   end loop;
+  return jsonb_build_object('ok', true);
 end $$;
 
-create or replace function public.marche_equipe_reintegrer(p_user uuid)
-returns void language plpgsql security definer set search_path to 'public' as $$
+drop function if exists public.marche_equipe_reintegrer(uuid);
+create function public.marche_equipe_reintegrer(p_user uuid)
+returns jsonb language plpgsql security definer set search_path to 'public' as $$
 begin
   if not public.est_equipe() then raise exception 'Réservé à l''équipe.'; end if;
   delete from public.marche_suspendus where user_id = p_user;
+  return jsonb_build_object('ok', true);
 end $$;
 
 -- ---------------------------------------------------------------------------------------------------------------
