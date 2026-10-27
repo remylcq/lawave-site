@@ -1882,7 +1882,7 @@
             <div class="ct-stat"><b>${nf(c.sorties)}</b><span>${c.sorties > 1 ? 'sorties' : 'sortie'} sur La Wave</span></div>
             <div class="ct-stat"><b>${possede ? '×' + c.quantite : '—'}</b><span>${possede ? 'en ta possession' : 'pas encore obtenue'}</span></div>
           </div>
-          ${c.ville ? `<p class="sous" style="margin-top:12px">${esc(c.ville)}</p>` : ''}
+          ${c.ville ? `<p class="sous" style="margin-top:12px">${esc(c.ville)}</p>` : ''}${classeur && possede ? `<div class="ct-actions" style="margin-top:12px"><button type="button" class="ct-btn petit" data-vendre>${ico('marche', 15)}Vendre sur le marché</button></div>` : ''}
           ${(c.sorties_liste || []).length ? `
             <div class="ct-titre-sec" style="margin:22px 0 10px"><h3>Dernières sorties</h3></div>
             <div class="ct-pochettes">${c.sorties_liste.map((s, i) => `<button type="button" class="ct-pochette" data-s="${i}" title="${esc(s.titre)} · ${esc(date(s.date))}"><img src="${esc(safeUrl(s.cover))}" alt="${esc(s.titre)}" loading="lazy"></button>`).join('')}</div>` : ''}
@@ -1904,7 +1904,7 @@
         </div>
       </div>`, true);
 
-    inclinable(f.corps.querySelector('.ct-fiche-carte'));
+    inclinable(f.corps.querySelector('.ct-fiche-carte')); const vd = f.corps.querySelector('[data-vendre]'); if(vd) vd.addEventListener('click', async () => { try{ await window.chargerWaveModule('marche'); await window.WaveMarche.vendre(c, api); }catch(e){ toast(e.message, 'err'); } });
 
     f.corps.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => {
       const s = c.sorties_liste[Number(b.dataset.s)];
