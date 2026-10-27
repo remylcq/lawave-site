@@ -12975,6 +12975,20 @@ function chargerCartes(){
   return chargerModuleSite(CARTES_FICHIER, 'Cartes', 'du jeu de cartes (cartes.js)');
 }
 
+// Les modules de Wave Cards, chargés à la demande par cartes.js : le combat, le marché et la console de l'équipe.
+// Le numéro qui suit leur nom reçoit l'empreinte du fichier à la mise en ligne (outils/deploiement/preparer.sh).
+const WAVE_MODULES = {
+  combat: ['combat.js?v=1', 'WaveCombat', 'du combat (combat.js)'],
+  marche: ['marche.js?v=1', 'WaveMarche', 'du marché (marche.js)'],
+  equipe: ['cartes-equipe.js?v=1', 'WaveEquipe', "de la console équipe de Wave Cards (cartes-equipe.js)"]
+};
+
+function chargerWaveModule(nom){
+  const m = WAVE_MODULES[nom];
+  if(!m) return Promise.reject(new Error('Module inconnu : ' + nom));
+  return chargerModuleSite(m[0], m[1], m[2]);
+}
+
 // La pastille du menu : un cadeau, une roue, un coffre ou une mission à récupérer. cartes.js la remet à jour à chaque
 // geste ; la demande du connexion (jeuPastilleDemarrer) la remplit avant même d'ouvrir le jeu.
 function majPastilleCartes(etat){
