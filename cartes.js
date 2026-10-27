@@ -1243,7 +1243,7 @@
     S.hote = hote;
 
     if(!currentUser){
-      invite(hote, 'Ta collection t\'attend', 'Connecte-toi pour ouvrir des packs et collectionner les artistes de la scène francophone.');
+      invite(hote, 'Ta collection t\'attend', 'Connecte-toi pour jouer à Wave Cards : ouvre des boosters et collectionne les artistes de la scène francophone.');
       return;
     }
 
@@ -1262,7 +1262,7 @@
     hote.innerHTML = `
       <div class="ct">
         <div class="ct-tete"></div>
-        <nav class="ct-onglets" role="tablist" aria-label="Le jeu"></nav>
+        <nav class="ct-onglets" role="tablist" aria-label="Wave Cards"></nav>
         <div class="ct-corps"></div>
       </div>`;
 
@@ -1375,7 +1375,7 @@
 
     S.corps.innerHTML = `
       <section class="ct-panneau ct-vitrine">
-        <div class="ct-vit-tete"><span class="ct-surtitre">${ico('pack', 15)}Boosters</span><span class="ct-compte" data-compte></span></div>
+        <div class="ct-vit-tete"><span class="ct-surtitre">${ico('pack', 15)}Wave Cards</span><span class="ct-compte" data-compte></span></div>
         <div class="ct-car" tabindex="0" role="group" aria-roledescription="carrousel" aria-label="Choisis un booster">
           <div class="ct-car-piste">
             ${boosters.map((b, i) => `<div class="ct-car-item" data-i="${i}" role="group" aria-label="${esc(b.nom)}">${packHtml({ booster: b })}</div>`).join('')}

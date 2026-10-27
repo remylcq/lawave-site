@@ -3379,7 +3379,7 @@ function equipeCartes(){
 // Le jeu de cartes (cartes.js, sql/cartes.sql) : chargé à la demande, il se dessine dans cette vue.
 VUES.cartes = {
 
-  titre: () => 'Cartes',
+  titre: () => 'Wave Cards',
 
   creer(V){
     V.hote = document.createElement('div');
@@ -3391,7 +3391,7 @@ VUES.cartes = {
     // Fermé au public, comme l'espace des waveurs : seule l'équipe entre.
     if(!equipeCartes()){
       if(window.Cartes) window.Cartes.quitter();
-      V.hote.innerHTML = etatVide({ icone: 'cartes', titre: 'Bientôt disponible', texte: 'Le jeu de cartes ouvre prochainement.' });
+      V.hote.innerHTML = etatVide({ icone: 'cartes', titre: 'Bientôt disponible', texte: 'Wave Cards ouvre prochainement.' });
       return;
     }
 
@@ -6854,7 +6854,7 @@ function navItemHtml(cle, ic, libelle, badge, vers, classe){
 const ELEMENTS_NAV = [
   ['accueil', 'accueil', 'Accueil', null, ''],
   ['explorer', 'explorer', 'Explorer', null, 'explorer'],
-  ['cartes', 'cartes', 'Cartes', 'cartes', 'cartes'],
+  ['cartes', 'cartes', 'Wave Cards', 'cartes', 'cartes'],
   ['messages', 'messages', 'Messages', 'messages', 'messages'],
   ['notifications', 'cloche', 'Alertes', 'notifications', 'notifications'],
   ['favoris', 'signet', 'Enregistrés', null, 'favoris']
