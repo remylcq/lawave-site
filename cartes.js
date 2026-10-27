@@ -415,10 +415,50 @@
   .ct-case:hover{transform:translateY(-4px);}
   .ct-case:focus-visible{outline:2px solid var(--ct-accent); outline-offset:3px;}
   .ct-grille{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:18px 14px;}
-  .ct-ruban{display:grid; grid-auto-flow:column; grid-auto-columns:minmax(130px, 150px); gap:14px; overflow-x:auto; padding:10px 2px 6px; scrollbar-width:none;}
-  .ct-ruban::-webkit-scrollbar{display:none;}
 
   /* ---------- Packs : la vitrine à boosters ---------- */
+  /* ---------- la page d'un booster (tracklist) ---------- */
+  .ct-projet{--acc:#4FB4FF; padding:4px 0 8px; animation:ctFondu .35s ease both;}
+  .ct-retour{margin-bottom:14px;}
+  .ct-retour svg{transform:scaleX(-1);}
+  .ct-pj-tete{display:flex; align-items:flex-end; gap:26px; padding:24px; border-radius:20px; border:1px solid var(--ct-trait);
+    background:linear-gradient(180deg, color-mix(in srgb, var(--acc) 30%, transparent), rgba(255,255,255,.02) 85%);}
+  .ct-pj-cover{flex:none; width:min(230px, 36vw); aspect-ratio:1; border-radius:6px; object-fit:cover; display:block; box-shadow:0 22px 44px -16px rgba(0,0,0,.85);}
+  .ct-pj-vide{display:grid; place-items:center; color:#fff; background:linear-gradient(160deg, #0d2b4c, #08121f);}
+  .ct-pj-vide .ct-embleme{width:56%;}
+  .ct-pj-meta{min-width:0; text-align:left;}
+  .ct-pj-type{font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft);}
+  .ct-pj-meta h2{margin:8px 0 0; font-size:clamp(30px, 5vw, 54px); line-height:1; letter-spacing:-.03em;}
+  .ct-pj-stat{margin:10px 0 0; font-size:14px; color:var(--ink-soft);}
+  .ct-pj-meta .ct-ouvrir{justify-content:flex-start; margin-top:18px;}
+  .ct-pj-desc{margin:16px 2px 0; max-width:64ch; font-size:14px; line-height:1.55; color:var(--ink-soft);}
+  .ct-tracks{margin-top:18px; display:flex; flex-direction:column;}
+  .ct-tr-tete, .ct-track{display:grid; grid-template-columns:34px 44px minmax(0, 1fr) 116px 48px; align-items:center; gap:14px; padding:8px 14px;}
+  .ct-tr-tete{padding-bottom:10px; margin-bottom:4px; font-size:11.5px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--ct-trait);}
+  .ct-tr-tete span:first-child{text-align:right;}
+  .ct-track{appearance:none; border:0; background:transparent; font:inherit; color:inherit; text-align:left; cursor:pointer; width:100%; box-sizing:border-box; border-radius:10px; transition:background .15s;}
+  .ct-track:hover, .ct-track:focus-visible{background:rgba(255,255,255,.06);}
+  .ct-track:focus-visible{outline:2px solid var(--acc); outline-offset:-2px;}
+  .ct-track .n{text-align:right; font-variant-numeric:tabular-nums; color:var(--muted); font-size:14px;}
+  .ct-track .ph{width:44px; height:44px; border-radius:6px; object-fit:cover; object-position:50% 22%; background:#0a1018; display:block;}
+  .ct-track .nom{font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ct-track .rar{display:flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:var(--rc); filter:brightness(1.15);}
+  .ct-track .rar::before{content:''; flex:none; width:7px; height:7px; border-radius:50%; background:currentColor;}
+  .ct-track .et{display:flex; align-items:center; justify-content:flex-end; gap:5px; font-size:13px; font-weight:700; color:var(--ink-soft);}
+  .ct-track .et svg{flex:none;}
+  .ct-track.manque .ph{filter:grayscale(1) brightness(.4);}
+  .ct-track.manque .nom{color:var(--muted);}
+  .ct-track.manque .rar{opacity:.55;}
+  .ct-voir{margin-top:12px;}
+  @media (max-width:640px){
+    .ct-pj-tete{flex-direction:column; align-items:center; text-align:center; padding:20px 16px;}
+    .ct-pj-cover{width:min(240px, 68vw);}
+    .ct-pj-meta{text-align:center;}
+    .ct-pj-meta .ct-ouvrir{justify-content:center;}
+    .ct-tr-tete, .ct-track{grid-template-columns:26px 40px minmax(0, 1fr) 84px 36px; gap:10px; padding:8px 8px;}
+    .ct-track .ph{width:40px; height:40px;}
+    .ct-track .rar{font-size:11.5px;}
+  }
   .ct-vitrine{position:relative; overflow-x:clip; padding:4px 0 8px; text-align:center; --acc:#4FB4FF;
     background:radial-gradient(60% 52% at 50% 36%, color-mix(in srgb, var(--acc) 24%, transparent), transparent 74%);}
   .ct-vit-tete{display:flex; align-items:center; justify-content:space-between; gap:12px; text-align:left;}
@@ -575,7 +615,7 @@
   .ct-dos{display:grid; place-items:center; padding:3px; background:linear-gradient(155deg, #3c4757, #1a212b 50%, #2d3644); box-shadow:0 18px 40px -16px rgba(0,0,0,.9);}
   .ct-dos-in{width:100%; height:100%; border-radius:10px; display:grid; place-items:center; color:rgba(255,255,255,.85);
     background:radial-gradient(80% 60% at 50% 40%, color-mix(in srgb, var(--accb, #4FB4FF) 34%, transparent), transparent 70%), repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 6px, transparent 6px 12px), linear-gradient(160deg, #0d2b4c, #08121f);}
-  .ct-dos-in .ct-embleme{width:52%;}
+  .ct-dos-logo{width:60%; max-width:none; height:auto; display:block; opacity:.95; filter:drop-shadow(0 0 14px rgba(255,255,255,.28));}
   .ct-dos[data-r="2"]{box-shadow:0 0 0 1px rgba(79,180,255,.5), 0 0 26px -2px rgba(79,180,255,.55), 0 18px 40px -16px rgba(0,0,0,.9);}
   .ct-dos[data-r="3"]{box-shadow:0 0 0 1px rgba(168,121,255,.6), 0 0 34px 0 rgba(168,121,255,.6), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls 1.6s ease-in-out infinite; --pc:rgba(168,121,255,.75);}
   .ct-dos[data-r="4"]{box-shadow:0 0 0 1px rgba(242,193,78,.7), 0 0 42px 2px rgba(242,193,78,.65), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls 1.1s ease-in-out infinite; --pc:rgba(242,193,78,.85);}
@@ -1171,6 +1211,7 @@
   function changerVue(v){
     if(S.vue === v && S.corps && S.corps.children.length) return;
     S.vue = v;
+    S.projet = null;
     try{ history.replaceState(history.state, '', '#community/cartes/' + v); }catch(e){}
     majEntete();
     afficherVue(v);
@@ -1254,8 +1295,10 @@
     let cur = Math.max(0, boosters.findIndex(b => b.id === S.booster));
     S.booster = boosters[cur].id;
 
-    let recentes = [];
-    try{ recentes = (await appel('jeu_collection_lire', { p_page: 1, p_vue: 'possedees', p_tri: 'recent' })).cartes.slice(0, 10); }catch(err){ /* pas grave */ }
+    // Un booster à classeur s'ouvre sur sa page de projet : la liste de ses cartes, comme une tracklist.
+    const projet = S.projet && boosters.find(x => x.id === S.projet && x.classeur);
+    if(projet){ await vueProjet(projet); return; }
+    S.projet = null;
 
     const attente = aRecuperer(e) + (e.missions_pretes || 0);
     const plusieurs = boosters.length > 1;
@@ -1275,11 +1318,7 @@
       </section>
 
       ${attente ? `<button type="button" class="ct-attente" data-aller="${aRecuperer(e) ? 'bonus' : 'missions'}">${ico('cadeau', 22)}<div><b>${pluriel(attente, 'récompense')} à récupérer</b><span>${[e.cadeau_pret ? 'cadeau du jour' : '', e.roue_prete ? 'roue' : '', e.coffres_prets ? 'coffre' : '', e.missions_pretes ? 'missions' : ''].filter(Boolean).join(' · ')}</span></div>${ico('fleche', 18)}</button>` : ''}
-
-      <div class="ct-titre-sec"><h3>Dernières cartes obtenues</h3>${recentes.length ? '<button type="button" class="ct-lien" data-aller="collection">Toute la collection' + ico('fleche', 14) + '</button>' : ''}</div>
-      ${recentes.length
-        ? `<div class="ct-ruban">${recentes.map((c, i) => `<button type="button" class="ct-case" data-i="${i}" aria-label="${esc(c.nom)}">${carteHtml(c, { quantite: true })}</button>`).join('')}</div>`
-        : '<div class="ct-panneau ct-vide"><b>Ta collection est vide</b>Ouvre ton premier pack pour découvrir ta première carte.</div>'}`;
+`;
 
     const vit = S.corps.querySelector('.ct-vitrine');
     const car = vit.querySelector('.ct-car');
@@ -1295,6 +1334,7 @@
         <div class="ct-vit-info-in">
           <h2>${esc(b.nom)}</h2>
           <p>${esc(b.description || '')}</p>
+          ${b.classeur ? `<button type="button" class="ct-lien ct-voir" data-voir>Voir les ${nf(b.nb_cartes)} cartes${ico('fleche', 14)}</button>` : ''}
         </div>`;
       const cout = Number(b.cout || 1);
       zoneOuvrir.innerHTML = [1, 5, 10].map(n => `<button type="button" class="ct-btn ${n === 1 ? 'principal ' : ''}grand" data-ouvrir="${n}" ${e.tirages < n * cout ? 'disabled' : ''}>${n > 1 ? n + ' packs' : 'Ouvrir un pack'}<span class="cout">${ico('eclair', 12)}${n * cout}</span></button>`).join('');
@@ -1331,9 +1371,16 @@
     poser();
     majInfo();
 
+    function voir(b){
+      if(!b.classeur){ ouvrir(1, false, b); return; }
+      S.projet = b.id;
+      afficherVue('packs');
+    }
+
     vit.addEventListener('click', (ev) => {
       const o = ev.target.closest('[data-ouvrir]');
       if(o){ ouvrir(Number(o.dataset.ouvrir), false, boosters[cur]); return; }
+      if(ev.target.closest('[data-voir]')){ voir(boosters[cur]); return; }
       const f = ev.target.closest('.ct-car-fl');
       if(f){ aller(cur + Number(f.dataset.dir)); return; }
       const k = ev.target.closest('[data-classeur]');
@@ -1342,7 +1389,7 @@
       if(p) aller(Number(p.dataset.i));
     });
 
-    // Glisser le carrousel d'un geste ; toucher un booster de côté le ramène au centre, toucher celui du centre l'ouvre.
+    // Glisser le carrousel d'un geste ; toucher un booster de côté le ramène au centre, toucher celui du centre ouvre sa liste de cartes.
     let depart = null;
     car.addEventListener('pointerdown', (ev) => {
       if(ev.target.closest('.ct-car-fl')) return;
@@ -1355,17 +1402,59 @@
       if(Math.abs(dx) > 40){ aller(cur + (dx < 0 ? 1 : -1)); return; }
       if(!it) return;
       const i = Number(it.dataset.i);
-      if(i === cur) ouvrir(1, false, boosters[cur]); else aller(i);
+      if(i === cur) voir(boosters[cur]); else aller(i);
     });
     car.addEventListener('pointercancel', () => { depart = null; });
     car.addEventListener('keydown', (ev) => {
       if(ev.key === 'ArrowLeft'){ ev.preventDefault(); aller(cur - 1); }
       else if(ev.key === 'ArrowRight'){ ev.preventDefault(); aller(cur + 1); }
-      else if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); ouvrir(1, false, boosters[cur]); }
+      else if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); voir(boosters[cur]); }
     });
 
     S.corps.querySelectorAll('[data-aller]').forEach((b) => b.addEventListener('click', () => changerVue(b.dataset.aller)));
-    S.corps.querySelectorAll('.ct-ruban [data-i]').forEach((b) => b.addEventListener('click', () => fiche(recentes[Number(b.dataset.i)].id)));
+  }
+
+  // La page d'un booster, comme celle d'un projet musical : la pochette, puis ses cartes en tracklist.
+  async function vueProjet(b){
+    const r = await appel('jeu_classeur_lire', { p_booster: b.id, p_page: 1, p_tri: 'numero' });
+    const cartes = r.cartes || [];
+    const obtenues = cartes.filter(c => c.quantite > 0).length;
+    const e = S.etat;
+    const cout = Number(b.cout || 1);
+    const fin = b.fin ? new Date(b.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    const pochette = /^img\/[\w.-]+$/.test(b.visuel || '')
+      ? `<img class="ct-pj-cover" src="${esc(b.visuel)}" alt="${esc(b.nom)}" decoding="async">`
+      : `<div class="ct-pj-cover ct-pj-vide">${EMBLEMES[theme(b.theme)]}</div>`;
+
+    S.corps.innerHTML = `
+      <section class="ct-projet" style="--acc:${couleurOk(b.accent)}">
+        <button type="button" class="ct-lien ct-retour" data-retour>${ico('fleche', 14)}Les packs</button>
+        <header class="ct-pj-tete">
+          ${pochette}
+          <div class="ct-pj-meta">
+            <span class="ct-pj-type">${fin ? 'Collection · jusqu\'au ' + esc(fin) : 'Collection permanente'}</span>
+            <h2>${esc(b.nom)}</h2>
+            <p class="ct-pj-stat">La Wave · ${pluriel(cartes.length, 'carte')} · ${nf(obtenues)} obtenue${obtenues > 1 ? 's' : ''}</p>
+            <div class="ct-ouvrir">${[1, 5, 10].map(n => `<button type="button" class="ct-btn ${n === 1 ? 'principal ' : ''}grand" data-ouvrir="${n}" ${e.tirages < n * cout ? 'disabled' : ''}>${n > 1 ? n + ' packs' : 'Ouvrir un pack'}<span class="cout">${ico('eclair', 12)}${n * cout}</span></button>`).join('')}</div>
+          </div>
+        </header>
+        ${b.description ? `<p class="ct-pj-desc">${esc(b.description)}</p>` : ''}
+        <div class="ct-tracks" role="list" aria-label="Cartes du booster">
+          <div class="ct-tr-tete" aria-hidden="true"><span>#</span><span></span><span>Artiste</span><span>Rareté</span><span></span></div>
+          ${cartes.map((c, i) => `
+            <button type="button" class="ct-track${c.quantite ? '' : ' manque'}" role="listitem" data-i="${i}" style="--rc:${rar(c.rarete).c}" aria-label="${esc(c.nom)}, ${esc(rar(c.rarete).nom)}${c.quantite ? '' : ', pas encore obtenue'}">
+              <span class="n">${String(c.numero || i + 1).padStart(2, '0')}</span>
+              <img class="ph" src="${esc(safeUrl(c.photo))}" alt="" loading="lazy" decoding="async">
+              <span class="nom">${esc(c.nom)}</span>
+              <span class="rar">${esc(rar(c.rarete).nom)}</span>
+              <span class="et">${c.quantite ? (c.holo ? ico('etoile', 14) : '') + (c.quantite > 1 ? '×' + c.quantite : ico('coche', 15)) : ico('cadenas', 14)}</span>
+            </button>`).join('')}
+        </div>
+      </section>`;
+
+    S.corps.querySelector('[data-retour]').addEventListener('click', () => { S.projet = null; afficherVue('packs'); });
+    S.corps.querySelectorAll('[data-ouvrir]').forEach((x) => x.addEventListener('click', () => ouvrir(Number(x.dataset.ouvrir), false, b)));
+    S.corps.querySelectorAll('.ct-track').forEach((x) => x.addEventListener('click', () => fiche(cartes[Number(x.dataset.i)].id, b.id)));
   }
 
   async function ouvrir(n, garanti, booster){
@@ -1533,7 +1622,7 @@
         pile.innerHTML = cartes.map((c, i) => `
           <div class="ct-place" data-i="${i}" style="--rc:${rar(c.rarete).c}; --k:${Math.min(i, 4)}; z-index:${n - i}">
             <div class="ct-volte">
-              <div class="ct-dos" data-r="${c.rarete}"><div class="ct-dos-in">${EMBLEME}</div></div>
+              <div class="ct-dos" data-r="${c.rarete}"><div class="ct-dos-in"><img class="ct-dos-logo" src="img/logo-wave.png" alt="La Wave" width="380" height="204" decoding="async"></div></div>
               <div class="ct-face">${carteHtml(c, { vivante: true, eager: true })}<span class="ct-sheen"></span></div>
             </div>
           </div>`).join('');
@@ -1670,7 +1759,7 @@
           return `
           <div class="ct-place retournee donne" data-i="${i}" style="--rc:${rar(c.rarete).c}; --rot:${(i % 2 ? 1 : -1) * 4}deg; animation-delay:${i * 60}ms">
             <div class="ct-volte" role="button" tabindex="0" aria-label="Voir la fiche de ${esc(c.nom)}">
-              <div class="ct-dos" data-r="1"><div class="ct-dos-in">${EMBLEME}</div></div>
+              <div class="ct-dos" data-r="1"><div class="ct-dos-in"><img class="ct-dos-logo" src="img/logo-wave.png" alt="La Wave" width="380" height="204" decoding="async"></div></div>
               <div class="ct-face">${carteHtml(c, { vivante: true, eager: true })}</div>
             </div>
             <div class="ct-etiq ${classe}">${esc(texte)}</div>
@@ -1810,31 +1899,32 @@
 
     const o = S.col;
 
-    // Les classeurs des collections (un par booster à classeur) ; sans eux, la collection de base seule.
+    // Les classeurs des collections (un par booster à classeur) : il n'y a plus d'autre collection.
     let classeurs = [];
     try{ classeurs = await appel('jeu_classeurs'); }catch(err){ classeurs = []; }
     if(!Array.isArray(classeurs)) classeurs = [];
-    if(o.classeur && !classeurs.some(c => c.id === o.classeur)) o.classeur = null;
-    const cl = o.classeur ? classeurs.find(c => c.id === o.classeur) : null;
+    if(!classeurs.some(c => c.id === o.classeur)) o.classeur = classeurs.length ? classeurs[0].id : null;
+    const cl = classeurs.find(c => c.id === o.classeur);
+    if(!cl){
+      S.corps.innerHTML = '<div class="ct-panneau ct-vide"><b>Aucune collection pour l\'instant</b>Les collections arrivent bientôt.</div>';
+      return;
+    }
 
-    const r = cl
-      ? await appel('jeu_classeur_lire', { p_booster: cl.id, p_page: o.page, p_vue: o.vue, p_rarete: o.rarete, p_q: o.q || null, p_tri: o.tri })
-      : await appel('jeu_collection_lire', { p_page: o.page, p_vue: o.vue, p_rarete: o.rarete, p_q: o.q || null, p_tri: o.tri });
-    const e = S.etat;
+    const r = await appel('jeu_classeur_lire', { p_booster: cl.id, p_page: o.page, p_vue: o.vue, p_rarete: o.rarete, p_q: o.q || null, p_tri: o.tri });
     const raretes = r.raretes || [];
-    const possedees = cl ? raretes.reduce((s, x) => s + Number(x.possedees || 0), 0) : e.uniques;
-    const total = cl ? raretes.reduce((s, x) => s + Number(x.total || 0), 0) : e.total_cartes;
+    const possedees = raretes.reduce((s, x) => s + Number(x.possedees || 0), 0);
+    const total = raretes.reduce((s, x) => s + Number(x.total || 0), 0);
     const pct = total ? Math.round(possedees / total * 1000) / 10 : 0;
-    const finTxt = cl && cl.fin ? new Date(cl.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+    const finTxt = cl.fin ? new Date(cl.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
 
     S.corps.innerHTML = `
-      ${classeurs.length ? `<div class="ct-classeurs" role="group" aria-label="Classeur">
-        ${[{ id: null, nom: 'Série de lancement', theme: 'onde', accent: '#4FB4FF', possedees: e.uniques, total: e.total_cartes }].concat(classeurs).map(c => `<button type="button" class="ct-classeur${(c.id || null) === (o.classeur || null) ? ' actif' : ''}" data-classeur="${esc(c.id || '')}" style="--acc:${couleurOk(c.accent)}" aria-pressed="${(c.id || null) === (o.classeur || null)}"><b>${esc(c.nom)}</b><small>${nf(c.possedees)} / ${nf(c.total)}</small></button>`).join('')}
+      ${classeurs.length > 1 ? `<div class="ct-classeurs" role="group" aria-label="Classeur">
+        ${classeurs.map(c => `<button type="button" class="ct-classeur${c.id === o.classeur ? ' actif' : ''}" data-classeur="${esc(c.id)}" style="--acc:${couleurOk(c.accent)}" aria-pressed="${c.id === o.classeur}"><b>${esc(c.nom)}</b><small>${nf(c.possedees)} / ${nf(c.total)}</small></button>`).join('')}
       </div>` : ''}
-      <section class="ct-panneau ct-prog"${cl ? ` style="--acc:${couleurOk(cl.accent)}"` : ''}>
+      <section class="ct-panneau ct-prog" style="--acc:${couleurOk(cl.accent)}">
         <div class="ct-prog-chiffre">${nf(possedees)}<small> / ${nf(total)}</small></div>
         <div class="ct-prog-droite">
-          <div class="lib"><span>${cl ? esc(cl.nom) + (finTxt ? ' · jusqu\'au ' + esc(finTxt) : '') : 'artistes dans ta collection'}</span><span>${String(pct).replace('.', ',')} %</span></div>
+          <div class="lib"><span>${esc(cl.nom) + (finTxt ? ' · jusqu\'au ' + esc(finTxt) : '')}</span><span>${String(pct).replace('.', ',')} %</span></div>
           <div class="ct-barre"><i style="width:${Math.max(pct, possedees ? .6 : 0)}%"></i></div>
         </div>
         <div class="ct-raretes">${raretes.map(x => `
@@ -1853,7 +1943,6 @@
         <select class="ct-select" data-tri aria-label="Trier">
           ${[['numero', 'Numéro'], ['rarete', 'Rareté'], ['fans', 'Fans'], ['nom', 'Nom (A–Z)'], ['recent', 'Dernières obtenues']].map(([v, l]) => `<option value="${v}"${o.tri === v ? ' selected' : ''}>${l}</option>`).join('')}
         </select>
-        ${r.doublons > 0 ? `<button type="button" class="ct-btn" data-recycler-tout>${ico('recycler', 16)}Recycler les doublons<span class="cout" style="background:rgba(242,193,78,.15)">+${nf(r.valeur_doublons)}</span></button>` : ''}
       </div>
 
       ${r.cartes.length
@@ -1874,34 +1963,12 @@
       o.page = Math.max(1, o.page + Number(b.dataset.page));
       vueCollection().then(() => { const t = S.hote.querySelector('.ct-onglets'); if(t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
     }));
-    S.corps.querySelectorAll('.ct-grille [data-i]').forEach((b) => b.addEventListener('click', () => fiche(r.cartes[Number(b.dataset.i)].id, cl ? cl.id : null)));
+    S.corps.querySelectorAll('.ct-grille [data-i]').forEach((b) => b.addEventListener('click', () => fiche(r.cartes[Number(b.dataset.i)].id, cl.id)));
     S.corps.querySelectorAll('[data-classeur]').forEach((b) => b.addEventListener('click', () => {
-      o.classeur = b.dataset.classeur || null; o.page = 1; o.vue = 'toutes'; o.rarete = null; o.q = '';
+      o.classeur = b.dataset.classeur; o.page = 1; o.vue = 'toutes'; o.rarete = null; o.q = '';
       vueCollection();
     }));
-    const rt = S.corps.querySelector('[data-recycler-tout]');
-    if(rt) rt.addEventListener('click', () => recyclerTout(r.doublons, r.valeur_doublons));
     if(o.q){ champ.focus(); champ.setSelectionRange(champ.value.length, champ.value.length); }
-  }
-
-  function recyclerTout(nb, valeur){
-    const f = fenetre(`
-      <h2>Recycler tes doublons</h2>
-      <p class="sous">Tu gardes un exemplaire de chaque carte (et de chaque holo). Les ${pluriel(nb, 'doublon')} deviennent des vinyles, à dépenser à l'atelier pour fabriquer les cartes qui te manquent.</p>
-      <div class="ct-ligne-act" style="margin-top:18px"><span class="ct-pastille-ico" style="color:#F2C14E; background:rgba(242,193,78,.12)">${ico('vinyle', 20)}</span><div class="tx"><b>+${nf(valeur)} vinyles</b>pour ${pluriel(nb, 'carte')}</div></div>
-      <div class="ct-actions" style="justify-content:flex-end"><button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-oui>Recycler</button></div>`);
-    f.corps.querySelector('[data-non]').addEventListener('click', f.fermer);
-    const b = f.corps.querySelector('[data-oui]');
-    b.addEventListener('click', async () => {
-      b.disabled = true;
-      try{
-        const x = await appel('jeu_recycler_tout');
-        poserEtat(x.etat); majEntete(); Son.jouer('gain'); vibre(25);
-        toast('+' + nf(x.vinyles) + ' vinyles');
-        f.fermer();
-        vueCollection();
-      }catch(e){ toast(e.message, 'err'); b.disabled = false; }
-    });
   }
 
   // ---------------------------------------------------------------------
