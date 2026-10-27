@@ -29,11 +29,10 @@
   const el = (tag, classe, html) => { const e = document.createElement(tag); if(classe) e.className = classe; if(html !== undefined) e.innerHTML = html; return e; };
   const attendre = (ms) => new Promise(r => setTimeout(r, ms));
   const calme = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  // Les packs se paient en vinyles. Un ancien « tirage » vaut 50 vinyles : le serveur crédite toute récompense en vinyles
-  // (sql/cartes-vinyles-wc.sql) ; ces deux aides remettent en vinyles ce qu'il nomme encore des tirages.
-  const VAL_TIRAGE = 50;
-  const vin = (g) => (Number(g.tirages) || 0) * VAL_TIRAGE + (Number(g.vinyles) || 0);
-  const libVin = (l) => String(l || '').replace(/(\d+)\s*tirages?/i, (_, n) => { const v = Number(n) * VAL_TIRAGE; return (v >= 1000 ? court(v) : nf(v)) + ' vinyles'; });
+  // 1 vinyle = 1 ouverture de pack. Le serveur crédite toute récompense en vinyles (sql/cartes-un-vinyle.sql) : un ancien
+  // « tirage » vaut 1 vinyle, un ancien « vinyle » de récompense 1/50. Ces aides remettent en vinyles ce qu'il nomme encore autrement.
+  const vin = (g) => (Number(g.tirages) || 0) + Math.ceil((Number(g.vinyles) || 0) / 50);
+  const libVin = (l) => String(l || '').replace(/(\d+)\s*tirages?/i, (_, n) => nf(n) + ' vinyle' + (Number(n) > 1 ? 's' : ''));
   const numero = (n) => '#' + String(n || 0).padStart(3, '0');
 
   const RAR = [null,
@@ -45,7 +44,7 @@
   ];
   const rar = (r) => RAR[Math.min(Math.max(Number(r) || 1, 1), 5)];
 
-  const VUES = [['packs', 'Packs'], ['collection', 'Collection'], ['missions', 'Missions'], ['bonus', 'Bonus'], ['succes', 'Succès']];
+  const VUES = [['packs', 'Packs'], ['collection', 'Collection'], ['combat', 'Combat'], ['marche', 'Marché'], ['missions', 'Missions'], ['bonus', 'Bonus'], ['succes', 'Succès']];
 
   // ---------------------------------------------------------------------
   // Les icônes (un trait, la couleur du texte)
@@ -53,6 +52,8 @@
 
   const ICONES = {
     eclair: '<path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12L13 2z"/>',
+    combat: '<path d="M14.5 17.5 3 6V3h3l11.5 11.5"/><path d="M13 19l6-6M16 16l4 4M19 21l2-2"/><path d="m14.5 6.5 3-3H21v3.5l-3 3"/><path d="M5 14l4 4"/>',
+    marche: '<path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.2"/>',
     piece: '<circle cx="12" cy="12" r="9"/><path d="M7.5 13c1.5-3.2 3-3.2 4.5 0s3 3.2 4.5 0"/>',
     vinyle: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.6"/><path d="M12 5.5a6.5 6.5 0 0 1 6.5 6.5"/>',
     cadeau: '<rect x="3.5" y="8.5" width="17" height="12" rx="2"/><path d="M12 8.5v12M3.5 13h17M12 8.5c-2-4.2-6.5-3.6-6.5-1.2S9.7 8.5 12 8.5zM12 8.5c2-4.2 6.5-3.6 6.5-1.2S14.3 8.5 12 8.5z"/>',
@@ -362,6 +363,7 @@
   .ct-echange{display:grid; gap:12px; margin-top:16px;}
   .ct-echange-choix{display:flex; flex-wrap:wrap; gap:8px;}
   .ct-echange-champ{display:flex; align-items:center; gap:10px; font-size:14px; color:var(--ink-soft);}
+  .ct-echange-prix{margin-left:6px; color:var(--muted);}
   .ct-echange-champ input{width:120px; height:42px; padding:0 12px; border-radius:12px; border:1px solid var(--ct-trait); background:var(--ct-surface); color:var(--ink); font:inherit; font-weight:700;}
   .ct-res.garanti{cursor:pointer; color:inherit; font:inherit; font-weight:700; border-color:rgba(168,121,255,.45); background:rgba(168,121,255,.1);}
   .ct-res.garanti .ct-ico{color:var(--r3);}
@@ -463,6 +465,18 @@
   .ct-track.manque .nom{color:var(--muted);}
   .ct-track.manque .rar{opacity:.55;}
   .ct-voir{margin-top:12px;}
+  .ct-couvs{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:26px 22px; margin-top:6px;}
+  .ct-couv{appearance:none; border:0; background:transparent; font:inherit; color:inherit; text-align:left; cursor:pointer; display:grid; gap:8px; padding:0; transition:transform .25s cubic-bezier(.2,.8,.2,1);}
+  .ct-couv .img{display:block; aspect-ratio:1; border-radius:8px; overflow:hidden; box-shadow:0 20px 40px -18px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.06); background:linear-gradient(160deg, #0d2b4c, #08121f); transition:box-shadow .25s;}
+  .ct-couv .img img{width:100%; height:100%; object-fit:cover; display:block;}
+  .ct-couv .vide{display:grid; place-items:center; width:100%; height:100%; color:#fff;}
+  .ct-couv .vide .ct-embleme{width:52%;}
+  .ct-couv b{font-size:17px; letter-spacing:-.01em; margin-top:6px;}
+  .ct-couv small{font-size:13px; color:var(--ink-soft);}
+  .ct-couv .ct-barre i{background:var(--acc);}
+  .ct-couv:hover, .ct-couv:focus-visible{transform:translateY(-4px);}
+  .ct-couv:hover .img, .ct-couv:focus-visible .img{box-shadow:0 26px 48px -16px color-mix(in srgb, var(--acc) 55%, #000), 0 0 0 1px color-mix(in srgb, var(--acc) 60%, transparent);}
+  .ct-couv:focus-visible{outline:2px solid var(--acc); outline-offset:6px; border-radius:8px;}
   @media (max-width:640px){
     .ct-pj-tete{flex-direction:column; align-items:center; text-align:center; padding:20px 16px;}
     .ct-pj-cover{width:min(240px, 68vw);}
@@ -1093,8 +1107,8 @@
       </div>
       <div class="ct-qui"><b>Niveau ${e.niveau}</b><small>${nf(e.xp - e.xp_depart)} / ${nf(e.xp_fin - e.xp_depart)} XP · ${nf(e.uniques)} / ${nf(e.total_cartes)} artistes</small></div>
       <div class="ct-ress">
-        <div class="ct-res vinyles" title="Vinyles : ils paient l'ouverture des packs.">${ico('vinyle', 17)}${nf(e.vinyles)}</div>
-        <button type="button" class="ct-res wc" data-echange title="Wave Coins : échange-les contre des vinyles (1 pour 1).">${ico('piece', 17)}${nf(e.wc || 0)}<small>Échanger</small></button>
+        <div class="ct-res vinyles" title="Vinyles : 1 vinyle = 1 ouverture de pack.">${ico('vinyle', 17)}${nf(e.vinyles)}</div>
+        <button type="button" class="ct-res wc" data-echange title="Wave Coins : échange-les contre des vinyles (${e.taux_wc || 50} Wave Coins = 1 vinyle).">${ico('piece', 17)}${nf(e.wc || 0)}<small>Échanger</small></button>
         ${e.garantis > 0 ? `<button type="button" class="ct-res garanti" data-garanti title="Ouvrir un pack Épique garanti">${ico('pack', 17)}${e.garantis}<small>Épique garanti</small></button>` : ''}
         <button type="button" class="ct-btn-ico" data-son aria-label="${Son.actif() ? 'Couper le son' : 'Remettre le son'}">${ico(Son.actif() ? 'son' : 'muet', 18)}</button>
       </div>`;
@@ -1107,7 +1121,7 @@
   function ongletsHtml(){
     const e = S.etat;
     const pastilles = { missions: e.missions_pretes || 0, bonus: aRecuperer(e) };
-    const icones = { packs: 'pack', collection: 'cartes', missions: 'cible', bonus: 'cadeau', succes: 'trophee' };
+    const icones = { packs: 'pack', collection: 'cartes', combat: 'combat', marche: 'marche', missions: 'cible', bonus: 'cadeau', succes: 'trophee' };
     return VUES.map(([id, nom]) => `
       <button type="button" class="ct-onglet${S.vue === id ? ' actif' : ''}" data-vue="${id}" role="tab" aria-selected="${S.vue === id}">
         ${ico(icones[id], 17)}${esc(nom)}${pastilles[id] ? `<span class="ct-pastille">${pastilles[id]}</span>` : ''}
@@ -1199,6 +1213,7 @@
   }
 
   function quitter(){
+    ['WaveCombat', 'WaveMarche'].forEach((g) => { if(window[g] && typeof window[g].quitter === 'function') window[g].quitter(); });
     clearInterval(S.minuteur);
   }
 
@@ -1211,11 +1226,24 @@
     afficherVue(v);
   }
 
+  // Les onglets Combat et Marché vivent dans leurs fichiers (combat.js, marche.js), chargés à la demande par index.html
+  // (chargerWaveModule) ; chacun reçoit l'élément à remplir et l'interface partagée du jeu (voir « api » plus bas).
+  async function vueModule(nom, global){
+    S.corps.innerHTML = '<div class="ct-vide">Chargement…</div>';
+    await window.chargerWaveModule(nom);
+    const m = window[global];
+    if(!m || typeof m.monter !== 'function') throw new Error('Ce module ne s\'est pas lancé.');
+    S.corps.innerHTML = '';
+    await m.monter(S.corps, api);
+  }
+
   async function afficherVue(v){
     if(!S.corps.querySelector('.ct-panneau')) S.corps.innerHTML = '<div class="ct-vide">Chargement…</div>';
     try{
       if(v === 'packs') await vuePacks();
       else if(v === 'collection') await vueCollection();
+      else if(v === 'combat') await vueModule('combat', 'WaveCombat');
+      else if(v === 'marche') await vueModule('marche', 'WaveMarche');
       else if(v === 'missions') await vueMissions();
       else if(v === 'bonus') await vueBonus();
       else if(v === 'succes') await vueSucces();
@@ -1307,7 +1335,7 @@
         ${plusieurs ? `<div class="ct-points">${boosters.map((b, i) => `<button type="button" data-i="${i}" aria-label="${esc(b.nom)}"></button>`).join('')}</div>` : ''}
         <div class="ct-vit-info" data-info></div>
         <div class="ct-ouvrir" data-zone-ouvrir></div>
-        <div class="ct-hero-note">${ico('vinyle', 15)}Les packs se paient en vinyles.<button type="button" class="ct-lien" data-echange>Échanger des Wave Coins</button></div>
+        <div class="ct-hero-note">${ico('vinyle', 15)}1 vinyle = 1 pack.<button type="button" class="ct-lien" data-echange>Échanger des Wave Coins</button></div>
       </section>
 
       ${attente ? `<button type="button" class="ct-attente" data-aller="${aRecuperer(e) ? 'bonus' : 'missions'}">${ico('cadeau', 22)}<div><b>${pluriel(attente, 'récompense')} à récupérer</b><span>${[e.cadeau_pret ? 'cadeau du jour' : '', e.roue_prete ? 'roue' : '', e.coffres_prets ? 'coffre' : '', e.missions_pretes ? 'missions' : ''].filter(Boolean).join(' · ')}</span></div>${ico('fleche', 18)}</button>` : ''}
@@ -1450,32 +1478,36 @@
     S.corps.querySelectorAll('.ct-track').forEach((x) => x.addEventListener('click', () => fiche(cartes[Number(x.dataset.i)].id, b.id)));
   }
 
-  // Échanger des Wave Coins contre des vinyles (1 pour 1).
+  // Échanger des Wave Coins contre des vinyles : on choisit un nombre de vinyles (donc de packs), le prix est en Wave Coins.
   function fenetreEchange(){
-    const wc = Number(S.etat.wc || 0);
-    const choix = [100, 250, 500, 1000].filter(n => n < wc);
+    const wc = Number(S.etat.wc || 0), taux = Number(S.etat.taux_wc || 50);
+    const max = Math.min(1000, Math.floor(wc / taux));
+    const choix = [1, 5, 10, 25].filter(n => n < max);
     const f = fenetre(`
       <h2>Échanger des Wave Coins</h2>
-      <p class="sous">1 Wave Coin = 1 vinyle, et les vinyles paient l'ouverture des packs. Tu as <b>${nf(wc)} Wave Coins</b> et <b>${nf(S.etat.vinyles)} vinyles</b>.</p>
-      ${wc >= 10
+      <p class="sous">1 vinyle = 1 ouverture de pack, et coûte ${nf(taux)} Wave Coins. Tu as <b>${nf(wc)} Wave Coins</b> et <b>${nf(S.etat.vinyles)} vinyles</b>.</p>
+      ${max >= 1
         ? `<div class="ct-echange">
-            <div class="ct-echange-choix">${choix.map(n => `<button type="button" class="ct-btn" data-n="${n}">${nf(n)}</button>`).join('')}<button type="button" class="ct-btn" data-n="${wc}">Tout (${nf(wc)})</button></div>
-            <label class="ct-echange-champ"><input type="number" inputmode="numeric" min="10" max="${wc}" step="1" value="${Math.min(wc, 100)}" data-wc aria-label="Wave Coins à échanger"> Wave Coins</label>
+            <div class="ct-echange-choix">${choix.map(n => `<button type="button" class="ct-btn" data-n="${n}">${n} vinyle${n > 1 ? 's' : ''}</button>`).join('')}<button type="button" class="ct-btn" data-n="${max}">Max (${nf(max)})</button></div>
+            <label class="ct-echange-champ"><input type="number" inputmode="numeric" min="1" max="${max}" step="1" value="${Math.min(max, 5)}" data-v aria-label="Vinyles à acheter"> vinyles<span class="ct-echange-prix" data-prix></span></label>
           </div>`
-        : '<div class="ct-panneau ct-vide" style="margin-top:14px"><b>Pas encore assez de Wave Coins</b>Ils se gagnent avec l\'XP du site : 1 XP = 1 Wave Coin.</div>'}
-      <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Fermer</button>${wc >= 10 ? '<button type="button" class="ct-btn principal" data-oui>Échanger</button>' : ''}</div>`);
+        : `<div class="ct-panneau ct-vide" style="margin-top:14px"><b>Pas encore assez de Wave Coins</b>Il en faut ${nf(taux)} pour un vinyle. Ils se gagnent avec l'XP du site : 1 XP = 1 Wave Coin.</div>`}
+      <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Fermer</button>${max >= 1 ? '<button type="button" class="ct-btn principal" data-oui>Échanger</button>' : ''}</div>`);
     f.corps.querySelector('[data-non]').addEventListener('click', f.fermer);
-    const champ = f.corps.querySelector('[data-wc]');
-    f.corps.querySelectorAll('[data-n]').forEach((b) => b.addEventListener('click', () => { champ.value = b.dataset.n; }));
+    const champ = f.corps.querySelector('[data-v]');
+    const prix = f.corps.querySelector('[data-prix]');
+    const maj = () => { if(prix) prix.textContent = '= ' + nf(Math.max(0, Math.floor(Number(champ.value) || 0)) * taux) + ' Wave Coins'; };
+    if(champ){ champ.addEventListener('input', maj); maj(); }
+    f.corps.querySelectorAll('[data-n]').forEach((b) => b.addEventListener('click', () => { champ.value = b.dataset.n; maj(); }));
     const ok = f.corps.querySelector('[data-oui]');
     if(ok) ok.addEventListener('click', async () => {
       const n = Math.floor(Number(champ.value));
-      if(!(n >= 10 && n <= wc)){ toast('Choisis entre 10 et ' + nf(wc) + ' Wave Coins.', 'err'); return; }
+      if(!(n >= 1 && n <= max)){ toast('Choisis entre 1 et ' + nf(max) + ' vinyles.', 'err'); return; }
       ok.disabled = true;
       try{
-        poserEtat(await appel('jeu_vinyles_acheter', { p_wc: n }));
+        poserEtat(await appel('jeu_vinyles_acheter', { p_vinyles: n }));
         majEntete(); Son.jouer('gain'); vibre(25);
-        toast('+' + nf(n) + ' vinyles');
+        toast('+' + nf(n) + ' vinyle' + (n > 1 ? 's' : ''));
         f.fermer();
         if(S.vue === 'packs' || S.vue === 'collection') afficherVue(S.vue);
       }catch(e){ toast(e.message, 'err'); ok.disabled = false; }
@@ -1919,6 +1951,36 @@
   // Collection
   // ---------------------------------------------------------------------
 
+  // L'entrée de la collection : la pochette de chaque booster, avec ce qu'on y possède ; on touche une pochette pour ouvrir son classeur.
+  async function vueCouvertures(classeurs){
+    const o = S.col;
+    if(!classeurs.length){
+      S.corps.innerHTML = '<div class="ct-panneau ct-vide"><b>Aucune collection pour l\'instant</b>Les collections arrivent bientôt.</div>';
+      return;
+    }
+    let bs = S.boosters;
+    if(!Array.isArray(bs)){ try{ bs = await appel('jeu_boosters'); S.boosters = bs; }catch(err){ bs = []; } }
+    S.corps.innerHTML = `
+      <div class="ct-titre-sec" style="margin-top:6px"><h3>Mes collections</h3></div>
+      <div class="ct-couvs">${classeurs.map((c) => {
+        const b = (bs || []).find(x => x.id === c.id) || {};
+        const pct = c.total ? Math.round(c.possedees / c.total * 100) : 0;
+        const img = /^img\/[\w.-]+$/.test(b.visuel || '')
+          ? `<img src="${esc(b.visuel)}" alt="" loading="lazy" decoding="async">`
+          : `<span class="vide">${EMBLEMES[theme(c.theme)]}</span>`;
+        return `<button type="button" class="ct-couv" data-classeur="${esc(c.id)}" style="--acc:${couleurOk(c.accent)}" aria-label="${esc(c.nom)}, ${nf(c.possedees)} cartes sur ${nf(c.total)}">
+          <span class="img">${img}</span>
+          <b>${esc(c.nom)}</b>
+          <small>${nf(c.possedees)} / ${nf(c.total)} cartes · ${pct} %</small>
+          <span class="ct-barre"><i style="width:${Math.max(pct, c.possedees ? 2 : 0)}%"></i></span>
+        </button>`;
+      }).join('')}</div>`;
+    S.corps.querySelectorAll('[data-classeur]').forEach((b) => b.addEventListener('click', () => {
+      o.classeur = b.dataset.classeur; o.page = 1; o.vue = 'toutes'; o.rarete = null; o.q = '';
+      vueCollection();
+    }));
+  }
+
   async function vueCollection(){
 
     const o = S.col;
@@ -1927,12 +1989,9 @@
     let classeurs = [];
     try{ classeurs = await appel('jeu_classeurs'); }catch(err){ classeurs = []; }
     if(!Array.isArray(classeurs)) classeurs = [];
-    if(!classeurs.some(c => c.id === o.classeur)) o.classeur = classeurs.length ? classeurs[0].id : null;
+    if(o.classeur && !classeurs.some(c => c.id === o.classeur)) o.classeur = null;
     const cl = classeurs.find(c => c.id === o.classeur);
-    if(!cl){
-      S.corps.innerHTML = '<div class="ct-panneau ct-vide"><b>Aucune collection pour l\'instant</b>Les collections arrivent bientôt.</div>';
-      return;
-    }
+    if(!cl){ await vueCouvertures(classeurs); return; }
 
     const r = await appel('jeu_classeur_lire', { p_booster: cl.id, p_page: o.page, p_vue: o.vue, p_rarete: o.rarete, p_q: o.q || null, p_tri: o.tri });
     const raretes = r.raretes || [];
@@ -1942,9 +2001,7 @@
     const finTxt = cl.fin ? new Date(cl.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
 
     S.corps.innerHTML = `
-      ${classeurs.length > 1 ? `<div class="ct-classeurs" role="group" aria-label="Classeur">
-        ${classeurs.map(c => `<button type="button" class="ct-classeur${c.id === o.classeur ? ' actif' : ''}" data-classeur="${esc(c.id)}" style="--acc:${couleurOk(c.accent)}" aria-pressed="${c.id === o.classeur}"><b>${esc(c.nom)}</b><small>${nf(c.possedees)} / ${nf(c.total)}</small></button>`).join('')}
-      </div>` : ''}
+      <button type="button" class="ct-lien ct-retour" data-couvs>${ico('fleche', 14)}Mes collections</button>
       <section class="ct-panneau ct-prog" style="--acc:${couleurOk(cl.accent)}">
         <div class="ct-prog-chiffre">${nf(possedees)}<small> / ${nf(total)}</small></div>
         <div class="ct-prog-droite">
@@ -1988,10 +2045,7 @@
       vueCollection().then(() => { const t = S.hote.querySelector('.ct-onglets'); if(t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
     }));
     S.corps.querySelectorAll('.ct-grille [data-i]').forEach((b) => b.addEventListener('click', () => fiche(r.cartes[Number(b.dataset.i)].id, cl.id)));
-    S.corps.querySelectorAll('[data-classeur]').forEach((b) => b.addEventListener('click', () => {
-      o.classeur = b.dataset.classeur; o.page = 1; o.vue = 'toutes'; o.rarete = null; o.q = '';
-      vueCollection();
-    }));
+    S.corps.querySelector('[data-couvs]').addEventListener('click', () => { o.classeur = null; vueCollection(); });
     if(o.q){ champ.focus(); champ.setSelectionRange(champ.value.length, champ.value.length); }
   }
 
@@ -2258,6 +2312,11 @@
   const EQ = { id: null, classeurs: [], cartes: [], q: '', res: [], minuteur: null };
 
   async function equipe(hote){
+    // La console de l'équipe a son fichier (cartes-equipe.js) ; tant qu'il n'est pas prêt, l'éditeur de classeurs d'origine reste.
+    try{
+      await window.chargerWaveModule('equipe');
+      if(window.WaveEquipe && window.WaveEquipe.pret){ poserStyle(); await window.WaveEquipe.monter(hote, api); return; }
+    }catch(err){ /* repli ci-dessous */ }
     if(!hote) return;
     poserStyle();
     if(!hote.dataset.ctEq){
@@ -2364,6 +2423,15 @@
     if(s) equipeRegler(ev.currentTarget, s.dataset.eqRar, Number(s.value));
   }
 
-  window.Cartes = { monter, quitter, equipe };
+  // L'interface que le jeu prête à ses modules (combat.js, marche.js, cartes-equipe.js).
+  const api = {
+    appel, toast, fenetre, vibre, Son, ico, esc, nf, court, pluriel, numero, RAR, rar, couleurOk, safeUrl, theme, EMBLEMES,
+    carteHtml, inclinable, fiche, poserEtat, majEntete, rafraichirEtat,
+    etat: () => S.etat,
+    boosters: () => S.boosters || [],
+    actualiser: () => (S.vue ? afficherVue(S.vue) : Promise.resolve())
+  };
+
+  window.Cartes = { monter, quitter, equipe, api };
 
 })();

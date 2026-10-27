@@ -29,6 +29,9 @@ on:
       - profil.js
       - xp.js
       - cartes.js
+      - combat.js
+      - marche.js
+      - cartes-equipe.js
       - modeles/**
       - decor/**
       - logos/**
