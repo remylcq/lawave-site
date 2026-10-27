@@ -163,7 +163,7 @@ language plpgsql security definer set search_path to 'public' as $$
 begin
   perform public.combat_equipe_garde();
   if not exists (select 1 from public.combat_arene where palier = (p ->> 'palier')::integer) then raise exception 'Palier inconnu.'; end if;
-  if coalesce((p ->> 'bonus')::integer, 0) not between 0 and 100 then raise exception 'Bonus : entre 0 et 100 %.'; end if;
+  if coalesce((p ->> 'bonus')::integer, 0) not between 0 and 100 then raise exception 'Bonus : entre 0 et 100 %%.'; end if;
   if coalesce((p ->> 'recompense')::integer, 0) not between 0 and 50 then raise exception 'Récompense : entre 0 et 50 vinyles.'; end if;
   if coalesce(btrim(p ->> 'nom'), '') = '' then raise exception 'Donne un nom au crew.'; end if;
   update public.combat_arene set nom = btrim(p ->> 'nom'), description = coalesce(btrim(p ->> 'description'), description),
