@@ -77,6 +77,225 @@
     <path d="M14 54c8 0 8-14 16-14s8 22 16 22 8-30 16-30 8 22 16 22 6-8 10-8" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
   </svg>`;
 
+
+  // ---------------------------------------------------------------------
+  // Les illustrations : tout est dessiné en SVG, rien à charger.
+  //   - les boosters (un décor par thème : onde, couronne, aube, garanti) ;
+  //   - les cartes (un fond et un cadre ornemental par rareté).
+  // ---------------------------------------------------------------------
+
+  const alea = (graine) => { let s = graine; return () => (s = (s * 16807) % 2147483647) / 2147483647; };
+  const svgUri = (svg) => 'url("data:image/svg+xml,' + encodeURIComponent(svg.replace(/\s*\n\s*/g, '')).replace(/'/g, '%27') + '")';
+  const polaire = (cx, cy, r, deg) => [cx + r * Math.cos(deg * Math.PI / 180), cy + r * Math.sin(deg * Math.PI / 180)];
+  const arr = (x) => Math.round(x * 10) / 10;
+  const etincelle = (x, y, r, c, o) => `<path d="M${x} ${y - r}Q${x} ${y} ${x + r} ${y}Q${x} ${y} ${x} ${y + r}Q${x} ${y} ${x - r} ${y}Q${x} ${y} ${x} ${y - r}Z" fill="${c}" opacity="${o}"/>`;
+
+  // Le décor d'un pack : 210 × 318, étiré sur le haut et le corps du pack (qui se déchire).
+  function artPack(theme){
+
+    const tete = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 318" preserveAspectRatio="none">';
+    const rnd = alea(theme === 'onde' ? 11 : theme === 'couronne' ? 23 : theme === 'aube' ? 37 : 53);
+
+    if(theme === 'couronne'){
+      let rayons = '';
+      for(let k = 0; k < 22; k++){
+        const [x1, y1] = polaire(105, 134, 420, k * 360 / 22), [x2, y2] = polaire(105, 134, 420, k * 360 / 22 + 8);
+        rayons += `<path d="M105 134L${arr(x1)} ${arr(y1)}L${arr(x2)} ${arr(y2)}Z"/>`;
+      }
+      let feuilles = '';
+      [[1, 1], [-1, 1]].forEach(([sens]) => {
+        for(let k = 0; k < 7; k++){
+          const t = k / 6;
+          const x = 105 + sens * (66 - 26 * t + 0), y = 292 - 118 * t;
+          feuilles += `<ellipse cx="${arr(x + sens * 6)}" cy="${arr(y)}" rx="9" ry="3.6" transform="rotate(${sens * (-40 - 8 * k)} ${arr(x + sens * 6)} ${arr(y)})" fill="url(#o)" opacity="${arr(.95 - t * .35)}"/>`;
+          feuilles += `<ellipse cx="${arr(x - sens * 2)}" cy="${arr(y - 6)}" rx="7" ry="2.8" transform="rotate(${sens * (-110 - 6 * k)} ${arr(x - sens * 2)} ${arr(y - 6)})" fill="url(#o)" opacity="${arr(.8 - t * .3)}"/>`;
+        }
+      });
+      let etoiles = '';
+      for(let k = 0; k < 16; k++) etoiles += etincelle(arr(10 + rnd() * 190), arr(10 + rnd() * 298), arr(1.4 + rnd() * 2.6), '#fff1bd', arr(.35 + rnd() * .5));
+      return tete + `<defs>
+        <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#46300a"/><stop offset=".5" stop-color="#160f03"/><stop offset="1" stop-color="#2b1b05"/></linearGradient>
+        <radialGradient id="h" cx=".5" cy=".42" r=".62"><stop offset="0" stop-color="#ffd25a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd25a" stop-opacity="0"/></radialGradient>
+        <linearGradient id="o" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff0b8"/><stop offset=".5" stop-color="#e9ae3c"/><stop offset="1" stop-color="#a86a0c"/></linearGradient>
+        <linearGradient id="v" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></linearGradient>
+      </defs>
+      <rect width="210" height="318" fill="url(#g)"/><rect width="210" height="318" fill="url(#h)"/>
+      <g fill="#ffd36b" opacity=".11">${rayons}</g>
+      <g fill="none" stroke="url(#o)" stroke-width="1.6" stroke-linecap="round" opacity=".85"><path d="M39 292C28 250 40 205 72 172"/><path d="M171 292C182 250 170 205 138 172"/></g>
+      ${feuilles}${etoiles}
+      <rect y="228" width="210" height="90" fill="url(#v)"/>
+      <rect x="6" y="6" width="198" height="306" rx="9" fill="none" stroke="url(#o)" stroke-width="1.2" opacity=".55"/>
+      </svg>`;
+    }
+
+    if(theme === 'aube'){
+      let etoiles = '', grille = '';
+      for(let k = 0; k < 22; k++) etoiles += `<circle cx="${arr(rnd() * 210)}" cy="${arr(rnd() * 120)}" r="${arr(.5 + rnd() * 1.1)}" fill="#fff" opacity="${arr(.35 + rnd() * .5)}"/>`;
+      [226, 238, 252, 268, 288, 312].forEach((y) => { grille += `<path d="M0 ${y}H210"/>`; });
+      for(let k = -6; k <= 6; k++) grille += `<path d="M105 214L${105 + k * 44} 318"/>`;
+      let fentes = '';
+      [[160, 3], [172, 4], [184, 5], [196, 6], [207, 7]].forEach(([y, h]) => { fentes += `<rect x="30" y="${y}" width="150" height="${h}" fill="#000"/>`; });
+      return tete + `<defs>
+        <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#220a48"/><stop offset=".34" stop-color="#6b1773"/><stop offset=".6" stop-color="#e03a7e"/><stop offset=".69" stop-color="#ff9a52"/><stop offset=".694" stop-color="#1a0836"/><stop offset="1" stop-color="#0c0420"/></linearGradient>
+        <linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe56b"/><stop offset=".55" stop-color="#ff8f5a"/><stop offset="1" stop-color="#ff3d94"/></linearGradient>
+        <radialGradient id="h" cx=".5" cy=".47" r=".6"><stop offset="0" stop-color="#ff6fa8" stop-opacity=".65"/><stop offset="1" stop-color="#ff6fa8" stop-opacity="0"/></radialGradient>
+        <mask id="m"><rect width="210" height="318" fill="#fff"/>${fentes}</mask>
+      </defs>
+      <rect width="210" height="318" fill="url(#g)"/><rect width="210" height="318" fill="url(#h)"/>
+      ${etoiles}
+      <circle cx="105" cy="146" r="70" fill="url(#s)" mask="url(#m)"/>
+      <g fill="none" stroke="#ff6fa8" stroke-opacity=".38" stroke-width="1">${grille}</g>
+      <path d="M0 214H210" stroke="#ffd0a0" stroke-opacity=".7" stroke-width="1.4"/>
+      <path d="M0 258C30 246 55 270 100 256S178 246 210 258" fill="none" stroke="#ff9fcb" stroke-opacity=".5" stroke-width="1.3"/>
+      <path d="M0 284C34 272 64 296 108 282S184 274 210 284" fill="none" stroke="#c58bff" stroke-opacity=".45" stroke-width="1.3"/>
+      </svg>`;
+    }
+
+    if(theme === 'garanti'){
+      let etoiles = '';
+      for(let k = 0; k < 14; k++) etoiles += etincelle(arr(10 + rnd() * 190), arr(10 + rnd() * 298), arr(1.6 + rnd() * 2.4), '#ffe9a8', arr(.35 + rnd() * .5));
+      return tete + `<defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b2a8a"/><stop offset=".5" stop-color="#2a1250"/><stop offset="1" stop-color="#3a1636"/></linearGradient>
+        <radialGradient id="h" cx=".25" cy=".18" r=".7"><stop offset="0" stop-color="#ffd778" stop-opacity=".85"/><stop offset="1" stop-color="#ffd778" stop-opacity="0"/></radialGradient>
+        <radialGradient id="i" cx=".85" cy=".85" r=".65"><stop offset="0" stop-color="#c85aff" stop-opacity=".8"/><stop offset="1" stop-color="#c85aff" stop-opacity="0"/></radialGradient>
+      </defs>
+      <rect width="210" height="318" fill="url(#g)"/><rect width="210" height="318" fill="url(#h)"/><rect width="210" height="318" fill="url(#i)"/>
+      <g fill="none" stroke="#ffe0a0" stroke-opacity=".3"><circle cx="105" cy="150" r="52"/><circle cx="105" cy="150" r="78" stroke-opacity=".18"/><circle cx="105" cy="150" r="104" stroke-opacity=".1"/></g>
+      ${etoiles}</svg>`;
+    }
+
+    // onde : la scène, ses projecteurs, ses ondes sonores et la mer de vagues
+    let etoiles = '';
+    for(let k = 0; k < 26; k++) etoiles += `<circle cx="${arr(rnd() * 210)}" cy="${arr(rnd() * 318)}" r="${arr(.4 + rnd() * 1.1)}" fill="#cfeeff" opacity="${arr(.25 + rnd() * .55)}"/>`;
+    return tete + `<defs>
+      <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0f4a86"/><stop offset=".5" stop-color="#0a2347"/><stop offset="1" stop-color="#150f3a"/></linearGradient>
+      <radialGradient id="h" cx=".3" cy=".16" r=".7"><stop offset="0" stop-color="#6fd0ff" stop-opacity=".9"/><stop offset="1" stop-color="#6fd0ff" stop-opacity="0"/></radialGradient>
+      <radialGradient id="i" cx=".85" cy=".9" r=".6"><stop offset="0" stop-color="#8a5bff" stop-opacity=".8"/><stop offset="1" stop-color="#8a5bff" stop-opacity="0"/></radialGradient>
+      <linearGradient id="b" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4fb4ff"/><stop offset="1" stop-color="#b48cff"/></linearGradient>
+      <linearGradient id="f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    </defs>
+    <rect width="210" height="318" fill="url(#g)"/><rect width="210" height="318" fill="url(#h)"/><rect width="210" height="318" fill="url(#i)"/>
+    ${etoiles}
+    <path d="M30 0L-14 214H92Z" fill="url(#f)"/><path d="M184 0L116 222H232Z" fill="url(#f)" opacity=".65"/>
+    <g fill="none" stroke="#9fe0ff"><circle cx="105" cy="150" r="48" stroke-opacity=".38"/><circle cx="105" cy="150" r="68" stroke-opacity=".24"/><circle cx="105" cy="150" r="90" stroke-opacity=".13"/></g>
+    <path d="M0 232C30 214 60 250 105 232S180 214 210 232V318H0Z" fill="url(#b)" opacity=".5"/>
+    <path d="M0 252C40 236 70 268 112 250S185 238 210 252V318H0Z" fill="#0b1e44" opacity=".88"/>
+    <path d="M0 252C40 236 70 268 112 250S185 238 210 252" fill="none" stroke="#9fe0ff" stroke-opacity=".65" stroke-width="1.4"/>
+    <path d="M0 278C45 264 80 290 120 276S190 266 210 278V318H0Z" fill="#070f26" opacity=".92"/>
+    <path d="M0 278C45 264 80 290 120 276S190 266 210 278" fill="none" stroke="#b48cff" stroke-opacity=".5" stroke-width="1.2"/>
+    </svg>`;
+  }
+
+  // L'emblème de chaque thème (le même trait que l'emblème de la marque).
+  const EMBLEMES = {
+    onde: EMBLEME,
+    couronne: `<svg class="ct-embleme" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/>
+      <circle cx="50" cy="50" r="36" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"/>
+      <path d="M25 66 21 36l15 12 14-20 14 20 15-12-4 30z" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linejoin="round"/>
+      <path d="M27 74h46" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/>
+      <circle cx="21" cy="34" r="3" fill="currentColor"/><circle cx="50" cy="26" r="3" fill="currentColor"/><circle cx="79" cy="34" r="3" fill="currentColor"/>
+    </svg>`,
+    aube: `<svg class="ct-embleme" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/>
+      <circle cx="50" cy="50" r="36" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"/>
+      <path d="M26 58a24 24 0 0 1 48 0" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round"/>
+      <path d="M50 22v8M26 32l6 6M74 32l-6 6M16 48h8M76 48h8" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+      <path d="M18 66c8 0 8-6 16-6s8 6 16 6 8-6 16-6 8 6 16 6M26 76c6 0 6-4 12-4s6 4 12 4 6-4 12-4 6 4 12 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+    </svg>`
+  };
+  EMBLEMES.garanti = EMBLEMES.couronne;
+
+  const THEMES = ['onde', 'couronne', 'aube', 'garanti'];
+  const theme = (t) => THEMES.indexOf(t) >= 0 ? t : 'onde';
+  const couleurOk = (c) => /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : '#4FB4FF';
+
+  const PACKS_CSS = THEMES.map((t) => `.ct-pack.t-${t}{--pk-fond:${svgUri(artPack(t))};}`).join('\n  ');
+
+  // Le fond d'une carte (250 × 350) : un décor par rareté, visible autour de la fenêtre et sous la plaque.
+  function fondCarte(r){
+    const tete = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 350" preserveAspectRatio="none">';
+    const rnd = alea(100 + r);
+    if(r === 1 || r === 2){
+      const c = r === 1 ? '#ffffff' : '#7cc8ff';
+      let v = '';
+      for(let k = 0; k < 11; k++){ const y = 214 + k * 13; v += `<path d="M-6 ${y}q31 -13 62 0t62 0t62 0t62 0t62 0" opacity="${arr(.06 + k * .006)}"/>`; }
+      let p = '';
+      if(r === 2) for(let k = 0; k < 14; k++) p += `<circle cx="${arr(rnd() * 250)}" cy="${arr(rnd() * 350)}" r="${arr(.8 + rnd() * 1.6)}" fill="${c}" opacity="${arr(.18 + rnd() * .3)}"/>`;
+      return tete + `<g fill="none" stroke="${c}" stroke-width="1.6">${v}</g>${p}</svg>`;
+    }
+    if(r === 3){
+      let e = '';
+      for(let k = 0; k < 46; k++) e += `<circle cx="${arr(rnd() * 250)}" cy="${arr(rnd() * 350)}" r="${arr(.5 + rnd() * 1.4)}" fill="#e6d4ff" opacity="${arr(.2 + rnd() * .6)}"/>`;
+      for(let k = 0; k < 5; k++) e += etincelle(arr(15 + rnd() * 220), arr(15 + rnd() * 320), arr(3 + rnd() * 4), '#f0e4ff', .8);
+      return tete + `<defs><radialGradient id="n" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#8a5bff" stop-opacity=".45"/><stop offset="1" stop-color="#8a5bff" stop-opacity="0"/></radialGradient></defs><rect width="250" height="350" fill="url(#n)"/>${e}</svg>`;
+    }
+    if(r === 4){
+      let rayons = '';
+      for(let k = 0; k < 20; k++){
+        const [x1, y1] = polaire(125, 130, 420, k * 18), [x2, y2] = polaire(125, 130, 420, k * 18 + 7);
+        rayons += `<path d="M125 130L${arr(x1)} ${arr(y1)}L${arr(x2)} ${arr(y2)}Z"/>`;
+      }
+      let e = '';
+      for(let k = 0; k < 7; k++) e += etincelle(arr(12 + rnd() * 226), arr(12 + rnd() * 326), arr(2.5 + rnd() * 3.5), '#fff1bd', arr(.5 + rnd() * .4));
+      return tete + `<defs><radialGradient id="n" cx=".5" cy=".37" r=".65"><stop offset="0" stop-color="#ffcf5a" stop-opacity=".55"/><stop offset="1" stop-color="#ffcf5a" stop-opacity="0"/></radialGradient></defs><rect width="250" height="350" fill="url(#n)"/><g fill="#ffd36b" opacity=".13">${rayons}</g>${e}</svg>`;
+    }
+    let e = '';
+    for(let k = 0; k < 9; k++) e += etincelle(arr(12 + rnd() * 226), arr(12 + rnd() * 326), arr(2.5 + rnd() * 4), '#ffffff', arr(.5 + rnd() * .45));
+    return tete + `<defs>
+      <filter id="f" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="22"/></filter>
+    </defs>
+    <g filter="url(#f)" opacity=".7"><ellipse cx="40" cy="60" rx="80" ry="60" fill="#ff5c8a"/><ellipse cx="220" cy="120" rx="70" ry="70" fill="#5cb8ff"/><ellipse cx="60" cy="250" rx="80" ry="60" fill="#5cffc8"/><ellipse cx="210" cy="300" rx="80" ry="60" fill="#b36bff"/><ellipse cx="125" cy="170" rx="70" ry="50" fill="#ffd25c"/></g>${e}</svg>`;
+  }
+
+  // Les cadres : des ornements aux quatre coins de la fenêtre (x 11–239, y 30–230), plus ou moins riches selon la rareté.
+  const coins = (d) =>
+    `<path d="${d}"/><path d="${d}" transform="translate(250 0) scale(-1 1)"/><path d="${d}" transform="translate(0 260) scale(1 -1)"/><path d="${d}" transform="translate(250 260) scale(-1 -1)"/>`;
+  const losange = (x, y, r) => `<path d="M${x} ${y - r}l${r} ${r}-${r} ${r}-${r}-${r}z"/>`;
+
+  const SPRITE = `<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+    <linearGradient id="ct-or" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="250" y2="350"><stop offset="0" stop-color="#fff3c4"/><stop offset=".5" stop-color="#eab645"/><stop offset="1" stop-color="#b9780f"/></linearGradient>
+    <linearGradient id="ct-arc" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="250" y2="350"><stop offset="0" stop-color="#ff5c8a"/><stop offset=".25" stop-color="#ffd25c"/><stop offset=".5" stop-color="#5cffc8"/><stop offset=".75" stop-color="#5cb8ff"/><stop offset="1" stop-color="#b36bff"/></linearGradient>
+    <symbol id="ct-orn-1" viewBox="0 0 250 350" preserveAspectRatio="none">
+      <rect x="11" y="30" width="228" height="200" rx="6" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".85"/>
+      <path d="M11 240H239" stroke="currentColor" stroke-width="1" opacity=".35"/>
+      <g fill="none" stroke="currentColor" stroke-width="1.4" opacity=".6" stroke-linecap="round">${coins('M6 40V31a5 5 0 0 1 5-5H20')}</g>
+    </symbol>
+    <symbol id="ct-orn-2" viewBox="0 0 250 350" preserveAspectRatio="none">
+      <rect x="11" y="30" width="228" height="200" rx="6" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".9"/>
+      <rect x="7" y="26" width="236" height="208" rx="9" fill="none" stroke="currentColor" stroke-width=".8" opacity=".45"/>
+      <path d="M11 240H239" stroke="currentColor" stroke-width="1" opacity=".4"/>
+      <g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">${coins('M4 46V30a6 6 0 0 1 6-6H27')}</g>
+      <g fill="currentColor">${losange(125, 240, 3)}</g>
+    </symbol>
+    <symbol id="ct-orn-3" viewBox="0 0 250 350" preserveAspectRatio="none">
+      <rect x="11" y="30" width="228" height="200" rx="6" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <rect x="7" y="26" width="236" height="208" rx="9" fill="none" stroke="currentColor" stroke-width=".8" opacity=".5"/>
+      <path d="M11 240H110M140 240H239" stroke="currentColor" stroke-width="1.2" opacity=".5"/>
+      <g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">${coins('M3 52V30a7 7 0 0 1 7-7H32M12 44V36a3 3 0 0 1 3-3H24')}</g>
+      <g fill="currentColor">${losange(125, 30, 6)}${losange(125, 240, 5)}${losange(11, 130, 4)}${losange(239, 130, 4)}${coins('M10 26l4 4-4 4-4-4z')}</g>
+    </symbol>
+    <symbol id="ct-orn-4" viewBox="0 0 250 350" preserveAspectRatio="none">
+      <rect x="11" y="30" width="228" height="200" rx="6" fill="none" stroke="url(#ct-or)" stroke-width="2"/>
+      <rect x="7" y="26" width="236" height="208" rx="9" fill="none" stroke="url(#ct-or)" stroke-width=".9" opacity=".6"/>
+      <path d="M11 240H104M146 240H239" stroke="url(#ct-or)" stroke-width="1.4" opacity=".7"/>
+      <g fill="none" stroke="url(#ct-or)" stroke-width="2.4" stroke-linecap="round">${coins('M3 58C3 38 12 24 36 22M11 50C11 40 17 32 31 31')}</g>
+      <g fill="url(#ct-or)">${coins('M8 28l5 5-5 5-5-5z')}${losange(125, 240, 6)}${losange(11, 130, 5)}${losange(239, 130, 5)}
+        <path d="M95 30 101 14l11 10 13-16 13 16 11-10 6 16z" stroke="url(#ct-or)" stroke-width="1.4" stroke-linejoin="round"/></g>
+    </symbol>
+    <symbol id="ct-orn-5" viewBox="0 0 250 350" preserveAspectRatio="none">
+      <rect x="11" y="30" width="228" height="200" rx="6" fill="none" stroke="url(#ct-arc)" stroke-width="2.4"/>
+      <rect x="7" y="26" width="236" height="208" rx="9" fill="none" stroke="url(#ct-arc)" stroke-width="1" opacity=".7"/>
+      <path d="M11 240H104M146 240H239" stroke="url(#ct-arc)" stroke-width="1.6" opacity=".8"/>
+      <g fill="none" stroke="url(#ct-arc)" stroke-width="2.6" stroke-linecap="round">${coins('M3 58C3 38 12 24 36 22M11 50C11 40 17 32 31 31')}</g>
+      <g fill="url(#ct-arc)">${coins('M8 28l5 5-5 5-5-5z')}${losange(125, 240, 6)}${losange(11, 130, 5)}${losange(239, 130, 5)}
+        <path d="M95 30 101 12l11 10 13-18 13 18 11-10 6 18z" stroke="url(#ct-arc)" stroke-width="1.4" stroke-linejoin="round"/></g>
+      <g fill="#fff">${etincelle(34, 12, 6, '#fff', 1)}${etincelle(216, 12, 6, '#fff', 1)}${etincelle(125, 338, 5, '#fff', .9)}</g>
+    </symbol>
+  </defs></svg>`;
+
+  const MOTIFS_CSS = [1, 2, 3, 4, 5].map((r) => `.ct-carte.r${r}{--ct-motif:${svgUri(fondCarte(r))};}`).join('\n  ');
+
   // ---------------------------------------------------------------------
   // La feuille de style
   // ---------------------------------------------------------------------
@@ -154,21 +373,39 @@
 
   /* ---------- la carte d'artiste ---------- */
   .ct-carte{position:relative; container-type:inline-size; aspect-ratio:5 / 7; border-radius:13px; padding:3px; color:#fff; text-align:left;
-    background:var(--ct-cadre); box-shadow:0 14px 30px -14px rgba(0,0,0,.8); isolation:isolate; --rc:var(--r1);}
-  .ct-carte.r1{--rc:var(--r1); --ct-cadre:linear-gradient(155deg, #e9edf2, #95a0ad 42%, #4e5866 78%, #aeb7c2);}
-  .ct-carte.r2{--rc:var(--r2); --ct-cadre:linear-gradient(155deg, #c9ebff, #45a6f4 42%, #12549a 78%, #7fc6ff);}
-  .ct-carte.r3{--rc:var(--r3); --ct-cadre:linear-gradient(155deg, #ecdcff, #9466f7 42%, #4b2399 78%, #c4a3ff);}
-  .ct-carte.r4{--rc:var(--r4); --ct-cadre:linear-gradient(155deg, #fff6c9, #eab645 38%, #95600f 70%, #f9dc7e);}
-  .ct-carte.r5{--rc:var(--r5); --ct-cadre:conic-gradient(from var(--ct-a), #ff5c8a, #ffb547, #fff27a, #5cffc8, #5cb8ff, #b36bff, #ff5c8a);}
-  .ct-c-in{position:relative; width:100%; height:100%; border-radius:10px; overflow:hidden; background:#0b0f15;}
-  .ct-c-photo{position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; display:block; transition:transform .5s cubic-bezier(.2,.8,.2,1);}
-  .ct-c-voile{position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,7,10,.35) 0%, rgba(5,7,10,0) 22%, rgba(5,7,10,0) 46%, rgba(5,7,10,.7) 72%, rgba(5,7,10,.96) 100%);}
-  .ct-c-num{position:absolute; top:5.5cqw; left:5.5cqw; padding:1.6cqw 3.6cqw; border-radius:99px; font-size:max(8px, 6.6cqw); font-weight:700; letter-spacing:.02em; font-variant-numeric:tabular-nums; color:#fff; background:rgba(5,7,10,.5); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);}
-  .ct-c-gemme{position:absolute; top:7cqw; right:7.5cqw; width:7.5cqw; height:7.5cqw; min-width:7px; min-height:7px; transform:rotate(45deg); border-radius:1.6cqw; background:var(--rc); box-shadow:0 0 0 1.5px rgba(255,255,255,.75) inset, 0 0 12px var(--rc);}
-  .ct-c-bas{position:absolute; left:6.5cqw; right:6.5cqw; bottom:6cqw;}
-  .ct-c-nom{font-size:max(11px, 10.5cqw); font-weight:800; line-height:1.05; letter-spacing:-.015em; text-shadow:0 2px 14px rgba(0,0,0,.55); overflow-wrap:anywhere; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
-  .ct-c-meta{display:flex; justify-content:space-between; gap:4px; margin-top:2.6cqw; font-size:max(7.5px, 5.8cqw); font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,.7);}
-  .ct-c-meta .rar{color:var(--rc); filter:brightness(1.15);}
+    background:var(--ct-cadre); box-shadow:0 14px 30px -14px rgba(0,0,0,.8); isolation:isolate; --rc:var(--r1); --rf:#10151d;}
+  .ct-carte.r1{--rc:var(--r1); --rf:#10151d; --ct-cadre:linear-gradient(155deg, #eef1f5, #98a3b0 40%, #4b5563 78%, #b4bdc8);}
+  .ct-carte.r2{--rc:var(--r2); --rf:#0a1a2e; --ct-cadre:linear-gradient(155deg, #c9ebff, #45a6f4 42%, #12549a 78%, #7fc6ff);}
+  .ct-carte.r3{--rc:var(--r3); --rf:#150c2e; --ct-cadre:linear-gradient(155deg, #ecdcff, #9466f7 42%, #4b2399 78%, #c4a3ff);}
+  .ct-carte.r4{--rc:var(--r4); --rf:#1d1507; --ct-cadre:linear-gradient(155deg, #fff6c9, #eab645 38%, #95600f 70%, #f9dc7e);}
+  .ct-carte.r5{--rc:var(--r5); --rf:#190b1b; --ct-cadre:conic-gradient(from var(--ct-a), #ff5c8a, #ffb547, #fff27a, #5cffc8, #5cb8ff, #b36bff, #ff5c8a);}
+  ${MOTIFS_CSS}
+  .ct-c-in{position:relative; width:100%; height:100%; border-radius:10px; overflow:hidden; background:linear-gradient(180deg, color-mix(in srgb, var(--rc) 20%, var(--rf)) 0%, var(--rf) 58%);}
+  .ct-c-fond{position:absolute; inset:0; background:var(--ct-motif) center / 100% 100% no-repeat;}
+  .ct-c-art{position:absolute; left:4.4%; top:8.6%; width:91.2%; height:57.1%; border-radius:2.4cqw; overflow:hidden; background:#05070a;
+    box-shadow:0 0 0 .5cqw color-mix(in srgb, var(--rc) 75%, #000), 0 0 0 1cqw rgba(0,0,0,.5), 0 2cqw 5cqw -1cqw rgba(0,0,0,.6);}
+  .ct-c-photo{position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:50% 22%; display:block; transition:transform .5s cubic-bezier(.2,.8,.2,1);}
+  .ct-c-teinte{position:absolute; inset:0; pointer-events:none; mix-blend-mode:soft-light; background:linear-gradient(180deg, transparent 30%, color-mix(in srgb, var(--rc) 70%, transparent) 100%);}
+  .ct-c-motif{position:absolute; inset:0; pointer-events:none; mix-blend-mode:overlay; opacity:0;}
+  .ct-carte.r3 .ct-c-motif{opacity:.5; background:radial-gradient(circle at 18% 24%, #fff 0 1px, transparent 1.6px), radial-gradient(circle at 76% 62%, #fff 0 1px, transparent 1.6px), radial-gradient(circle at 44% 84%, #fff 0 1px, transparent 1.6px), radial-gradient(120% 80% at 50% 110%, color-mix(in srgb, var(--rc) 80%, transparent), transparent 70%); background-size:26px 26px, 34px 34px, 19px 19px, 100% 100%;}
+  .ct-carte.r4 .ct-c-motif{opacity:.6; background:repeating-conic-gradient(from 0deg at 50% 118%, rgba(255,226,140,.55) 0deg 5deg, transparent 5deg 15deg);}
+  .ct-carte.r5 .ct-c-motif{opacity:.55; background:conic-gradient(from var(--ct-a) at 50% 50%, #ff5c8a, #ffd25c, #5cffc8, #5cb8ff, #b36bff, #ff5c8a); mix-blend-mode:color;}
+  .ct-c-art::after{content:''; position:absolute; inset:0; pointer-events:none; background:radial-gradient(120% 100% at 50% 38%, transparent 52%, rgba(0,0,0,.5)), linear-gradient(180deg, transparent 68%, rgba(0,0,0,.6));}
+  .ct-c-orn{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; color:var(--rc); overflow:visible; filter:drop-shadow(0 0 1.4cqw color-mix(in srgb, var(--rc) 55%, transparent));}
+  .ct-carte.r1 .ct-c-orn{filter:none;}
+  .ct-c-num{position:absolute; top:1.9cqw; left:5cqw; height:6.4cqw; padding:0 2.6cqw; border-radius:99px; display:flex; align-items:center; font-size:max(7px, 4.8cqw); font-weight:800; letter-spacing:.04em; font-variant-numeric:tabular-nums; color:#fff; background:rgba(5,7,10,.55); border:1px solid color-mix(in srgb, var(--rc) 55%, transparent);}
+  .ct-c-gemme{position:absolute; top:3.4cqw; right:7cqw; width:4.8cqw; height:4.8cqw; min-width:5px; min-height:5px; transform:rotate(45deg); border-radius:.9cqw; background:var(--rc); box-shadow:0 0 0 1px rgba(255,255,255,.75) inset, 0 0 10px var(--rc);}
+  .ct-c-marque{position:absolute; top:2.2cqw; left:0; right:0; text-align:center; font-size:max(5px, 3.6cqw); font-weight:800; letter-spacing:.34em; text-indent:.34em; color:rgba(255,255,255,.5); pointer-events:none;}
+  .ct-carte.r4 .ct-c-marque, .ct-carte.r5 .ct-c-marque{display:none;}
+  .ct-c-plaque{position:absolute; left:4.4%; right:4.4%; top:69.4%; bottom:3.2%; display:flex; flex-direction:column; justify-content:space-between; gap:1.2cqw;}
+  .ct-c-nom{font-size:calc(var(--nf, 1) * 11.4cqw); font-weight:800; line-height:1.1; letter-spacing:-.015em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 2px 12px rgba(0,0,0,.6); padding-top:1.2cqw;}
+  .ct-c-sous{margin-top:-.6cqw; font-size:max(6.5px, 4.9cqw); font-weight:600; letter-spacing:.03em; color:rgba(255,255,255,.62); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ct-c-stats{display:grid; grid-template-columns:1fr 1fr 1.25fr; gap:1.8cqw;}
+  .ct-c-stat{min-width:0; padding:1.9cqw .8cqw 1.7cqw; border-radius:2.2cqw; text-align:center; line-height:1.15; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.09);}
+  .ct-c-stat b{display:block; font-size:max(7.5px, 6cqw); font-weight:800; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ct-c-stat span{display:block; margin-top:.3cqw; font-size:max(5px, 3.4cqw); font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.48);}
+  .ct-c-stat.rar{background:color-mix(in srgb, var(--rc) 20%, transparent); border-color:color-mix(in srgb, var(--rc) 55%, transparent);}
+  .ct-c-stat.rar b{color:var(--rc); filter:brightness(1.2); font-size:max(7px, 5cqw);}
   .ct-c-reflet{position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .3s;}
   .ct-carte.r4 .ct-c-reflet, .ct-carte.r5 .ct-c-reflet{opacity:1; background:linear-gradient(115deg, transparent 38%, rgba(255,255,255,.22) 48%, transparent 58%); background-size:300% 100%; background-position:var(--ct-lum, 120%) 0;}
   .ct-carte.holo .ct-c-reflet{opacity:.55; mix-blend-mode:color-dodge;
@@ -177,7 +414,7 @@
   .ct-carte.holo .ct-c-in::after{content:''; position:absolute; inset:0; pointer-events:none; opacity:.35; mix-blend-mode:overlay;
     background-image:radial-gradient(circle at 20% 30%, #fff 0 1px, transparent 1.5px), radial-gradient(circle at 70% 60%, #fff 0 1px, transparent 1.5px), radial-gradient(circle at 40% 80%, #fff 0 1px, transparent 1.5px);
     background-size:23px 23px, 31px 31px, 17px 17px;}
-  .ct-c-holo{position:absolute; top:5.5cqw; left:50%; transform:translateX(-50%); padding:1.4cqw 3.4cqw; border-radius:99px; font-size:max(7px, 5.6cqw); font-weight:800; letter-spacing:.12em; color:#05070a; background:linear-gradient(90deg, #ff9ad5, #9af7ff, #fff59a);}
+  .ct-c-holo{position:absolute; top:2.1cqw; left:50%; transform:translateX(-50%); padding:0 3.4cqw; height:6cqw; display:flex; align-items:center; border-radius:99px; font-size:max(6px, 4.2cqw); font-weight:800; letter-spacing:.14em; color:#05070a; background:linear-gradient(90deg, #ff9ad5, #9af7ff, #fff59a);}
   .ct-carte.vivante.r4, .ct-carte.r4:hover{box-shadow:0 0 0 1px rgba(242,193,78,.35), 0 0 34px -6px rgba(242,193,78,.55), 0 14px 30px -14px rgba(0,0,0,.8);}
   .ct-carte.vivante.r5, .ct-carte.r5:hover{box-shadow:0 0 40px -6px rgba(255,92,138,.55), 0 14px 30px -14px rgba(0,0,0,.8);}
   .ct-carte.vivante.r5{animation:ctBord 5s linear infinite;}
@@ -185,18 +422,21 @@
   @media (hover:hover){
     .ct-carte.r5:hover{animation:ctBord 5s linear infinite;}
     .ct-carte.r4:hover .ct-c-reflet, .ct-carte.r5:hover .ct-c-reflet{animation:ctLum 2.4s ease-in-out infinite;}
-    .ct-case:hover .ct-c-photo{transform:scale(1.04);}
+    .ct-case:hover .ct-c-photo{transform:scale(1.05);}
   }
-  .ct-carte.verrou{--ct-cadre:linear-gradient(155deg, #2c333d, #161b22 60%, #252c35); box-shadow:none;}
+  .ct-carte.verrou{--ct-cadre:linear-gradient(155deg, #2c333d, #161b22 60%, #252c35); --rc:#6b7684; box-shadow:none;}
   .ct-carte.verrou .ct-c-photo{filter:grayscale(1) brightness(.26) contrast(1.15);}
+  .ct-carte.verrou .ct-c-teinte, .ct-carte.verrou .ct-c-motif, .ct-carte.verrou .ct-c-fond{opacity:.25;}
   .ct-carte.verrou .ct-c-gemme{opacity:.45; box-shadow:none;}
   .ct-carte.verrou .ct-c-nom{color:rgba(255,255,255,.55); text-shadow:none;}
-  .ct-carte.verrou .ct-c-meta{color:rgba(255,255,255,.35);}
-  @container (max-width:120px){
-    .ct-c-meta span:last-child, .ct-c-holo{display:none;}
-    .ct-c-nom{font-size:11px;}
+  .ct-carte.verrou .ct-c-stat{opacity:.5;}
+  @container (max-width:125px){
+    .ct-c-stats, .ct-c-holo, .ct-c-marque{display:none;}
+    .ct-c-nom{font-size:calc(var(--nf, 1) * 12.5cqw); white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+    .ct-c-sous{display:none;}
+    .ct-c-plaque{justify-content:center;}
   }
-  .ct-c-cadenas{position:absolute; left:50%; top:42%; transform:translate(-50%, -50%); width:16cqw; height:16cqw; color:rgba(255,255,255,.5);}
+  .ct-c-cadenas{position:absolute; left:50%; top:36%; transform:translate(-50%, -50%); width:16cqw; height:16cqw; color:rgba(255,255,255,.5); z-index:2;}
   .ct-c-cadenas svg{width:100%; height:100%;}
   .ct-c-badge{position:absolute; z-index:3; top:-7px; right:-7px; min-width:26px; height:24px; padding:0 7px; border-radius:99px; display:grid; place-items:center; font-size:12px; font-weight:800; color:#05070a; background:#F4F5F6; box-shadow:0 4px 12px rgba(0,0,0,.45); font-variant-numeric:tabular-nums;}
   .ct-c-nouveau{position:absolute; z-index:3; left:50%; top:-9px; transform:translateX(-50%); height:22px; padding:0 10px; border-radius:99px; display:grid; place-items:center; font-size:10.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#04131f; background:var(--ct-accent); box-shadow:0 4px 14px rgba(79,180,255,.5); white-space:nowrap;}
@@ -208,25 +448,52 @@
   .ct-ruban{display:grid; grid-auto-flow:column; grid-auto-columns:minmax(130px, 150px); gap:14px; overflow-x:auto; padding:10px 2px 6px; scrollbar-width:none;}
   .ct-ruban::-webkit-scrollbar{display:none;}
 
-  /* ---------- Packs ---------- */
-  .ct-hero{display:grid; grid-template-columns:minmax(0, 1.1fr) minmax(0, .9fr); align-items:center; gap:24px; padding:32px; overflow:hidden;
-    background:radial-gradient(70% 90% at 85% 40%, rgba(20,137,222,.22), transparent 70%), radial-gradient(60% 80% at 0% 100%, rgba(122,77,255,.12), transparent 70%), linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.015));}
+  /* ---------- Packs : la vitrine à boosters ---------- */
+  .ct-vitrine{position:relative; overflow:hidden; padding:22px 20px 22px; text-align:center; --acc:#4FB4FF;
+    background:radial-gradient(62% 62% at 50% 34%, color-mix(in srgb, var(--acc) 26%, transparent), transparent 72%), radial-gradient(50% 60% at 50% 110%, color-mix(in srgb, var(--acc) 14%, transparent), transparent 70%), linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.012));
+    border-color:color-mix(in srgb, var(--acc) 22%, rgba(255,255,255,.08));}
+  .ct-vit-tete{display:flex; align-items:center; justify-content:space-between; gap:12px; text-align:left;}
   .ct-surtitre{display:inline-flex; align-items:center; gap:7px; font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--ct-accent);}
-  .ct-hero h2{margin:10px 0 0; font-size:clamp(28px, 4vw, 40px); line-height:1.04; letter-spacing:-.025em;}
-  .ct-hero p{margin:12px 0 0; max-width:44ch; font-size:15px; line-height:1.6; color:var(--ink-soft);}
-  .ct-hero-actions{display:flex; flex-wrap:wrap; gap:10px; margin-top:24px;}
-  .ct-hero-note{display:flex; align-items:center; gap:7px; margin-top:14px; font-size:13px; color:var(--muted);}
-  .ct-hero-pack{display:grid; place-items:center; min-height:330px; perspective:900px;}
-  .ct-hero-pack .ct-pack{cursor:pointer; animation:ctFlotte 5s ease-in-out infinite;}
+  .ct-compte{font-size:12.5px; font-weight:600; color:var(--muted); font-variant-numeric:tabular-nums;}
 
-  .ct-taux{display:flex; height:10px; border-radius:99px; overflow:hidden; gap:2px; margin:16px 0 12px;}
+  .ct-car{position:relative; height:376px; margin:2px -20px 0; perspective:1200px; touch-action:pan-y; user-select:none; -webkit-user-select:none; outline:none;}
+  .ct-car:focus-visible{outline:2px solid var(--ct-accent); outline-offset:-4px; border-radius:16px;}
+  .ct-car-piste{position:absolute; inset:0; display:grid; place-items:center; transform-style:preserve-3d;}
+  .ct-car-item{grid-area:1 / 1; --pas:min(236px, 30vw); --o:0; --abs:0; position:relative; cursor:pointer; transform-style:preserve-3d;
+    transform:translateX(calc(var(--o) * var(--pas))) rotateY(calc(var(--o) * -24deg)) scale(calc(1 - var(--abs) * .22));
+    opacity:calc(1 - var(--abs) * .48); filter:brightness(calc(1 - var(--abs) * .42)); z-index:calc(10 - var(--abs));
+    transition:transform .6s cubic-bezier(.2,.8,.2,1), opacity .45s, filter .45s;}
+  .ct-car-item[data-loin]{opacity:0; pointer-events:none;}
+  .ct-car-item.centre .ct-pack{animation:ctFlotte2 5.5s ease-in-out infinite;}
+  .ct-car-item:not(.centre) .ct-pack{pointer-events:none;}
+  .ct-car-fl{all:unset; box-sizing:border-box; position:absolute; z-index:20; top:50%; margin-top:-22px; width:44px; height:44px; display:grid; place-items:center; border-radius:50%; cursor:pointer; color:var(--ink); background:rgba(8,12,18,.62); border:1px solid var(--ct-trait-fort); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); transition:background .15s, transform .15s;}
+  .ct-car-fl:hover{background:rgba(255,255,255,.16);}
+  .ct-car-fl:active{transform:scale(.94);}
+  .ct-car-fl:focus-visible{outline:2px solid var(--ct-accent); outline-offset:2px;}
+  .ct-car-fl.g{left:26px;} .ct-car-fl.d{right:26px;}
+  .ct-car-fl.g .ct-ico{transform:scaleX(-1);}
+  .ct-points{display:flex; justify-content:center; gap:8px; margin:2px 0 4px;}
+  .ct-points button{all:unset; box-sizing:border-box; cursor:pointer; width:8px; height:8px; border-radius:99px; background:rgba(255,255,255,.22); transition:width .3s, background .3s;}
+  .ct-points button.actif{width:26px; background:var(--acc);}
+  .ct-points button:focus-visible{outline:2px solid var(--ct-accent); outline-offset:3px;}
+
+  .ct-vit-info{max-width:620px; margin:14px auto 0; min-height:210px;}
+  .ct-vit-info-in{animation:ctFondu .35s ease both;}
+  .ct-serie-tag{display:inline-block; padding:4px 11px; border-radius:99px; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--acc); background:color-mix(in srgb, var(--acc) 14%, transparent); border:1px solid color-mix(in srgb, var(--acc) 35%, transparent);}
+  .ct-vit-info h2{margin:10px 0 0; font-size:clamp(26px, 3.6vw, 36px); line-height:1.05; letter-spacing:-.025em;}
+  .ct-vit-info p{margin:10px auto 0; max-width:48ch; font-size:14.5px; line-height:1.55; color:var(--ink-soft);}
+  .ct-vit-taux{max-width:460px; margin:18px auto 0;}
+  .ct-taux{display:flex; height:8px; border-radius:99px; overflow:hidden; gap:2px; margin:0 0 10px;}
   .ct-taux i{display:block; height:100%; min-width:4px;}
-  .ct-legende{display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:8px;}
-  .ct-legende div{font-size:12px; color:var(--muted);}
-  .ct-legende b{display:flex; align-items:center; gap:6px; font-size:14px; color:var(--ink); font-variant-numeric:tabular-nums;}
-  .ct-legende b::before{content:''; width:8px; height:8px; border-radius:2px; transform:rotate(45deg); background:var(--rc);}
-  .ct-evts{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;}
+  .ct-legende{display:flex; flex-wrap:wrap; justify-content:center; gap:6px 18px;}
+  .ct-legende div{font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px;}
+  .ct-legende b{font-size:13px; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .ct-legende div::before{content:''; width:8px; height:8px; border-radius:2px; transform:rotate(45deg); background:var(--rc);}
+  .ct-evts{display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:14px;}
   .ct-evt{display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:10px; font-size:13px; color:var(--ink); background:rgba(242,193,78,.1); border:1px solid rgba(242,193,78,.3);}
+  .ct-ouvrir{display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:22px;}
+  .ct-ouvrir .ct-btn.principal{box-shadow:0 8px 24px -10px color-mix(in srgb, var(--acc) 90%, #000), inset 0 1px 0 rgba(255,255,255,.25);}
+  .ct-hero-note{display:flex; align-items:center; justify-content:center; gap:7px; margin-top:14px; font-size:13px; color:var(--muted);}
   .ct-attente{display:flex; align-items:center; gap:14px; margin-top:16px; padding:14px 16px; border-radius:16px; border:1px solid rgba(79,180,255,.3); background:rgba(20,137,222,.08); cursor:pointer; width:100%; color:inherit; font:inherit; text-align:left;}
   .ct-attente:hover{background:rgba(20,137,222,.13);}
   .ct-attente .ct-ico{color:var(--ct-accent);}
@@ -234,24 +501,22 @@
   .ct-attente span{display:block; font-size:13px; color:var(--muted);}
   .ct-attente .ct-ico:last-child{margin-left:auto;}
 
-  /* ---------- le pack ---------- */
-  .ct-pack{--pk-w:210px; position:relative; width:var(--pk-w); aspect-ratio:.66; transform-style:preserve-3d; user-select:none; -webkit-user-select:none; touch-action:none;
-    --pk-fond:radial-gradient(90% 55% at 25% 18%, rgba(110,200,255,.85) 0%, rgba(110,200,255,0) 60%), radial-gradient(80% 60% at 85% 85%, rgba(122,77,255,.75) 0%, rgba(122,77,255,0) 65%), linear-gradient(160deg, #0d3a66 0%, #0a1c36 48%, #120f33 100%);
-    filter:drop-shadow(0 30px 40px rgba(0,0,0,.55)) drop-shadow(0 0 40px rgba(20,137,222,.25));}
-  .ct-pack.garanti{--pk-fond:radial-gradient(90% 55% at 25% 18%, rgba(255,215,120,.85) 0%, rgba(255,215,120,0) 60%), radial-gradient(80% 60% at 85% 85%, rgba(200,90,255,.8) 0%, rgba(200,90,255,0) 65%), linear-gradient(160deg, #5b2a8a 0%, #2a1250 50%, #3a1636 100%);
-    filter:drop-shadow(0 30px 40px rgba(0,0,0,.55)) drop-shadow(0 0 44px rgba(168,121,255,.4));}
+  /* ---------- le pack (booster) ---------- */
+  .ct-pack{--pk-w:210px; position:relative; width:var(--pk-w); aspect-ratio:.66; transform-style:preserve-3d; user-select:none; -webkit-user-select:none; touch-action:none; --teinte:#4FB4FF;
+    filter:drop-shadow(0 28px 36px rgba(0,0,0,.55)) drop-shadow(0 0 38px color-mix(in srgb, var(--teinte) 30%, transparent));}
+  ${PACKS_CSS}
   .ct-pk-haut, .ct-pk-corps{position:absolute; left:0; right:0; overflow:hidden; background:var(--pk-fond);}
   .ct-pk-haut{top:0; height:14%; border-radius:12px 12px 3px 3px; background-size:100% 714.3%; background-position:50% 0;}
-  .ct-pk-corps{bottom:0; height:86%; border-radius:3px 3px 12px 12px; background-size:100% 116.3%; background-position:50% 100%;}
-  .ct-pk-haut::before, .ct-pk-corps::after{content:''; position:absolute; left:0; right:0; height:9px; background:repeating-linear-gradient(90deg, rgba(255,255,255,.28) 0 2px, rgba(255,255,255,.05) 2px 5px);}
+  .ct-pk-corps{bottom:0; height:86%; border-radius:3px 3px 12px 12px; background-size:100% 116.3%; background-position:50% 100%; box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);}
+  .ct-pk-haut::before, .ct-pk-corps::after{content:''; position:absolute; left:0; right:0; height:9px; background:repeating-linear-gradient(90deg, rgba(255,255,255,.3) 0 2px, rgba(255,255,255,.06) 2px 5px);}
   .ct-pk-haut::before{top:0;}
   .ct-pk-corps::after{bottom:0;}
-  .ct-pk-haut::after, .ct-pk-corps::before{content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(115deg, transparent 35%, rgba(255,255,255,.35) 47%, transparent 58%); background-size:280% 100%; animation:ctLum 4s ease-in-out infinite;}
-  .ct-pk-contenu{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6%; padding:12% 10% 14%; color:#fff; text-align:center;}
-  .ct-pk-contenu .ct-embleme{width:58%; color:#fff; filter:drop-shadow(0 0 14px rgba(255,255,255,.35));}
-  .ct-pk-marque{font-size:calc(var(--pk-w) * .095); font-weight:800; letter-spacing:.32em; margin-right:-.32em;}
-  .ct-pk-type{font-size:calc(var(--pk-w) * .05); font-weight:700; letter-spacing:.22em; text-transform:uppercase; opacity:.75;}
-  .ct-pk-pied{position:absolute; left:0; right:0; bottom:9%; text-align:center; font-size:calc(var(--pk-w) * .046); font-weight:600; letter-spacing:.14em; text-transform:uppercase; opacity:.6;}
+  .ct-pk-haut::after, .ct-pk-corps::before{content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(115deg, transparent 35%, rgba(255,255,255,.32) 47%, transparent 58%); background-size:280% 100%; animation:ctLum 4s ease-in-out infinite;}
+  .ct-pk-contenu{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5%; padding:14% 9% 16%; color:#fff; text-align:center;}
+  .ct-pk-contenu .ct-embleme{width:54%; color:#fff; filter:drop-shadow(0 0 14px rgba(255,255,255,.4));}
+  .ct-pk-marque{font-size:calc(var(--pk-w) * .09); font-weight:800; letter-spacing:.32em; margin-right:-.32em; text-shadow:0 2px 12px rgba(0,0,0,.5);}
+  .ct-pk-nom{max-width:100%; padding:calc(var(--pk-w) * .02) calc(var(--pk-w) * .05); border-radius:99px; font-size:calc(var(--pk-w) * .052); font-weight:800; letter-spacing:.14em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#071018; background:linear-gradient(180deg, #fff, color-mix(in srgb, var(--teinte) 55%, #fff)); box-shadow:0 4px 16px -4px color-mix(in srgb, var(--teinte) 80%, transparent);}
+  .ct-pk-pied{position:absolute; left:0; right:0; bottom:9%; text-align:center; font-size:calc(var(--pk-w) * .042); font-weight:700; letter-spacing:.16em; text-transform:uppercase; opacity:.7; text-shadow:0 1px 6px rgba(0,0,0,.6);}
   .ct-pk-ligne{position:absolute; left:0; top:14%; height:2px; width:calc(var(--dech, 0) * 100%); margin-top:-1px; background:#fff; box-shadow:0 0 10px #fff, 0 0 22px var(--teinte, #4FB4FF); border-radius:2px; z-index:3;}
   .ct-pk-lumiere{position:absolute; left:50%; top:14%; width:160%; aspect-ratio:1; transform:translate(-50%, -50%) scale(0); border-radius:50%; pointer-events:none; z-index:4;
     background:radial-gradient(circle, #fff 0%, var(--teinte, #4FB4FF) 22%, transparent 62%); opacity:0;}
@@ -298,7 +563,7 @@
   .ct-face .ct-carte{width:100%; height:100%;}
   .ct-dos{display:grid; place-items:center; padding:3px; background:linear-gradient(155deg, #3c4757, #1a212b 50%, #2d3644); box-shadow:0 18px 40px -16px rgba(0,0,0,.9);}
   .ct-dos-in{width:100%; height:100%; border-radius:10px; display:grid; place-items:center; color:rgba(255,255,255,.85);
-    background:radial-gradient(80% 60% at 50% 40%, rgba(79,180,255,.25), transparent 70%), repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 6px, transparent 6px 12px), linear-gradient(160deg, #0d2b4c, #08121f);}
+    background:radial-gradient(80% 60% at 50% 40%, color-mix(in srgb, var(--accb, #4FB4FF) 34%, transparent), transparent 70%), repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 6px, transparent 6px 12px), linear-gradient(160deg, #0d2b4c, #08121f);}
   .ct-dos-in .ct-embleme{width:52%;}
   .ct-dos[data-r="2"]{box-shadow:0 0 0 1px rgba(79,180,255,.5), 0 0 26px -2px rgba(79,180,255,.55), 0 18px 40px -16px rgba(0,0,0,.9);}
   .ct-dos[data-r="3"]{box-shadow:0 0 0 1px rgba(168,121,255,.6), 0 0 34px 0 rgba(168,121,255,.6), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls 1.6s ease-in-out infinite; --pc:rgba(168,121,255,.75);}
@@ -438,7 +703,7 @@
   /* ---------- animations ---------- */
   @keyframes ctBord{to{--ct-a:360deg;}}
   @keyframes ctLum{0%{background-position:130% 0;} 55%,100%{background-position:-30% 0;}}
-  @keyframes ctFlotte{0%,100%{transform:translateY(0) rotateY(-14deg) rotateZ(-3deg);} 50%{transform:translateY(-12px) rotateY(-6deg) rotateZ(-1deg);}}
+  @keyframes ctFlotte2{0%,100%{transform:translateY(0) rotateZ(-1.4deg);} 50%{transform:translateY(-11px) rotateZ(1.2deg);}}
   @keyframes ctFondu{from{opacity:0;} to{opacity:1;}}
   @keyframes ctMonte{from{opacity:0; transform:translateY(18px) scale(.98);} to{opacity:1; transform:none;}}
   @keyframes ctToast{from{opacity:0; transform:translateY(12px) scale(.96);} to{opacity:1; transform:none;}}
@@ -456,8 +721,8 @@
   @keyframes ctIndice{0%{left:8%; opacity:0;} 15%{opacity:1;} 70%{left:88%; opacity:1;} 100%{left:88%; opacity:0;}}
 
   @media (max-width:820px){
-    .ct-hero{grid-template-columns:1fr; padding:22px 18px 24px;}
-    .ct-hero-pack{order:-1; min-height:290px;}
+    .ct-vitrine{padding:18px 14px 20px;}
+    .ct-car{margin:2px -14px 0;}
     .ct-deux, .ct-bonus{grid-template-columns:1fr;}
     .ct-bonus .ct-panneau.roue{grid-row:auto;}
     .ct-fiche{grid-template-columns:1fr;}
@@ -472,11 +737,17 @@
     .ct-res small[data-recharge]{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
     .ct-res:has(small[data-recharge]){flex:2.4 1 auto;}
     .ct-btn-ico{flex:none;}
-    .ct-hero-pack{min-height:236px;}
-    .ct-hero-pack .ct-pack{--pk-w:150px;}
+    .ct-car{height:296px;}
+    .ct-car .ct-pack{--pk-w:156px;}
+    .ct-car-item{--pas:min(150px, 38vw);}
+    .ct-car-fl{width:38px; height:38px; margin-top:-19px;}
+    .ct-car-fl.g{left:10px;} .ct-car-fl.d{right:10px;}
+    .ct-vit-info h2{font-size:25px;}
+    .ct-vit-info p{font-size:14px;}
+    .ct-ouvrir .ct-btn.grand{flex:1 1 auto; min-height:46px; padding:0 14px;}
+    .ct-ouvrir .ct-btn.principal{flex:1 1 100%;}
     .ct-onglet{padding:0 12px; font-size:13px;}
     .ct-onglet .ct-ico{display:none;}
-    .ct-hero-actions .ct-btn.grand{flex:1 1 auto; min-height:46px; padding:0 14px;}
     .ct-grille{grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px 9px;}
     .ct-raretes{grid-template-columns:repeat(6, minmax(0, 1fr)); gap:6px;}
     .ct-rar-btn{grid-column:span 2; padding:9px 10px;}
@@ -491,7 +762,7 @@
     .ct-fen{padding:20px 16px;}
   }
   @media (prefers-reduced-motion:reduce){
-    .ct-carte, .ct-c-reflet, .ct-pack, .ct-hero-pack .ct-pack, .ct-pk-haut::after, .ct-pk-corps::before, .ct-dos, .ct-rayons, .ct-pk-indice{animation:none !important;}
+    .ct-carte, .ct-c-reflet, .ct-pack, .ct-car-item.centre .ct-pack, .ct-vit-info-in, .ct-pk-haut::after, .ct-pk-corps::before, .ct-dos, .ct-rayons, .ct-pk-indice{animation:none !important;}
     .ct-volte, .ct-roue-disque{transition-duration:.01s !important;}
   }`;
 
@@ -501,6 +772,8 @@
     s.id = 'ct-style';
     s.textContent = STYLE;
     document.head.appendChild(s);
+    // Les ornements des cartes, dessinés une fois et réutilisés par chaque carte (<use>).
+    if(!document.getElementById('ct-sprite')) document.body.insertAdjacentHTML('beforeend', SPRITE.replace('<svg ', '<svg id="ct-sprite" '));
   }
 
   // ---------------------------------------------------------------------
@@ -695,18 +968,34 @@
     o = o || {};
     const r = Math.min(Math.max(Number(c.rarete) || 1, 1), 5);
     const verrou = !!o.verrou;
+    const holo = !!c.holo && !verrou;
+    const lg = String(c.nom || '').length;
+    const taille = lg <= 10 ? 1 : (lg <= 13 ? .86 : (lg <= 16 ? .72 : .6));
+    const sous = [c.ville, c.sorties ? pluriel(c.sorties, 'sortie') : ''].filter(Boolean).join(' · ') || 'Scène francophone';
     return `
-      <div class="ct-carte r${r}${c.holo && !verrou ? ' holo' : ''}${verrou ? ' verrou' : ''}${o.vivante ? ' vivante' : ''}">
+      <div class="ct-carte r${r}${holo ? ' holo' : ''}${verrou ? ' verrou' : ''}${o.vivante ? ' vivante' : ''}" style="--nf:${taille}">
         <div class="ct-c-in">
-          <img class="ct-c-photo" src="${esc(safeUrl(c.photo))}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async">
-          <div class="ct-c-voile"></div>
+          <div class="ct-c-fond"></div>
+          <div class="ct-c-art">
+            <img class="ct-c-photo" src="${esc(safeUrl(c.photo))}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async">
+            <div class="ct-c-teinte"></div>
+            <div class="ct-c-motif"></div>
+          </div>
+          <svg class="ct-c-orn" aria-hidden="true"><use href="#ct-orn-${r}" width="100%" height="100%"/></svg>
           <span class="ct-c-num">${numero(c.numero)}</span>
+          ${holo ? '<span class="ct-c-holo">HOLO</span>' : '<span class="ct-c-marque">LA WAVE</span>'}
           <span class="ct-c-gemme" aria-hidden="true"></span>
-          ${c.holo && !verrou ? '<span class="ct-c-holo">Holo</span>' : ''}
           ${verrou ? `<span class="ct-c-cadenas">${ico('cadenas', 24)}</span>` : ''}
-          <div class="ct-c-bas">
-            <div class="ct-c-nom">${esc(c.nom)}</div>
-            <div class="ct-c-meta"><span class="rar">${esc(rar(r).nom)}</span><span>${c.fans ? esc(court(c.fans)) + ' fans' : ''}</span></div>
+          <div class="ct-c-plaque">
+            <div>
+              <div class="ct-c-nom">${esc(c.nom)}</div>
+              <div class="ct-c-sous">${esc(sous)}</div>
+            </div>
+            <div class="ct-c-stats">
+              <div class="ct-c-stat"><b>${c.fans ? esc(court(c.fans)) : '—'}</b><span>Fans</span></div>
+              <div class="ct-c-stat"><b>${c.sorties ? esc(nf(c.sorties)) : '—'}</b><span>Sorties</span></div>
+              <div class="ct-c-stat rar"><b>${esc(rar(r).nom)}</b><span>Rareté</span></div>
+            </div>
           </div>
           <div class="ct-c-reflet"></div>
         </div>
@@ -714,7 +1003,6 @@
         ${o.nouveau ? '<span class="ct-c-nouveau">Nouveau</span>' : ''}
       </div>`;
   }
-
   // Une carte qui suit le pointeur : elle penche, et son reflet holographique glisse.
   function inclinable(zone, cible){
     if(!zone || calme()) return;
@@ -917,18 +1205,25 @@
   // Packs
   // ---------------------------------------------------------------------
 
+  // Les boosters viennent de la base (jeu_boosters) ; sans eux, le booster de base.
+  const REPLI = [{ id: 'scene', nom: 'Scène francophone', serie: 'Série de lancement', description: 'Le pack de référence : un artiste de la scène francophone, tiré parmi tous. Plus il est écouté, plus sa carte est rare.',
+    cout: 1, taux: [62, 24, 9.5, 3.8, 0.7], holo_x: 1, theme: 'onde', accent: '#4FB4FF' }];
+  const BOOSTER_GARANTI = { id: 'garanti', nom: 'Pack Épique', serie: 'Épique ou mieux', theme: 'garanti', accent: '#A879FF', cout: 0 };
+
   function packHtml(o){
     o = o || {};
+    const b = o.booster || REPLI[0];
+    const t = theme(b.theme);
     return `
-      <div class="ct-pack${o.garanti ? ' garanti' : ''}"${o.attrs || ''}>
+      <div class="ct-pack t-${t}" style="--teinte:${couleurOk(b.accent)}"${o.attrs || ''}>
         ${o.pile ? Array.from({ length: o.pile }, (_, k) => `<div class="ct-pk-pile" style="transform:translate(${(k + 1) * 7}px, ${(k + 1) * -5}px) rotate(${(k + 1) * 2.5}deg); z-index:-${k + 1}"></div>`).join('') : ''}
         <div class="ct-pk-corps">
           <div class="ct-pk-contenu">
-            ${EMBLEME}
+            ${EMBLEMES[t]}
             <div class="ct-pk-marque">LA WAVE</div>
-            <div class="ct-pk-type">${o.garanti ? 'Pack Épique' : 'Pack d\'artistes'}</div>
+            <div class="ct-pk-nom">${esc(b.nom)}</div>
           </div>
-          <div class="ct-pk-pied">${o.garanti ? 'Épique ou mieux' : 'Scène francophone'}</div>
+          <div class="ct-pk-pied">${esc(b.serie || '')}</div>
         </div>
         <div class="ct-pk-haut"></div>
         <div class="ct-pk-ligne"></div>
@@ -941,66 +1236,157 @@
 
     const e = S.etat;
     const ev = e.evenement || {};
-    const taux = ev.taux || [62, 24, 9.5, 3.8, 0.7];
     const fmt = (x) => { const n = Number(x); return (n < 10 ? String(Math.round(n * 10) / 10).replace('.', ',') : String(Math.round(n))) + ' %'; };
+
+    let boosters = [];
+    try{ boosters = await appel('jeu_boosters'); }catch(err){ boosters = []; }
+    if(!Array.isArray(boosters) || !boosters.length) boosters = REPLI;
+    S.boosters = boosters;
+    let cur = Math.max(0, boosters.findIndex(b => b.id === S.booster));
+    S.booster = boosters[cur].id;
 
     let recentes = [];
     try{ recentes = (await appel('jeu_collection_lire', { p_page: 1, p_vue: 'possedees', p_tri: 'recent' })).cartes.slice(0, 10); }catch(err){ /* pas grave */ }
 
     const attente = aRecuperer(e) + (e.missions_pretes || 0);
-    const bouton = (n, classe) => `<button type="button" class="ct-btn ${classe}" data-ouvrir="${n}" ${e.tirages < n ? 'disabled' : ''}>${n > 1 ? n + ' packs' : 'Ouvrir un pack'}<span class="cout">${ico('eclair', 12)}${n}</span></button>`;
+    const plusieurs = boosters.length > 1;
 
     S.corps.innerHTML = `
-      <section class="ct-panneau ct-hero">
-        <div>
-          <span class="ct-surtitre">${ico('pack', 15)}Packs d'artistes</span>
-          <h2>Ouvre un pack,<br>révèle un artiste.</h2>
-          <p>Chaque pack contient la carte d'un artiste de la scène francophone. Plus il est écouté, plus sa carte est rare.</p>
-          <div class="ct-hero-actions">
-            ${bouton(1, 'principal grand')}
-            ${bouton(5, 'grand')}
-            ${bouton(10, 'grand')}
+      <section class="ct-panneau ct-vitrine">
+        <div class="ct-vit-tete"><span class="ct-surtitre">${ico('pack', 15)}Boosters</span><span class="ct-compte" data-compte></span></div>
+        <div class="ct-car" tabindex="0" role="group" aria-roledescription="carrousel" aria-label="Choisis un booster">
+          <div class="ct-car-piste">
+            ${boosters.map((b, i) => `<div class="ct-car-item" data-i="${i}" role="group" aria-label="${esc(b.nom)}">${packHtml({ booster: b })}</div>`).join('')}
           </div>
-          <div class="ct-hero-note">${ico('horloge', 15)}${e.tirages >= e.plafond ? 'Tes tirages sont au maximum.' : '+3 tirages toutes les 10 minutes, jusqu\'à ' + e.plafond + '.'} Dix packs garantissent une Rare ou mieux.</div>
+          ${plusieurs ? `<button type="button" class="ct-car-fl g" data-dir="-1" aria-label="Booster précédent">${ico('fleche', 20)}</button><button type="button" class="ct-car-fl d" data-dir="1" aria-label="Booster suivant">${ico('fleche', 20)}</button>` : ''}
         </div>
-        <div class="ct-hero-pack">${packHtml({ attrs: ' data-ouvrir="1" role="button" tabindex="0" aria-label="Ouvrir un pack"' })}</div>
+        ${plusieurs ? `<div class="ct-points">${boosters.map((b, i) => `<button type="button" data-i="${i}" aria-label="${esc(b.nom)}"></button>`).join('')}</div>` : ''}
+        <div class="ct-vit-info" data-info></div>
+        <div class="ct-ouvrir" data-zone-ouvrir></div>
+        <div class="ct-hero-note">${ico('horloge', 15)}${e.tirages >= e.plafond ? 'Tes tirages sont au maximum.' : '+3 tirages toutes les 10 minutes, jusqu\'à ' + e.plafond + '.'}</div>
       </section>
 
       ${attente ? `<button type="button" class="ct-attente" data-aller="${aRecuperer(e) ? 'bonus' : 'missions'}">${ico('cadeau', 22)}<div><b>${pluriel(attente, 'récompense')} à récupérer</b><span>${[e.cadeau_pret ? 'cadeau du jour' : '', e.roue_prete ? 'roue' : '', e.coffres_prets ? 'coffre' : '', e.missions_pretes ? 'missions' : ''].filter(Boolean).join(' · ')}</span></div>${ico('fleche', 18)}</button>` : ''}
-
-      <div class="ct-titre-sec"><h3>Chances par pack</h3></div>
-      <section class="ct-panneau">
-        <div class="ct-taux">${[1, 2, 3, 4, 5].map(k => `<i style="flex:${Math.max(Number(taux[k - 1]), 1.2)}; background:${RAR[k].c}"></i>`).join('')}</div>
-        <div class="ct-legende">${[1, 2, 3, 4, 5].map(k => `<div style="--rc:${RAR[k].c}"><b>${fmt(taux[k - 1])}</b>${esc(RAR[k].nom)}</div>`).join('')}</div>
-        ${ev.lundi || ev.heure_holo ? `<div class="ct-evts">${ev.lundi ? `<span class="ct-evt">${ico('etoile', 15)}Lundi des légendes : Épique et mieux ×2</span>` : ''}${ev.heure_holo ? `<span class="ct-evt">${ico('etoile', 15)}Heure holo jusqu'à 22 h : holos ×2</span>` : ''}</div>` : ''}
-        <p class="sous" style="margin-top:14px">Chaque carte peut sortir en version holographique (1 chance sur ${ev.heure_holo ? 100 : 200}). La rareté vient du nombre de fans Deezer de l'artiste.</p>
-      </section>
 
       <div class="ct-titre-sec"><h3>Dernières cartes obtenues</h3>${recentes.length ? '<button type="button" class="ct-lien" data-aller="collection">Toute la collection' + ico('fleche', 14) + '</button>' : ''}</div>
       ${recentes.length
         ? `<div class="ct-ruban">${recentes.map((c, i) => `<button type="button" class="ct-case" data-i="${i}" aria-label="${esc(c.nom)}">${carteHtml(c, { quantite: true })}</button>`).join('')}</div>`
         : '<div class="ct-panneau ct-vide"><b>Ta collection est vide</b>Ouvre ton premier pack pour découvrir ta première carte.</div>'}`;
 
-    S.corps.querySelectorAll('[data-ouvrir]').forEach((b) => {
-      b.addEventListener('click', () => ouvrir(Number(b.dataset.ouvrir), false));
-      if(!b.matches('button')) b.addEventListener('keydown', (ev) => { if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); ouvrir(Number(b.dataset.ouvrir), false); } });
+    const vit = S.corps.querySelector('.ct-vitrine');
+    const car = vit.querySelector('.ct-car');
+    const items = [...vit.querySelectorAll('.ct-car-item')];
+    const points = [...vit.querySelectorAll('.ct-points button')];
+    const zoneInfo = vit.querySelector('[data-info]');
+    const zoneOuvrir = vit.querySelector('[data-zone-ouvrir]');
+
+    // Les cartes de la fiche d'un booster : ses chances, ses événements, ses boutons d'ouverture.
+    function majInfo(){
+      const b = boosters[cur];
+      const taux = (b.taux || []).map(Number);
+      const lignes = [1, 2, 3, 4, 5].filter(k => taux[k - 1] > 0);
+      const holoP = Number(ev.holo || 0.005) * Number(b.holo_x || 1);
+      zoneInfo.innerHTML = `
+        <div class="ct-vit-info-in">
+          <span class="ct-serie-tag">${esc(b.serie || 'Booster')}</span>
+          <h2>${esc(b.nom)}</h2>
+          <p>${esc(b.description || '')}</p>
+          <div class="ct-vit-taux">
+            <div class="ct-taux">${lignes.map(k => `<i style="flex:${Math.max(taux[k - 1], 1.2)}; background:${RAR[k].c}"></i>`).join('')}</div>
+            <div class="ct-legende">${lignes.map(k => `<div style="--rc:${RAR[k].c}"><b>${fmt(taux[k - 1])}</b>${esc(RAR[k].nom)}</div>`).join('')}</div>
+          </div>
+          <div class="ct-evts">
+            <span class="ct-evt">${ico('etoile', 15)}Holo : 1 chance sur ${Math.round(1 / holoP)}</span>
+            ${b.id === 'scene' && ev.lundi ? `<span class="ct-evt">${ico('etoile', 15)}Lundi des légendes : Épique et mieux ×2</span>` : ''}
+            ${ev.heure_holo ? `<span class="ct-evt">${ico('etoile', 15)}Heure holo jusqu'à 22 h</span>` : ''}
+          </div>
+        </div>`;
+      const cout = Number(b.cout || 1);
+      zoneOuvrir.innerHTML = [1, 5, 10].map(n => `<button type="button" class="ct-btn ${n === 1 ? 'principal ' : ''}grand" data-ouvrir="${n}" ${e.tirages < n * cout ? 'disabled' : ''}>${n > 1 ? n + ' packs' : 'Ouvrir un pack'}<span class="cout">${ico('eclair', 12)}${n * cout}</span></button>`).join('');
+    }
+
+    function poser(){
+      const n = boosters.length;
+      items.forEach((it, i) => {
+        let o = i - cur;
+        if(n >= 3){ if(o > n / 2) o -= n; if(o < -n / 2) o += n; }
+        it.style.setProperty('--o', o);
+        it.style.setProperty('--abs', Math.min(Math.abs(o), 3));
+        it.classList.toggle('centre', o === 0);
+        if(Math.abs(o) > 2) it.setAttribute('data-loin', ''); else it.removeAttribute('data-loin');
+        it.setAttribute('aria-hidden', o === 0 ? 'false' : 'true');
+      });
+      points.forEach((p, i) => { p.classList.toggle('actif', i === cur); });
+      const cp = vit.querySelector('[data-compte]');
+      if(cp) cp.textContent = plusieurs ? (cur + 1) + ' / ' + n : '';
+      vit.style.setProperty('--acc', couleurOk(boosters[cur].accent));
+      S.booster = boosters[cur].id;
+    }
+
+    function aller(i){
+      const n = boosters.length;
+      const suivant = ((i % n) + n) % n;
+      if(suivant === cur) return;
+      cur = suivant;
+      poser();
+      majInfo();
+      Son.pret(); Son.jouer('tic');
+    }
+
+    poser();
+    majInfo();
+
+    vit.addEventListener('click', (ev) => {
+      const o = ev.target.closest('[data-ouvrir]');
+      if(o){ ouvrir(Number(o.dataset.ouvrir), false, boosters[cur]); return; }
+      const f = ev.target.closest('.ct-car-fl');
+      if(f){ aller(cur + Number(f.dataset.dir)); return; }
+      const p = ev.target.closest('.ct-points button');
+      if(p) aller(Number(p.dataset.i));
     });
+
+    // Glisser le carrousel d'un geste ; toucher un booster de côté le ramène au centre, toucher celui du centre l'ouvre.
+    let depart = null;
+    car.addEventListener('pointerdown', (ev) => {
+      if(ev.target.closest('.ct-car-fl')) return;
+      depart = { x: ev.clientX, it: ev.target.closest('.ct-car-item') };
+    });
+    car.addEventListener('pointerup', (ev) => {
+      if(!depart) return;
+      const dx = ev.clientX - depart.x, it = depart.it;
+      depart = null;
+      if(Math.abs(dx) > 40){ aller(cur + (dx < 0 ? 1 : -1)); return; }
+      if(!it) return;
+      const i = Number(it.dataset.i);
+      if(i === cur) ouvrir(1, false, boosters[cur]); else aller(i);
+    });
+    car.addEventListener('pointercancel', () => { depart = null; });
+    car.addEventListener('keydown', (ev) => {
+      if(ev.key === 'ArrowLeft'){ ev.preventDefault(); aller(cur - 1); }
+      else if(ev.key === 'ArrowRight'){ ev.preventDefault(); aller(cur + 1); }
+      else if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); ouvrir(1, false, boosters[cur]); }
+    });
+
     S.corps.querySelectorAll('[data-aller]').forEach((b) => b.addEventListener('click', () => changerVue(b.dataset.aller)));
     S.corps.querySelectorAll('.ct-ruban [data-i]').forEach((b) => b.addEventListener('click', () => fiche(recentes[Number(b.dataset.i)].id)));
-    const pk = S.corps.querySelector('.ct-hero-pack');
-    if(pk) inclinable(pk, pk.querySelector('.ct-pack'));
   }
 
-  async function ouvrir(n, garanti){
+  async function ouvrir(n, garanti, booster){
 
     if(S.occupe) return;
-    if(!garanti && S.etat && S.etat.tirages < n){ toast('Pas assez de tirages pour l\'instant.', 'err'); return; }
+    const b = booster || (S.boosters || REPLI).find(x => x.id === S.booster) || REPLI[0];
+    const cout = garanti ? 0 : Number(b.cout || 1);
+    if(!garanti && S.etat && S.etat.tirages < n * cout){ toast('Pas assez de tirages pour l\'instant.', 'err'); return; }
     S.occupe = true;
     Son.pret();
 
+    // Le booster de base s'ouvre comme avant, sans rien demander de plus à la base.
+    const args = { p_n: n, p_garanti: !!garanti };
+    if(!garanti && b.id !== 'scene') args.p_booster = b.id;
+
     let r;
     try{
-      r = await appel('jeu_ouvrir', { p_n: n, p_garanti: !!garanti });
+      r = await appel('jeu_ouvrir', args);
     }catch(e){
       toast(e.message, 'err');
       S.occupe = false;
@@ -1011,15 +1397,14 @@
     majEntete();
 
     let encore = false;
-    try{ encore = await scene(r.cartes, garanti); }
+    try{ encore = await scene(r.cartes, garanti, b); }
     finally{ S.occupe = false; }
 
     for(const nv of (r.niveaux || [])) await niveauAtteint(nv);
 
-    if(encore){ ouvrir(n, false); return; }
+    if(encore){ ouvrir(n, false, b); return; }
     if(S.vue === 'packs' || S.vue === 'collection') afficherVue(S.vue);
   }
-
   function niveauAtteint(nv){
     return new Promise((fin) => {
       Son.jouer('niveau');
@@ -1045,9 +1430,12 @@
   // Renvoie vrai si le joueur veut rouvrir le même nombre de packs.
   // ---------------------------------------------------------------------
 
-  function scene(cartes, garanti){
+  function scene(cartes, garanti, booster){
 
     return new Promise((fin) => {
+
+      booster = garanti ? BOOSTER_GARANTI : (booster || REPLI[0]);
+      const cout = garanti ? 0 : Number(booster.cout || 1);
 
       const n = cartes.length;
       const meilleure = cartes.reduce((m, c) => Math.max(m, Number(c.rarete) || 1), 1);
@@ -1110,7 +1498,7 @@
       const centreDe = (elm) => { const b = elm.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; };
 
       // ---- 1. le pack
-      const zonePack = el('div', 'ct-scene-pack', packHtml({ garanti, nombre: n, pile: n > 1 ? Math.min(n - 1, 3) : 0 }));
+      const zonePack = el('div', 'ct-scene-pack', packHtml({ booster, nombre: n, pile: n > 1 ? Math.min(n - 1, 3) : 0 }));
       centre.appendChild(zonePack);
       const pack = zonePack.querySelector('.ct-pack');
       pack.style.setProperty('--teinte', teinteMeilleure);
@@ -1303,7 +1691,7 @@
         const nouvelles = cartes.filter(c => c.nouvelle).length;
         const holos = cartes.filter(c => c.holo).length;
         const par = [5, 4, 3].map(r => [r, cartes.filter(c => Number(c.rarete) === r).length]).filter(x => x[1]);
-        const peutRouvrir = !garanti && S.etat && S.etat.tirages >= n;
+        const peutRouvrir = !garanti && S.etat && S.etat.tirages >= n * cout;
         pied.innerHTML = `
           <div class="ct-bilan">
             <span>${nouvelles ? pluriel(nouvelles, 'nouvel artiste', 'nouveaux artistes') : 'Aucun nouvel artiste'}</span>
@@ -1311,7 +1699,7 @@
             ${holos ? `<span>${pluriel(holos, 'holo')}</span>` : ''}
           </div>
           <div class="boutons">
-            ${peutRouvrir ? `<button type="button" class="ct-btn principal" data-encore>${n > 1 ? 'Rouvrir ' + n + ' packs' : 'Rouvrir un pack'}<span class="cout">${ico('eclair', 12)}${n}</span></button>` : ''}
+            ${peutRouvrir ? `<button type="button" class="ct-btn principal" data-encore>${n > 1 ? 'Rouvrir ' + n + ' packs' : 'Rouvrir un pack'}<span class="cout">${ico('eclair', 12)}${n * cout}</span></button>` : ''}
             <button type="button" class="ct-btn ${peutRouvrir ? '' : 'blanc'}" data-fin>Terminer</button>
           </div>`;
         pied.querySelector('[data-fin]').addEventListener('click', () => fermer(false));
