@@ -291,6 +291,8 @@
   const THEMES = ['onde', 'couronne', 'aube', 'garanti', 'glace', 'deferlante'];
   const theme = (t) => THEMES.indexOf(t) >= 0 ? t : 'onde';
   const couleurOk = (c) => /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : '#4FB4FF';
+  // Le visuel d'un booster : une image du dossier img/ ou un fichier du stockage du site (téléversé depuis la console équipe).
+  const visuelOk = (v) => /^img\/[\w.-]+$/.test(v || '') || /^https:\/\/bqataeghgjyiqrnnesqq\.supabase\.co\/storage\/v1\/object\/public\/Covers\/[A-Za-z0-9._\/%~-]+$/.test(v || '');
 
   const PACKS_CSS = THEMES.map((t) => `.ct-pack.t-${t}{--pk-fond:${svgUri(artPack(t))};}`).join('\n  ');
 
@@ -531,19 +533,6 @@
   .ct-evt-lien{all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:10px; font-size:13px; color:var(--ink); background:color-mix(in srgb, var(--acc) 14%, transparent); border:1px solid color-mix(in srgb, var(--acc) 40%, transparent);}
   .ct-evt-lien:hover{background:color-mix(in srgb, var(--acc) 22%, transparent);}
   .ct-evt-lien:focus-visible{outline:2px solid var(--ct-accent); outline-offset:2px;}
-  .ct-eq-ligne{padding:10px 12px; gap:12px;}
-  .ct-eq-num{width:44px; flex:none; font-size:12.5px; font-weight:700; color:var(--muted); font-variant-numeric:tabular-nums;}
-  .ct-eq-photo{width:40px; height:40px; flex:none; border-radius:10px; object-fit:cover; max-width:none; background:#0b0f15;}
-  .ct-eq-res{display:grid; gap:8px; margin-top:12px;}
-  .ct-eq .ct-select{height:36px;}
-  .ct-classeurs{display:flex; gap:8px; margin:0 0 14px; overflow-x:auto; scrollbar-width:none; padding:2px;}
-  .ct-classeurs::-webkit-scrollbar{display:none;}
-  .ct-classeur{all:unset; box-sizing:border-box; cursor:pointer; flex:0 0 auto; display:flex; flex-direction:column; gap:2px; min-width:150px; padding:11px 16px; border-radius:14px; border:1px solid var(--ct-trait); background:var(--ct-surface); transition:background .15s, border-color .15s;}
-  .ct-classeur b{font-size:14px;}
-  .ct-classeur small{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums;}
-  .ct-classeur:hover{background:var(--ct-surface-2);}
-  .ct-classeur.actif{border-color:var(--acc); background:color-mix(in srgb, var(--acc) 14%, transparent);}
-  .ct-classeur:focus-visible{outline:2px solid var(--ct-accent); outline-offset:2px;}
   .ct-ouvrir{display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:22px;}
   .ct-ouvrir .ct-btn.principal{box-shadow:0 8px 24px -10px color-mix(in srgb, var(--acc) 90%, #000), inset 0 1px 0 rgba(255,255,255,.25);}
   .ct-hero-note{display:flex; align-items:center; justify-content:center; gap:7px; margin-top:14px; font-size:13px; color:var(--muted);}
@@ -1273,7 +1262,7 @@
     const t = theme(b.theme);
 
     // Un booster à vinyle : un disque carré qui tourne, à la place du paquet (le geste d'ouverture l'incline et l'agrandit).
-    if(/^img\/[\w.-]+$/.test(b.visuel || '')){
+    if(visuelOk(b.visuel)){
       return `
       <div class="ct-pack ct-vinyle" style="--teinte:${couleurOk(b.accent)}"${o.attrs || ''}>
         ${o.pile ? Array.from({ length: o.pile }, (_, k) => `<div class="ct-pk-pile" style="transform:translate(${(k + 1) * 8}px, ${(k + 1) * -6}px); z-index:-${k + 1}"></div>`).join('') : ''}
@@ -1443,7 +1432,7 @@
     const e = S.etat;
     const cout = Number(b.cout || 1);
     const fin = b.fin ? new Date(b.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
-    const pochette = /^img\/[\w.-]+$/.test(b.visuel || '')
+    const pochette = visuelOk(b.visuel)
       ? `<img class="ct-pj-cover" src="${esc(b.visuel)}" alt="${esc(b.nom)}" decoding="async">`
       : `<div class="ct-pj-cover ct-pj-vide">${EMBLEMES[theme(b.theme)]}</div>`;
 
@@ -1965,7 +1954,7 @@
       <div class="ct-couvs">${classeurs.map((c) => {
         const b = (bs || []).find(x => x.id === c.id) || {};
         const pct = c.total ? Math.round(c.possedees / c.total * 100) : 0;
-        const img = /^img\/[\w.-]+$/.test(b.visuel || '')
+        const img = visuelOk(b.visuel)
           ? `<img src="${esc(b.visuel)}" alt="" loading="lazy" decoding="async">`
           : `<span class="vide">${EMBLEMES[theme(c.theme)]}</span>`;
         return `<button type="button" class="ct-couv" data-classeur="${esc(c.id)}" style="--acc:${couleurOk(c.accent)}" aria-label="${esc(c.nom)}, ${nf(c.possedees)} cartes sur ${nf(c.total)}">
@@ -2306,127 +2295,25 @@
   }
 
   // ---------------------------------------------------------------------
-  // L'espace équipe : les artistes d'un classeur et la rareté de leur carte
+  // L'espace équipe : la console a son fichier (cartes-equipe.js), chargé à la demande
   // ---------------------------------------------------------------------
 
-  const EQ = { id: null, classeurs: [], cartes: [], q: '', res: [], minuteur: null };
-
   async function equipe(hote){
-    // La console de l'équipe a son fichier (cartes-equipe.js) ; tant qu'il n'est pas prêt, l'éditeur de classeurs d'origine reste.
-    try{
-      await window.chargerWaveModule('equipe');
-      if(window.WaveEquipe && window.WaveEquipe.pret){ poserStyle(); await window.WaveEquipe.monter(hote, api); return; }
-    }catch(err){ /* repli ci-dessous */ }
     if(!hote) return;
     poserStyle();
-    if(!hote.dataset.ctEq){
-      hote.dataset.ctEq = '1';
-      hote.addEventListener('click', equipeClic);
-      hote.addEventListener('change', equipeChange);
-      hote.addEventListener('input', (ev) => {
-        if(!ev.target.matches('[data-eq-q]')) return;
-        EQ.q = ev.target.value;
-        clearTimeout(EQ.minuteur);
-        EQ.minuteur = setTimeout(() => equipeChercher(hote), 250);
-      });
-    }
-    hote.innerHTML = '<div class="ct ct-eq"><div class="ct-vide">Chargement…</div></div>';
-    try{ await equipeCharger(hote, EQ.id); }
-    catch(e){ hote.innerHTML = `<div class="ct ct-eq"><div class="ct-panneau ct-vide">${esc(e.message)}</div></div>`; }
-  }
-
-  async function equipeCharger(hote, id){
-    const r = await appel('jeu_classeur_equipe_lire', { p_booster: id || '' });
-    EQ.classeurs = r.classeurs || [];
-    if(!EQ.classeurs.length){
-      hote.innerHTML = '<div class="ct ct-eq"><div class="ct-panneau ct-vide"><b>Aucune collection</b>Les classeurs ne sont pas encore en place dans la base.</div></div>';
-      return;
-    }
-    if(!EQ.classeurs.some(c => c.id === id)){ EQ.id = EQ.classeurs[0].id; return equipeCharger(hote, EQ.id); }
-    EQ.id = id;
-    EQ.cartes = r.cartes || [];
-    equipeDessiner(hote);
-  }
-
-  function equipeDessiner(hote){
-    const par = [5, 4, 3, 2, 1].map(k => [k, EQ.cartes.filter(c => Number(c.rarete) === k).length]);
-    const options = (sel) => [5, 4, 3, 2, 1].map(k => `<option value="${k}"${Number(sel) === k ? ' selected' : ''}>${esc(RAR[k].nom)}</option>`).join('');
-    hote.innerHTML = `
-      <div class="ct ct-eq">
-        <div class="ct-classeurs">${EQ.classeurs.map(c => `<button type="button" class="ct-classeur${c.id === EQ.id ? ' actif' : ''}" data-eq-cl="${esc(c.id)}" style="--acc:#4FB4FF"><b>${esc(c.nom)}</b><small>${pluriel(c.nb, 'carte')}</small></button>`).join('')}</div>
-        <section class="ct-panneau">
-          <div class="ct-entete-panneau"><div><h3>Ajouter un artiste</h3><p class="sous">Cherche un artiste du jeu, choisis la rareté de sa carte, ajoute-le à ce classeur.</p></div></div>
-          <label class="ct-recherche">${ico('loupe', 17)}<input type="search" data-eq-q value="${esc(EQ.q)}" placeholder="Chercher un artiste" aria-label="Chercher un artiste"></label>
-          <div class="ct-eq-res" data-eq-res></div>
-        </section>
-        <div class="ct-titre-sec"><h3>${pluriel(EQ.cartes.length, 'carte')} · ${par.filter(x => x[1]).map(([k, n]) => n + ' ' + esc(RAR[k].nom)).join(' · ')}</h3></div>
-        <div class="ct-liste">${EQ.cartes.map(c => `
-          <div class="ct-ligne ct-eq-ligne" style="--rc:${rar(c.rarete).c}">
-            <span class="ct-eq-num">${numero(c.numero)}</span>
-            <img class="ct-eq-photo" src="${esc(safeUrl(c.photo))}" alt="" loading="lazy">
-            <div class="tx"><b>${esc(c.nom || 'Artiste')}</b><small style="color:var(--muted)">${c.fans ? esc(court(c.fans)) + ' fans' : ''}</small></div>
-            <select class="ct-select" data-eq-rar="${esc(c.artist_id)}" aria-label="Rareté de ${esc(c.nom || 'la carte')}">${options(c.rarete)}</select>
-            <button type="button" class="ct-btn petit" data-eq-retirer="${esc(c.artist_id)}">Retirer</button>
-          </div>`).join('')}</div>
-      </div>`;
-    equipeResultats(hote, options);
-  }
-
-  function equipeResultats(hote, options){
-    const zone = hote.querySelector('[data-eq-res]');
-    if(!zone) return;
-    options = options || ((sel) => [5, 4, 3, 2, 1].map(k => `<option value="${k}"${Number(sel) === k ? ' selected' : ''}>${esc(RAR[k].nom)}</option>`).join(''));
-    const deja = new Set(EQ.cartes.map(c => c.artist_id));
-    zone.innerHTML = EQ.res.map(a => `
-      <div class="ct-ligne ct-eq-ligne">
-        <img class="ct-eq-photo" src="${esc(safeUrl(a.photo))}" alt="" loading="lazy">
-        <div class="tx"><b>${esc(a.nom)}</b><small style="color:var(--muted)">${a.fans ? esc(court(a.fans)) + ' fans' : ''}</small></div>
-        ${deja.has(a.artist_id)
-          ? '<span class="ct-puce-temps">Déjà dans le classeur</span>'
-          : `<select class="ct-select" data-eq-new="${esc(a.artist_id)}" aria-label="Rareté">${options(1)}</select><button type="button" class="ct-btn principal petit" data-eq-ajouter="${esc(a.artist_id)}">Ajouter</button>`}
-      </div>`).join('');
-  }
-
-  async function equipeChercher(hote){
-    const q = EQ.q.trim();
-    if(q.length < 2){ EQ.res = []; equipeResultats(hote); return; }
-    try{ EQ.res = await appel('jeu_classeur_equipe_chercher', { p_q: q }); equipeResultats(hote); }
-    catch(e){ toast(e.message, 'err'); }
-  }
-
-  async function equipeRegler(hote, artiste, rarete){
     try{
-      const r = await appel('jeu_classeur_equipe_regler', { p_booster: EQ.id, p_artist: artiste, p_rarete: rarete });
-      EQ.classeurs = r.classeurs || EQ.classeurs;
-      EQ.cartes = r.cartes || [];
-      equipeDessiner(hote);
-      toast(rarete === null ? 'Carte retirée' : 'Classeur mis à jour');
-    }catch(e){ toast(e.message, 'err'); }
-  }
-
-  function equipeClic(ev){
-    const hote = ev.currentTarget;
-    const cl = ev.target.closest('[data-eq-cl]');
-    if(cl){ EQ.id = cl.dataset.eqCl; EQ.q = ''; EQ.res = []; equipeCharger(hote, EQ.id).catch((e) => toast(e.message, 'err')); return; }
-    const aj = ev.target.closest('[data-eq-ajouter]');
-    if(aj){
-      const sel = hote.querySelector(`[data-eq-new="${aj.dataset.eqAjouter}"]`);
-      equipeRegler(hote, aj.dataset.eqAjouter, sel ? Number(sel.value) : 1);
-      return;
+      await window.chargerWaveModule('equipe');
+      if(!window.WaveEquipe || typeof window.WaveEquipe.monter !== 'function') throw new Error("La console ne s'est pas lancée.");
+      await window.WaveEquipe.monter(hote, api);
+    }catch(e){
+      hote.innerHTML = `<div class="ct"><div class="ct-panneau ct-vide">${esc(e.message)}</div></div>`;
     }
-    const re = ev.target.closest('[data-eq-retirer]');
-    if(re) equipeRegler(hote, re.dataset.eqRetirer, null);
-  }
-
-  function equipeChange(ev){
-    const s = ev.target.closest('[data-eq-rar]');
-    if(s) equipeRegler(ev.currentTarget, s.dataset.eqRar, Number(s.value));
   }
 
   // L'interface que le jeu prête à ses modules (combat.js, marche.js, cartes-equipe.js).
   const api = {
     appel, toast, fenetre, vibre, Son, ico, esc, nf, court, pluriel, numero, RAR, rar, couleurOk, safeUrl, theme, EMBLEMES,
-    carteHtml, inclinable, fiche, poserEtat, majEntete, rafraichirEtat,
+    visuelOk, carteHtml, inclinable, fiche, poserEtat, majEntete, rafraichirEtat,
     etat: () => S.etat,
     boosters: () => S.boosters || [],
     actualiser: () => (S.vue ? afficherVue(S.vue) : Promise.resolve())
