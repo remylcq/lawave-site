@@ -391,8 +391,8 @@ begin
     acts := jsonb_set(acts, array[k::text], act);
   end loop;
 
-  select array_agg(k order by public.combat_stat(p_unites -> k, 'vit') + random() * 0.5 desc) into ordre
-    from generate_series(0, n - 1) k where not (p_unites -> k ->> 'ko')::boolean;
+  select array_agg(x.kk order by public.combat_stat(p_unites -> x.kk, 'vit') + random() * 0.5 desc) into ordre
+    from generate_series(0, n - 1) as x (kk) where not (p_unites -> x.kk ->> 'ko')::boolean;
 
   foreach i in array ordre loop
     if ((st -> 'u' -> i) ->> 'ko')::boolean then continue; end if;
