@@ -372,7 +372,7 @@
   const MOTIFS_CSS = [1, 2, 3, 4, 5].map((r) => `.ct-carte.r${r}{--ct-motif:${svgUri(fondCarte(r))};}`).join('\n  ');
 
   // Les classeurs de collection : un fond et un cadre à eux (les Légendaires et Mythiques gardent leurs rayons et leur aurore).
-  const NOM_CLASSEUR = { glaciale: 'VAGUE GLACIALE', deferlante: 'VAGUE DÉFERLANTE' };
+  const NOM_CLASSEUR = { glaciale: 'VAGUE GLACIALE', deferlante: 'CLASSIC WAVE' };
 
   function fondClasseur(id){
     const tete = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 350" preserveAspectRatio="none">';
