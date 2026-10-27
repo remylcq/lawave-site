@@ -1871,6 +1871,7 @@
             <div class="ct-stat"><b>${nf(c.sorties)}</b><span>${c.sorties > 1 ? 'sorties' : 'sortie'} sur La Wave</span></div>
             <div class="ct-stat"><b>${possede ? '×' + c.quantite : '—'}</b><span>${possede ? 'en ta possession' : 'pas encore obtenue'}</span></div>
           </div>
+          ${classeur ? '<div data-combat></div>' : ''}
           ${c.ville ? `<p class="sous" style="margin-top:12px">${esc(c.ville)}</p>` : ''}${classeur && possede ? `<div class="ct-actions" style="margin-top:12px"><button type="button" class="ct-btn petit" data-vendre>${ico('marche', 15)}Vendre sur le marché</button></div>` : ''}
           ${(c.sorties_liste || []).length ? `
             <div class="ct-titre-sec" style="margin:22px 0 10px"><h3>Dernières sorties</h3></div>
@@ -1894,6 +1895,12 @@
       </div>`, true);
 
     inclinable(f.corps.querySelector('.ct-fiche-carte')); const vd = f.corps.querySelector('[data-vendre]'); if(vd) vd.addEventListener('click', async () => { try{ await window.chargerWaveModule('marche'); await window.WaveMarche.vendre(c, api); }catch(e){ toast(e.message, 'err'); } });
+
+    // La fiche de combat (type, stats, attaques, capacité) vient du module combat.js.
+    const zc = f.corps.querySelector('[data-combat]');
+    if(zc && typeof window.chargerWaveModule === 'function'){
+      window.chargerWaveModule('combat').then(() => window.WaveCombat.fiche(zc, api, { artist: c.id, booster: classeur, holo: c.holos > 0 })).catch(() => {});
+    }
 
     f.corps.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => {
       const s = c.sorties_liste[Number(b.dataset.s)];

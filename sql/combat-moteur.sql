@@ -86,7 +86,7 @@ begin
     from public.combat_affinites a join public.combat_types t on t.id = a.att where a.def = v_t and a.mult < 1;
 
   return jsonb_build_object(
-    'artist_id', p_artist, 'nom', c.nom, 'photo', c.photo, 'rarete', p_rarete, 'holo', p_holo,
+    'artist_id', p_artist, 'nom', c.nom, 'photo', c.photo, 'numero', c.numero, 'rarete', p_rarete, 'holo', p_holo,
     'type', v_t, 'type_nom', ty.nom, 'couleur', ty.couleur, 'citation', coalesce(s.citation, ty.citation),
     'pv', v_pv, 'pui', v_pui, 'def', v_def, 'vit', v_vit,
     'attaques', jsonb_build_array(j1, j2), 'capacite', jc,
@@ -102,7 +102,7 @@ returns jsonb language plpgsql stable set search_path to 'public' as $$
 declare i jsonb := public.combat_identite(p_artist, p_rarete, p_holo); k numeric := 1 + coalesce(p_bonus, 0) / 100.0;
 begin
   return jsonb_build_object(
-    'artist_id', p_artist, 'nom', i ->> 'nom', 'photo', i ->> 'photo', 'rarete', p_rarete, 'holo', p_holo,
+    'artist_id', p_artist, 'nom', i ->> 'nom', 'photo', i ->> 'photo', 'numero', i -> 'numero', 'rarete', p_rarete, 'holo', p_holo,
     'type', i ->> 'type', 'type_nom', i ->> 'type_nom', 'couleur', i ->> 'couleur',
     'pv', round((i ->> 'pv')::numeric * k), 'pv_max', round((i ->> 'pv')::numeric * k),
     'pui', round((i ->> 'pui')::numeric * k), 'def', round((i ->> 'def')::numeric * k), 'vit', round((i ->> 'vit')::numeric * k),
