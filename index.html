@@ -5592,6 +5592,13 @@
         <span class="admin-tab-label">Sondage testeurs</span>
       </button>
 
+      <!-- COLLECTIONS DE CARTES — onglet -->
+      <button type="button" class="admin-tab" id="adminTab-cartes"
+        role="tab" onclick="switchAdminTab('cartes')" title="Les artistes et la rareté des cartes de chaque collection">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-etoile"/></svg>
+        <span class="admin-tab-label">Cartes</span>
+      </button>
+
       <!-- ACCÈS TESTEURS (TEMPORAIRE) — onglet -->
       <button type="button" class="admin-tab" id="adminTab-acces"
         role="tab" onclick="switchAdminTab('acces')" title="Accès testeurs (temporaire)">
@@ -6315,6 +6322,17 @@
 
   </div>
 
+
+  <!-- COLLECTIONS DE CARTES — section, remplie par cartes.js (Cartes.equipe). -->
+  <div class="admin-section" id="adminSection-cartes">
+    <div class="section-head">
+      <div>
+        <h2>Collections de cartes</h2>
+        <p class="desc">Choisis les artistes de chaque collection (Vague Déferlante, Vague Glaciale…) et la rareté de leur carte.</p>
+      </div>
+    </div>
+    <div id="cartesEquipe"></div>
+  </div>
 
   <!-- SONDAGE DES TESTEURS (TEMPORAIRE) — section, remplie par sondage.js (Sondage.chargerEquipe). -->
   <div class="admin-section" id="adminSection-sondage">
@@ -22773,6 +22791,7 @@ const ADMIN_TABS = [
   'membres',
   'audience',
   'sondage',   // SONDAGE DES TESTEURS (TEMPORAIRE)
+  'cartes',    // COLLECTIONS DE CARTES
   'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
 
@@ -22872,6 +22891,11 @@ function switchAdminTab(nom){
 
   if(nom === 'audience'){
     chargerAudience();
+  }
+
+  // COLLECTIONS DE CARTES
+  if(nom === 'cartes'){
+    chargerCartes().then(() => { if(window.Cartes) window.Cartes.equipe(document.getElementById('cartesEquipe')); }).catch(() => {});
   }
 
   // SONDAGE DES TESTEURS (TEMPORAIRE)

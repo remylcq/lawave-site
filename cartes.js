@@ -90,6 +90,20 @@
   const arr = (x) => Math.round(x * 10) / 10;
   const etincelle = (x, y, r, c, o) => `<path d="M${x} ${y - r}Q${x} ${y} ${x + r} ${y}Q${x} ${y} ${x} ${y + r}Q${x} ${y} ${x - r} ${y}Q${x} ${y} ${x} ${y - r}Z" fill="${c}" opacity="${o}"/>`;
 
+  // Un flocon : six branches ornées de barbules.
+  function flocon(cx, cy, r, w, couleur){
+    let s = '';
+    for(let k = 0; k < 6; k++){
+      const a = k * 60, [x2, y2] = polaire(cx, cy, r, a);
+      s += `<path d="M${cx} ${cy}L${arr(x2)} ${arr(y2)}"/>`;
+      [.42, .68].forEach((t) => {
+        const [bx, by] = polaire(cx, cy, r * t, a);
+        [a - 50, a + 50].forEach((d) => { const [ex, ey] = polaire(bx, by, r * .24 * (1.25 - t * .45), d); s += `<path d="M${arr(bx)} ${arr(by)}L${arr(ex)} ${arr(ey)}"/>`; });
+      });
+    }
+    return `<g fill="none" stroke="${couleur || '#dff3ff'}" stroke-width="${w}" stroke-linecap="round" opacity=".38">${s}</g>`;
+  }
+
   // Le décor d'un pack : 210 × 318, étiré sur le haut et le corps du pack (qui se déchire).
   function artPack(theme){
 
@@ -151,6 +165,53 @@
       </svg>`;
     }
 
+    if(theme === 'glace'){
+      let neige = '', eclats = '';
+      for(let k = 0; k < 38; k++) neige += `<circle cx="${arr(rnd() * 210)}" cy="${arr(rnd() * 318)}" r="${arr(.6 + rnd() * 1.8)}" fill="#fff" opacity="${arr(.3 + rnd() * .6)}"/>`;
+      [[0, 318, 28, 238, 56, 318], [40, 318, 70, 214, 104, 318], [92, 318, 124, 232, 150, 318], [140, 318, 170, 222, 196, 318], [176, 318, 200, 258, 214, 318]].forEach(([x1, y1, x2, y2, x3, y3]) => {
+        eclats += `<path d="M${x1} ${y1}L${x2} ${y2}L${x3} ${y3}Z" fill="url(#c)"/><path d="M${x2} ${y2}L${x2 + 6} ${y3}" stroke="#fff" stroke-opacity=".5" stroke-width="1"/>`;
+      });
+      return tete + `<defs>
+        <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b2d52"/><stop offset=".5" stop-color="#0f5c92"/><stop offset="1" stop-color="#06182e"/></linearGradient>
+        <radialGradient id="h" cx=".5" cy=".42" r=".6"><stop offset="0" stop-color="#d4f0ff" stop-opacity=".65"/><stop offset="1" stop-color="#d4f0ff" stop-opacity="0"/></radialGradient>
+        <linearGradient id="a" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5cffd0" stop-opacity="0"/><stop offset=".5" stop-color="#7cf0ff" stop-opacity=".5"/><stop offset="1" stop-color="#9f8cff" stop-opacity="0"/></linearGradient>
+        <linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#eaf8ff" stop-opacity=".95"/><stop offset=".6" stop-color="#7cc6ef" stop-opacity=".8"/><stop offset="1" stop-color="#2c78b0" stop-opacity=".9"/></linearGradient>
+      </defs>
+      <rect width="210" height="318" fill="url(#g)"/><rect width="210" height="318" fill="url(#h)"/>
+      <path d="M0 40C50 10 100 70 150 34S200 20 210 30V70C170 96 120 40 70 78S20 70 0 80Z" fill="url(#a)"/>
+      <path d="M0 78C60 48 110 108 160 70S200 62 210 70V96C170 124 120 76 70 110S20 104 0 112Z" fill="url(#a)" opacity=".6"/>
+      ${flocon(105, 150, 92, 1.4)}
+      ${neige}
+      <path d="M0 262C36 250 64 274 104 262S176 250 210 264V318H0Z" fill="#cfeaff" opacity=".28"/>
+      ${eclats}
+      <rect x="6" y="6" width="198" height="306" rx="9" fill="none" stroke="#e8f6ff" stroke-width="1.2" opacity=".5"/>
+      </svg>`;
+    }
+
+    if(theme === 'deferlante'){
+      let gouttes = '', etoiles = '';
+      for(let k = 0; k < 34; k++) gouttes += `<circle cx="${arr(92 + rnd() * 118)}" cy="${arr(50 + rnd() * 150)}" r="${arr(.6 + rnd() * 2)}" fill="#e8fbff" opacity="${arr(.3 + rnd() * .6)}"/>`;
+      for(let k = 0; k < 18; k++) etoiles += `<circle cx="${arr(rnd() * 210)}" cy="${arr(rnd() * 120)}" r="${arr(.4 + rnd() * 1)}" fill="#cfeeff" opacity="${arr(.3 + rnd() * .5)}"/>`;
+      return tete + `<defs>
+        <linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#020f24"/><stop offset=".5" stop-color="#05395f"/><stop offset="1" stop-color="#021c33"/></linearGradient>
+        <radialGradient id="h" cx=".75" cy=".14" r=".5"><stop offset="0" stop-color="#7fe8ff" stop-opacity=".75"/><stop offset="1" stop-color="#7fe8ff" stop-opacity="0"/></radialGradient>
+        <linearGradient id="w" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a6e9a"/><stop offset=".55" stop-color="#1fb5d8"/><stop offset="1" stop-color="#7ff0ff"/></linearGradient>
+        <linearGradient id="w2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#074a72"/><stop offset="1" stop-color="#021b33"/></linearGradient>
+      </defs>
+      <rect width="210" height="318" fill="url(#g)"/><rect width="210" height="318" fill="url(#h)"/>
+      ${etoiles}
+      <circle cx="160" cy="48" r="17" fill="#e9fdff" opacity=".9"/>
+      <path d="M-4 250C8 170 70 90 150 92C196 94 214 128 208 168C196 146 172 138 152 148C162 174 156 206 128 224C96 244 60 250 32 318H-4Z" fill="url(#w)"/>
+      <path d="M-4 250C8 170 70 90 150 92C196 94 214 128 208 168C196 146 172 138 152 148" fill="none" stroke="#f2feff" stroke-width="3" stroke-linecap="round" opacity=".9"/>
+      <path d="M40 232C56 176 100 128 150 122C176 120 192 132 194 150" fill="none" stroke="#dffaff" stroke-width="1.4" opacity=".45"/>
+      <path d="M14 270C34 226 74 196 118 198" fill="none" stroke="#dffaff" stroke-width="1.2" opacity=".35"/>
+      ${gouttes}
+      <path d="M0 278C40 262 80 292 122 274S190 262 210 278V318H0Z" fill="url(#w2)" opacity=".95"/>
+      <path d="M0 278C40 262 80 292 122 274S190 262 210 278" fill="none" stroke="#9ff3ff" stroke-width="1.6" opacity=".7"/>
+      <rect x="6" y="6" width="198" height="306" rx="9" fill="none" stroke="#9ff3ff" stroke-width="1" opacity=".35"/>
+      </svg>`;
+    }
+
     if(theme === 'garanti'){
       let etoiles = '';
       for(let k = 0; k < 14; k++) etoiles += etincelle(arr(10 + rnd() * 190), arr(10 + rnd() * 298), arr(1.6 + rnd() * 2.4), '#ffe9a8', arr(.35 + rnd() * .5));
@@ -205,8 +266,22 @@
     </svg>`
   };
   EMBLEMES.garanti = EMBLEMES.couronne;
+  EMBLEMES.glace = `<svg class="ct-embleme" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/>
+      <circle cx="50" cy="50" r="36" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"/>
+      <g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round">${[0, 60, 120, 180, 240, 300].map((a) => {
+        const p = (r, d) => polaire(50, 50, r, d).map(arr).join(' ');
+        return `<path d="M50 50L${p(27, a)}M${p(15, a)}L${p(23, a - 50)}M${p(15, a)}L${p(23, a + 50)}"/>`;
+      }).join('')}</g>
+    </svg>`;
+  EMBLEMES.deferlante = `<svg class="ct-embleme" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="46" fill="none" stroke="currentColor" stroke-width="2" opacity=".55"/>
+      <circle cx="50" cy="50" r="36" fill="none" stroke="currentColor" stroke-width="1" opacity=".3"/>
+      <path d="M22 66C26 38 52 26 70 36C80 42 78 58 66 58C56 58 55 46 63 44" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M20 72c8 0 8-5 15-5s8 5 15 5 8-5 15-5 8 5 15 5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+    </svg>`;
 
-  const THEMES = ['onde', 'couronne', 'aube', 'garanti'];
+  const THEMES = ['onde', 'couronne', 'aube', 'garanti', 'glace', 'deferlante'];
   const theme = (t) => THEMES.indexOf(t) >= 0 ? t : 'onde';
   const couleurOk = (c) => /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : '#4FB4FF';
 
@@ -296,6 +371,36 @@
 
   const MOTIFS_CSS = [1, 2, 3, 4, 5].map((r) => `.ct-carte.r${r}{--ct-motif:${svgUri(fondCarte(r))};}`).join('\n  ');
 
+  // Les classeurs de collection : un fond et un cadre à eux (les Légendaires et Mythiques gardent leurs rayons et leur aurore).
+  const NOM_CLASSEUR = { glaciale: 'VAGUE GLACIALE', deferlante: 'VAGUE DÉFERLANTE' };
+
+  function fondClasseur(id){
+    const tete = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 350" preserveAspectRatio="none">';
+    const rnd = alea(id === 'glaciale' ? 7 : 9);
+    if(id === 'glaciale'){
+      let n = '';
+      for(let k = 0; k < 50; k++) n += `<circle cx="${arr(rnd() * 250)}" cy="${arr(rnd() * 350)}" r="${arr(.6 + rnd() * 1.6)}" fill="#fff" opacity="${arr(.25 + rnd() * .55)}"/>`;
+      return tete + `<defs><linearGradient id="n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7cc6ef" stop-opacity=".18"/><stop offset="1" stop-color="#e6f6ff" stop-opacity=".3"/></linearGradient></defs>
+        <rect width="250" height="350" fill="url(#n)"/>${flocon(125, 130, 150, 1.6)}${flocon(40, 300, 46, 1.4)}${flocon(214, 292, 38, 1.4)}${n}</svg>`;
+    }
+    let v = '';
+    for(let k = 0; k < 11; k++){ const y = 200 + k * 14; v += `<path d="M-6 ${y}q31 -16 62 0t62 0t62 0t62 0t62 0" opacity="${arr(.1 + k * .012)}"/>`; }
+    let e = '';
+    for(let k = 0; k < 30; k++) e += `<circle cx="${arr(rnd() * 250)}" cy="${arr(rnd() * 350)}" r="${arr(.6 + rnd() * 1.5)}" fill="#e8fbff" opacity="${arr(.2 + rnd() * .45)}"/>`;
+    return tete + `<defs><linearGradient id="n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1fb5d8" stop-opacity=".06"/><stop offset="1" stop-color="#1fb5d8" stop-opacity=".3"/></linearGradient></defs>
+      <rect width="250" height="350" fill="url(#n)"/><g fill="none" stroke="#9ff3ff" stroke-width="1.8">${v}</g>${e}</svg>`;
+  }
+
+  const CLASSEURS_CSS = `
+  .ct-carte.cl-glaciale:is(.r1, .r2, .r3){--ct-motif:${svgUri(fondClasseur('glaciale'))};}
+  .ct-carte.cl-glaciale:is(.r1, .r2, .r3, .r4){--ct-cadre:linear-gradient(155deg, #ffffff, #bfe6ff 35%, #6fb7e8 70%, #eaf8ff);}
+  .ct-carte.cl-glaciale{--rf:#0a1b30;}
+  .ct-carte.cl-glaciale .ct-c-in::before{content:''; position:absolute; inset:0; z-index:1; pointer-events:none; mix-blend-mode:screen;
+    background:radial-gradient(60% 38% at 0% 0%, rgba(255,255,255,.4), transparent 70%), radial-gradient(60% 38% at 100% 100%, rgba(190,230,255,.34), transparent 70%);}
+  .ct-carte.cl-deferlante:is(.r1, .r2, .r3){--ct-motif:${svgUri(fondClasseur('deferlante'))};}
+  .ct-carte.cl-deferlante:is(.r1, .r2, .r3, .r4){--ct-cadre:linear-gradient(155deg, #b6f7ff, #1fb5d8 38%, #07507c 74%, #7fe6f7);}
+  .ct-carte.cl-deferlante{--rf:#04182c;}`;
+
   // ---------------------------------------------------------------------
   // La feuille de style
   // ---------------------------------------------------------------------
@@ -380,6 +485,7 @@
   .ct-carte.r4{--rc:var(--r4); --rf:#1d1507; --ct-cadre:linear-gradient(155deg, #fff6c9, #eab645 38%, #95600f 70%, #f9dc7e);}
   .ct-carte.r5{--rc:var(--r5); --rf:#190b1b; --ct-cadre:conic-gradient(from var(--ct-a), #ff5c8a, #ffb547, #fff27a, #5cffc8, #5cb8ff, #b36bff, #ff5c8a);}
   ${MOTIFS_CSS}
+  ${CLASSEURS_CSS}
   .ct-c-in{position:relative; width:100%; height:100%; border-radius:10px; overflow:hidden; background:linear-gradient(180deg, color-mix(in srgb, var(--rc) 20%, var(--rf)) 0%, var(--rf) 58%);}
   .ct-c-fond{position:absolute; inset:0; background:var(--ct-motif) center / 100% 100% no-repeat;}
   .ct-c-art{position:absolute; left:4.4%; top:8.6%; width:91.2%; height:57.1%; border-radius:2.4cqw; overflow:hidden; background:#05070a;
@@ -491,6 +597,22 @@
   .ct-legende div::before{content:''; width:8px; height:8px; border-radius:2px; transform:rotate(45deg); background:var(--rc);}
   .ct-evts{display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:14px;}
   .ct-evt{display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:10px; font-size:13px; color:var(--ink); background:rgba(242,193,78,.1); border:1px solid rgba(242,193,78,.3);}
+  .ct-evt-lien{all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:10px; font-size:13px; color:var(--ink); background:color-mix(in srgb, var(--acc) 14%, transparent); border:1px solid color-mix(in srgb, var(--acc) 40%, transparent);}
+  .ct-evt-lien:hover{background:color-mix(in srgb, var(--acc) 22%, transparent);}
+  .ct-evt-lien:focus-visible{outline:2px solid var(--ct-accent); outline-offset:2px;}
+  .ct-eq-ligne{padding:10px 12px; gap:12px;}
+  .ct-eq-num{width:44px; flex:none; font-size:12.5px; font-weight:700; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .ct-eq-photo{width:40px; height:40px; flex:none; border-radius:10px; object-fit:cover; max-width:none; background:#0b0f15;}
+  .ct-eq-res{display:grid; gap:8px; margin-top:12px;}
+  .ct-eq .ct-select{height:36px;}
+  .ct-classeurs{display:flex; gap:8px; margin:0 0 14px; overflow-x:auto; scrollbar-width:none; padding:2px;}
+  .ct-classeurs::-webkit-scrollbar{display:none;}
+  .ct-classeur{all:unset; box-sizing:border-box; cursor:pointer; flex:0 0 auto; display:flex; flex-direction:column; gap:2px; min-width:150px; padding:11px 16px; border-radius:14px; border:1px solid var(--ct-trait); background:var(--ct-surface); transition:background .15s, border-color .15s;}
+  .ct-classeur b{font-size:14px;}
+  .ct-classeur small{font-size:12px; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .ct-classeur:hover{background:var(--ct-surface-2);}
+  .ct-classeur.actif{border-color:var(--acc); background:color-mix(in srgb, var(--acc) 14%, transparent);}
+  .ct-classeur:focus-visible{outline:2px solid var(--ct-accent); outline-offset:2px;}
   .ct-ouvrir{display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:22px;}
   .ct-ouvrir .ct-btn.principal{box-shadow:0 8px 24px -10px color-mix(in srgb, var(--acc) 90%, #000), inset 0 1px 0 rgba(255,255,255,.25);}
   .ct-hero-note{display:flex; align-items:center; justify-content:center; gap:7px; margin-top:14px; font-size:13px; color:var(--muted);}
@@ -973,7 +1095,7 @@
     const taille = lg <= 10 ? 1 : (lg <= 13 ? .86 : (lg <= 16 ? .72 : .6));
     const sous = [c.ville, c.sorties ? pluriel(c.sorties, 'sortie') : ''].filter(Boolean).join(' · ') || 'Scène francophone';
     return `
-      <div class="ct-carte r${r}${holo ? ' holo' : ''}${verrou ? ' verrou' : ''}${o.vivante ? ' vivante' : ''}" style="--nf:${taille}">
+      <div class="ct-carte r${r}${holo ? ' holo' : ''}${verrou ? ' verrou' : ''}${o.vivante ? ' vivante' : ''}${/^[a-z-]+$/.test(c.classeur || '') ? ' cl-' + c.classeur : ''}" style="--nf:${taille}">
         <div class="ct-c-in">
           <div class="ct-c-fond"></div>
           <div class="ct-c-art">
@@ -983,7 +1105,7 @@
           </div>
           <svg class="ct-c-orn" aria-hidden="true"><use href="#ct-orn-${r}" width="100%" height="100%"/></svg>
           <span class="ct-c-num">${numero(c.numero)}</span>
-          ${holo ? '<span class="ct-c-holo">HOLO</span>' : '<span class="ct-c-marque">LA WAVE</span>'}
+          ${holo ? '<span class="ct-c-holo">HOLO</span>' : `<span class="ct-c-marque">${NOM_CLASSEUR[c.classeur] || 'LA WAVE'}</span>`}
           <span class="ct-c-gemme" aria-hidden="true"></span>
           ${verrou ? `<span class="ct-c-cadenas">${ico('cadenas', 24)}</span>` : ''}
           <div class="ct-c-plaque">
@@ -1025,7 +1147,7 @@
 
   const S = {
     hote: null, etat: null, vue: 'packs', occupe: false, minuteur: null, corps: null,
-    col: { page: 1, vue: 'toutes', rarete: null, q: '', tri: 'numero' }
+    col: { page: 1, vue: 'toutes', rarete: null, q: '', tri: 'numero', classeur: null }
   };
 
   function duree(s){
@@ -1296,6 +1418,7 @@
             <div class="ct-legende">${lignes.map(k => `<div style="--rc:${RAR[k].c}"><b>${fmt(taux[k - 1])}</b>${esc(RAR[k].nom)}</div>`).join('')}</div>
           </div>
           <div class="ct-evts">
+            ${b.classeur ? `<button type="button" class="ct-evt ct-evt-lien" data-classeur="${esc(b.id)}">${ico('cartes', 15)}Classeur exclusif · ${nf(b.nb_cartes || 0)} cartes${b.fin ? ' · jusqu\'au ' + esc(new Date(b.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })) : ''}${ico('fleche', 14)}</button>` : ''}
             <span class="ct-evt">${ico('etoile', 15)}Holo : 1 chance sur ${Math.round(1 / holoP)}</span>
             ${b.id === 'scene' && ev.lundi ? `<span class="ct-evt">${ico('etoile', 15)}Lundi des légendes : Épique et mieux ×2</span>` : ''}
             ${ev.heure_holo ? `<span class="ct-evt">${ico('etoile', 15)}Heure holo jusqu'à 22 h</span>` : ''}
@@ -1341,6 +1464,8 @@
       if(o){ ouvrir(Number(o.dataset.ouvrir), false, boosters[cur]); return; }
       const f = ev.target.closest('.ct-car-fl');
       if(f){ aller(cur + Number(f.dataset.dir)); return; }
+      const k = ev.target.closest('[data-classeur]');
+      if(k){ S.col.classeur = k.dataset.classeur; S.col.page = 1; S.col.vue = 'toutes'; S.col.rarete = null; S.col.q = ''; changerVue('collection'); return; }
       const p = ev.target.closest('.ct-points button');
       if(p) aller(Number(p.dataset.i));
     });
@@ -1601,7 +1726,7 @@
           p.classList.add('donne');
           setTimeout(() => { if(!fini) Son.jouer('donne'); }, i * 70);
           const v = p.querySelector('.ct-volte');
-          v.addEventListener('click', () => { if(phase === 'bilan') fiche(cartes[i].id); else retourner(i); });
+          v.addEventListener('click', () => { if(phase === 'bilan') fiche(cartes[i].id, cartes[i].classeur || null); else retourner(i); });
           v.addEventListener('keydown', (ev) => { if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); ev.stopPropagation(); v.click(); } });
         });
         setTimeout(() => zonePack.remove(), 700);
@@ -1713,16 +1838,17 @@
   // La fiche d'une carte
   // ---------------------------------------------------------------------
 
-  async function fiche(id){
+  async function fiche(id, classeur){
 
     let c;
-    try{ c = await appel('jeu_carte', { p_id: id }); }catch(e){ toast(e.message, 'err'); return; }
+    try{ c = classeur ? await appel('jeu_classeur_carte', { p_booster: classeur, p_id: id }) : await appel('jeu_carte', { p_id: id }); }catch(e){ toast(e.message, 'err'); return; }
 
     const r = Number(c.rarete);
     const possede = c.quantite > 0;
     const date = (iso) => iso ? new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '';
 
-    const doublons = [
+    // Les cartes d'un classeur ne se recyclent ni ne se fabriquent (pas encore) : elles se gagnent dans leur booster.
+    const doublons = classeur ? [] : [
       c.normales > 1 ? { holo: false, n: c.normales - 1, v: c.valeur } : null,
       c.holos > 1 ? { holo: true, n: c.holos - 1, v: c.valeur * 3 } : null
     ].filter(Boolean);
@@ -1744,7 +1870,8 @@
             <div class="ct-titre-sec" style="margin:22px 0 10px"><h3>Dernières sorties</h3></div>
             <div class="ct-pochettes">${c.sorties_liste.map((s, i) => `<button type="button" class="ct-pochette" data-s="${i}" title="${esc(s.titre)} · ${esc(date(s.date))}"><img src="${esc(safeUrl(s.cover))}" alt="${esc(s.titre)}" loading="lazy"></button>`).join('')}</div>` : ''}
           ${c.handle && typeof ouvrirPageArtiste === 'function' ? `<div class="ct-actions"><button type="button" class="ct-btn petit" data-artiste>Voir la page de l'artiste${ico('fleche', 14)}</button></div>` : ''}
-          ${!possede ? `
+          ${!possede && classeur ? `<p class="sous" style="margin-top:14px">Cette carte ne sort que du booster « ${esc((S.boosters || []).find(b => b.id === classeur)?.nom || 'de la collection')} ».</p>` : ''}
+          ${!possede && !classeur ? `
             <div class="ct-ligne-act">
               <span class="ct-pastille-ico">${ico('marteau', 18)}</span>
               <div class="tx"><b>Fabriquer à l'atelier</b>${nf(c.cout)} vinyles · tu en as ${nf(S.etat.vinyles)}</div>
@@ -1810,17 +1937,33 @@
   async function vueCollection(){
 
     const o = S.col;
-    const r = await appel('jeu_collection_lire', { p_page: o.page, p_vue: o.vue, p_rarete: o.rarete, p_q: o.q || null, p_tri: o.tri });
+
+    // Les classeurs des collections (un par booster à classeur) ; sans eux, la collection de base seule.
+    let classeurs = [];
+    try{ classeurs = await appel('jeu_classeurs'); }catch(err){ classeurs = []; }
+    if(!Array.isArray(classeurs)) classeurs = [];
+    if(o.classeur && !classeurs.some(c => c.id === o.classeur)) o.classeur = null;
+    const cl = o.classeur ? classeurs.find(c => c.id === o.classeur) : null;
+
+    const r = cl
+      ? await appel('jeu_classeur_lire', { p_booster: cl.id, p_page: o.page, p_vue: o.vue, p_rarete: o.rarete, p_q: o.q || null, p_tri: o.tri })
+      : await appel('jeu_collection_lire', { p_page: o.page, p_vue: o.vue, p_rarete: o.rarete, p_q: o.q || null, p_tri: o.tri });
     const e = S.etat;
-    const pct = e.total_cartes ? Math.round(e.uniques / e.total_cartes * 1000) / 10 : 0;
     const raretes = r.raretes || [];
+    const possedees = cl ? raretes.reduce((s, x) => s + Number(x.possedees || 0), 0) : e.uniques;
+    const total = cl ? raretes.reduce((s, x) => s + Number(x.total || 0), 0) : e.total_cartes;
+    const pct = total ? Math.round(possedees / total * 1000) / 10 : 0;
+    const finTxt = cl && cl.fin ? new Date(cl.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
 
     S.corps.innerHTML = `
-      <section class="ct-panneau ct-prog">
-        <div class="ct-prog-chiffre">${nf(e.uniques)}<small> / ${nf(e.total_cartes)}</small></div>
+      ${classeurs.length ? `<div class="ct-classeurs" role="group" aria-label="Classeur">
+        ${[{ id: null, nom: 'Série de lancement', theme: 'onde', accent: '#4FB4FF', possedees: e.uniques, total: e.total_cartes }].concat(classeurs).map(c => `<button type="button" class="ct-classeur${(c.id || null) === (o.classeur || null) ? ' actif' : ''}" data-classeur="${esc(c.id || '')}" style="--acc:${couleurOk(c.accent)}" aria-pressed="${(c.id || null) === (o.classeur || null)}"><b>${esc(c.nom)}</b><small>${nf(c.possedees)} / ${nf(c.total)}</small></button>`).join('')}
+      </div>` : ''}
+      <section class="ct-panneau ct-prog"${cl ? ` style="--acc:${couleurOk(cl.accent)}"` : ''}>
+        <div class="ct-prog-chiffre">${nf(possedees)}<small> / ${nf(total)}</small></div>
         <div class="ct-prog-droite">
-          <div class="lib"><span>artistes dans ta collection</span><span>${String(pct).replace('.', ',')} %</span></div>
-          <div class="ct-barre"><i style="width:${Math.max(pct, e.uniques ? .6 : 0)}%"></i></div>
+          <div class="lib"><span>${cl ? esc(cl.nom) + (finTxt ? ' · jusqu\'au ' + esc(finTxt) : '') : 'artistes dans ta collection'}</span><span>${String(pct).replace('.', ',')} %</span></div>
+          <div class="ct-barre"><i style="width:${Math.max(pct, possedees ? .6 : 0)}%"></i></div>
         </div>
         <div class="ct-raretes">${raretes.map(x => `
           <button type="button" class="ct-rar-btn${o.rarete === x.rarete ? ' actif' : ''}" data-rar="${x.rarete}" style="--rc:${rar(x.rarete).c}" aria-pressed="${o.rarete === x.rarete}">
@@ -1859,7 +2002,11 @@
       o.page = Math.max(1, o.page + Number(b.dataset.page));
       vueCollection().then(() => { const t = S.hote.querySelector('.ct-onglets'); if(t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
     }));
-    S.corps.querySelectorAll('.ct-grille [data-i]').forEach((b) => b.addEventListener('click', () => fiche(r.cartes[Number(b.dataset.i)].id)));
+    S.corps.querySelectorAll('.ct-grille [data-i]').forEach((b) => b.addEventListener('click', () => fiche(r.cartes[Number(b.dataset.i)].id, cl ? cl.id : null)));
+    S.corps.querySelectorAll('[data-classeur]').forEach((b) => b.addEventListener('click', () => {
+      o.classeur = b.dataset.classeur || null; o.page = 1; o.vue = 'toutes'; o.rarete = null; o.q = '';
+      vueCollection();
+    }));
     const rt = S.corps.querySelector('[data-recycler-tout]');
     if(rt) rt.addEventListener('click', () => recyclerTout(r.doublons, r.valeur_doublons));
     if(o.q){ champ.focus(); champ.setSelectionRange(champ.value.length, champ.value.length); }
@@ -2141,6 +2288,119 @@
     });
   }
 
-  window.Cartes = { monter, quitter };
+  // ---------------------------------------------------------------------
+  // L'espace équipe : les artistes d'un classeur et la rareté de leur carte
+  // ---------------------------------------------------------------------
+
+  const EQ = { id: null, classeurs: [], cartes: [], q: '', res: [], minuteur: null };
+
+  async function equipe(hote){
+    if(!hote) return;
+    poserStyle();
+    if(!hote.dataset.ctEq){
+      hote.dataset.ctEq = '1';
+      hote.addEventListener('click', equipeClic);
+      hote.addEventListener('change', equipeChange);
+      hote.addEventListener('input', (ev) => {
+        if(!ev.target.matches('[data-eq-q]')) return;
+        EQ.q = ev.target.value;
+        clearTimeout(EQ.minuteur);
+        EQ.minuteur = setTimeout(() => equipeChercher(hote), 250);
+      });
+    }
+    hote.innerHTML = '<div class="ct ct-eq"><div class="ct-vide">Chargement…</div></div>';
+    try{ await equipeCharger(hote, EQ.id); }
+    catch(e){ hote.innerHTML = `<div class="ct ct-eq"><div class="ct-panneau ct-vide">${esc(e.message)}</div></div>`; }
+  }
+
+  async function equipeCharger(hote, id){
+    const r = await appel('jeu_classeur_equipe_lire', { p_booster: id || '' });
+    EQ.classeurs = r.classeurs || [];
+    if(!EQ.classeurs.length){
+      hote.innerHTML = '<div class="ct ct-eq"><div class="ct-panneau ct-vide"><b>Aucune collection</b>Les classeurs ne sont pas encore en place dans la base.</div></div>';
+      return;
+    }
+    if(!EQ.classeurs.some(c => c.id === id)){ EQ.id = EQ.classeurs[0].id; return equipeCharger(hote, EQ.id); }
+    EQ.id = id;
+    EQ.cartes = r.cartes || [];
+    equipeDessiner(hote);
+  }
+
+  function equipeDessiner(hote){
+    const par = [5, 4, 3, 2, 1].map(k => [k, EQ.cartes.filter(c => Number(c.rarete) === k).length]);
+    const options = (sel) => [5, 4, 3, 2, 1].map(k => `<option value="${k}"${Number(sel) === k ? ' selected' : ''}>${esc(RAR[k].nom)}</option>`).join('');
+    hote.innerHTML = `
+      <div class="ct ct-eq">
+        <div class="ct-classeurs">${EQ.classeurs.map(c => `<button type="button" class="ct-classeur${c.id === EQ.id ? ' actif' : ''}" data-eq-cl="${esc(c.id)}" style="--acc:#4FB4FF"><b>${esc(c.nom)}</b><small>${pluriel(c.nb, 'carte')}</small></button>`).join('')}</div>
+        <section class="ct-panneau">
+          <div class="ct-entete-panneau"><div><h3>Ajouter un artiste</h3><p class="sous">Cherche un artiste du jeu, choisis la rareté de sa carte, ajoute-le à ce classeur.</p></div></div>
+          <label class="ct-recherche">${ico('loupe', 17)}<input type="search" data-eq-q value="${esc(EQ.q)}" placeholder="Chercher un artiste" aria-label="Chercher un artiste"></label>
+          <div class="ct-eq-res" data-eq-res></div>
+        </section>
+        <div class="ct-titre-sec"><h3>${pluriel(EQ.cartes.length, 'carte')} · ${par.filter(x => x[1]).map(([k, n]) => n + ' ' + esc(RAR[k].nom)).join(' · ')}</h3></div>
+        <div class="ct-liste">${EQ.cartes.map(c => `
+          <div class="ct-ligne ct-eq-ligne" style="--rc:${rar(c.rarete).c}">
+            <span class="ct-eq-num">${numero(c.numero)}</span>
+            <img class="ct-eq-photo" src="${esc(safeUrl(c.photo))}" alt="" loading="lazy">
+            <div class="tx"><b>${esc(c.nom || 'Artiste')}</b><small style="color:var(--muted)">${c.fans ? esc(court(c.fans)) + ' fans' : ''}</small></div>
+            <select class="ct-select" data-eq-rar="${esc(c.artist_id)}" aria-label="Rareté de ${esc(c.nom || 'la carte')}">${options(c.rarete)}</select>
+            <button type="button" class="ct-btn petit" data-eq-retirer="${esc(c.artist_id)}">Retirer</button>
+          </div>`).join('')}</div>
+      </div>`;
+    equipeResultats(hote, options);
+  }
+
+  function equipeResultats(hote, options){
+    const zone = hote.querySelector('[data-eq-res]');
+    if(!zone) return;
+    options = options || ((sel) => [5, 4, 3, 2, 1].map(k => `<option value="${k}"${Number(sel) === k ? ' selected' : ''}>${esc(RAR[k].nom)}</option>`).join(''));
+    const deja = new Set(EQ.cartes.map(c => c.artist_id));
+    zone.innerHTML = EQ.res.map(a => `
+      <div class="ct-ligne ct-eq-ligne">
+        <img class="ct-eq-photo" src="${esc(safeUrl(a.photo))}" alt="" loading="lazy">
+        <div class="tx"><b>${esc(a.nom)}</b><small style="color:var(--muted)">${a.fans ? esc(court(a.fans)) + ' fans' : ''}</small></div>
+        ${deja.has(a.artist_id)
+          ? '<span class="ct-puce-temps">Déjà dans le classeur</span>'
+          : `<select class="ct-select" data-eq-new="${esc(a.artist_id)}" aria-label="Rareté">${options(1)}</select><button type="button" class="ct-btn principal petit" data-eq-ajouter="${esc(a.artist_id)}">Ajouter</button>`}
+      </div>`).join('');
+  }
+
+  async function equipeChercher(hote){
+    const q = EQ.q.trim();
+    if(q.length < 2){ EQ.res = []; equipeResultats(hote); return; }
+    try{ EQ.res = await appel('jeu_classeur_equipe_chercher', { p_q: q }); equipeResultats(hote); }
+    catch(e){ toast(e.message, 'err'); }
+  }
+
+  async function equipeRegler(hote, artiste, rarete){
+    try{
+      const r = await appel('jeu_classeur_equipe_regler', { p_booster: EQ.id, p_artist: artiste, p_rarete: rarete });
+      EQ.classeurs = r.classeurs || EQ.classeurs;
+      EQ.cartes = r.cartes || [];
+      equipeDessiner(hote);
+      toast(rarete === null ? 'Carte retirée' : 'Classeur mis à jour');
+    }catch(e){ toast(e.message, 'err'); }
+  }
+
+  function equipeClic(ev){
+    const hote = ev.currentTarget;
+    const cl = ev.target.closest('[data-eq-cl]');
+    if(cl){ EQ.id = cl.dataset.eqCl; EQ.q = ''; EQ.res = []; equipeCharger(hote, EQ.id).catch((e) => toast(e.message, 'err')); return; }
+    const aj = ev.target.closest('[data-eq-ajouter]');
+    if(aj){
+      const sel = hote.querySelector(`[data-eq-new="${aj.dataset.eqAjouter}"]`);
+      equipeRegler(hote, aj.dataset.eqAjouter, sel ? Number(sel.value) : 1);
+      return;
+    }
+    const re = ev.target.closest('[data-eq-retirer]');
+    if(re) equipeRegler(hote, re.dataset.eqRetirer, null);
+  }
+
+  function equipeChange(ev){
+    const s = ev.target.closest('[data-eq-rar]');
+    if(s) equipeRegler(ev.currentTarget, s.dataset.eqRar, Number(s.value));
+  }
+
+  window.Cartes = { monter, quitter, equipe };
 
 })();
