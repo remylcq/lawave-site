@@ -1695,7 +1695,7 @@
   async function terminer(sc, r){
     sc.occupe = false;
     sc.texte = '';
-    const gagne = r.etat === 'victoire';
+    const gagne = r.gains && r.gains.ton ? r.gains.ton === 'victoire' : r.etat === 'victoire';   // un mode peut fixer le ton du bilan (gains.ton, gains.titre : ex. la Faille)
     A.Son.jouer(gagne ? 'niveau' : 'volte');
     await pause(sc, 400);
     if(sc.fin) return;
@@ -1713,7 +1713,7 @@
     const v = document.createElement('div');
     v.className = 'cb-voile';
     v.innerHTML = `<div class="cb-fin ${gagne ? 'victoire' : 'defaite'}" role="dialog" aria-label="Fin du combat">
-      <h3>${gagne ? 'VICTOIRE' : (r.etat === 'abandon' ? 'ABANDON' : 'DÉFAITE')}</h3>
+      <h3>${g.titre ? esc(String(g.titre)) : (gagne ? 'VICTOIRE' : (r.etat === 'abandon' ? 'ABANDON' : 'DÉFAITE'))}</h3>
       <p style="margin:0; color:rgba(255,255,255,.75); font-size:14px">${esc(sc.partie.titre || sc.partie.adversaire)}</p>
       ${gains.length ? `<div class="cb-fin-gains">${gains.map((t) => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
       <div class="cb-bilan">${moi.map((u) => ligne(u, false)).join('')}${eux.map((u) => ligne(u, true)).join('')}</div>

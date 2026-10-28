@@ -34,6 +34,7 @@ on:
       - combat-pve.js
       - combat-pvp.js
       - combat-rivaux.js
+      - combat-quete.js
       - marche.js
       - cartes-equipe.js
       - modeles/**
