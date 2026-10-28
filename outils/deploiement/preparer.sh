@@ -14,7 +14,7 @@ dest="${1:-_publication}"
 rm -rf "$dest"
 mkdir -p "$dest"
 
-for f in index.html 404.html robots.txt sitemap.xml site.webmanifest waveurs.js communaute.js portail.js sondage.js verification.js parcours.js profil.js xp.js cartes.js accueil.js combat.js marche.js cartes-equipe.js; do
+for f in index.html 404.html robots.txt sitemap.xml site.webmanifest waveurs.js communaute.js portail.js sondage.js verification.js parcours.js profil.js xp.js cartes.js accueil.js combat.js combat-pve.js marche.js cartes-equipe.js; do
   [ -f "$f" ] || { echo "Fichier manquant : $f" >&2; exit 1; }
   cp "$f" "$dest/$f"
 done
@@ -44,7 +44,7 @@ if [ -d lib ]; then
   cp -r lib "$dest/lib"
 fi
 
-for js in waveurs communaute portail sondage verification parcours profil xp cartes accueil combat marche cartes-equipe; do
+for js in waveurs communaute portail sondage verification parcours profil xp cartes accueil combat combat-pve marche cartes-equipe; do
   empreinte=$(sha256sum "$dest/$js.js" | cut -c1-8)
   sed -i -E "s/(${js}\.js\?v=)[0-9A-Za-z]+/\1${empreinte}/g" "$dest/index.html"
   if ! grep -q "${js}\.js?v=${empreinte}" "$dest/index.html"; then
