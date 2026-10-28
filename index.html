@@ -29827,6 +29827,10 @@ function membreLigneHtml(m){
   const date = (iso) => iso ? formatFrDate(String(iso).slice(0, 10)) : '';
   const moi = currentUser && currentUser.id === m.id;
 
+  // Seul le propriétaire du site voit les boutons d'accès admin (la base le refuse de toute façon aux autres).
+  const jeSuisProprietaire = !!(currentUser && membresLignes.some(x => x.id === currentUser.id && x.proprietaire));
+  const accesChangeable = jeSuisProprietaire && !moi && !m.proprietaire;
+
   const usage = [
     m.nb_posts ? m.nb_posts + (m.nb_posts > 1 ? ' messages' : ' message') : '',
     m.nb_notes ? m.nb_notes + (m.nb_notes > 1 ? ' notes' : ' note') : ''
@@ -29845,7 +29849,7 @@ function membreLigneHtml(m){
           <h4>
             ${escapeHtml(m.pseudo || 'Sans pseudo')}
             ${m.role ? `<span class="mb-pastille">${escapeHtml(m.role)}</span>` : ''}
-            ${m.is_admin ? `<span class="mb-pastille equipe">Équipe</span>` : ''}
+            ${m.proprietaire ? `<span class="mb-pastille equipe">Propriétaire</span>` : (m.is_admin ? `<span class="mb-pastille equipe">Admin</span>` : '')}
             ${m.verifie ? `<span class="mb-pastille">Vérifié</span>` : ''}
           </h4>
           <span class="vf-meta">${escapeHtml(m.email || 'Adresse inconnue')}</span>
@@ -29858,11 +29862,31 @@ function membreLigneHtml(m){
       <div class="vf-actions">
         <button type="button" class="btn btn-ghost" onclick="viewProfile('${id}')">Voir le profil</button>
         ${
+          !accesChangeable
+            ? ''
+            : m.is_admin
+              ? `<button type="button" class="btn btn-ghost" onclick="reglerAccesAdmin('${id}', false)">Retirer l'accès admin</button>`
+              : `<button type="button" class="btn btn-ghost" onclick="openConfirmPanel('mb-acces-${id}')">Donner l'accès admin</button>`
+        }
+        ${
           m.is_admin || moi
             ? ''
             : `<button type="button" class="btn btn-ghost" onclick="openConfirmPanel('mb-suppr-${id}')">Supprimer</button>`
         }
       </div>
+
+      ${
+        accesChangeable && !m.is_admin
+          ? `<div class="confirm-panel mb-panneau" id="mb-acces-${id}">
+               <p>Donner l'accès admin à ${escapeHtml(m.pseudo || 'ce membre')} ? Il verra les pages cachées et l'espace équipe,
+               et pourra modifier le site comme toi. Tu pourras le retirer quand tu veux, ici même.</p>
+               <div class="inline-actions">
+                 <button type="button" class="btn btn-primary" onclick="reglerAccesAdmin('${id}', true)">Oui, donner l'accès</button>
+                 <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('mb-acces-${id}')">Annuler</button>
+               </div>
+             </div>`
+          : ''
+      }
 
       ${
         m.is_admin || moi
@@ -29921,6 +29945,28 @@ async function chargerMembres(){
   setAdminTabCount('membres', membresLignes.length);
 
   afficherMembres();
+}
+
+// Donne (oui) ou retire (non) l'accès admin d'un membre — propriétaire seulement, la base le vérifie.
+async function reglerAccesAdmin(id, oui){
+
+  const m = membresLignes.find(x => x.id === id);
+  const nom = (m && m.pseudo) || 'ce membre';
+
+  const { error } = await supabaseClient.rpc('membre_acces_regler', { p_id: id, p_admin: !!oui });
+
+  if(error){
+    setRowMessage('membresActionMsg', 'Impossible : ' + error.message, 'err');
+    return;
+  }
+
+  await chargerMembres();
+
+  setRowMessage(
+    'membresActionMsg',
+    oui ? nom + ' a maintenant l\'accès admin.' : 'L\'accès admin de ' + nom + ' est retiré.',
+    'ok'
+  );
 }
 
 async function supprimerMembre(id){
