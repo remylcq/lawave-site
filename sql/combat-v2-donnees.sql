@@ -18,8 +18,8 @@ create table if not exists public.combat_roles (
 );
 
 insert into public.combat_roles (id, nom, resume, ordre, m_pv, m_pui, m_def, m_vit) values
-  ('lyriciste', 'Lyriciste',  'Gros dégâts sur une seule cible.',                          1, 0.90, 1.20, 0.90, 1.00),
-  ('pilier',    'Pilier',     'Encaisse les coups et protège ses alliés.',                  2, 1.35, 0.80, 1.30, 0.90),
+  ('lyriciste', 'Lyriciste',  'Gros dégâts sur une seule cible.',                          1, 0.90, 1.15, 0.90, 1.00),
+  ('pilier',    'Pilier',     'Encaisse les coups et protège ses alliés.',                  2, 1.35, 0.90, 1.30, 0.90),
   ('beatmaker', 'Beatmaker',  'Soigne et purifie l''équipe.',                               3, 1.10, 0.95, 1.00, 1.00),
   ('hypeman',   'Hype man',   'Bonus d''attaque, de vitesse et de jauge pour le duo.',      4, 1.00, 1.00, 1.00, 1.15),
   ('clasheur',  'Clasheur',   'Étourdit, gèle ou ralentit les adversaires.',                5, 0.95, 0.95, 0.95, 1.10),
