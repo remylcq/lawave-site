@@ -54,11 +54,12 @@
         indicateur « super efficace » face à `adversaires`, Auto / Manuel, cible présélectionnée).
 
      WaveCombat.modes.liste()   les modes enregistrés.
+     Le bilan d'un combat peut afficher des lignes toutes prêtes : combat_fin_<mode> renvoie { lignes: ['+18 points', …] } (ex. Arène classée).
 
-     Un mode peut vivre dans son propre fichier : le déclarer dans WAVE_MODULES (index.html) et dans MODULES_MODES (ci-dessous) ;
-     il est chargé avec le combat (monter / equipe). Exemple : combat-pvp.js (Arène classée, module WaveCombatPvp).
-     Son bilan peut afficher des lignes toutes prêtes : combat_fin_<mode> renvoie { lignes: ['+18 points', …] }.
-     WaveCombat.equipeOnglets.enregistrer({ id, titre, ouvrir(corps, api) })   ajoute un onglet à la console de l'équipe (equipe()).
+     UN MODULE À PART (ex. combat-pve.js : La Tour, Les champions, La Ligue)
+       Déclarer le fichier dans WAVE_MODULES (index.html) sous un nom « combat-… » : combat.js le charge avec l'onglet (et avec la console
+       de l'équipe), AVANT le premier dessin du hub. Le module appelle alors lui-même WaveCombat.modes.enregistrer({…}) et, pour un réglage
+       dans la console de l'équipe, WaveCombat.equipeVues.enregistrer({ id, nom, ouvrir(corps, api) }).
    ===================================================================== */
 
 (function(){
@@ -551,12 +552,14 @@
     return S.acc;
   }
 
-  // Les modes qui vivent dans leur propre fichier (Arène classée : combat-pvp.js…), déclarés dans WAVE_MODULES (index.html) :
-  // chargés avec le combat ; un fichier absent ou en échec n'empêche rien, son mode n'apparaît simplement pas.
-  const MODULES_MODES = ['combatpvp', 'combatpve'];
-  function chargerModesExtra(){
-    if(typeof window.chargerWaveModule !== 'function') return Promise.resolve();
-    return Promise.all(MODULES_MODES.map((n) => window.chargerWaveModule(n).catch(() => { /* ce mode n'apparaîtra pas */ })));
+  // Les modes fournis par d'autres fichiers (combat-pve.js…) : tout module « combat-… » déclaré dans WAVE_MODULES (index.html)
+  // est chargé avec l'onglet ; il s'enregistre lui-même (modes.enregistrer, equipeVues.enregistrer). Un échec n'empêche rien.
+  let modesCharges = null;
+  function chargerModes(){
+    if(modesCharges) return modesCharges;
+    if(typeof WAVE_MODULES !== 'object' || typeof window.chargerWaveModule !== 'function') return Promise.resolve();
+    modesCharges = Promise.all(Object.keys(WAVE_MODULES).filter((n) => /^combat-/.test(n)).map((n) => window.chargerWaveModule(n).catch(() => null)));
+    return modesCharges;
   }
 
   async function monter(hote, api){
@@ -564,7 +567,7 @@
     S.hote = hote;
     if(!hote.querySelector('.cb')) hote.innerHTML = '<div class="ct-vide">Chargement…</div>';
     try{
-      await Promise.all([chargerModesExtra(), chargerAcc()]);
+      await Promise.all([chargerAcc(), chargerModes()]);
     }catch(e){
       hote.innerHTML = `<div class="ct-panneau ct-vide"><b>Le combat n'a pas pu s'ouvrir</b>${esc(e.message)}</div>`;
       return;
@@ -1738,19 +1741,19 @@
 
   const OPT = (valeur, texte, sel) => `<option value="${esc(valeur)}"${String(sel) === String(valeur) ? ' selected' : ''}>${esc(texte)}</option>`;
 
-  // Onglets ajoutés à la console de l'équipe par d'autres fichiers : WaveCombat.equipeOnglets.enregistrer({ id, titre, ouvrir(corps, api) }).
-  const ONGLETS_EQUIPE = [];
-  function enregistrerOnglet(o){
-    if(!o || !/^[a-z][a-z0-9_-]{1,29}$/.test(String(o.id || '')) || !o.titre || typeof o.ouvrir !== 'function') throw new Error("Onglet d'équipe invalide : il faut un id, un titre et une fonction ouvrir(corps, api).");
-    const i = ONGLETS_EQUIPE.findIndex((x) => x.id === o.id);
-    if(i >= 0) ONGLETS_EQUIPE[i] = o; else ONGLETS_EQUIPE.push(o);
+  // Les onglets de la console ajoutés par d'autres fichiers : { id, nom, ouvrir(corps, api) }.
+  const vuesEquipe = [];
+  function enregistrerVueEquipe(v){
+    if(!v || !/^[a-z][a-z0-9_-]{1,29}$/.test(String(v.id || '')) || !v.nom || typeof v.ouvrir !== 'function') throw new Error('Onglet de console invalide : il faut un id, un nom et une fonction ouvrir(corps, api).');
+    const i = vuesEquipe.findIndex((x) => x.id === v.id);
+    if(i >= 0) vuesEquipe[i] = v; else vuesEquipe.push(v);
   }
 
   async function equipe(hote, api){
     init(api);
-    await chargerModesExtra();
+    await chargerModes();
     const vues = [['cartes', 'Cartes'], ['types', 'Types et affinités'], ['techniques', 'Techniques'], ['capacites', 'Passifs'], ['arene', 'Arène'], ['test', 'Test de combat']]
-      .concat(ONGLETS_EQUIPE.map((o) => [o.id, o.titre]));
+      .concat(vuesEquipe.map((v) => [v.id, v.nom]));
     let vue = 'cartes';
     hote.innerHTML = `<div class="ct cb" style="padding:0"><nav class="cb-seg" aria-label="Réglages du combat">${vues.map(([id, nom]) => `<button type="button" data-v="${id}" aria-pressed="${id === vue}">${nom}</button>`).join('')}</nav><div data-corps><div class="ct-vide">Chargement…</div></div></div>`;
     const corps = hote.querySelector('[data-corps]');
@@ -1759,14 +1762,13 @@
       hote.querySelectorAll('.cb-seg [data-v]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
       corps.innerHTML = '<div class="ct-vide">Chargement…</div>';
       try{
-        const ext = ONGLETS_EQUIPE.find((o) => o.id === v);
-        if(ext){ corps.innerHTML = ''; await ext.ouvrir(corps, A); return; }
         const cat = await catalogue(true);
         if(v === 'cartes') await eqCartes(corps, cat);
         else if(v === 'types') eqTypes(corps, cat);
         else if(v === 'techniques') eqTechniques(corps, cat);
         else if(v === 'capacites') eqCapacites(corps, cat);
         else if(v === 'arene') eqArene(corps, cat);
+        else if(vuesEquipe.some((x) => x.id === v)) await vuesEquipe.find((x) => x.id === v).ouvrir(corps, A);
         else await eqTest(corps, cat);
       }catch(e){
         corps.innerHTML = `<div class="ct-panneau ct-vide"><b>Impossible d'ouvrir ce réglage</b>${esc(e.message)}</div>`;
@@ -2085,6 +2087,6 @@
   }
 
 
-  window.WaveCombat = { monter, quitter, fiche, equipe, equipeCarte, lancerCombat, equipeModal, equipeOnglets: { enregistrer: enregistrerOnglet, liste: () => ONGLETS_EQUIPE.slice() }, modes: { enregistrer, liste: () => S.modes.slice() } };
+  window.WaveCombat = { monter, quitter, fiche, equipe, equipeCarte, lancerCombat, equipeModal, modes: { enregistrer, liste: () => S.modes.slice() }, equipeVues: { enregistrer: enregistrerVueEquipe } };
 
 })();

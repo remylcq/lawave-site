@@ -1,7 +1,7 @@
 /* =====================================================================
    La Wave — Wave Cards : l'Arène classée 2v2 et la Saison mensuelle
 
-   Un mode du hub de combat (voir l'en-tête de combat.js), chargé avec lui (combatpvp dans WAVE_MODULES, index.html).
+   Un mode du hub de combat (voir l'en-tête de combat.js), chargé avec lui (« combat-pvp » dans WAVE_MODULES, index.html).
    Les règles vivent dans la base (sql/combat-pvp-arene.sql) : tickets, points Elo, rangs, récompense hebdomadaire du dimanche,
    saison mensuelle et ses tranches de récompenses. Ce fichier demande et dessine ; aucun calcul de points ici.
 
@@ -9,7 +9,7 @@
      Rang        l'écran de rang (Débutant → Bronze → Argent → Or → Platine → Diamant → Légende), la récompense du dimanche, le classement
      Saison      compte à rebours, podium, ma place et ma tranche, récompenses de fin de saison, classement de la saison
      Journal     mes attaques et mes défenses
-     Équipe      WaveCombat.equipeOnglets : réglages (tickets, K, rangs, récompenses) et saisons (dates, tranches) — console équipe
+     Équipe      WaveCombat.equipeVues : réglages (tickets, K, rangs, récompenses) et saisons (dates, tranches) — console équipe
 
    Classements de l'Accueil : ajoute « Arène classée » et « Saison » à window.WaveClassements (format décrit en tête d'accueil.js).
    ===================================================================== */
@@ -538,7 +538,7 @@
         return `${d.moi.rang.nom} · ${nf(d.moi.points)} pts · ${d.moi.tickets}/${d.moi.tickets_max} ticket${d.moi.tickets > 1 ? 's' : ''}`;
       },
       ouvrir });
-    if(C.equipeOnglets) C.equipeOnglets.enregistrer({ id: 'arene-classee', titre: 'Arène classée', ouvrir: eqPvp });
+    if(C.equipeVues) C.equipeVues.enregistrer({ id: 'arene-classee', nom: 'Arène classée', ouvrir: eqPvp });
 
     // Les classements de l'Accueil (accueil.js les lit à l'affichage ; format décrit en tête de ce fichier).
     const liste = (window.WaveClassements = window.WaveClassements || []);
