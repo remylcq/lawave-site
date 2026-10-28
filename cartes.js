@@ -927,6 +927,97 @@
   };
 
   // ---------------------------------------------------------------------
+  // L'extrait d'un artiste (carte Mythique) : l'aperçu de 30 s de son morceau le plus écouté sur Deezer.
+  // L'API de Deezer n'autorise pas fetch depuis un autre site, mais répond en JSONP : un <script> suffit.
+  // L'adresse de l'aperçu expire au bout de quelques heures, donc on la demande à chaque ouverture (une seule
+  // fois par carte Mythique, pendant l'attente) au lieu de la garder en base.
+  // ---------------------------------------------------------------------
+
+  const Extrait = {
+    audio: null,
+    minuterie: 0,
+    jsonp(url, delai){
+      return new Promise((ok) => {
+        const nom = '__lwDz' + Date.now().toString(36) + Math.floor(Math.random() * 1e6);
+        const s = document.createElement('script');
+        let termine = false;
+        const fin = (v) => {
+          if(termine) return;
+          termine = true;
+          clearTimeout(t);
+          try{ delete window[nom]; }catch(e){ window[nom] = undefined; }
+          s.remove();
+          ok(v);
+        };
+        const t = setTimeout(() => fin(null), delai || 4500);
+        window[nom] = (d) => fin(d);
+        s.onerror = () => fin(null);
+        s.src = url + (url.includes('?') ? '&' : '?') + 'output=jsonp&callback=' + nom;
+        document.head.appendChild(s);
+      });
+    },
+    // L'identifiant Deezer de l'artiste : déjà en mémoire avec les profils du site, sinon on le demande.
+    async idDeezer(c){
+      try{
+        if(typeof artistsByHandle !== 'undefined' && c.handle && artistsByHandle[c.handle] && artistsByHandle[c.handle].deezer_artist_id){
+          return artistsByHandle[c.handle].deezer_artist_id;
+        }
+        if(typeof supabaseClient !== 'undefined' && c.id){
+          const { data } = await supabaseClient.from('artists').select('deezer_artist_id').eq('id', c.id).maybeSingle();
+          if(data && data.deezer_artist_id) return data.deezer_artist_id;
+        }
+      }catch(e){ /* pas d'identifiant : pas d'extrait */ }
+      return null;
+    },
+    // Prépare l'audio (sans le jouer) ; rend { audio, titre } ou null si l'artiste n'a pas d'aperçu.
+    async preparer(c){
+      if(!Son.actif()) return null;
+      try{
+        const id = await this.idDeezer(c);
+        if(!id) return null;
+        const rep = await this.jsonp('https://api.deezer.com/artist/' + encodeURIComponent(id) + '/top?limit=10');
+        const titre = rep && Array.isArray(rep.data) ? rep.data.find((t) => t && t.preview) : null;
+        if(!titre) return null;
+        const audio = new Audio();
+        audio.preload = 'auto';
+        audio.volume = 0;
+        audio.src = titre.preview;
+        return { audio, titre: titre.title_short || titre.title || '' };
+      }catch(e){ return null; }
+    },
+    // Lance l'extrait en fondu, le coupe en fondu au bout de 14 s (ou plus tôt avec arreter).
+    lancer(pret){
+      this.arreter(true);
+      if(!pret || !Son.actif()) return;
+      const a = pret.audio;
+      this.audio = a;
+      a.currentTime = 0;
+      const p = a.play();
+      if(p && p.catch) p.catch(() => { if(this.audio === a) this.audio = null; });
+      this.fondu(a, 0.85, 600);
+      this.minuterie = setTimeout(() => this.arreter(), 14000);
+    },
+    fondu(a, vers, ms, apres){
+      const debut = a.volume, t0 = performance.now();
+      const pas = () => {
+        if(this.audio !== a && vers > 0) return;
+        const k = Math.min(1, (performance.now() - t0) / ms);
+        try{ a.volume = Math.max(0, Math.min(1, debut + (vers - debut) * k)); }catch(e){}
+        if(k < 1) requestAnimationFrame(pas); else if(apres) apres();
+      };
+      pas();
+    },
+    arreter(sec){
+      clearTimeout(this.minuterie);
+      const a = this.audio;
+      if(!a) return;
+      this.audio = null;
+      if(sec){ try{ a.pause(); }catch(e){} return; }
+      this.fondu(a, 0, 350, () => { try{ a.pause(); a.removeAttribute('src'); a.load(); }catch(e){} });
+    }
+  };
+
+  // ---------------------------------------------------------------------
   // Les particules : un seul canevas, qui ne tourne que tant qu'il a de quoi dessiner
   // ---------------------------------------------------------------------
 
@@ -1609,6 +1700,7 @@
       function fermer(rouvrir){
         if(fini) return;
         fini = true;
+        Extrait.arreter();
         fx.fin();
         document.removeEventListener('keydown', touche);
         ov.style.transition = 'opacity .25s';
@@ -1701,6 +1793,9 @@
         const pos = centreDe(p);
         pied.innerHTML = '';
 
+        // Mythique : l'extrait de l'artiste se prépare pendant l'attente et se lance quand la carte se retourne.
+        const extrait = r >= 5 ? Extrait.preparer(c) : null;
+
         if(r >= 3 && !calme()){
           // L'attente : la carte vibre, la lumière se rassemble.
           p.classList.add('charge');
@@ -1721,6 +1816,7 @@
           if(fini) return;
           Son.jouer('r' + r);
           if(c.holo) Son.jouer('holo');
+          if(extrait) extrait.then((pret) => { if(pret && !fini && courante === i) Extrait.lancer(pret); });
         }, 180);
 
         setTimeout(() => {
@@ -1761,6 +1857,7 @@
         phase = 'sort';
         const p = places[courante];
         const et = p.querySelector('.ct-etiq'); if(et) et.remove();
+        Extrait.arreter();
         rayons.classList.remove('on');
         teinte(teinteBooster);
         p.classList.add('sort');
