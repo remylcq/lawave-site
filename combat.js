@@ -54,6 +54,7 @@
         indicateur « super efficace » face à `adversaires`, Auto / Manuel, cible présélectionnée).
 
      WaveCombat.modes.liste()   les modes enregistrés.
+     Le bilan d'un combat peut afficher des lignes toutes prêtes : combat_fin_<mode> renvoie { lignes: ['+18 points', …] } (ex. Arène classée).
 
      UN MODULE À PART (ex. combat-pve.js : La Tour, Les champions, La Ligue)
        Déclarer le fichier dans WAVE_MODULES (index.html) sous un nom « combat-… » : combat.js le charge avec l'onglet (et avec la console
@@ -1062,7 +1063,7 @@
   function confirmerAbandon(partie, depuisScene){
     const f = A.fenetre(`
       <h2>Abandonner le combat ?</h2>
-      <p class="sous">${partie.mode === 'pvp' ? 'Contre un joueur, un abandon compte comme une défaite et te coûte des trophées.' : 'Tu ne perds aucune carte. Tu pourras relancer un combat quand tu veux.'}</p>
+      <p class="sous">${partie.mode === 'arene_classee' ? "En Arène classée, un abandon compte comme une défaite : tu perds des points d'arène et le ticket d'attaque est consommé." : partie.mode === 'pvp' ? 'Contre un joueur, un abandon compte comme une défaite et te coûte des trophées.' : 'Tu ne perds aucune carte. Tu pourras relancer un combat quand tu veux.'}</p>
       <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Continuer</button><button type="button" class="ct-btn principal" data-oui>Abandonner</button></div>`);
     f.corps.querySelector('[data-non]').addEventListener('click', f.fermer);
     const oui = f.corps.querySelector('[data-oui]');
@@ -1704,6 +1705,7 @@
     const g = r.gains || {};
     const gains = [];
     if(g.vinyles) gains.push(`+${g.vinyles} vinyle${g.vinyles > 1 ? 's' : ''}`);
+    if(Array.isArray(g.lignes)) g.lignes.forEach((t) => gains.push(String(t)));   // lignes toutes prêtes d'un mode (ex. Arène classée)
     if(r.trophees_delta) gains.push(`${signe(r.trophees_delta)} trophées`);
     Object.keys(g).filter((k) => !['vinyles', 'premiere'].includes(k) && typeof g[k] === 'number').forEach((k) => gains.push(`+${g[k]} ${k}`));
     const ligne = (u, adv) => `<div class="l${u === mvp ? ' mvp' : ''}${adv ? ' adv' : ''}" style="--tc:${couleur(u.couleur)}"><img src="${esc(A.safeUrl(u.photo))}" alt=""><div><b>${esc(u.nom)}${u === mvp ? '<span class="mvp-t">MVP</span>' : ''}</b><span style="font-size:11px; color:rgba(255,255,255,.6)">${esc(u.role_nom || '')}${u.ko ? ' · K.O.' : ''}</span></div>
