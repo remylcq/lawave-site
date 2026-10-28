@@ -54,6 +54,11 @@
         indicateur « super efficace » face à `adversaires`, Auto / Manuel, cible présélectionnée).
 
      WaveCombat.modes.liste()   les modes enregistrés.
+
+     Un mode peut vivre dans son propre fichier : le déclarer dans WAVE_MODULES (index.html) et dans MODULES_MODES (ci-dessous) ;
+     il est chargé avec le combat (monter / equipe). Exemple : combat-pvp.js (Arène classée, module WaveCombatPvp).
+     Son bilan peut afficher des lignes toutes prêtes : combat_fin_<mode> renvoie { lignes: ['+18 points', …] }.
+     WaveCombat.equipeOnglets.enregistrer({ id, titre, ouvrir(corps, api) })   ajoute un onglet à la console de l'équipe (equipe()).
    ===================================================================== */
 
 (function(){
@@ -546,12 +551,20 @@
     return S.acc;
   }
 
+  // Les modes qui vivent dans leur propre fichier (Arène classée : combat-pvp.js…), déclarés dans WAVE_MODULES (index.html) :
+  // chargés avec le combat ; un fichier absent ou en échec n'empêche rien, son mode n'apparaît simplement pas.
+  const MODULES_MODES = ['combatpvp', 'combatpve'];
+  function chargerModesExtra(){
+    if(typeof window.chargerWaveModule !== 'function') return Promise.resolve();
+    return Promise.all(MODULES_MODES.map((n) => window.chargerWaveModule(n).catch(() => { /* ce mode n'apparaîtra pas */ })));
+  }
+
   async function monter(hote, api){
     init(api);
     S.hote = hote;
     if(!hote.querySelector('.cb')) hote.innerHTML = '<div class="ct-vide">Chargement…</div>';
     try{
-      await chargerAcc();
+      await Promise.all([chargerModesExtra(), chargerAcc()]);
     }catch(e){
       hote.innerHTML = `<div class="ct-panneau ct-vide"><b>Le combat n'a pas pu s'ouvrir</b>${esc(e.message)}</div>`;
       return;
@@ -1047,7 +1060,7 @@
   function confirmerAbandon(partie, depuisScene){
     const f = A.fenetre(`
       <h2>Abandonner le combat ?</h2>
-      <p class="sous">${partie.mode === 'pvp' ? 'Contre un joueur, un abandon compte comme une défaite et te coûte des trophées.' : 'Tu ne perds aucune carte. Tu pourras relancer un combat quand tu veux.'}</p>
+      <p class="sous">${partie.mode === 'arene_classee' ? "En Arène classée, un abandon compte comme une défaite : tu perds des points d'arène et le ticket d'attaque est consommé." : partie.mode === 'pvp' ? 'Contre un joueur, un abandon compte comme une défaite et te coûte des trophées.' : 'Tu ne perds aucune carte. Tu pourras relancer un combat quand tu veux.'}</p>
       <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Continuer</button><button type="button" class="ct-btn principal" data-oui>Abandonner</button></div>`);
     f.corps.querySelector('[data-non]').addEventListener('click', f.fermer);
     const oui = f.corps.querySelector('[data-oui]');
@@ -1689,6 +1702,7 @@
     const g = r.gains || {};
     const gains = [];
     if(g.vinyles) gains.push(`+${g.vinyles} vinyle${g.vinyles > 1 ? 's' : ''}`);
+    if(Array.isArray(g.lignes)) g.lignes.forEach((t) => gains.push(String(t)));   // lignes toutes prêtes d'un mode (ex. Arène classée)
     if(r.trophees_delta) gains.push(`${signe(r.trophees_delta)} trophées`);
     Object.keys(g).filter((k) => !['vinyles', 'premiere'].includes(k) && typeof g[k] === 'number').forEach((k) => gains.push(`+${g[k]} ${k}`));
     const ligne = (u, adv) => `<div class="l${u === mvp ? ' mvp' : ''}${adv ? ' adv' : ''}" style="--tc:${couleur(u.couleur)}"><img src="${esc(A.safeUrl(u.photo))}" alt=""><div><b>${esc(u.nom)}${u === mvp ? '<span class="mvp-t">MVP</span>' : ''}</b><span style="font-size:11px; color:rgba(255,255,255,.6)">${esc(u.role_nom || '')}${u.ko ? ' · K.O.' : ''}</span></div>
@@ -1724,9 +1738,19 @@
 
   const OPT = (valeur, texte, sel) => `<option value="${esc(valeur)}"${String(sel) === String(valeur) ? ' selected' : ''}>${esc(texte)}</option>`;
 
+  // Onglets ajoutés à la console de l'équipe par d'autres fichiers : WaveCombat.equipeOnglets.enregistrer({ id, titre, ouvrir(corps, api) }).
+  const ONGLETS_EQUIPE = [];
+  function enregistrerOnglet(o){
+    if(!o || !/^[a-z][a-z0-9_-]{1,29}$/.test(String(o.id || '')) || !o.titre || typeof o.ouvrir !== 'function') throw new Error("Onglet d'équipe invalide : il faut un id, un titre et une fonction ouvrir(corps, api).");
+    const i = ONGLETS_EQUIPE.findIndex((x) => x.id === o.id);
+    if(i >= 0) ONGLETS_EQUIPE[i] = o; else ONGLETS_EQUIPE.push(o);
+  }
+
   async function equipe(hote, api){
     init(api);
-    const vues = [['cartes', 'Cartes'], ['types', 'Types et affinités'], ['techniques', 'Techniques'], ['capacites', 'Passifs'], ['arene', 'Arène'], ['test', 'Test de combat']];
+    await chargerModesExtra();
+    const vues = [['cartes', 'Cartes'], ['types', 'Types et affinités'], ['techniques', 'Techniques'], ['capacites', 'Passifs'], ['arene', 'Arène'], ['test', 'Test de combat']]
+      .concat(ONGLETS_EQUIPE.map((o) => [o.id, o.titre]));
     let vue = 'cartes';
     hote.innerHTML = `<div class="ct cb" style="padding:0"><nav class="cb-seg" aria-label="Réglages du combat">${vues.map(([id, nom]) => `<button type="button" data-v="${id}" aria-pressed="${id === vue}">${nom}</button>`).join('')}</nav><div data-corps><div class="ct-vide">Chargement…</div></div></div>`;
     const corps = hote.querySelector('[data-corps]');
@@ -1735,6 +1759,8 @@
       hote.querySelectorAll('.cb-seg [data-v]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
       corps.innerHTML = '<div class="ct-vide">Chargement…</div>';
       try{
+        const ext = ONGLETS_EQUIPE.find((o) => o.id === v);
+        if(ext){ corps.innerHTML = ''; await ext.ouvrir(corps, A); return; }
         const cat = await catalogue(true);
         if(v === 'cartes') await eqCartes(corps, cat);
         else if(v === 'types') eqTypes(corps, cat);
@@ -2059,6 +2085,6 @@
   }
 
 
-  window.WaveCombat = { monter, quitter, fiche, equipe, equipeCarte, lancerCombat, equipeModal, modes: { enregistrer, liste: () => S.modes.slice() } };
+  window.WaveCombat = { monter, quitter, fiche, equipe, equipeCarte, lancerCombat, equipeModal, equipeOnglets: { enregistrer: enregistrerOnglet, liste: () => ONGLETS_EQUIPE.slice() }, modes: { enregistrer, liste: () => S.modes.slice() } };
 
 })();
