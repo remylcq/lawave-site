@@ -1,16 +1,59 @@
 /* =====================================================================
-   La Wave — Wave Cards : le combat 2v2
+   La Wave — Wave Cards : le combat 2v2 à jauge de tour
 
    Chargé à la demande par cartes.js (onglet « Combat », chargerWaveModule('combat') dans index.html).
-   Le moteur vit dans la base (sql/combat-*.sql) : types, statistiques, attaques, tours, adversaires, trophées. Ce fichier
-   demande, affiche et anime : tout calcul et tout hasard restent côté serveur.
+   Le moteur vit dans la base (sql/combat-v2-*.sql) : jauges de tour, rôles, techniques, statuts, passifs, adversaires, trophées.
+   Ce fichier demande, affiche et anime : tout calcul et tout hasard restent côté serveur.
 
-     monter(hote, api)            l'onglet : mon rang, mes duos, l'Arène, le défi du jour, les défis entre joueurs,
-                                  le classement, l'historique, l'écran de combat animé
-     fiche(el, api, opts)         la fiche de combat d'une carte (type, stats, attaques, capacité, faiblesses)
-     equipe(hote, api)            la console de l'équipe : cartes, types et affinités, attaques, capacités, Arène, test
-     equipeCarte(hote, api, id)   l'éditeur compact des réglages d'UNE carte (pour l'éditeur de cartes de l'équipe)
-     quitter()                    ferme l'écran de combat (le combat reste en cours côté serveur)
+   LE COMBAT EN BREF
+     2 cartes contre 2 cartes. Chaque carte remplit une jauge selon sa Vitesse et joue quand elle est pleine. Elle a un RÔLE
+     (Lyriciste, Pilier, Beatmaker, Hype man, Clasheur, Briseur), 3 TECHNIQUES (la 1re toujours prête, les 2 autres avec un temps
+     de recharge) et, en Légendaire / Mythique, un PASSIF. Styles : ▲ super efficace (×1,5), ▼ peu efficace (×0,67).
+     Statuts avec durée : Puissance / Défense / Vitesse ±, étourdi, gel, brûlure, poison, régénération, marque, provocation, bouclier.
+
+   L'API PUBLIQUE (window.WaveCombat)
+     monter(hote, api)             l'onglet : mon rang, le HUB EN TUILES des modes, le classement, l'historique
+     quitter()                     ferme l'écran de combat (le combat reste en cours côté serveur)
+     fiche(el, api, opts)          la fiche de combat d'une carte (collection)
+     equipe(hote, api)             la console de l'équipe (réglages : cartes, styles, techniques, passifs, Arène, test)
+     equipeCarte(hote, api, id)    l'éditeur compact des réglages d'UNE carte
+
+   POUR AJOUTER UN MODE DE COMBAT (autres modules)
+     1. SQL (voir l'en-tête de sql/combat-v2-jeu.sql) : une ligne dans combat_modes, une fonction de mode qui appelle combat_creer(...)
+        avec l'équipe adverse, et — si le mode verse des gains — une fonction combat_fin_<mode>(partie, victoire, abandon) → jsonb.
+     2. JS : charger le module (await chargerWaveModule('combat')), puis enregistrer le mode dans le hub :
+
+          WaveCombat.modes.enregistrer({
+            id: 'mon_mode',                         // [a-z][a-z0-9_-]{1,29}, le même que dans combat_modes
+            titre: 'Mon mode',
+            groupe: 'jeu' | 'dresseurs' | 'farm',   // « Contre le jeu » / « Contre les dresseurs » / « Entraînement »
+            icone: 'combat',                        // une icône de A.ico (combat, trophee, cible, eclair…)
+            resume: async (acc) => 'où j\'en suis',  // UNE ligne affichée sur la tuile (acc = combat_accueil)
+            ouvrir(hote, api) { … }                 // dessine la page du mode dans hote ; api = l'API du jeu (appel, toast, fenetre,
+          });                                       //   esc, nf, safeUrl, ico…) + lancerCombat, equipeModal, rafraichir, acc(), retour()
+
+     3. Lancer un combat depuis ouvrir() :
+
+          api.lancerCombat({
+            rpc: 'ma_fonction_sql',        // fonction SQL du mode : (…params, p_duo jsonb, p_options jsonb) → combat_partie_json
+            params: { p_niveau: 3 },       // ses paramètres propres
+            titre: 'Mon combat', decor: 'ruelle',   // décors : studio, concert, plateau, ruelle, toit (le décor est fixé côté SQL)
+            adversaires: [{ nom, photo, type, type_nom, couleur, role_nom }],  // facultatif : aperçu « face à » + indicateur ▲ ▼
+            options: { auto: false },      // facultatif
+            // mode: 'arene' | 'defi' | 'pvp' | 'entrainement' + cible : les modes intégrés passent par combat_lancer
+            // partie: <objet renvoyé par le SQL> : ouvre directement un combat déjà créé, sans choix d'équipe
+            // choix: { duo, auto, cible } : saute la fenêtre d'équipe (Rejouer)
+          });
+
+        lancerCombat ouvre la fenêtre d'équipe (equipeModal), crée le combat côté serveur, ouvre l'écran animé, affiche le
+        bilan (dégâts / soins / K.O., MVP, gains) et propose Rejouer.
+
+     WaveCombat.equipeModal({ titre, taille: 2, adversaires, duo, auto, confirmer, sansOptions })
+        → Promise<{ duo: [{booster, artist, holo}], infos, auto, cible } | null>
+        La composition d'équipe seule (2 cartes, ordre par glisser-déposer ou flèches, 5 équipes enregistrées, équipe auto,
+        indicateur « super efficace » face à `adversaires`, Auto / Manuel, cible présélectionnée).
+
+     WaveCombat.modes.liste()   les modes enregistrés.
    ===================================================================== */
 
 (function(){
@@ -18,14 +61,23 @@
   'use strict';
 
   let A = null;   // l'interface partagée du jeu (window.Cartes.api)
-  const S = { hote: null, vue: 'jouer', acc: null, adv: null, clas: null, histo: null, scene: null, cat: null };
+  const S = { hote: null, vue: 'jouer', mode: null, acc: null, scene: null, cat: null, modes: [], init: false };
 
   const LIB = { pv: 'PV', pui: 'Puissance', def: 'Défense', vit: 'Vitesse' };
-  const MODES = { arene: 'Arène', defi: 'Défi du jour', pvp: 'Défi entre joueurs', entrainement: 'Entraînement' };
-  const EFFETS = { soin: 'Soin', 'pui+': 'Puissance +', 'def+': 'Défense +', 'vit+': 'Vitesse +', 'pui-': 'Puissance −', 'def-': 'Défense −', 'vit-': 'Vitesse −', etourdi: 'Étourdissement', poison: 'Poison', vampirisme: 'Vampirisme', recul: 'Recul' };
-  const CIBLES = { ennemi: 'Un adversaire', ennemis: 'Les deux adversaires', allie: 'Un allié', soi: 'Soi-même', equipe: 'Tout le duo' };
-  const ROLES = { base: 'Attaque de base', forte: 'Attaque forte', soutien: 'Soutien', neutre: 'Neutre (sans type)' };
-  const CODES = { regeneration: 'Régénération (% PV par tour)', epines: 'Épines (% des dégâts renvoyés)', sang_froid: 'Sang-froid (insensible aux statuts)', ouverture: 'Ouverture (% de dégâts en plus au 1er coup)', dernier_souffle: 'Dernier souffle (% des PV max en dégâts)', survivant: 'Survivant (1 PV une fois)', aura: 'Aura (% de Puissance pour le duo)', concentration: 'Concentration (ne rate jamais)' };
+  const CIBLES = { ennemi: 'Un adversaire', ennemis: 'Les deux adversaires', allie: 'Un allié (soi compris)', allies: 'Tout le duo', soi: 'Soi-même' };
+  const CODES = { regeneration: 'Régénération (% PV au début de chaque tour)', epines: 'Épines (% des dégâts renvoyés)', sang_froid: 'Sang-froid (insensible aux statuts néfastes)', ouverture: 'Ouverture (% de dégâts en plus au 1er coup)',
+    dernier_souffle: 'Dernier souffle (% des PV max en dégâts)', survivant: 'Survivant (1 PV une fois)', aura: 'Aura (% de Puissance pour le duo)', concentration: 'Concentration (ne rate jamais)',
+    rythme: 'Bon rythme (% de jauge au départ)', bouclier: 'Armure de scène (bouclier de départ, % des PV)', rage: 'Rage (Puissance en plus sous la moitié des PV)' };
+  const EFFETS_AIDE = 'k : soin, bouclier, vampirisme, recul, pui+, pui-, def+, def-, vit+, vit-, etourdi, gel, brulure, poison, regen, marque, provoc, purif, jauge+, jauge- · v : % · d : tours · chance : % · sur : soi, allies, ennemis (sinon la cible)';
+  const STAT = {
+    'pui+': { c: 'PUI▲', n: 'Puissance en hausse', t: 'haut' }, 'pui-': { c: 'PUI▼', n: 'Puissance en baisse', t: 'bas' },
+    'def+': { c: 'DÉF▲', n: 'Défense en hausse', t: 'haut' }, 'def-': { c: 'DÉF▼', n: 'Défense en baisse', t: 'bas' },
+    'vit+': { c: 'VIT▲', n: 'Vitesse en hausse', t: 'haut' }, 'vit-': { c: 'VIT▼', n: 'Vitesse en baisse', t: 'bas' },
+    etourdi: { c: 'ÉTOURDI', n: 'Étourdi : saute son prochain tour', t: 'bas' }, gel: { c: 'GELÉ', n: 'Gelé : saute son prochain tour et subit plus de dégâts', t: 'bas' },
+    brulure: { c: 'BRÛLÉ', n: 'Brûlure : perd des PV chaque tour et frappe moins fort', t: 'bas' }, poison: { c: 'POISON', n: 'Poison : perd des PV chaque tour', t: 'bas' },
+    marque: { c: 'MARQUÉ', n: 'Marqué : subit plus de dégâts', t: 'bas' }, regen: { c: 'RÉGÉN', n: 'Récupère des PV chaque tour', t: 'haut' },
+    provoc: { c: 'PROVOC', n: 'Provocation : les adversaires doivent le viser', t: 'neutre' }, bouclier: { c: 'BOUCLIER', n: 'Bouclier : absorbe des dégâts', t: 'haut' }
+  };
 
   const CSS = `
   .cb{display:grid; gap:18px;}
@@ -138,100 +190,225 @@
   .cb-aff .cb-type{height:18px; font-size:10.5px;}
   .cb-cit{margin:0; padding-left:10px; border-left:2px solid var(--ct-trait-fort); font-size:12.5px; font-style:italic; color:var(--muted); line-height:1.5;}
 
+  /* ---------- le hub des modes ---------- */
+  .cb-groupe{display:grid; gap:10px;}
+  .cb-groupe > h3{margin:0; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--muted);}
+  .cb-tuiles{display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:12px;}
+  .cb-tuile-mode{all:unset; box-sizing:border-box; cursor:pointer; display:grid; grid-template-columns:auto 1fr; gap:4px 14px; align-items:center; padding:16px; border-radius:18px; border:1px solid var(--ct-trait); background:linear-gradient(160deg, rgba(255,255,255,.06), rgba(255,255,255,.015)); transition:transform .2s, border-color .2s;}
+  .cb-tuile-mode:hover{transform:translateY(-3px); border-color:var(--ct-accent);}
+  .cb-tuile-mode:focus-visible{outline:2px solid var(--ct-accent); outline-offset:2px;}
+  .cb-tuile-mode .ic{grid-row:1 / 3; display:grid; place-items:center; width:46px; height:46px; border-radius:14px; background:rgba(79,180,255,.14); color:var(--ct-accent);}
+  .cb-tuile-mode h4{margin:0; font-size:16px;}
+  .cb-tuile-mode p{margin:0; font-size:12.5px; line-height:1.4; color:var(--muted); min-height:17px;}
+  .cb-retour{all:unset; cursor:pointer; box-sizing:border-box; display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 14px 0 10px; border-radius:99px; font-size:13px; font-weight:700; color:var(--ink-soft); border:1px solid var(--ct-trait);}
+  .cb-retour:hover{color:var(--ink); border-color:var(--ct-trait-fort);}
+  .cb-retour:focus-visible{outline:2px solid var(--ct-accent);}
+  .cb-roles{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+  .cb-role{display:inline-flex; align-items:center; height:20px; padding:0 8px; border-radius:6px; font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#dfe6ee; background:rgba(255,255,255,.1); white-space:nowrap;}
+
+  /* ---------- la composition d'équipe ---------- */
+  .cb-eq-slots{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:12px 0;}
+  .cb-eq-slot{position:relative; display:grid; grid-template-columns:auto 1fr; gap:4px 10px; align-items:center; padding:10px; border-radius:14px; border:2px dashed var(--ct-trait-fort); min-height:78px; background:rgba(255,255,255,.03); transition:border-color .15s, background .15s;}
+  .cb-eq-slot.rempli{border-style:solid; border-color:color-mix(in srgb, var(--tc, #4FB4FF) 60%, transparent); background:linear-gradient(160deg, color-mix(in srgb, var(--tc, #4FB4FF) 14%, transparent), rgba(255,255,255,.02));}
+  .cb-eq-slot.survol{border-color:var(--ct-accent); background:rgba(79,180,255,.12);}
+  .cb-eq-slot img{width:50px; height:50px; border-radius:50%; object-fit:cover; object-position:50% 22%; border:2px solid var(--tc, #4FB4FF); background:#0a1018; display:block;}
+  .cb-eq-slot .vide{grid-column:1 / -1; text-align:center; font-size:12.5px; color:var(--muted);}
+  .cb-eq-slot b{display:block; font-size:13.5px; line-height:1.2;}
+  .cb-eq-slot small{display:block; font-size:11px; color:var(--ink-soft); font-variant-numeric:tabular-nums;}
+  .cb-eq-ordre{grid-column:1 / -1; display:flex; gap:6px; justify-content:flex-end;}
+  .cb-eq-ordre button{all:unset; cursor:pointer; box-sizing:border-box; height:26px; min-width:30px; padding:0 8px; border-radius:8px; font-size:12px; font-weight:800; text-align:center; color:var(--ink-soft); border:1px solid var(--ct-trait-fort);}
+  .cb-eq-ordre button:hover{color:var(--ink); background:rgba(255,255,255,.08);}
+  .cb-eq-ordre button:focus-visible{outline:2px solid var(--ct-accent);}
+  .cb-eq-poignee{position:absolute; top:6px; left:8px; font-size:10px; font-weight:800; color:var(--muted); letter-spacing:.1em;}
+  .cb-eq-barre{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px;}
+  .cb-eq-sauves{display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:6px; margin-bottom:10px;}
+  .cb-eq-sauve{all:unset; cursor:pointer; box-sizing:border-box; display:grid; gap:2px; padding:7px 6px; border-radius:11px; border:1px solid var(--ct-trait); text-align:center; font-size:11px; color:var(--ink-soft); min-width:0; background:var(--ct-surface);}
+  .cb-eq-sauve b{display:block; font-size:12px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cb-eq-sauve.vide{opacity:.55; border-style:dashed;}
+  .cb-eq-sauve.cassee{opacity:.5;}
+  .cb-eq-sauve[aria-pressed="true"]{border-color:var(--ct-accent); background:rgba(79,180,255,.1);}
+  .cb-eq-sauve:focus-visible{outline:2px solid var(--ct-accent);}
+  .cb-eq-sauve i{display:flex; justify-content:center; gap:2px;}
+  .cb-eq-sauve img{width:22px; height:22px; border-radius:50%; object-fit:cover; object-position:50% 22%; border:1px solid var(--ct-trait-fort);}
+  .cb-eq-enreg{display:none; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px; padding:10px; border-radius:12px; background:var(--ct-surface-2);}
+  .cb-eq-enreg.ouvert{display:flex;}
+  .cb-eq-enreg input, .cb-eq-enreg select{height:36px; padding:0 10px; border-radius:10px; border:1px solid var(--ct-trait); background:var(--ct-surface); color:var(--ink); font:inherit; font-size:13px; min-width:0;}
+  .cb-eq-enreg input{flex:1 1 130px;}
+  .cb-eq-options{display:grid; gap:10px; margin-top:12px; padding-top:12px; border-top:1px solid var(--ct-trait);}
+  .cb-eq-opt{display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; font-size:13px; color:var(--ink-soft);}
+  .cb-eq-opt > span{min-width:132px; font-weight:700;}
+  .cb-eq-face{display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px 12px; border-radius:12px; background:var(--ct-surface-2); font-size:12.5px; color:var(--ink-soft);}
+  .cb-eq-face .adv{display:inline-flex; align-items:center; gap:6px;}
+  .cb-eq-face img{width:28px; height:28px; border-radius:50%; object-fit:cover; object-position:50% 22%; border:2px solid var(--tc, #9aa4b2); background:#0a1018;}
+  .cb-tuile .eff{position:absolute; z-index:4; left:2px; bottom:46px; padding:1px 7px; border-radius:99px; font-size:10.5px; font-weight:900; color:#05110b; background:#5BE0A6;}
+  .cb-tuile .eff.faible{color:#1a0508; background:#FF7A85;}
+  .cb-tuile[draggable="true"]{cursor:grab;}
+  .cb-seg.mini{padding:3px; width:max-content; max-width:100%;}
+  .cb-seg.mini button{height:32px; padding:0 14px; font-size:13px;}
+
   /* ---------- l'écran de combat ---------- */
-  .cb-scene{--tc:#4FB4FF; background:#05080d; font-family:inherit; overflow-y:auto; overflow-x:hidden; display:block;}
-  .cb-scene .ct-scene-fond{position:fixed;}
-  .cb-scene .ct-scene-x{position:fixed;}
-  .cb-s-tete{position:relative; z-index:7; display:flex; align-items:center; gap:10px; padding:max(12px, env(safe-area-inset-top)) 70px 8px 16px;}
+  .cb-scene{--tc:#4FB4FF; background:#05080d; font-family:inherit; overflow:hidden; display:flex; flex-direction:column;}
+  .cb-scene .ct-scene-fond{display:none;}
+  .cb-scene .ct-scene-x{display:none;}
+  .cb-decor{position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; contain:strict;}
+  .cb-decor svg{position:absolute; inset:0; width:100%; height:100%; overflow:visible;}
+  .cb-decor::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(3,5,8,.45) 0%, rgba(3,5,8,.1) 35%, rgba(3,5,8,.55) 100%);}
+  .cb-decor .anim-pulse{animation:cbPulse 2.4s ease-in-out infinite;}
+  .cb-decor .anim-flick{animation:cbFlick 4.2s steps(1) infinite;}
+  .cb-decor .anim-sweep{transform-box:fill-box; transform-origin:50% 0; animation:cbSweep 7s ease-in-out infinite alternate;}
+  .cb-decor .anim-sweep2{transform-box:fill-box; transform-origin:50% 0; animation:cbSweep 9s ease-in-out -3s infinite alternate-reverse;}
+  .cb-decor .anim-foule{animation:cbFoule 1.6s ease-in-out infinite alternate;}
+  .cb-decor .anim-foule2{animation:cbFoule 2.1s ease-in-out -.7s infinite alternate;}
+  .cb-decor .anim-derive{animation:cbDerive 40s linear infinite;}
+  @keyframes cbPulse{50%{opacity:.45;}}
+  @keyframes cbFlick{0%,100%{opacity:1;} 47%{opacity:1;} 48%{opacity:.25;} 50%{opacity:1;} 52%{opacity:.4;} 54%{opacity:1;}}
+  @keyframes cbSweep{from{transform:rotate(-14deg);} to{transform:rotate(14deg);}}
+  @keyframes cbFoule{from{transform:translateY(0);} to{transform:translateY(-7px);}}
+  @keyframes cbDerive{from{transform:translateX(0);} to{transform:translateX(-120px);}}
+
+  .cb-s-tete{position:relative; z-index:7; display:flex; align-items:center; gap:8px; padding:max(10px, env(safe-area-inset-top)) 12px 6px;}
   .cb-s-tete > div:first-child{flex:1; min-width:0;}
-  .cb-s-tete small{display:block; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.55);}
-  .cb-s-tete b{display:block; font-size:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .cb-s-tour{font-size:12px; color:rgba(255,255,255,.6); white-space:nowrap;}
-  .cb-s-tour b{display:inline; font-size:14px; color:#fff;}
-  .cb-mini{all:unset; cursor:pointer; box-sizing:border-box; height:30px; padding:0 11px; border-radius:9px; font-size:12px; font-weight:700; color:rgba(255,255,255,.75); border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.06); white-space:nowrap;}
-  .cb-mini:hover{background:rgba(255,255,255,.12);}
-  .cb-mini[aria-pressed="true"]{color:#05070a; background:#F4F5F6;}
+  .cb-s-tete small{display:block; font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.6);}
+  .cb-s-tete b{display:block; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 6px rgba(0,0,0,.8);}
+  .cb-mini{all:unset; cursor:pointer; box-sizing:border-box; height:34px; min-width:34px; padding:0 11px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; font-size:12px; font-weight:800; letter-spacing:.04em; color:rgba(255,255,255,.85); border:1px solid rgba(255,255,255,.2); background:rgba(8,12,20,.6); white-space:nowrap; backdrop-filter:blur(6px);}
+  .cb-mini:hover{background:rgba(255,255,255,.14);}
+  .cb-mini[aria-pressed="true"]{color:#05070a; background:#F4F5F6; border-color:#F4F5F6;}
+  .cb-mini[disabled]{opacity:.4; cursor:default;}
   .cb-mini:focus-visible{outline:2px solid #fff;}
-  .cb-champ{position:relative; z-index:3; display:flex; flex-direction:column; gap:10px; padding:4px 12px 10px;}
-  .cb-rangee{display:flex; justify-content:center; gap:clamp(10px, 4vw, 44px);}
-  .cb-u{position:relative; width:clamp(112px, 15vw, 156px); display:grid; gap:5px; transition:opacity .4s, filter .4s;}
-  .cb-u-vis{position:relative; border-radius:13px;}
-  .cb-u-carte .ct-carte{width:100%;}
-  .cb-u-av{display:none; width:68px; height:68px; margin:0 auto; border-radius:50%; object-fit:cover; object-position:50% 22%; border:3px solid var(--tc); background:#0a1018;}
+  .cb-frise{position:relative; z-index:6; display:flex; align-items:center; gap:5px; padding:2px 12px 4px; min-height:38px;}
+  .cb-frise > small{font-size:9.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.55); margin-right:2px;}
+  .cb-frise .f{position:relative; width:30px; height:30px; flex:0 0 auto; border-radius:50%; border:2px solid var(--fc, #888); background:#0a1018 center / cover no-repeat; opacity:.9; transition:transform .3s, opacity .3s;}
+  .cb-frise .f.allie{--fc:#5BB8FF;} .cb-frise .f.ennemi{--fc:#FF6B77;}
+  .cb-frise .f:first-of-type{width:36px; height:36px; opacity:1; box-shadow:0 0 0 2px rgba(255,255,255,.7), 0 0 14px var(--fc);}
+  .cb-frise .f.ko{filter:grayscale(1); opacity:.3;}
+  .cb-champ{position:relative; z-index:3; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:space-around; gap:6px; padding:2px 10px 4px;}
+  .cb-rangee{display:flex; justify-content:center; align-items:flex-start; gap:clamp(8px, 5vw, 56px);}
+  .cb-u{position:relative; width:clamp(104px, 40vw, 168px); display:grid; gap:4px; transition:opacity .4s, filter .4s;}
+  .cb-u-vis{position:relative; width:clamp(58px, 17vw, 96px); aspect-ratio:1; margin:0 auto; border-radius:50%; border:3px solid var(--tc); background:#0a1018; box-shadow:0 0 0 2px rgba(0,0,0,.5), 0 6px 22px color-mix(in srgb, var(--tc) 45%, transparent);}
+  .cb-u-vis img{width:100%; height:100%; border-radius:50%; object-fit:cover; object-position:50% 22%; display:block;}
+  .cb-u-role{position:absolute; z-index:2; left:50%; bottom:-7px; transform:translateX(-50%); padding:1px 7px; border-radius:99px; font-size:8.5px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:#06090e; background:var(--tc); white-space:nowrap;}
+  .cb-u.actif .cb-u-vis{box-shadow:0 0 0 3px #fff, 0 0 26px 4px var(--tc);}
+  .cb-u.actif::before{content:''; position:absolute; z-index:1; left:50%; top:-9px; width:0; height:0; margin-left:-7px; border:7px solid transparent; border-top-color:#fff; filter:drop-shadow(0 0 5px #fff); animation:cbMarque .8s ease-in-out infinite alternate;}
   .cb-u.agit-b .cb-u-vis{animation:cbAvB .5s cubic-bezier(.3,.7,.3,1);}
   .cb-u.agit-h .cb-u-vis{animation:cbAvH .5s cubic-bezier(.3,.7,.3,1);}
   .cb-u.touche .cb-u-vis{animation:cbSecoue .45s;}
-  .cb-u.touche .cb-u-vis::after{content:''; position:absolute; inset:0; border-radius:13px; background:rgba(255,70,70,.45); animation:cbFlash .45s both; pointer-events:none;}
-  .cb-u.soin .cb-u-vis::after{content:''; position:absolute; inset:0; border-radius:13px; background:rgba(91,224,166,.4); animation:cbFlash .6s both; pointer-events:none;}
-  .cb-u.ko{filter:grayscale(1); opacity:.42;}
-  .cb-ko{position:absolute; z-index:6; left:50%; top:50%; transform:translate(-50%, -50%) rotate(-12deg); display:none; padding:4px 12px; border-radius:8px; font-size:18px; font-weight:900; letter-spacing:.08em; color:#fff; background:rgba(220,50,60,.92);}
+  .cb-u.touche .cb-u-vis::after{content:''; position:absolute; inset:0; border-radius:50%; background:rgba(255,70,70,.5); animation:cbFlash .45s both; pointer-events:none;}
+  .cb-u.soigne .cb-u-vis::after{content:''; position:absolute; inset:0; border-radius:50%; background:rgba(91,224,166,.5); animation:cbFlash .6s both; pointer-events:none;}
+  .cb-u.cible .cb-u-vis{cursor:pointer; animation:cbCible .7s ease-in-out infinite alternate;}
+  .cb-u.cible{cursor:pointer;}
+  .cb-u.cible .cb-u-vis{box-shadow:0 0 0 3px #FFD76B, 0 0 24px 4px rgba(255,215,107,.7);}
+  .cb-u.presel::after{content:'CIBLE'; position:absolute; z-index:3; right:6px; top:0; padding:1px 6px; border-radius:6px; font-size:8.5px; font-weight:900; letter-spacing:.08em; color:#1c1500; background:#FFD76B;}
+  .cb-u.ko{filter:grayscale(1); opacity:.4;}
+  .cb-ko{position:absolute; z-index:6; left:50%; top:50%; transform:translate(-50%, -50%) rotate(-12deg); display:none; padding:2px 9px; border-radius:7px; font-size:15px; font-weight:900; letter-spacing:.08em; color:#fff; background:rgba(220,50,60,.94);}
   .cb-u.ko .cb-ko{display:block;}
-  .cb-u-nom{display:flex; align-items:center; justify-content:center; gap:6px; flex-wrap:wrap; font-size:12.5px; font-weight:700; text-align:center;}
-  .cb-pv{position:relative; height:14px; border-radius:99px; background:rgba(255,255,255,.12); overflow:hidden;}
+  .cb-u-nom{display:flex; align-items:center; justify-content:center; gap:5px; margin-top:5px; font-size:12px; font-weight:800; text-align:center; text-shadow:0 1px 5px rgba(0,0,0,.9); line-height:1.15;}
+  .cb-u-nom span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
+  .cb-pv{position:relative; height:13px; border-radius:99px; background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.18); overflow:hidden;}
   .cb-pv i{position:absolute; inset:0 auto 0 0; border-radius:99px; background:#5BE0A6; transition:width .55s cubic-bezier(.2,.8,.2,1), background .3s;}
   .cb-pv.mid i{background:#F2C14E;} .cb-pv.bas i{background:#FF5C6A;}
-  .cb-pv b{position:absolute; inset:0; display:grid; place-items:center; font-size:10.5px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.8); font-variant-numeric:tabular-nums;}
-  .cb-badges{display:flex; flex-wrap:wrap; justify-content:center; gap:3px; min-height:16px;}
-  .cb-badges span{padding:1px 6px; border-radius:6px; font-size:10px; font-weight:800; background:rgba(255,255,255,.12); color:#fff;}
-  .cb-badges .haut{background:rgba(91,224,166,.25); color:#8ff0c2;}
-  .cb-badges .bas{background:rgba(255,92,106,.25); color:#ff9aa3;}
-  .cb-badges .statut{background:rgba(242,193,78,.25); color:#F2C14E;}
-  .cb-flotte{position:absolute; z-index:8; left:50%; top:30%; transform:translateX(-50%); font-size:26px; font-weight:900; pointer-events:none; text-shadow:0 2px 8px rgba(0,0,0,.9); animation:cbFlotte 1.1s ease-out both;}
-  .cb-flotte.degat{color:#ff6b75;} .cb-flotte.soin{color:#5BE0A6;} .cb-flotte.texte{font-size:16px; color:#fff;}
-  .cb-fx{position:absolute; z-index:5; inset:-14%; border-radius:50%; pointer-events:none; background:radial-gradient(circle, var(--tc) 0%, transparent 68%); mix-blend-mode:screen; animation:cbFx .55s ease-out both;}
-  .cb-msg{position:relative; z-index:4; min-height:46px; display:grid; place-items:center; padding:8px 14px; border-radius:14px; border:1px solid rgba(255,255,255,.12); background:rgba(0,0,0,.45); text-align:center; font-size:15px; font-weight:700; line-height:1.35;}
-  .cb-cmd{position:relative; z-index:7; padding:6px 12px max(14px, env(safe-area-inset-bottom));}
-  .cb-cmd-grille{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; max-width:860px; margin:0 auto;}
-  .cb-cmd-u{display:grid; gap:7px; align-content:start; padding:10px; border-radius:14px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.04);}
-  .cb-cmd-u.ko{opacity:.4;}
-  .cb-cmd-t{display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:13px; font-weight:800;}
-  .cb-attbtn{all:unset; box-sizing:border-box; cursor:pointer; display:grid; gap:3px; padding:8px 10px; border-radius:11px; border:2px solid rgba(255,255,255,.1); background:rgba(0,0,0,.3); border-left:4px solid var(--tc, #9aa4b2);}
-  .cb-attbtn:hover{background:rgba(255,255,255,.08);}
-  .cb-attbtn:focus-visible{outline:2px solid #fff; outline-offset:1px;}
-  .cb-attbtn[aria-pressed="true"]{border-color:#F4F5F6; background:rgba(255,255,255,.1);}
-  .cb-attbtn .n{display:flex; align-items:center; justify-content:space-between; gap:6px; font-size:13px; font-weight:800;}
-  .cb-attbtn .m{font-size:11px; color:rgba(255,255,255,.6);}
-  .cb-attbtn .e{font-size:11px; font-weight:800; min-height:14px;}
-  .cb-attbtn .e.sup{color:#5BE0A6;} .cb-attbtn .e.peu{color:#ff9aa3;}
-  .cb-cibles{display:flex; flex-wrap:wrap; align-items:center; gap:5px; font-size:11.5px; color:rgba(255,255,255,.6);}
-  .cb-cibles button{all:unset; cursor:pointer; box-sizing:border-box; height:26px; padding:0 10px; border-radius:99px; font-size:12px; font-weight:700; color:#fff; border:1px solid rgba(255,255,255,.2);}
-  .cb-cibles button[aria-pressed="true"]{color:#05070a; background:#F4F5F6; border-color:#F4F5F6;}
-  .cb-cibles button:focus-visible{outline:2px solid #fff;}
-  .cb-go{position:sticky; bottom:0; z-index:9; display:flex; justify-content:center; margin-top:10px; padding:14px 0 max(10px, env(safe-area-inset-bottom)); background:linear-gradient(180deg, transparent, #05080d 55%);}
-  .cb-fin{max-width:520px; margin:0 auto; display:grid; gap:12px; text-align:center; justify-items:center; padding:6px 0;}
-  .cb-fin h3{margin:0; font-size:clamp(28px, 7vw, 40px); font-weight:900; letter-spacing:-.02em;}
-  .cb-fin.victoire h3{color:#5BE0A6;} .cb-fin.defaite h3{color:#FF7A85;}
-  .cb-fin .boutons{display:flex; flex-wrap:wrap; gap:10px; justify-content:center;}
+  .cb-pv b{position:absolute; inset:0; display:grid; place-items:center; font-size:9.5px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.9); font-variant-numeric:tabular-nums;}
+  .cb-jauge{position:relative; height:5px; border-radius:99px; background:rgba(0,0,0,.5); overflow:hidden;}
+  .cb-jauge i{position:absolute; inset:0 auto 0 0; width:0; border-radius:99px; background:linear-gradient(90deg, #4FB4FF, #A3E3FF); transition:width .5s ease;}
+  .cb-u.ennemi .cb-jauge i{background:linear-gradient(90deg, #FF6B77, #FFB1B8);}
+  .cb-jauge.pleine i{box-shadow:0 0 8px #fff;}
+  .cb-badges{display:flex; flex-wrap:wrap; justify-content:center; gap:3px; min-height:15px;}
+  .cb-badges span{display:inline-flex; align-items:center; gap:3px; height:15px; padding:0 5px; border-radius:5px; font-size:9px; font-weight:900; letter-spacing:.03em; background:rgba(255,255,255,.14); color:#fff; white-space:nowrap;}
+  .cb-badges span i{font-style:normal; opacity:.75;}
+  .cb-badges .haut{background:rgba(91,224,166,.28); color:#9af5cb;}
+  .cb-badges .bas{background:rgba(255,92,106,.3); color:#ffadb5;}
+  .cb-badges .neutre{background:rgba(255,215,107,.25); color:#ffe39a;}
+  .cb-flotte{position:absolute; z-index:9; left:50%; top:18%; transform:translateX(-50%); font-size:24px; font-weight:900; pointer-events:none; text-shadow:0 2px 8px rgba(0,0,0,.95); white-space:nowrap; animation:cbFlotte 1.15s ease-out both;}
+  .cb-flotte.degat{color:#ff6b75;} .cb-flotte.soin{color:#5BE0A6;} .cb-flotte.texte{font-size:14px; color:#fff;} .cb-flotte.crit{color:#FFD76B; font-size:30px;}
+  .cb-flotte.sup{color:#7dffb3;} .cb-flotte.mal{color:#ff9aa3;}
+  .cb-fx{position:absolute; z-index:5; inset:-30%; border-radius:50%; pointer-events:none; background:radial-gradient(circle, var(--tc) 0%, transparent 68%); mix-blend-mode:screen; animation:cbFx .55s ease-out both;}
+  .cb-bandeau{position:absolute; z-index:10; left:0; right:0; top:44%; display:grid; place-items:center; pointer-events:none; opacity:0;}
+  .cb-bandeau span{padding:7px 22px; font-size:clamp(15px, 4.4vw, 22px); font-weight:900; letter-spacing:.04em; text-transform:uppercase; color:#fff; background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--tc) 85%, #000) 18%, color-mix(in srgb, var(--tc) 85%, #000) 82%, transparent); text-shadow:0 2px 8px rgba(0,0,0,.7); transform:skewX(-10deg);}
+  .cb-bandeau.on{animation:cbBandeau 1s ease both;}
+  .cb-panneau{position:relative; z-index:7; padding:8px 10px max(12px, env(safe-area-inset-bottom)); background:linear-gradient(180deg, transparent, rgba(4,7,12,.88) 22%);}
+  .cb-pan-in{max-width:900px; margin:0 auto; display:grid; gap:8px;}
+  .cb-pan-actif{display:flex; align-items:center; gap:10px; min-height:34px;}
+  .cb-pan-actif img{width:34px; height:34px; border-radius:50%; object-fit:cover; object-position:50% 22%; border:2px solid var(--tc); background:#0a1018; flex:0 0 auto;}
+  .cb-pan-actif div{min-width:0; flex:1; font-size:13px; line-height:1.25;}
+  .cb-pan-actif b{display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cb-pan-actif small{color:rgba(255,255,255,.65); font-size:11.5px;}
+  .cb-techs{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px;}
+  .cb-tech{all:unset; box-sizing:border-box; cursor:pointer; position:relative; display:grid; gap:3px; align-content:start; min-height:76px; padding:8px 9px; border-radius:12px; border:2px solid rgba(255,255,255,.12); border-top:4px solid var(--tc, #9aa4b2); background:rgba(10,14,22,.82);}
+  .cb-tech:hover{background:rgba(255,255,255,.1);}
+  .cb-tech:focus-visible{outline:2px solid #fff; outline-offset:1px;}
+  .cb-tech[aria-pressed="true"]{border-color:#FFD76B; background:rgba(255,215,107,.14);}
+  .cb-tech[disabled]{opacity:.45; cursor:default;}
+  .cb-tech .n{font-size:12.5px; font-weight:800; line-height:1.2;}
+  .cb-tech .m{font-size:10.5px; color:rgba(255,255,255,.65); line-height:1.3;}
+  .cb-tech .r{font-size:10.5px; font-weight:900; letter-spacing:.04em; text-transform:uppercase;}
+  .cb-tech .r.pret{color:#5BE0A6;} .cb-tech .r.cd{color:#ffb35c;}
+  .cb-tech .e{font-size:10.5px; font-weight:900; min-height:13px;}
+  .cb-tech .e.sup{color:#7dffb3;} .cb-tech .e.peu{color:#ff9aa3;}
+  .cb-tech .k{position:absolute; top:5px; right:7px; font-size:10px; font-weight:800; color:rgba(255,255,255,.35);}
+  .cb-pan-msg{min-height:44px; display:grid; place-items:center; padding:6px 10px; border-radius:12px; background:rgba(8,12,20,.7); border:1px solid rgba(255,255,255,.1); text-align:center; font-size:13.5px; font-weight:700; line-height:1.35;}
+  .cb-pan-aide{font-size:11.5px; color:rgba(255,255,255,.65); text-align:center;}
+  .cb-pan-bas{display:flex; justify-content:center; gap:8px;}
+
+  /* ---------- le tutoriel et l'écran de fin ---------- */
+  .cb-voile{position:absolute; z-index:30; inset:0; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(3,5,8,.82); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); overflow-y:auto;}
+  .cb-tuto{width:min(420px, 100%); display:grid; gap:12px; padding:20px; border-radius:20px; border:1px solid rgba(255,255,255,.18); background:#0b1119; text-align:center;}
+  .cb-tuto h3{margin:0; font-size:20px;}
+  .cb-tuto p{margin:0; font-size:14px; line-height:1.55; color:rgba(255,255,255,.8);}
+  .cb-tuto .pts{display:flex; justify-content:center; gap:6px;}
+  .cb-tuto .pts i{width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,.25);}
+  .cb-tuto .pts i.on{background:#fff;}
+  .cb-tuto .ill{display:grid; place-items:center; height:78px; border-radius:14px; background:rgba(255,255,255,.05); font-size:13px; font-weight:800; letter-spacing:.04em;}
+  .cb-tuto .boutons, .cb-fin .boutons{display:flex; flex-wrap:wrap; gap:10px; justify-content:center;}
+  .cb-fin{width:min(560px, 100%); display:grid; gap:14px; text-align:center; justify-items:center; padding:18px 6px;}
+  .cb-fin h3{margin:0; font-size:clamp(30px, 8vw, 44px); font-weight:900; letter-spacing:-.02em; animation:cbTitre .6s cubic-bezier(.2,1.4,.4,1) both;}
+  .cb-fin.victoire h3{color:#5BE0A6; text-shadow:0 0 30px rgba(91,224,166,.5);} .cb-fin.defaite h3{color:#FF7A85;}
   .cb-fin-gains{display:flex; flex-wrap:wrap; gap:8px; justify-content:center;}
   .cb-fin-gains span{padding:7px 12px; border-radius:11px; font-size:14px; font-weight:800; background:rgba(255,255,255,.1);}
-  @keyframes cbAvH{40%{transform:translateY(26px) scale(1.04);} 100%{transform:none;}}
-  @keyframes cbAvB{40%{transform:translateY(-26px) scale(1.04);} 100%{transform:none;}}
-  @keyframes cbSecoue{0%,100%{transform:none;} 20%{transform:translateX(-9px);} 40%{transform:translateX(8px);} 60%{transform:translateX(-5px);} 80%{transform:translateX(3px);}}
+  .cb-bilan{width:100%; display:grid; gap:7px;}
+  .cb-bilan .l{display:grid; grid-template-columns:auto 1fr auto auto auto; gap:6px 10px; align-items:center; padding:8px 10px; border-radius:12px; background:rgba(255,255,255,.06); text-align:left; font-size:12px; font-variant-numeric:tabular-nums;}
+  .cb-bilan .l.mvp{background:linear-gradient(90deg, rgba(255,215,107,.22), rgba(255,255,255,.06)); box-shadow:inset 0 0 0 1px rgba(255,215,107,.5);}
+  .cb-bilan .l img{width:34px; height:34px; border-radius:50%; object-fit:cover; object-position:50% 22%; border:2px solid var(--tc, #888);}
+  .cb-bilan .l b{display:block; font-size:13px;}
+  .cb-bilan .l span.c{display:grid; text-align:center; line-height:1.2; font-size:10px; color:rgba(255,255,255,.6);}
+  .cb-bilan .l span.c strong{font-size:14px; color:#fff;}
+  .cb-bilan .mvp-t{display:inline-block; margin-left:6px; padding:1px 6px; border-radius:6px; font-size:9.5px; font-weight:900; letter-spacing:.08em; color:#1c1500; background:#FFD76B;}
+  .cb-bilan .adv{opacity:.7;}
+
+  @keyframes cbAvH{40%{transform:translateY(26px) scale(1.06);} 100%{transform:none;}}
+  @keyframes cbAvB{40%{transform:translateY(-26px) scale(1.06);} 100%{transform:none;}}
+  @keyframes cbSecoue{0%,100%{transform:none;} 20%{transform:translateX(-8px);} 40%{transform:translateX(7px);} 60%{transform:translateX(-4px);} 80%{transform:translateX(3px);}}
   @keyframes cbFlash{from{opacity:1;} to{opacity:0;}}
-  @keyframes cbFlotte{from{opacity:0; transform:translate(-50%, 10px) scale(.7);} 20%{opacity:1; transform:translate(-50%, 0) scale(1.15);} to{opacity:0; transform:translate(-50%, -46px) scale(1);}}
+  @keyframes cbFlotte{from{opacity:0; transform:translate(-50%, 10px) scale(.7);} 20%{opacity:1; transform:translate(-50%, 0) scale(1.15);} to{opacity:0; transform:translate(-50%, -52px) scale(1);}}
   @keyframes cbFx{from{opacity:.95; transform:scale(.3);} to{opacity:0; transform:scale(1.25);}}
+  @keyframes cbBandeau{0%{opacity:0; transform:translateX(-40px);} 18%{opacity:1; transform:none;} 80%{opacity:1;} 100%{opacity:0; transform:translateX(40px);}}
+  @keyframes cbMarque{from{transform:translateY(0);} to{transform:translateY(5px);}}
+  @keyframes cbCible{from{transform:scale(1);} to{transform:scale(1.07);}}
+  @keyframes cbTitre{from{opacity:0; transform:scale(.5);} to{opacity:1; transform:none;}}
   @media (max-width:640px){
     .cb-rang{grid-template-columns:1fr;}
     .cb-trophees{grid-template-columns:auto auto; justify-content:space-between; place-items:center; text-align:left; gap:10px;}
     .cb-ligne{grid-template-columns:auto 1fr; }
     .cb-ligne > :last-child{grid-column:1 / -1;}
-    .cb-cmd-grille{grid-template-columns:1fr;}
+    .cb-mini.texte{display:none;}
+    .cb-eq-sauves{grid-template-columns:repeat(5, minmax(0, 1fr));}
+    .cb-eq-opt > span{min-width:100%;}
   }
-  @media (max-height:860px), (max-width:640px){
-    .cb-u-carte{display:none;}
-    .cb-u-av{display:block;}
-    .cb-u{width:clamp(112px, 38vw, 160px);}
-    .cb-attbtn .m{display:none;}
+  @media (max-height:700px){
+    .cb-u-vis{width:clamp(50px, 14vw, 74px);}
+    .cb-tech{min-height:62px; padding:6px 8px;}
+    .cb-tech .m{display:none;}
+    .cb-pan-aide{display:none;}
   }
-  @media (max-width:640px){
-    .cb-s-tete{flex-wrap:wrap; gap:6px 8px;}
-    .cb-s-tete > div:first-child{flex:1 1 100%;}
-    .cb-u-av{width:58px; height:58px;}
-    .cb-champ{gap:8px;}
+  @media (min-width:900px) and (min-height:760px){
+    .cb-u{width:190px;}
+    .cb-u-vis{width:112px;}
+    .cb-u-nom{font-size:13.5px;}
+    .cb-flotte{font-size:30px;}
   }
   @media (prefers-reduced-motion: reduce){
-    .cb-u.agit-b .cb-u-vis, .cb-u.agit-h .cb-u-vis, .cb-u.touche .cb-u-vis, .cb-fx{animation:none !important;}
+    .cb-u.agit-b .cb-u-vis, .cb-u.agit-h .cb-u-vis, .cb-u.touche .cb-u-vis, .cb-fx, .cb-decor *, .cb-u.cible .cb-u-vis, .cb-u.actif::before, .cb-fin h3{animation:none !important;}
   }
+  .cb-frise img.f{object-fit:cover; object-position:50% 22%; display:block;}
+  .cb-effn{pointer-events:none;}
   .cb-eq-t{width:100%; border-collapse:collapse; font-size:13px;}
   .cb-eq-t th, .cb-eq-t td{padding:6px 8px; text-align:center; border-bottom:1px solid var(--ct-trait);}
   .cb-eq-t th:first-child, .cb-eq-t td:first-child{text-align:left;}
@@ -259,6 +436,10 @@
       s.textContent = CSS;
       document.head.appendChild(s);
     }
+    if(!S.init){
+      S.init = true;
+      modesIntegres();
+    }
   }
 
   const nf = (n) => A.nf(n);
@@ -269,18 +450,24 @@
   const pct = (a, b) => Math.max(0, Math.min(100, b ? a / b * 100 : 0));
   const mu = (m) => '×' + String(Number(m)).replace('.', ',');
   const chip = (nom, c) => nom ? `<span class="cb-type" style="--tc:${couleur(c)}">${esc(nom)}</span>` : '<span class="cb-type neutre">Neutre</span>';
+  const roleChip = (nom) => nom ? `<span class="cb-role">${esc(nom)}</span>` : '';
   const signe = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
+  const stock = {
+    lire(k, def){ try{ const v = localStorage.getItem(k); return v === null ? def : v; }catch(e){ return def; } },
+    ecrire(k, v){ try{ localStorage.setItem(k, String(v)); }catch(e){ /* stockage indisponible : on garde la valeur du moment */ } }
+  };
 
   // ---------------------------------------------------------------------
-  // La fiche de combat d'une carte : type, PV, stats, attaques, capacité, faiblesses, citation
+  // La fiche de combat d'une carte : style, rôle, PV, stats, 3 techniques, passif, faiblesses, citation
   // ---------------------------------------------------------------------
 
-  function attaqueHtml(a){
+  function techHtml(a){
     const bits = [];
-    if(a.puissance) bits.push('Puissance ' + a.puissance);
+    if(a.puissance) bits.push('Puissance ' + a.puissance + (a.hits > 1 ? ' ×' + a.hits : ''));
     if(a.puissance) bits.push(a.justesse + ' % de précision');
+    if(a.perce) bits.push('ignore ' + a.perce + ' % de la Défense');
     bits.push(CIBLES[a.cible] || '');
-    if(a.effet && a.chance < 100) bits.push(a.chance + ' % d\'effet');
+    bits.push(a.slot === 1 ? 'toujours prête' : 'recharge ' + a.recharge + ' tour' + (a.recharge > 1 ? 's' : ''));
     return `<div class="cb-att" style="--tc:${couleur(a.couleur)}">
       <div class="cb-att-t"><b>${esc(a.nom)}</b>${chip(a.type_nom, a.couleur)}</div>
       <div class="cb-att-m">${bits.filter(Boolean).map((b) => `<span>${esc(b)}</span>`).join('')}</div>
@@ -290,12 +477,15 @@
 
   function ficheHtml(c){
     const mx = { pv: 300, pui: 160, def: 160, vit: 120 };
-    const aff = (liste) => liste && liste.length ? liste.map((t) => `<span class="cb-type" style="--tc:${couleur(t.couleur)}">${esc(t.nom)} ${mu(t.mult)}</span>`).join('') : '<span>aucune</span>';
+    const aff = (liste) => liste && liste.length ? liste.map((t) => `<span class="cb-type" style="--tc:${couleur(t.couleur)}">${esc(t.nom)} ${mu(t.mult)}</span>`).join('') : '<span>aucun</span>';
+    const techs = c.techniques || c.techs || [];
     return `<div class="cb-fiche" style="--tc:${couleur(c.couleur)}">
-      <div class="cb-fiche-t"><div>${chip(c.type_nom, c.couleur)}</div><div class="cb-pvgros"><small>PV</small>${nf(c.pv)}</div></div>
+      <div class="cb-fiche-t"><div class="cb-roles">${chip(c.type_nom, c.couleur)}${roleChip(c.role_nom)}</div><div class="cb-pvgros"><small>PV</small>${nf(c.pv_max || c.pv)}</div></div>
+      ${c.role_resume ? `<p class="cb-cit" style="font-style:normal">${esc(c.role_resume)}</p>` : ''}
       <div class="cb-stats">${['pui', 'def', 'vit'].map((k) => `<div class="cb-st"><span>${LIB[k]}</span><b>${nf(c[k])}</b><i style="--w:${pct(c[k], mx[k])}%"></i></div>`).join('')}</div>
-      <div class="cb-atts">${(c.attaques || []).map(attaqueHtml).join('')}</div>
-      ${c.capacite ? `<div class="cb-cap"><b>${esc(c.capacite.nom)}</b> · ${esc(c.capacite.description)}</div>` : ''}
+      <div class="cb-atts">${techs.map(techHtml).join('')}</div>
+      ${c.capacite ? `<div class="cb-cap"><b>Passif · ${esc(c.capacite.nom)}</b> — ${esc(c.capacite.description)}</div>` : ''}
+      <div class="cb-aff"><span>Frappe fort contre</span>${aff(c.forces)}</div>
       <div class="cb-aff"><span>Faible contre</span>${aff(c.faiblesses)}</div>
       <div class="cb-aff"><span>Résiste à</span>${aff(c.resistances)}</div>
       ${c.citation ? `<p class="cb-cit">« ${esc(c.citation)} »</p>` : ''}
@@ -313,18 +503,55 @@
     }
   }
 
+  // La fiche d'une unité EN COMBAT (statuts compris), dans une fenêtre.
+  function ficheUnite(u){
+    const st = (u.statuts || []).map((s) => statutInfo(s)).join('') || '<span class="cb-puce">Aucun statut</span>';
+    const f = A.fenetre(`
+      <div style="display:flex; align-items:center; gap:14px; padding-right:40px">
+        <img class="cb-avatar" style="width:56px; height:56px; border-color:${couleur(u.couleur)}" src="${esc(A.safeUrl(u.photo))}" alt="">
+        <div><h2 style="margin:0">${esc(u.nom)}</h2><p class="sous" style="margin:2px 0 0">${nf(u.pv)} / ${nf(u.pv_max)} PV · ${u.ko ? 'K.O.' : 'en lice'}</p></div></div>
+      <div class="cb-roles" style="margin:12px 0">${st}</div>
+      <div style="margin-top:6px">${ficheHtml(u)}</div>`, true);
+    return f;
+  }
+
+  function statutInfo(s){
+    const d = STAT[s.k] || { c: s.k, n: s.k, t: 'neutre' };
+    const val = s.k === 'bouclier' ? ' ' + Math.round(s.v) : '';
+    const num = ['pui+', 'pui-', 'def+', 'def-', 'vit+', 'vit-', 'marque', 'brulure', 'poison', 'regen'].includes(s.k) ? ` (${s.k.endsWith('-') ? '−' : '+'}${Math.round(s.v)} %)` : '';
+    return `<span class="cb-puce ${d.t === 'haut' ? 'ok' : d.t === 'bas' ? '' : 'or'}" title="${esc(d.n)}">${esc(d.c)}${esc(val)} · ${esc(d.n)}${esc(num)} · ${s.d} tour${s.d > 1 ? 's' : ''}</span>`;
+  }
+
   // ---------------------------------------------------------------------
-  // Mon rang, mes duos, les modes de jeu
+  // Les modes de combat : le registre, le hub en tuiles, les modes intégrés
   // ---------------------------------------------------------------------
 
-  const duoDepuis = (infos) => infos.map((c) => ({ booster: c.booster, artist: c.artist_id, holo: !!c.holo }));
+  const GROUPES = [['jeu', 'Contre le jeu'], ['dresseurs', 'Contre les dresseurs'], ['farm', 'Entraînement']];
+
+  function enregistrer(m){
+    if(!m || !/^[a-z][a-z0-9_-]{1,29}$/.test(String(m.id || '')) || !m.titre || typeof m.ouvrir !== 'function') throw new Error('Mode de combat invalide : il faut un id, un titre et une fonction ouvrir(hote, api).');
+    if(!GROUPES.some((g) => g[0] === m.groupe)) m.groupe = 'jeu';
+    const i = S.modes.findIndex((x) => x.id === m.id);
+    if(i >= 0) S.modes[i] = m; else S.modes.push(m);
+    if(S.hote && S.hote.isConnected && S.acc && S.vue === 'jouer' && !S.mode) dessiner();
+  }
+
+  const apiModes = () => Object.assign({}, A, {
+    lancerCombat, equipeModal, rafraichir, acc: () => S.acc,
+    retour: () => { S.mode = null; dessiner(); }
+  });
+
+  async function chargerAcc(){
+    S.acc = await A.appel('combat_accueil');
+    return S.acc;
+  }
 
   async function monter(hote, api){
     init(api);
     S.hote = hote;
     if(!hote.querySelector('.cb')) hote.innerHTML = '<div class="ct-vide">Chargement…</div>';
     try{
-      S.acc = await A.appel('combat_accueil');
+      await chargerAcc();
     }catch(e){
       hote.innerHTML = `<div class="ct-panneau ct-vide"><b>Le combat n'a pas pu s'ouvrir</b>${esc(e.message)}</div>`;
       return;
@@ -335,28 +562,27 @@
   function quitter(){ fermerScene(); }
 
   async function rafraichir(){
-    try{ S.acc = await A.appel('combat_accueil'); }catch(e){ /* l'écran reste tel quel */ }
+    try{ await chargerAcc(); }catch(e){ /* l'écran reste tel quel */ }
     if(S.hote && S.hote.isConnected) dessiner();
   }
 
   const slotHtml = (c) => c
     ? `<div class="cb-slot" style="--tc:${couleur(c.couleur)}">
         ${A.carteHtml({ nom: c.nom, photo: c.photo, rarete: c.rarete, holo: c.holo, numero: c.numero || 0 }, {})}
-        <div class="cb-slot-i"><b>${esc(c.nom)}</b>${chip(c.type_nom, c.couleur)}
+        <div class="cb-slot-i"><b>${esc(c.nom)}</b><div class="cb-roles">${chip(c.type_nom, c.couleur)}${roleChip(c.role_nom)}</div>
           <div class="cb-mini-stats" style="margin-top:5px"><span>PV <b>${nf(c.pv)}</b></span><span>PUI <b>${nf(c.pui)}</b></span><span>DÉF <b>${nf(c.def)}</b></span><span>VIT <b>${nf(c.vit)}</b></span></div></div>
       </div>`
     : '<div class="cb-slot"><div class="vide">Carte à choisir</div></div>';
 
   function dessiner(){
     const a = S.acc, m = a.moi;
-    const duo = a.duo || [], def = a.defense || [];
     const fin = new Date(m.saison_fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
-    const palFaits = a.arene.filter((p) => p.etat === 'fait').length;
-    const vues = [['jouer', 'Jouer'], ['arene', 'Arène'], ['classement', 'Classement'], ['historique', 'Historique']];
+    const vues = [['jouer', 'Jouer'], ['classement', 'Classement'], ['historique', 'Historique']];
+    const mode = S.mode ? S.modes.find((x) => x.id === S.mode) : null;
 
     S.hote.innerHTML = `
       <div class="cb">
-        ${a.en_cours ? `<div class="cb-banniere"><div><b>Un combat est en cours</b>${esc(a.en_cours.adversaire)} · ${esc(MODES[a.en_cours.mode] || '')} · tour ${a.en_cours.tour}</div>
+        ${a.en_cours ? `<div class="cb-banniere"><div><b>Un combat est en cours</b>${esc(a.en_cours.titre || a.en_cours.adversaire)} · tour ${a.en_cours.tour}</div>
           <button type="button" class="ct-btn principal" data-reprendre>Reprendre</button><button type="button" class="ct-btn" data-abandonner>Abandonner</button></div>` : ''}
         <section class="ct-panneau cb-rang">
           <div class="cb-trophees"><b>${nf(m.trophees)}</b><span>${A.ico('trophee', 14)}Trophées</span></div>
@@ -365,7 +591,7 @@
             <p>La saison se termine le ${esc(fin)} : tes trophées reviennent alors à mi-chemin de 1 000.</p>
             <div class="cb-chiffres">
               <span><b>${m.victoires}</b> victoire${m.victoires > 1 ? 's' : ''}</span><span><b>${m.defaites}</b> défaite${m.defaites > 1 ? 's' : ''}</span>
-              <span>Série <b>${m.serie}</b> (record ${m.meilleure_serie})</span><span>Défense : <b>${m.defenses_gagnees}</b> tenue${m.defenses_gagnees > 1 ? 's' : ''}, <b>${m.defenses_perdues}</b> perdue${m.defenses_perdues > 1 ? 's' : ''}</span>
+              <span>Série <b>${m.serie}</b> (record ${m.meilleure_serie})</span>
               <span>Vinyles gagnés aujourd'hui <b>${m.vinyles_jour} / ${m.plafond_jour}</b></span>
             </div>
           </div>
@@ -375,98 +601,144 @@
       </div>`;
 
     const corps = S.hote.querySelector('[data-corps]');
-    if(S.vue === 'jouer') vueJouer(corps, duo, def, palFaits);
-    else if(S.vue === 'arene') vueArene(corps);
+    if(S.vue === 'jouer'){
+      if(mode) vueMode(corps, mode); else vueHub(corps);
+    }
     else if(S.vue === 'classement') vueClassement(corps);
     else vueHistorique(corps);
 
-    S.hote.querySelectorAll('.cb-seg [data-vue]').forEach((b) => b.addEventListener('click', () => { S.vue = b.dataset.vue; dessiner(); }));
+    S.hote.querySelectorAll('.cb-seg [data-vue]').forEach((b) => b.addEventListener('click', () => { S.vue = b.dataset.vue; S.mode = null; dessiner(); }));
     const r = S.hote.querySelector('[data-reprendre]');
-    if(r) r.addEventListener('click', () => ouvrirScene(S.acc.en_cours));
+    if(r) r.addEventListener('click', () => ouvrirScene(S.acc.en_cours, { reprise: true }));
     const ab = S.hote.querySelector('[data-abandonner]');
     if(ab) ab.addEventListener('click', () => confirmerAbandon(S.acc.en_cours));
   }
 
-  function vueJouer(corps, duo, def, palFaits){
-    const a = S.acc, m = a.moi, defi = a.defi;
-    const pret = duo.length === 2;
-    corps.innerHTML = `
-      <div class="cb" style="gap:22px">
-        <section class="ct-panneau">
-          <div class="ct-entete-panneau"><div><h3>Mon duo</h3><p class="sous">Les deux cartes que tu emmènes au combat. Elles ne sont jamais perdues, quoi qu'il arrive.</p></div></div>
-          <div class="cb-bloc-duo">
-            <div class="cb-duo">${slotHtml(duo[0])}${slotHtml(duo[1])}</div>
-            <div class="cb-actions"><button type="button" class="ct-btn principal" data-duo="principal">${pret ? 'Changer mon duo' : 'Choisir mon duo'}</button>
-              <p>Un duo bien pensé joue sur les <b>types</b> : un style bat deux autres (×1,5) et plie devant deux autres (×0,67).</p></div>
-          </div>
-        </section>
+  function vueHub(corps){
+    corps.innerHTML = `<div class="cb" style="gap:22px">${GROUPES.map(([g, titre]) => {
+      const l = S.modes.filter((m) => m.groupe === g);
+      return l.length ? `<section class="cb-groupe"><h3>${esc(titre)}</h3><div class="cb-tuiles">${l.map((m) => `
+        <button type="button" class="cb-tuile-mode" data-mode="${esc(m.id)}"><span class="ic">${A.ico(m.icone || 'combat', 24)}</span><h4>${esc(m.titre)}</h4><p data-resume="${esc(m.id)}">&nbsp;</p></button>`).join('')}</div></section>` : '';
+    }).join('')}</div>`;
+    corps.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => { S.mode = b.dataset.mode; dessiner(); }));
+    S.modes.forEach((m) => {
+      if(typeof m.resume !== 'function') return;
+      Promise.resolve().then(() => m.resume(S.acc)).then((t) => {
+        const p = corps.querySelector(`[data-resume="${m.id}"]`);
+        if(p && t) p.textContent = t;
+      }).catch(() => { /* la tuile reste sans résumé */ });
+    });
+  }
 
-        <div>
-          <div class="ct-titre-sec" style="margin-top:0"><h3>Se battre</h3></div>
-          <div class="cb-modes">
-            <button type="button" class="cb-mode" data-mode="entrainement"><h4>${A.ico('combat', 18)}Entraînement</h4><p>Un duo au hasard de ton niveau. Pas de gain, pas de risque : parfait pour tester ton duo.</p><div class="pied"><span class="cb-puce">Illimité</span></div></button>
-            <button type="button" class="cb-mode" data-mode="defi" style="--tc:${couleur(defi.couleur)}"><h4>${A.ico('cible', 18)}Défi du jour</h4>
-              <p>Aujourd'hui, le style <b>${esc(defi.type_nom)}</b> est à l'honneur : ${defi.crew.map((c) => esc(c.nom)).join(' & ')}.</p>
-              <div class="pied">${chip(defi.type_nom, defi.couleur)}<span class="cb-puce ${defi.fait ? 'ok' : 'or'}">${defi.fait ? 'Relevé aujourd\'hui' : '+' + defi.recompense + ' vinyles'}</span></div></button>
-            <button type="button" class="cb-mode" data-vue-go="arene"><h4>${A.ico('trophee', 18)}Arène</h4><p>12 crews de plus en plus forts. La première victoire sur chacun rapporte des vinyles.</p><div class="pied"><span class="cb-puce ${palFaits === a.arene.length ? 'ok' : ''}">${palFaits} / ${a.arene.length} vaincus</span></div></button>
-          </div>
-        </div>
+  function vueMode(corps, m){
+    corps.innerHTML = `<div class="cb" style="gap:16px"><div><button type="button" class="cb-retour" data-retour>‹ Les modes</button></div><div data-mode-corps></div></div>`;
+    corps.querySelector('[data-retour]').addEventListener('click', () => { S.mode = null; dessiner(); });
+    try{
+      const r = m.ouvrir(corps.querySelector('[data-mode-corps]'), apiModes());
+      if(r && typeof r.catch === 'function') r.catch((e) => { corps.querySelector('[data-mode-corps]').innerHTML = `<div class="ct-panneau ct-vide">${esc(e.message)}</div>`; });
+    }catch(e){
+      corps.querySelector('[data-mode-corps]').innerHTML = `<div class="ct-panneau ct-vide">${esc(e.message)}</div>`;
+    }
+  }
 
-        <section class="ct-panneau">
-          <div class="ct-entete-panneau"><div><h3>Ma défense</h3><p class="sous">Quand un joueur te défie, ce duo se bat à ta place (piloté par l'ordinateur). Tu gagnes des trophées s'il tient.</p></div></div>
-          <div class="cb-bloc-duo">
-            <div class="cb-duo">${slotHtml(def[0])}${slotHtml(def[1])}</div>
-            <div class="cb-actions"><button type="button" class="ct-btn" data-duo="defense">${def.length === 2 ? 'Changer ma défense' : 'Régler ma défense'}</button>
-              ${def.length === 2 ? '' : '<p>Sans défense réglée, personne ne peut te défier (et tu ne gagnes pas de trophées passivement).</p>'}</div>
-          </div>
-        </section>
+  const entete = (titre, sous) => `<div class="ct-titre-sec" style="margin-top:0"><h3>${esc(titre)}</h3></div>${sous ? `<p class="sous" style="margin:-6px 0 14px; font-size:13px; color:var(--muted); line-height:1.5">${sous}</p>` : ''}`;
 
-        <section>
-          <div class="ct-titre-sec" style="margin-top:0"><h3>Défier un joueur</h3><span class="cb-puce">${m.pvp_restants} défi${m.pvp_restants > 1 ? 's' : ''} restant${m.pvp_restants > 1 ? 's' : ''} aujourd'hui</span></div>
-          <div class="cb-liste" data-adv><div class="ct-vide" style="padding:20px">Chargement…</div></div>
-        </section>
-      </div>`;
+  function modesIntegres(){
+    // --- L'Arène ---
+    enregistrer({ id: 'arene', titre: 'Arène', groupe: 'jeu', icone: 'trophee',
+      resume: (a) => `${a.arene.filter((p) => p.etat === 'fait').length} / ${a.arene.length} crews vaincus`,
+      ouvrir(hote, api){
+        const a = api.acc();
+        hote.innerHTML = `${entete('L\'Arène', '12 crews de plus en plus forts. La première victoire sur chacun rapporte des vinyles.')}
+          <div class="cb-liste">${a.arene.map((p) => `
+            <div class="cb-ligne${p.etat === 'verrouille' ? ' verrou' : ''}" style="--tc:${couleur(p.crew[0].couleur)}">
+              <div class="cb-n">${p.palier}</div>
+              <div><h4>${esc(p.nom)}</h4><p>${esc(p.description)}</p>
+                <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap">
+                  <div class="cb-portraits">${p.crew.map((c) => `<img style="--tc:${couleur(c.couleur)}" src="${esc(api.safeUrl(c.photo))}" alt="${esc(c.nom)}" title="${esc(c.nom)} · ${esc(c.type_nom)} · ${esc(c.role_nom || '')}" loading="lazy">`).join('')}</div>
+                  <span class="cb-slot-i">${p.crew.map((c) => esc(c.nom)).join(' & ')}</span>
+                  ${p.crew.map((c) => chip(c.type_nom, c.couleur)).join('')}
+                  ${p.bonus ? `<span class="cb-puce">Stats +${p.bonus} %</span>` : ''}
+                  <span class="cb-puce ${p.etat === 'fait' ? 'ok' : 'or'}">${p.etat === 'fait' ? 'Vaincu' : '+' + p.recompense + ' vinyle' + (p.recompense > 1 ? 's' : '')}</span></div></div>
+              <button type="button" class="ct-btn petit ${p.etat === 'ouvert' ? 'principal' : ''}" data-palier="${p.palier}" ${p.etat === 'verrouille' ? 'disabled' : ''}>${p.etat === 'verrouille' ? 'Verrouillé' : p.etat === 'fait' ? 'Rejouer' : 'Combattre'}</button>
+            </div>`).join('')}</div>`;
+        hote.querySelectorAll('[data-palier]').forEach((b) => b.addEventListener('click', () => {
+          const p = a.arene.find((x) => String(x.palier) === b.dataset.palier);
+          api.lancerCombat({ mode: 'arene', cible: p.palier, titre: p.nom, adversaires: p.crew });
+        }));
+      } });
 
-    corps.querySelectorAll('[data-duo]').forEach((b) => b.addEventListener('click', () => ouvrirSelecteur(b.dataset.duo)));
-    corps.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => lancer(b.dataset.mode, null)));
-    corps.querySelectorAll('[data-vue-go]').forEach((b) => b.addEventListener('click', () => { S.vue = b.dataset.vueGo; dessiner(); }));
+    // --- Le défi du jour ---
+    enregistrer({ id: 'defi', titre: 'Défi du jour', groupe: 'jeu', icone: 'cible',
+      resume: (a) => a.defi.fait ? 'Relevé aujourd\'hui · reviens demain' : `Style ${a.defi.type_nom} · +${a.defi.recompense} vinyles`,
+      ouvrir(hote, api){
+        const d = api.acc().defi;
+        hote.innerHTML = `${entete('Défi du jour', `Aujourd'hui, le style <b>${esc(d.type_nom)}</b> est à l'honneur : ${d.crew.map((c) => esc(c.nom)).join(' &amp; ')}.`)}
+          <section class="ct-panneau" style="--tc:${couleur(d.couleur)}">
+            <div class="cb-bloc-duo"><div class="cb-duo">${d.crew.map(slotHtml).join('')}</div>
+              <div class="cb-actions">${chip(d.type_nom, d.couleur)}
+                <span class="cb-puce ${d.fait ? 'ok' : 'or'}">${d.fait ? 'Relevé aujourd\'hui (plus de gain)' : '+' + d.recompense + ' vinyles à la première victoire'}</span>
+                <button type="button" class="ct-btn principal" data-go>${d.fait ? 'Rejouer pour le plaisir' : 'Relever le défi'}</button></div></div>
+          </section>`;
+        hote.querySelector('[data-go]').addEventListener('click', () => api.lancerCombat({ mode: 'defi', titre: 'Défi du jour · ' + d.type_nom, adversaires: d.crew }));
+      } });
 
-    A.appel('combat_adversaires').then((liste) => {
-      const z = corps.querySelector('[data-adv]');
+    // --- Les défis entre joueurs ---
+    enregistrer({ id: 'pvp', titre: 'Défier un joueur', groupe: 'dresseurs', icone: 'combat',
+      resume: (a) => `${a.moi.pvp_restants} défi${a.moi.pvp_restants > 1 ? 's' : ''} restant${a.moi.pvp_restants > 1 ? 's' : ''} aujourd'hui`,
+      ouvrir(hote, api){ vuePvp(hote, api); } });
+
+    // --- L'entraînement ---
+    enregistrer({ id: 'entrainement', titre: 'Entraînement libre', groupe: 'farm', icone: 'eclair',
+      resume: () => 'Sans coût ni récompense',
+      ouvrir(hote, api){
+        hote.innerHTML = `${entete('Entraînement libre', 'Un duo au hasard, de ton niveau. Aucun gain et aucun risque : parfait pour tester une équipe, une technique ou le mode Auto.')}
+          <section class="ct-panneau"><button type="button" class="ct-btn principal" data-go>Lancer un entraînement</button></section>`;
+        hote.querySelector('[data-go]').addEventListener('click', () => api.lancerCombat({ mode: 'entrainement', titre: 'Entraînement' }));
+      } });
+  }
+
+  function vuePvp(hote, api){
+    const a = api.acc(), m = a.moi, def = a.defense || [];
+    hote.innerHTML = `${entete('Défier un joueur', 'Tu affrontes la défense d\'un autre joueur (pilotée par l\'ordinateur). Victoire : trophées et vinyles ; défaite : tu perds des trophées.')}
+      <section class="ct-panneau">
+        <div class="ct-entete-panneau"><div><h3>Ma défense</h3><p class="sous">Quand un joueur te défie, ce duo se bat à ta place. Tu gagnes des trophées s'il tient.</p></div></div>
+        <div class="cb-bloc-duo"><div class="cb-duo">${slotHtml(def[0])}${slotHtml(def[1])}</div>
+          <div class="cb-actions"><button type="button" class="ct-btn" data-defense>${def.length === 2 ? 'Changer ma défense' : 'Régler ma défense'}</button>
+            ${def.length === 2 ? '' : '<p>Sans défense réglée, personne ne peut te défier (et tu ne gagnes pas de trophées passivement).</p>'}</div></div>
+      </section>
+      <section style="margin-top:18px">
+        <div class="ct-titre-sec" style="margin-top:0"><h3>Adversaires</h3><span class="cb-puce">${m.pvp_restants} défi${m.pvp_restants > 1 ? 's' : ''} restant${m.pvp_restants > 1 ? 's' : ''} aujourd'hui</span></div>
+        <div class="cb-liste" data-adv><div class="ct-vide" style="padding:20px">Chargement…</div></div>
+      </section>`;
+    hote.querySelector('[data-defense]').addEventListener('click', async () => {
+      const r = await equipeModal({ titre: 'Ma défense', sansOptions: true, confirmer: 'Valider ma défense', duo: def });
+      if(!r) return;
+      try{
+        a.defense = await api.appel('combat_duo_enregistrer', { p_role: 'defense', p_duo: r.duo });
+        api.toast('Défense enregistrée.');
+        vuePvp(hote, api);
+      }catch(e){ api.toast(e.message, 'err'); }
+    });
+    api.appel('combat_adversaires').then((liste) => {
+      const z = hote.querySelector('[data-adv]');
       if(!z) return;
-      S.adv = liste;
       z.innerHTML = liste.length ? liste.map((o, i) => `
         <div class="cb-ligne">
-          <div class="cb-portraits">${o.avatar ? `<img class="cb-avatar" src="${esc(A.safeUrl(o.avatar))}" alt="">` : ''}</div>
-          <div><h4>${esc(o.pseudo)} · ${nf(o.trophees)} ${A.ico('trophee', 13)}</h4>
+          <div class="cb-portraits">${o.avatar ? `<img class="cb-avatar" src="${esc(api.safeUrl(o.avatar))}" alt="">` : ''}</div>
+          <div><h4>${esc(o.pseudo)} · ${nf(o.trophees)} ${api.ico('trophee', 13)}</h4>
             <p>${o.duo.map((c) => `${esc(c.nom)} ${chip(c.type_nom, c.couleur)}`).join(' &nbsp;·&nbsp; ')}</p></div>
           <button type="button" class="ct-btn petit principal" data-defier="${i}" ${m.pvp_restants < 1 ? 'disabled' : ''}>Défier</button>
         </div>`).join('')
         : '<div class="ct-panneau ct-vide"><b>Personne à défier pour l\'instant</b>Les autres joueurs doivent d\'abord régler leur défense.</div>';
-      z.querySelectorAll('[data-defier]').forEach((b) => b.addEventListener('click', () => lancer('pvp', liste[Number(b.dataset.defier)].user_id)));
+      z.querySelectorAll('[data-defier]').forEach((b) => b.addEventListener('click', () => {
+        const o = liste[Number(b.dataset.defier)];
+        api.lancerCombat({ mode: 'pvp', cible: o.user_id, titre: 'Défi · ' + o.pseudo, adversaires: o.duo });
+      }));
     }).catch(() => {
-      const z = corps.querySelector('[data-adv]');
+      const z = hote.querySelector('[data-adv]');
       if(z) z.innerHTML = '<div class="ct-panneau ct-vide">Impossible de charger les adversaires.</div>';
     });
-  }
-
-  function vueArene(corps){
-    const a = S.acc;
-    corps.innerHTML = `
-      <div class="ct-titre-sec" style="margin-top:0"><h3>L'Arène</h3><span class="cb-puce">${a.arene.filter((p) => p.etat === 'fait').length} / ${a.arene.length} vaincus</span></div>
-      <div class="cb-liste">${a.arene.map((p) => `
-        <div class="cb-ligne${p.etat === 'verrouille' ? ' verrou' : ''}" style="--tc:${couleur(p.crew[0].couleur)}">
-          <div class="cb-n">${p.palier}</div>
-          <div><h4>${esc(p.nom)}</h4><p>${esc(p.description)}</p>
-            <div style="display:flex; align-items:center; gap:10px; margin-top:8px; flex-wrap:wrap">
-              <div class="cb-portraits">${p.crew.map((c) => `<img style="--tc:${couleur(c.couleur)}" src="${esc(A.safeUrl(c.photo))}" alt="${esc(c.nom)}" title="${esc(c.nom)} · ${esc(c.type_nom)}" loading="lazy">`).join('')}</div>
-              <span class="cb-slot-i">${p.crew.map((c) => esc(c.nom)).join(' & ')}</span>
-              ${p.crew.map((c) => chip(c.type_nom, c.couleur)).join('')}
-              ${p.bonus ? `<span class="cb-puce">Stats +${p.bonus} %</span>` : ''}
-              <span class="cb-puce ${p.etat === 'fait' ? 'ok' : 'or'}">${p.etat === 'fait' ? 'Vaincu' : '+' + p.recompense + ' vinyle' + (p.recompense > 1 ? 's' : '')}</span></div></div>
-          <button type="button" class="ct-btn petit ${p.etat === 'ouvert' ? 'principal' : ''}" data-palier="${p.palier}" ${p.etat === 'verrouille' ? 'disabled' : ''}>${p.etat === 'verrouille' ? 'Verrouillé' : p.etat === 'fait' ? 'Rejouer' : 'Combattre'}</button>
-        </div>`).join('')}</div>`;
-    corps.querySelectorAll('[data-palier]').forEach((b) => b.addEventListener('click', () => lancer('arene', b.dataset.palier)));
   }
 
   async function vueClassement(corps){
@@ -504,79 +776,236 @@
   }
 
   // ---------------------------------------------------------------------
-  // Le sélecteur de duo
+  // La composition d'équipe : 2 cartes, ordre, équipes enregistrées, équipe auto, Auto / Manuel, cible présélectionnée
   // ---------------------------------------------------------------------
 
-  async function ouvrirSelecteur(role, apres){
-    let cartes;
-    try{ cartes = await A.appel('combat_mes_cartes'); }catch(e){ A.toast(e.message, 'err'); return; }
-    if(cartes.length < 2){ A.toast('Il te faut au moins 2 cartes pour former un duo : ouvre des boosters !', 'err'); return; }
+  const cleCarte = (c) => c.booster + '|' + c.artist_id + '|' + (c.holo ? 1 : 0);
 
-    const cle = (c) => c.booster + '|' + c.artist_id + '|' + (c.holo ? 1 : 0);
-    const f = { q: '', type: null, tri: 'rarete' };
-    let choix = [];
-    const actuel = role === 'defense' ? S.acc.defense : S.acc.duo;
-    (actuel || []).forEach((c) => { const k = cle(c); if(cartes.some((x) => cle(x) === k) && choix.length < 2) choix.push(k); });
+  // Les 2 cartes les plus fortes, en cherchant des rôles qui se complètent et l'avantage de style face aux adversaires.
+  function equipeAuto(cartes, advTypes){
+    const score = (c) => (c.pv * 0.8 + c.pui * 1.6 + c.def + c.vit) * (1 + c.rarete * 0.08) * (advTypes.length && (c.forces || []).some((t) => advTypes.includes(t.id)) ? 1.2 : 1)
+      * (advTypes.length && (c.faiblesses || []).some((t) => advTypes.includes(t.id)) ? 0.85 : 1);
+    const l = cartes.slice().sort((a, b) => score(b) - score(a));
+    if(l.length < 2) return l.map(cleCarte);
+    const p = l[0];
+    const s = l.slice(1).find((c) => c.artist_id !== p.artist_id && c.role !== p.role && score(c) >= score(l[1]) * 0.8) || l.slice(1).find((c) => c.artist_id !== p.artist_id) || l[1];
+    return [cleCarte(p), cleCarte(s)];
+  }
 
-    const types = [];
-    cartes.forEach((c) => { if(!types.some((t) => t.id === c.type)) types.push({ id: c.type, nom: c.type_nom, c: c.couleur }); });
+  // Ouvre la fenêtre de composition. Renvoie (promesse) { duo:[{booster, artist, holo}], auto, cible } ou null si on annule.
+  // o : { titre, taille:2, adversaires:[{nom, photo, type, type_nom, couleur, role_nom}], duo:[infos de cartes], auto, confirmer, sansOptions }
+  function equipeModal(o){
+    o = o || {};
+    return new Promise((resolve) => { equipeModalInterne(o, resolve).catch((e) => { A.toast(e.message, 'err'); resolve(null); }); });
+  }
+
+  async function equipeModalInterne(o, resolve){
+    if(!A) throw new Error('Le combat n\'est pas encore prêt.');
+    if(o.taille && o.taille !== 2) throw new Error('Seules les équipes de 2 cartes sont gérées pour l\'instant.');
+    const [cartes, sauves0] = await Promise.all([A.appel('combat_mes_cartes'), A.appel('combat_duos_lire').catch(() => [])]);
+    if(!S.acc) await chargerAcc().catch(() => {});
+    if(cartes.length < 2){ A.toast('Il te faut au moins 2 cartes pour former une équipe : ouvre des boosters !', 'err'); resolve(null); return; }
+
+    const adv = (o.adversaires || []).filter(Boolean);
+    const advTypes = adv.map((a) => a.type).filter(Boolean);
+    const dispo = (k) => cartes.some((c) => cleCarte(c) === k);
+    const carte = (k) => cartes.find((c) => cleCarte(c) === k);
+    let sauves = sauves0;
+    let choix = [null, null];
+    const depart = o.duo || (S.acc && S.acc.duo) || [];
+    depart.forEach((c, i) => { const k = cleCarte({ booster: c.booster, artist_id: c.artist_id || c.artist, holo: c.holo }); if(i < 2 && dispo(k)) choix[i] = k; });
+    if(!choix[0] && !choix[1]) choix = equipeAuto(cartes, advTypes).concat([null, null]).slice(0, 2);
+    let auto = o.auto !== undefined && o.auto !== null ? !!o.auto : stock.lire('wc-cb-auto', '0') === '1';
+    let cible = stock.lire('wc-cb-cible', '0'); cible = cible === 'x' ? null : Math.min(Number(cible) || 0, 1);
+    const f = { q: '', type: null, role: null, tri: advTypes.length ? 'efficacite' : 'rarete' };
+    let fini = false;
+
+    const types = [], roles = [];
+    cartes.forEach((c) => {
+      if(!types.some((t) => t.id === c.type)) types.push({ id: c.type, nom: c.type_nom, c: c.couleur });
+      if(c.role && !roles.some((t) => t.id === c.role)) roles.push({ id: c.role, nom: c.role_nom });
+    });
     const fen = A.fenetre(`
-      <h2>${role === 'defense' ? 'Ma défense' : 'Mon duo'}</h2>
-      <p class="sous">${role === 'defense' ? 'Ces deux cartes se battront quand un joueur te défiera.' : 'Choisis deux cartes : elles combattront ensemble.'} Touche une carte pour la choisir, ⓘ pour sa fiche.</p>
+      <h2>${esc(o.titre || 'Mon équipe')}</h2>
+      <p class="sous">Choisis 2 cartes. Touche pour choisir, glisse une carte sur un emplacement ou utilise les flèches pour l'ordre, ⓘ pour la fiche.</p>
+      ${adv.length ? `<div class="cb-eq-face"><b>Face à</b>${adv.map((a) => `<span class="adv" style="--tc:${couleur(a.couleur)}">${a.photo ? `<img src="${esc(A.safeUrl(a.photo))}" alt="">` : ''}<span>${esc(a.nom || 'Adversaire')} ${a.type_nom ? chip(a.type_nom, a.couleur) : ''}</span></span>`).join('')}</div>` : ''}
+      <div class="cb-eq-slots" data-slots></div>
+      <div class="cb-eq-barre"><button type="button" class="ct-btn petit" data-auto-eq>Équipe auto</button><button type="button" class="ct-btn petit" data-inverse>⇄ Inverser</button><button type="button" class="ct-btn petit" data-enreg>Enregistrer cette équipe</button><span class="cb-slot-i" data-eff></span></div>
+      <div class="cb-eq-enreg" data-enreg-zone><select data-ex-slot aria-label="Emplacement"></select><input type="text" maxlength="30" placeholder="Nom de l'équipe" data-ex-nom aria-label="Nom de l'équipe"><button type="button" class="ct-btn petit principal" data-ex-ok>Enregistrer</button><button type="button" class="ct-btn petit" data-ex-sup>Supprimer</button></div>
+      <div class="cb-eq-sauves" data-sauves aria-label="Équipes enregistrées"></div>
       <div class="cb-sel-tete">
         <input type="search" placeholder="Chercher un artiste" data-q aria-label="Chercher un artiste">
-        <select data-tri aria-label="Trier"><option value="rarete">Rareté</option><option value="pv">PV</option><option value="pui">Puissance</option><option value="def">Défense</option><option value="vit">Vitesse</option><option value="nom">Nom (A–Z)</option></select>
+        <select data-tri aria-label="Trier"><option value="rarete">Rareté</option>${advTypes.length ? '<option value="efficacite">Avantage de style</option>' : ''}<option value="pv">PV</option><option value="pui">Puissance</option><option value="def">Défense</option><option value="vit">Vitesse</option><option value="nom">Nom (A–Z)</option></select>
       </div>
       <div class="cb-filtres" role="group" aria-label="Style">${types.map((t) => `<button type="button" data-t="${esc(t.id)}" style="--tc:${couleur(t.c)}" aria-pressed="false">${esc(t.nom)}</button>`).join('')}</div>
+      <div class="cb-filtres" role="group" aria-label="Rôle">${roles.map((t) => `<button type="button" data-r="${esc(t.id)}" aria-pressed="false">${esc(t.nom)}</button>`).join('')}</div>
       <div class="cb-grille" data-grille></div>
-      <div class="cb-sel-pied"><div class="cb-sel-choix" data-choix></div><button type="button" class="ct-btn principal" data-valider disabled>Valider le duo</button></div>`, true);
+      ${o.sansOptions ? '' : `<div class="cb-eq-options">
+        <div class="cb-eq-opt"><span>Mode de combat</span><div class="cb-seg mini" data-seg-mode><button type="button" data-v="auto" aria-pressed="false">Auto</button><button type="button" data-v="manuel" aria-pressed="false">Manuel</button></div></div>
+        <div class="cb-eq-opt"><span>Cible présélectionnée</span><div class="cb-seg mini" data-seg-cible>${[0, 1].map((i) => `<button type="button" data-v="${i}" aria-pressed="false">${esc(adv[i] && adv[i].nom ? adv[i].nom : 'Adversaire ' + (i + 1))}</button>`).join('')}<button type="button" data-v="x" aria-pressed="false">Aucune</button></div></div>
+      </div>`}
+      <div class="cb-sel-pied"><div class="cb-sel-choix" data-resume-eq></div><button type="button" class="ct-btn" data-annuler>Annuler</button><button type="button" class="ct-btn principal" data-valider disabled>${esc(o.confirmer || 'Combattre')}</button></div>`, true, () => { if(!fini){ fini = true; resolve(null); } });
 
     const corps = fen.corps;
     const grille = corps.querySelector('[data-grille]');
-    const dessine = () => {
+    const efficace = (c) => advTypes.length ? ((c.forces || []).some((t) => advTypes.includes(t.id)) ? 1 : (c.faiblesses || []).some((t) => advTypes.includes(t.id)) ? -1 : 0) : 0;
+
+    const dessineSlots = () => {
+      corps.querySelector('[data-slots]').innerHTML = [0, 1].map((i) => {
+        const c = choix[i] ? carte(choix[i]) : null;
+        if(!c) return `<div class="cb-eq-slot" data-slot="${i}"><span class="cb-eq-poignee">${i + 1}</span><div class="vide">Emplacement ${i + 1}<br>glisse une carte ici</div></div>`;
+        return `<div class="cb-eq-slot rempli" data-slot="${i}" draggable="true" data-sk="${esc(choix[i])}" style="--tc:${couleur(c.couleur)}">
+          <span class="cb-eq-poignee">${i + 1}</span>
+          <img src="${esc(A.safeUrl(c.photo))}" alt="">
+          <div><b>${esc(c.nom)}</b><div class="cb-roles">${chip(c.type_nom, c.couleur)}${roleChip(c.role_nom)}</div><small>PV ${nf(c.pv)} · PUI ${nf(c.pui)} · DÉF ${nf(c.def)} · VIT ${nf(c.vit)}</small></div>
+          <div class="cb-eq-ordre"><button type="button" data-move="-1" aria-label="Avant" ${i === 0 ? 'disabled' : ''}>◀</button><button type="button" data-move="1" aria-label="Après" ${i === 1 ? 'disabled' : ''}>▶</button><button type="button" data-ote="${i}" aria-label="Retirer ${esc(c.nom)}">✕</button></div></div>`;
+      }).join('');
+      const cs = choix.map((k) => k && carte(k)).filter(Boolean);
+      const sup = advTypes.length && cs.length ? cs.filter((c) => efficace(c) > 0).length : 0;
+      const eff = corps.querySelector('[data-eff]');
+      eff.innerHTML = advTypes.length && cs.length ? (sup ? `<span class="cb-puce ok">▲ ${sup} carte${sup > 1 ? 's' : ''} super efficace${sup > 1 ? 's' : ''}</span>` : '<span class="cb-puce">Aucun avantage de style</span>') : '';
+      const ch = corps.querySelector('[data-resume-eq]');
+      ch.innerHTML = cs.length === 2 ? cs.map((c) => `<div style="border-left:3px solid ${couleur(c.couleur)}"><b>${esc(c.nom)}</b>${esc(c.role_nom || '')} · ${esc(c.type_nom)}${c.capacite ? ' · passif ' + esc(c.capacite.nom) : ''}</div>`).join('') : 'Choisis 2 cartes.';
+      corps.querySelector('[data-valider]').disabled = cs.length !== 2;
+    };
+
+    const dessineGrille = () => {
+      const y = grille.scrollTop;
       const q = f.q.trim().toLowerCase();
-      let l = cartes.filter((c) => (!f.type || c.type === f.type) && (!q || c.nom.toLowerCase().includes(q)));
-      const cmp = { rarete: (a, b) => b.rarete - a.rarete || b.pv - a.pv, pv: (a, b) => b.pv - a.pv, pui: (a, b) => b.pui - a.pui, def: (a, b) => b.def - a.def, vit: (a, b) => b.vit - a.vit, nom: (a, b) => a.nom.localeCompare(b.nom, 'fr') }[f.tri];
+      let l = cartes.filter((c) => (!f.type || c.type === f.type) && (!f.role || c.role === f.role) && (!q || c.nom.toLowerCase().includes(q)));
+      const cmp = { rarete: (a, b) => b.rarete - a.rarete || b.pv - a.pv, efficacite: (a, b) => efficace(b) - efficace(a) || b.rarete - a.rarete, pv: (a, b) => b.pv - a.pv, pui: (a, b) => b.pui - a.pui, def: (a, b) => b.def - a.def, vit: (a, b) => b.vit - a.vit, nom: (a, b) => a.nom.localeCompare(b.nom, 'fr') }[f.tri];
       l = l.slice().sort(cmp);
       grille.innerHTML = l.length ? l.map((c) => {
-        const k = cle(c), i = choix.indexOf(k);
-        return `<button type="button" class="cb-tuile" data-k="${esc(k)}" aria-pressed="${i >= 0}" aria-label="${esc(c.nom)}, ${esc(c.type_nom)}">
+        const k = cleCarte(c), i = choix.indexOf(k), e = efficace(c);
+        return `<button type="button" class="cb-tuile" draggable="true" data-k="${esc(k)}" aria-pressed="${i >= 0}" aria-label="${esc(c.nom)}, ${esc(c.type_nom)}, ${esc(c.role_nom || '')}">
           <span class="num">${i + 1}</span><span class="info" data-info="${esc(k)}" role="button" aria-label="Fiche de ${esc(c.nom)}">i</span>
+          ${e ? `<span class="eff${e < 0 ? ' faible' : ''}">${e > 0 ? '▲ super' : '▼ faible'}</span>` : ''}
           ${A.carteHtml({ nom: c.nom, photo: c.photo, rarete: c.rarete, holo: c.holo, numero: c.numero }, {})}
-          <span class="t">${chip(c.type_nom, c.couleur)}<span>PV ${nf(c.pv)}</span><span>PUI ${nf(c.pui)}</span></span></button>`;
+          <span class="t">${chip(c.type_nom, c.couleur)}${roleChip(c.role_nom)}<span>PV ${nf(c.pv)}</span><span>PUI ${nf(c.pui)}</span></span></button>`;
       }).join('') : '<div class="ct-vide" style="grid-column:1/-1">Aucune carte ne correspond.</div>';
-      corps.querySelectorAll('.cb-filtres button').forEach((b) => b.setAttribute('aria-pressed', String(f.type === b.dataset.t)));
-      const ch = corps.querySelector('[data-choix]');
-      ch.innerHTML = choix.length ? choix.map((k) => { const c = cartes.find((x) => cle(x) === k); return `<div style="border-left:3px solid ${couleur(c.couleur)}"><b>${esc(c.nom)}</b>${esc(c.type_nom)} · PV ${nf(c.pv)} · PUI ${nf(c.pui)} · DÉF ${nf(c.def)} · VIT ${nf(c.vit)}</div>`; }).join('') : 'Aucune carte choisie.';
-      corps.querySelector('[data-valider]').disabled = choix.length !== 2;
+      grille.scrollTop = y;
+      corps.querySelectorAll('.cb-filtres [data-t]').forEach((b) => b.setAttribute('aria-pressed', String(f.type === b.dataset.t)));
+      corps.querySelectorAll('.cb-filtres [data-r]').forEach((b) => b.setAttribute('aria-pressed', String(f.role === b.dataset.r)));
     };
-    dessine();
+
+    const dessineSauves = () => {
+      const z = corps.querySelector('[data-sauves]');
+      z.innerHTML = [1, 2, 3, 4, 5].map((n) => {
+        const s = sauves.find((x) => x.slot === n);
+        if(!s) return `<button type="button" class="cb-eq-sauve vide" data-sl="${n}" aria-label="Emplacement ${n} vide"><b>${n}</b>vide</button>`;
+        const ok = (s.cartes || []).length === 2 && s.cartes.every(Boolean);
+        return `<button type="button" class="cb-eq-sauve${ok ? '' : ' cassee'}" data-sl="${n}" aria-label="Équipe ${esc(s.nom)}"><b>${esc(s.nom)}</b><i>${(s.cartes || []).map((c) => c ? `<img src="${esc(A.safeUrl(c.photo))}" alt="">` : '').join('')}</i></button>`;
+      }).join('');
+      const sel = corps.querySelector('[data-ex-slot]');
+      sel.innerHTML = [1, 2, 3, 4, 5].map((n) => { const s = sauves.find((x) => x.slot === n); return `<option value="${n}">${n} · ${s ? esc(s.nom) : 'libre'}</option>`; }).join('');
+    };
+
+    const dessineOptions = () => {
+      const m = corps.querySelector('[data-seg-mode]');
+      if(m) m.querySelectorAll('[data-v]').forEach((b) => b.setAttribute('aria-pressed', String((b.dataset.v === 'auto') === auto)));
+      const c = corps.querySelector('[data-seg-cible]');
+      if(c) c.querySelectorAll('[data-v]').forEach((b) => b.setAttribute('aria-pressed', String(String(cible === null ? 'x' : cible) === b.dataset.v)));
+    };
+
+    const placer = (k, i) => {
+      const autre = choix.indexOf(k);
+      if(autre >= 0 && autre !== i){ choix[autre] = choix[i]; }
+      choix[i] = k;
+      dessineSlots(); dessineGrille();
+    };
+
+    dessineSlots(); dessineGrille(); dessineSauves(); dessineOptions();
 
     grille.addEventListener('click', (ev) => {
       const inf = ev.target.closest('[data-info]');
-      if(inf){ ev.stopPropagation(); const c = cartes.find((x) => cle(x) === inf.dataset.info); A.fiche(c.artist_id, c.booster); return; }
+      if(inf){ ev.stopPropagation(); const c = carte(inf.dataset.info); A.fiche(c.artist_id, c.booster); return; }
       const t = ev.target.closest('[data-k]');
       if(!t) return;
       const k = t.dataset.k, i = choix.indexOf(k);
-      if(i >= 0) choix.splice(i, 1);
-      else { if(choix.length >= 2) choix.shift(); choix.push(k); }
-      dessine();
+      if(i >= 0) choix[i] = null;
+      else if(choix[0] === null) choix[0] = k;
+      else if(choix[1] === null) choix[1] = k;
+      else { choix[0] = choix[1]; choix[1] = k; }
+      dessineSlots(); dessineGrille();
     });
-    corps.querySelector('[data-q]').addEventListener('input', (ev) => { f.q = ev.target.value; dessine(); });
-    corps.querySelector('[data-tri]').addEventListener('change', (ev) => { f.tri = ev.target.value; dessine(); });
-    corps.querySelectorAll('.cb-filtres button').forEach((b) => b.addEventListener('click', () => { f.type = f.type === b.dataset.t ? null : b.dataset.t; dessine(); }));
-    const ok = corps.querySelector('[data-valider]');
-    ok.addEventListener('click', async () => {
-      const duo = choix.map((k) => { const c = cartes.find((x) => cle(x) === k); return { booster: c.booster, artist: c.artist_id, holo: !!c.holo }; });
-      ok.disabled = true;
+    grille.addEventListener('dragstart', (ev) => { const t = ev.target.closest('[data-k]'); if(t){ ev.dataTransfer.setData('text/plain', t.dataset.k); ev.dataTransfer.effectAllowed = 'move'; } });
+    const zoneSlots = corps.querySelector('[data-slots]');
+    zoneSlots.addEventListener('dragstart', (ev) => { const t = ev.target.closest('[data-sk]'); if(t){ ev.dataTransfer.setData('text/plain', t.dataset.sk); ev.dataTransfer.effectAllowed = 'move'; } });
+    zoneSlots.addEventListener('dragover', (ev) => { const s = ev.target.closest('[data-slot]'); if(s){ ev.preventDefault(); zoneSlots.querySelectorAll('.survol').forEach((x) => x.classList.remove('survol')); s.classList.add('survol'); } });
+    zoneSlots.addEventListener('dragleave', (ev) => { const s = ev.target.closest('[data-slot]'); if(s) s.classList.remove('survol'); });
+    zoneSlots.addEventListener('drop', (ev) => {
+      const s = ev.target.closest('[data-slot]');
+      if(!s) return;
+      ev.preventDefault();
+      const k = ev.dataTransfer.getData('text/plain');
+      if(dispo(k)) placer(k, Number(s.dataset.slot)); else dessineSlots();
+    });
+    zoneSlots.addEventListener('click', (ev) => {
+      const mv = ev.target.closest('[data-move]');
+      if(mv){
+        const slot = Number(mv.closest('[data-slot]').dataset.slot), j = slot + Number(mv.dataset.move);
+        if(j >= 0 && j <= 1){ const t = choix[slot]; choix[slot] = choix[j]; choix[j] = t; dessineSlots(); dessineGrille(); }
+        return;
+      }
+      const ot = ev.target.closest('[data-ote]');
+      if(ot){ choix[Number(ot.dataset.ote)] = null; dessineSlots(); dessineGrille(); }
+    });
+
+    corps.querySelector('[data-q]').addEventListener('input', (ev) => { f.q = ev.target.value; dessineGrille(); });
+    const tri = corps.querySelector('[data-tri]');
+    tri.value = f.tri;
+    tri.addEventListener('change', (ev) => { f.tri = ev.target.value; dessineGrille(); });
+    corps.querySelectorAll('.cb-filtres [data-t]').forEach((b) => b.addEventListener('click', () => { f.type = f.type === b.dataset.t ? null : b.dataset.t; dessineGrille(); }));
+    corps.querySelectorAll('.cb-filtres [data-r]').forEach((b) => b.addEventListener('click', () => { f.role = f.role === b.dataset.r ? null : b.dataset.r; dessineGrille(); }));
+    corps.querySelector('[data-auto-eq]').addEventListener('click', () => { choix = equipeAuto(cartes, advTypes); dessineSlots(); dessineGrille(); });
+    corps.querySelector('[data-inverse]').addEventListener('click', () => { choix = [choix[1], choix[0]]; dessineSlots(); dessineGrille(); });
+
+    const enreg = corps.querySelector('[data-enreg-zone]');
+    corps.querySelector('[data-enreg]').addEventListener('click', () => enreg.classList.toggle('ouvert'));
+    corps.querySelector('[data-sauves]').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-sl]');
+      if(!b) return;
+      const s = sauves.find((x) => x.slot === Number(b.dataset.sl));
+      if(!s){ enreg.classList.add('ouvert'); corps.querySelector('[data-ex-slot]').value = b.dataset.sl; return; }
+      const ks = (s.duo || []).map((d) => cleCarte({ booster: d.booster, artist_id: d.artist, holo: d.holo }));
+      if(ks.length !== 2 || !ks.every(dispo)){ A.toast('Une carte de cette équipe n\'est plus dans ta collection.', 'err'); return; }
+      choix = ks;
+      corps.querySelectorAll('.cb-eq-sauve').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      corps.querySelector('[data-ex-slot]').value = String(s.slot);
+      corps.querySelector('[data-ex-nom]').value = s.nom;
+      dessineSlots(); dessineGrille();
+    });
+    const duoActuel = () => choix.map((k) => { const c = carte(k); return { booster: c.booster, artist: c.artist_id, holo: !!c.holo }; });
+    corps.querySelector('[data-ex-ok]').addEventListener('click', async (ev) => {
+      if(choix.some((k) => !k)){ A.toast('Choisis d\'abord 2 cartes.', 'err'); return; }
+      ev.currentTarget.disabled = true;
       try{
-        const infos = await A.appel('combat_duo_enregistrer', { p_role: role, p_duo: duo });
-        if(role === 'defense') S.acc.defense = infos; else S.acc.duo = infos;
-        fen.fermer();
-        A.toast(role === 'defense' ? 'Défense enregistrée.' : 'Duo enregistré.');
-        if(S.hote && S.hote.isConnected) dessiner();
-        if(apres) apres(infos);
-      }catch(e){ A.toast(e.message, 'err'); ok.disabled = false; }
+        sauves = await A.appel('combat_duo_sauver', { p_slot: Number(corps.querySelector('[data-ex-slot]').value), p_nom: corps.querySelector('[data-ex-nom]').value, p_duo: duoActuel() });
+        dessineSauves(); A.toast('Équipe enregistrée.');
+      }catch(e){ A.toast(e.message, 'err'); }
+      ev.currentTarget.disabled = false;
+    });
+    corps.querySelector('[data-ex-sup]').addEventListener('click', async (ev) => {
+      const slot = Number(corps.querySelector('[data-ex-slot]').value);
+      if(!sauves.some((x) => x.slot === slot)) return;
+      ev.currentTarget.disabled = true;
+      try{ sauves = await A.appel('combat_duo_supprimer', { p_slot: slot }); dessineSauves(); A.toast('Équipe supprimée.'); }
+      catch(e){ A.toast(e.message, 'err'); }
+      ev.currentTarget.disabled = false;
+    });
+
+    const sm = corps.querySelector('[data-seg-mode]');
+    if(sm) sm.addEventListener('click', (ev) => { const b = ev.target.closest('[data-v]'); if(b){ auto = b.dataset.v === 'auto'; stock.ecrire('wc-cb-auto', auto ? '1' : '0'); dessineOptions(); } });
+    const sc = corps.querySelector('[data-seg-cible]');
+    if(sc) sc.addEventListener('click', (ev) => { const b = ev.target.closest('[data-v]'); if(b){ cible = b.dataset.v === 'x' ? null : Number(b.dataset.v); stock.ecrire('wc-cb-cible', b.dataset.v); dessineOptions(); } });
+
+    corps.querySelector('[data-annuler]').addEventListener('click', () => fen.fermer());
+    corps.querySelector('[data-valider]').addEventListener('click', () => {
+      if(choix.some((k) => !k)) return;
+      const duo = duoActuel();
+      fini = true;
+      fen.fermer();
+      resolve({ duo, infos: choix.map(carte), auto, cible });
     });
   }
 
@@ -584,19 +1013,34 @@
   // Lancer, reprendre et abandonner un combat
   // ---------------------------------------------------------------------
 
-  async function lancer(mode, cible){
-    if(S.acc.en_cours){ A.toast('Un combat est déjà en cours : reprends-le ou abandonne-le.', 'err'); return; }
-    if((S.acc.duo || []).length !== 2){
-      ouvrirSelecteur('principal', () => lancer(mode, cible));
-      return;
+  // Lance un combat : choix de l'équipe (sauf si o.choix ou o.partie), création côté serveur, puis écran de combat.
+  // Voir la documentation en tête de fichier.
+  async function lancerCombat(o){
+    o = o || {};
+    if(!A) throw new Error('Le combat n\'est pas encore prêt : ouvre d\'abord l\'onglet Combat.');
+    if(!o.partie){
+      if(!S.acc){ try{ await chargerAcc(); }catch(e){ /* on tentera quand même */ } }
+      if(S.acc && S.acc.en_cours){ A.toast('Un combat est déjà en cours : reprends-le ou abandonne-le.', 'err'); return null; }
+    }
+    let choix = o.choix || null;
+    if(!o.partie && !choix){
+      choix = await equipeModal({ titre: o.titre || 'Combat', adversaires: o.adversaires, duo: o.duo, auto: o.options ? o.options.auto : undefined, confirmer: o.confirmer || 'Combattre' });
+      if(!choix) return null;
     }
     try{
-      const p = await A.appel('combat_lancer', { p_mode: mode, p_cible: cible === null || cible === undefined ? null : String(cible), p_duo: duoDepuis(S.acc.duo) });
-      S.acc.en_cours = null;
-      ouvrirScene(p, { mode, cible });
+      let partie = o.partie;
+      if(!partie){
+        const opts = Object.assign({}, o.options || {}, { auto: !!choix.auto });
+        if(o.rpc) partie = await A.appel(o.rpc, Object.assign({}, o.params || {}, { p_duo: choix.duo, p_options: opts }));
+        else partie = await A.appel('combat_lancer', { p_mode: o.mode, p_cible: o.cible === null || o.cible === undefined ? null : String(o.cible), p_duo: choix.duo, p_options: opts });
+      }
+      if(S.acc) S.acc.en_cours = null;
+      ouvrirScene(partie, { o, choix });
+      return partie;
     }catch(e){
       A.toast(e.message, 'err');
       rafraichir();
+      return null;
     }
   }
 
@@ -620,6 +1064,91 @@
   }
 
   // ---------------------------------------------------------------------
+  // Les décors : studio, concert, plateau, ruelle, toit (CSS + SVG animés)
+  // ---------------------------------------------------------------------
+
+  const DECORS = {
+    studio: `<svg viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id="dS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d2f40"/><stop offset="1" stop-color="#050e16"/></linearGradient>
+        <pattern id="dSp" width="50" height="60" patternUnits="userSpaceOnUse"><rect x="3" y="3" width="44" height="54" rx="4" fill="#12475f"/><path d="M3 22h44M3 40h44" stroke="#0a2c3c" stroke-width="2"/></pattern></defs>
+      <rect x="-2000" width="4400" height="700" fill="url(#dS)"/>
+      <rect x="-2000" width="4400" height="420" fill="url(#dSp)" opacity=".45"/>
+      <g class="anim-pulse"><rect x="148" y="278" width="104" height="36" rx="7" fill="#3a0a10" stroke="#ff4b57" stroke-width="2"/><text x="200" y="303" text-anchor="middle" font-size="19" font-weight="900" fill="#ff6a75" font-family="Arial, sans-serif">ON AIR</text></g>
+      <rect x="26" y="96" width="348" height="156" rx="10" fill="#0a2432" stroke="#1d7396" stroke-width="3" opacity=".75"/>
+      <path d="M60 252 L120 96 M150 252 L210 96" stroke="#3aa6d3" stroke-width="6" opacity=".12"/>
+      <g fill="#0c1a24" stroke="#1d7396" stroke-width="2"><rect x="60" y="150" width="46" height="70" rx="8"/><rect x="294" y="150" width="46" height="70" rx="8"/></g>
+      <circle cx="83" cy="168" r="10" fill="#1d7396" opacity=".5"/><circle cx="317" cy="168" r="10" fill="#1d7396" opacity=".5"/>
+      <rect x="-2000" y="470" width="4400" height="230" fill="#070d13"/>
+      <rect x="-2000" y="470" width="4400" height="30" fill="#101c26"/>
+      <g fill="#1b2c3a">${Array.from({ length: 14 }, (_, i) => `<rect x="${14 + i * 27}" y="${512 + (i % 3) * 3}" width="12" height="40" rx="3"/>`).join('')}</g>
+      <g class="anim-pulse" fill="#4FB4FF">${Array.from({ length: 14 }, (_, i) => `<circle cx="${20 + i * 27}" cy="${526 + (i % 5) * 4}" r="3"/>`).join('')}</g>
+      <g fill="#ffb347" opacity=".8">${Array.from({ length: 7 }, (_, i) => `<circle cx="${36 + i * 54}" cy="580" r="6"/>`).join('')}</g>
+    </svg>`,
+    concert: `<svg viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id="dC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a0f4a"/><stop offset=".6" stop-color="#14062a"/><stop offset="1" stop-color="#05020c"/></linearGradient>
+        <linearGradient id="dCb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".5"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient></defs>
+      <rect x="-2000" width="4400" height="700" fill="url(#dC)"/>
+      <g class="anim-sweep" style="transform-origin:90px 0"><path d="M90 0 L20 480 L160 480Z" fill="#ff4fb0" opacity=".28"/></g>
+      <g class="anim-sweep2" style="transform-origin:200px 0"><path d="M200 0 L120 520 L280 520Z" fill="#4FB4FF" opacity=".25"/></g>
+      <g class="anim-sweep" style="transform-origin:310px 0"><path d="M310 0 L240 480 L380 480Z" fill="#ffd76b" opacity=".24"/></g>
+      <g fill="#0b0618" stroke="#3a2268" stroke-width="2"><rect x="-6" y="250" width="64" height="230" rx="6"/><rect x="342" y="250" width="64" height="230" rx="6"/></g>
+      <g fill="#241442"><circle cx="26" cy="300" r="20"/><circle cx="26" cy="370" r="20"/><circle cx="374" cy="300" r="20"/><circle cx="374" cy="370" r="20"/></g>
+      <rect x="-2000" y="470" width="4400" height="26" fill="#1a0c33"/>
+      <g class="anim-foule" fill="#05020c">${Array.from({ length: 36 }, (_, j) => { const i = j - 12; return `<circle cx="${12 + i * 38}" cy="${596 + (j % 3) * 6}" r="${15 + (j % 2) * 3}"/><rect x="${-4 + i * 38}" y="${608 + (j % 3) * 6}" width="34" height="120"/>`; }).join('')}</g>
+      <g class="anim-foule2" fill="#0b0618">${Array.from({ length: 30 }, (_, j) => { const i = j - 10; return `<circle cx="${28 + i * 44}" cy="${640 + (j % 2) * 8}" r="18"/><rect x="${8 + i * 44}" y="${654 + (j % 2) * 8}" width="40" height="90"/>`; }).join('')}</g>
+      <g class="anim-pulse" fill="#fff" opacity=".7">${Array.from({ length: 6 }, (_, i) => `<circle cx="${40 + i * 64}" cy="${600 - (i % 3) * 16}" r="2.5"/>`).join('')}</g>
+    </svg>`,
+    plateau: `<svg viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id="dP" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0c2a5e"/><stop offset="1" stop-color="#3a0f55"/></linearGradient>
+        <linearGradient id="dPe" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2ec4ff"/><stop offset=".5" stop-color="#7a5cff"/><stop offset="1" stop-color="#ff5cc8"/></linearGradient></defs>
+      <rect x="-2000" width="4400" height="700" fill="url(#dP)"/>
+      <rect x="20" y="70" width="360" height="190" rx="14" fill="#06101f" stroke="url(#dPe)" stroke-width="4"/>
+      <rect x="32" y="82" width="336" height="166" rx="8" fill="url(#dPe)" opacity=".28"/>
+      <g class="anim-derive" opacity=".55" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M40 130h140M40 160h210M40 190h110M240 130h100M270 190h80"/></g>
+      <g class="anim-pulse"><rect x="300" y="28" width="70" height="26" rx="6" fill="#7a0d18"/><circle cx="314" cy="41" r="5" fill="#ff4b57"/><text x="346" y="46" text-anchor="middle" font-size="13" font-weight="900" fill="#fff" font-family="Arial, sans-serif">LIVE</text></g>
+      <g fill="#0a1830" stroke="#2f5fae" stroke-width="2"><rect x="24" y="300" width="70" height="170" rx="6"/><rect x="306" y="300" width="70" height="170" rx="6"/></g>
+      <g class="anim-pulse" fill="#ffd76b"><circle cx="59" cy="330" r="7"/><circle cx="341" cy="330" r="7"/></g>
+      <rect x="-2000" y="480" width="4400" height="220" fill="#050b16"/>
+      <path d="M-2000 480 H2400" stroke="url(#dPe)" stroke-width="3"/>
+      <ellipse cx="200" cy="610" rx="170" ry="26" fill="#2ec4ff" opacity=".12"/>
+      <g fill="#02060d"><rect x="150" y="520" width="100" height="14" rx="3"/><rect x="186" y="534" width="28" height="60"/><rect x="126" y="590" width="148" height="12" rx="4"/></g>
+    </svg>`,
+    ruelle: `<svg viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id="dR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#101a2e"/><stop offset="1" stop-color="#06090f"/></linearGradient>
+        <pattern id="dRb" width="48" height="24" patternUnits="userSpaceOnUse"><rect width="48" height="24" fill="#1a2336"/><path d="M0 0h48M0 12h48M0 24h48M24 0v12M0 12v12M48 12v12" stroke="#0b111d" stroke-width="2"/></pattern>
+        <radialGradient id="dRl" cx=".5" cy="0" r="1"><stop offset="0" stop-color="#ffd98a" stop-opacity=".65"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient></defs>
+      <rect x="-2000" width="4400" height="700" fill="url(#dR)"/>
+      <rect x="-2000" y="0" width="4400" height="500" fill="url(#dRb)" opacity=".75"/>
+      <g class="anim-flick"><rect x="236" y="92" width="130" height="50" rx="8" fill="#1a0820" stroke="#ff4fd8" stroke-width="3"/><text x="301" y="127" text-anchor="middle" font-size="28" font-weight="900" fill="#ff7be5" font-family="Arial, sans-serif">RAP</text></g>
+      <g stroke="#2b3550" stroke-width="3" fill="none"><path d="M70 0 V190"/><path d="M70 190 h40"/></g>
+      <path d="M110 190 L40 520 L180 520Z" fill="url(#dRl)"/>
+      <circle cx="110" cy="190" r="9" fill="#ffd98a"/>
+      <g fill="#0a0f19"><rect x="296" y="420" width="64" height="80" rx="6"/><rect x="304" y="410" width="48" height="12" rx="4"/><rect x="20" y="440" width="46" height="60" rx="5"/></g>
+      <rect x="-2000" y="500" width="4400" height="200" fill="#080c14"/>
+      <ellipse cx="110" cy="560" rx="80" ry="12" fill="#ffd98a" opacity=".18"/><ellipse cx="300" cy="620" rx="90" ry="10" fill="#ff7be5" opacity=".13"/>
+      <g class="anim-derive" fill="#fff" opacity=".07"><ellipse cx="100" cy="470" rx="90" ry="14"/><ellipse cx="330" cy="500" rx="110" ry="12"/><ellipse cx="520" cy="470" rx="90" ry="14"/></g>
+    </svg>`,
+    toit: `<svg viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs><linearGradient id="dT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1646"/><stop offset=".45" stop-color="#8a3a6e"/><stop offset=".72" stop-color="#ff9a5c"/><stop offset="1" stop-color="#2a1830"/></linearGradient></defs>
+      <rect x="-2000" width="4400" height="700" fill="url(#dT)"/>
+      <g fill="#fff" class="anim-pulse" opacity=".8">${[[30, 40], [90, 90], [160, 30], [230, 70], [300, 36], [350, 100], [60, 150], [260, 140], [190, 110]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.6"/>`).join('')}</g>
+      <circle cx="320" cy="150" r="30" fill="#ffe9b8" opacity=".9"/><circle cx="332" cy="142" r="26" fill="#8a3a6e" opacity=".85"/>
+      <g fill="#150f2c">
+        <rect x="-10" y="330" width="70" height="250"/><rect x="50" y="270" width="60" height="310"/><rect x="104" y="350" width="80" height="230"/><rect x="178" y="300" width="56" height="280"/>
+        <rect x="228" y="360" width="76" height="220"/><rect x="298" y="290" width="62" height="290"/><rect x="354" y="340" width="70" height="240"/>
+        ${Array.from({ length: 14 }, (_, j) => `<rect x="${(j < 7 ? -80 - j * 64 : 424 + (j - 7) * 64)}" y="${290 + ((j * 47) % 80)}" width="58" height="${290 - ((j * 47) % 80)}"/>`).join('')}
+      </g>
+      <g class="anim-pulse" fill="#ffd98a" opacity=".85">${Array.from({ length: 34 }, (_, i) => `<rect x="${(i * 53) % 380 + 8}" y="${300 + ((i * 37) % 240)}" width="5" height="7"/>`).join('')}</g>
+      <g fill="#0b0818"><path d="M300 520 h60 v-60 l-10 -14 h-40 l-10 14z"/><rect x="310" y="520" width="6" height="60"/><rect x="344" y="520" width="6" height="60"/></g>
+      <rect x="-2000" y="560" width="4400" height="140" fill="#0a0714"/><rect x="-2000" y="548" width="4400" height="16" fill="#1d1530"/>
+      <path d="M-2000 548 H2400" stroke="#ff9a5c" stroke-width="2" opacity=".5"/>
+    </svg>`
+  };
+
+  const aspectDecor = () => (window.innerWidth / Math.max(window.innerHeight, 1) > 0.9 ? 'xMidYMid meet' : 'xMidYMid slice');
+  const decorHtml = (id) => (DECORS[id] || DECORS.studio).replace('preserveAspectRatio="xMidYMid slice"', 'preserveAspectRatio="' + aspectDecor() + '"');
+
+  // ---------------------------------------------------------------------
   // L'écran de combat
   // ---------------------------------------------------------------------
 
@@ -629,15 +1158,21 @@
     S.scene = null;
     sc.fin = true;
     document.removeEventListener('keydown', sc.touche);
+    window.removeEventListener('resize', sc.redim);
+    clearTimeout(sc.appui);
     sc.ov.remove();
     if(!document.querySelector('.ct-voile, .ct-scene')) document.documentElement.style.overflow = sc.avant;
   }
 
+  const nomMode = (m) => { const r = S.modes.find((x) => x.id === m); return r ? r.titre : (m === 'pvp' ? 'Défi entre joueurs' : ''); };
+
   function ouvrirScene(partie, ctx){
     if(S.scene) fermerScene();
     const U = JSON.parse(JSON.stringify(partie.unites));
-    const sc = { id: partie.id, partie, ctx: ctx || { mode: partie.mode, cible: partie.cible }, U, tour: partie.tour, rapide: false, occupe: false, fin: false,
-                 choix: {}, avant: document.documentElement.style.overflow };
+    const sc = { id: partie.id, partie, ctx: ctx || {}, U, jeu: partie.jeu || { n: 0, actif: null, auto: false }, ordre: partie.ordre || [], auto: !!(partie.jeu && partie.jeu.auto),
+                 rapide: false, occupe: false, fin: false, choix: null, texte: '', presel: null, nflot: 0, avant: document.documentElement.style.overflow };
+    const cibleDef = ctx && ctx.choix && ctx.choix.cible !== null && ctx.choix.cible !== undefined ? 2 + Number(ctx.choix.cible) : null;
+    sc.presel = cibleDef;
     S.scene = sc;
 
     const ov = document.createElement('div');
@@ -646,80 +1181,138 @@
     ov.setAttribute('aria-modal', 'true');
     ov.setAttribute('aria-label', 'Combat');
     ov.innerHTML = `
-      <div class="ct-scene-fond"></div>
-      <button type="button" class="ct-scene-x" aria-label="Quitter l'écran (le combat reste en cours)">${A.ico('croix', 20)}</button>
-      <header class="cb-s-tete"><div><small>${esc(MODES[partie.mode] || '')}</small><b>${esc(partie.adversaire)}</b></div>
-        <div class="cb-s-tour">Tour <b data-tour>${sc.tour}</b> / ${partie.max_tours || 20}</div>
-        <button type="button" class="cb-mini" data-vite aria-pressed="false">Rapide</button><button type="button" class="cb-mini" data-abandon>Abandonner</button></header>
+      <div class="cb-decor" data-decor>${decorHtml(partie.decor)}</div>
+      <header class="cb-s-tete"><div><small>${esc(nomMode(partie.mode))}</small><b>${esc(partie.titre || partie.adversaire)}</b></div>
+        <button type="button" class="cb-mini" data-auto aria-pressed="${sc.auto}" title="Laisser l'ordinateur jouer à ta place">AUTO</button>
+        <button type="button" class="cb-mini" data-vite aria-pressed="false" title="Animations deux fois plus rapides">×2</button>
+        <button type="button" class="cb-mini texte" data-abandon>Abandonner</button>
+        <button type="button" class="cb-mini" data-quitter aria-label="Quitter l'écran (le combat reste en cours)">✕</button></header>
+      <div class="cb-frise" data-frise aria-label="Ordre des prochains tours"></div>
       <div class="cb-champ">
         <div class="cb-rangee" data-rang="1"></div>
-        <div class="cb-msg" data-msg aria-live="polite">Le combat commence !</div>
         <div class="cb-rangee" data-rang="0"></div>
       </div>
-      <div class="cb-cmd" data-cmd></div>`;
+      <div class="cb-bandeau" data-bandeau><span></span></div>
+      <div class="cb-panneau"><div class="cb-pan-in" data-pan></div></div>`;
     document.documentElement.style.overflow = 'hidden';
     document.body.appendChild(ov);
     sc.ov = ov;
 
-    sc.touche = (ev) => { if(ev.key === 'Escape' && !document.querySelector('.ct-voile')) quitterScene(); };
+    sc.touche = (ev) => {
+      if(document.querySelector('.ct-voile')) return;
+      if(ev.key === 'Escape'){ quitterScene(); return; }
+      if(ev.key === 'i' || ev.key === 'I'){ const u = sc.U[sc.jeu.actif !== null && sc.jeu.actif !== undefined ? sc.jeu.actif : (sc.presel !== null ? sc.presel : 0)]; if(u) ficheUnite(u); return; }
+      if(['1', '2', '3'].includes(ev.key)) choisirTech(sc, Number(ev.key) - 1);
+    };
     document.addEventListener('keydown', sc.touche);
 
     const quitterScene = () => { fermerScene(); rafraichir(); };
-    ov.querySelector('.ct-scene-x').addEventListener('click', quitterScene);
+    ov.querySelector('[data-quitter]').addEventListener('click', quitterScene);
     ov.querySelector('[data-abandon]').addEventListener('click', () => { if(!sc.fin) confirmerAbandon({ id: sc.id, mode: partie.mode }, true); });
+    const bAuto = ov.querySelector('[data-auto]');
+    bAuto.addEventListener('click', () => {
+      sc.auto = !sc.auto;
+      bAuto.setAttribute('aria-pressed', String(sc.auto));
+      A.toast(sc.auto ? 'Mode Auto : l\'ordinateur joue pour toi.' : 'Mode manuel : tu reprends la main au prochain tour.');
+      if(sc.auto && !sc.occupe && !sc.fin) pas(sc, null);
+      else dessinerPanneau(sc);
+    });
     const vite = ov.querySelector('[data-vite]');
     vite.addEventListener('click', () => { sc.rapide = !sc.rapide; vite.setAttribute('aria-pressed', String(sc.rapide)); });
 
+    sc.redim = () => { const g = ov.querySelector('.cb-decor svg'); if(g) g.setAttribute('preserveAspectRatio', aspectDecor()); };
+    window.addEventListener('resize', sc.redim);
     [2, 3].forEach((i) => ov.querySelector('[data-rang="1"]').appendChild(tuile(sc, i)));
     [0, 1].forEach((i) => ov.querySelector('[data-rang="0"]').appendChild(tuile(sc, i)));
-    commandes(sc);
-    const j = partie.journal || [];
-    if(j.length) msg(sc, 'Combat repris au tour ' + sc.tour + '.');
-    Son().jouer('volte');
+    majTout(sc);
+    A.Son.jouer('volte');
+
+    (async () => {
+      const neuf = !(ctx && ctx.reprise) && (!sc.jeu.n);
+      if(neuf && stock.lire('wc-cb-tuto', '0') !== '1') await tutoriel(sc);
+      if(sc.fin) return;
+      if(attend(sc)) dessinerPanneau(sc); else pas(sc, null);
+    })();
   }
 
-  const Son = () => A.Son;
+  const attend = (sc) => !sc.fin && !sc.occupe && !sc.auto && sc.jeu.actif !== null && sc.jeu.actif !== undefined && sc.U[sc.jeu.actif] && !sc.U[sc.jeu.actif].ko;
+  const elTuile = (sc, i) => sc.ov.querySelector(`.cb-u[data-u="${i}"]`);
+  const pause = (sc, ms) => attendre(calme() ? Math.min(ms, 50) : sc.rapide ? ms * 0.45 : ms);
+  const vivants = (sc, camp) => sc.U.map((u, i) => i).filter((i) => sc.U[i].camp === camp && !sc.U[i].ko);
 
   function tuile(sc, i){
     const u = sc.U[i];
     const d = document.createElement('div');
-    d.className = 'cb-u';
+    d.className = 'cb-u ' + (u.camp === 0 ? 'allie' : 'ennemi');
     d.dataset.u = String(i);
+    d.tabIndex = 0;
+    d.setAttribute('role', 'button');
+    d.setAttribute('aria-label', u.nom + ', ' + (u.role_nom || '') + '. Appui long ou touche I : fiche.');
     d.style.setProperty('--tc', couleur(u.couleur));
     d.innerHTML = `
-      <div class="cb-u-vis"><div class="cb-u-carte">${A.carteHtml({ nom: u.nom, photo: u.photo, rarete: u.rarete, holo: u.holo, numero: u.numero || 0 }, {})}</div><img class="cb-u-av" src="${esc(A.safeUrl(u.photo))}" alt=""><span class="cb-ko">K.O.</span></div>
-      <div class="cb-u-nom">${esc(u.nom)}${chip(u.type_nom, u.couleur)}</div>
+      <div class="cb-u-vis"><img src="${esc(A.safeUrl(u.photo))}" alt=""><span class="cb-u-role">${esc(u.role_nom || '')}</span><span class="cb-ko">K.O.</span></div>
+      <div class="cb-u-nom"><span>${esc(u.nom)}</span></div>
       <div class="cb-pv" data-pv><i></i><b></b></div>
+      <div class="cb-jauge" data-jauge><i></i></div>
       <div class="cb-badges" data-badges></div>`;
-    majTuile(sc, i, d);
+    d.addEventListener('click', () => cliquerUnite(sc, i));
+    d.addEventListener('keydown', (ev) => { if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); cliquerUnite(sc, i); } });
+    d.addEventListener('pointerdown', () => { clearTimeout(sc.appui); sc.appui = setTimeout(() => { sc.appuiFait = true; ficheUnite(sc.U[i]); }, 520); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((n) => d.addEventListener(n, () => clearTimeout(sc.appui)));
+    d.addEventListener('contextmenu', (ev) => ev.preventDefault());
     return d;
   }
 
-  const elTuile = (sc, i) => sc.ov.querySelector(`.cb-u[data-u="${i}"]`);
+  const LIB_STAT = { 'pui+': 'PUI', 'pui-': 'PUI', 'def+': 'DÉF', 'def-': 'DÉF', 'vit+': 'VIT', 'vit-': 'VIT' };
 
-  function majTuile(sc, i, d){
-    d = d || elTuile(sc, i);
+  function badgesHtml(u){
+    return (u.statuts || []).map((s) => {
+      const d = STAT[s.k] || { c: s.k, n: s.k, t: 'neutre' };
+      const val = s.k === 'bouclier' ? ' ' + Math.round(s.v) : '';
+      return `<span class="${d.t}" title="${esc(d.n)} · ${s.d} tour${s.d > 1 ? 's' : ''}">${esc(d.c)}${esc(val)}<i>${s.d}</i></span>`;
+    }).join('');
+  }
+
+  function majTuile(sc, i){
+    const d = elTuile(sc, i);
     if(!d) return;
     const u = sc.U[i], p = pct(u.pv, u.pv_max);
     d.classList.toggle('ko', !!u.ko);
+    d.classList.toggle('actif', (sc.actifIdx === i || (!sc.occupe && sc.jeu.actif === i)) && !u.ko);
+    d.classList.toggle('presel', sc.presel === i && !u.ko && u.camp === 1);
     const b = d.querySelector('[data-pv]');
     b.classList.toggle('mid', p <= 50 && p > 25);
     b.classList.toggle('bas', p <= 25);
     b.querySelector('i').style.width = p + '%';
-    b.querySelector('b').textContent = u.pv + ' / ' + u.pv_max;
-    const bad = [];
-    ['pui', 'def', 'vit'].forEach((k) => { const n = (u.mods || {})[k] || 0; if(n) bad.push(`<span class="${n > 0 ? 'haut' : 'bas'}">${LIB[k].slice(0, 3)} ${n > 0 ? '+' : '−'}${Math.abs(n)}</span>`); });
-    if(u.statut && u.statut.etourdi) bad.push('<span class="statut">Étourdi</span>');
-    if(u.statut && u.statut.poison > 0) bad.push('<span class="statut">Poison</span>');
-    d.querySelector('[data-badges]').innerHTML = bad.join('');
+    b.querySelector('b').textContent = Math.round(u.pv) + ' / ' + Math.round(u.pv_max);
+    const j = d.querySelector('[data-jauge]');
+    const jv = u.ko ? 0 : Math.max(0, Math.min(100, Number(u.jauge) || 0));
+    j.querySelector('i').style.width = jv + '%';
+    j.classList.toggle('pleine', jv >= 99.9 && !u.ko);
+    d.querySelector('[data-badges]').innerHTML = badgesHtml(u);
+  }
+
+  function majFrise(sc){
+    const z = sc.ov.querySelector('[data-frise]');
+    if(!z) return;
+    const ordre = (sc.ordre || []).slice(0, 8);
+    z.innerHTML = `<small>À venir</small>` + ordre.map((i) => {
+      const u = sc.U[i];
+      return u ? `<img class="f ${u.camp === 0 ? 'allie' : 'ennemi'}${u.ko ? ' ko' : ''}" src="${esc(A.safeUrl(u.photo))}" alt="${esc(u.nom)}" title="${esc(u.nom)}">` : '';
+    }).join('');
+  }
+
+  function majTout(sc){
+    sc.U.forEach((u, i) => majTuile(sc, i));
+    majFrise(sc);
+    dessinerPanneau(sc);
   }
 
   function msg(sc, texte){
+    sc.texte = texte;
     const m = sc.ov.querySelector('[data-msg]');
     if(m) m.textContent = texte;
   }
-
-  const pause = (sc, ms) => attendre(calme() ? Math.min(ms, 60) : sc.rapide ? ms * 0.25 : ms);
 
   function flotter(sc, i, texte, genre){
     const d = elTuile(sc, i);
@@ -727,8 +1320,9 @@
     const f = document.createElement('span');
     f.className = 'cb-flotte ' + genre;
     f.textContent = texte;
+    f.style.marginTop = ((sc.nflot++ % 3) * -15) + 'px';
     d.querySelector('.cb-u-vis').appendChild(f);
-    setTimeout(() => f.remove(), 1200);
+    setTimeout(() => f.remove(), 1300);
   }
 
   function classe(sc, i, nom, ms){
@@ -750,232 +1344,373 @@
     setTimeout(() => fx.remove(), 700);
   }
 
-  // --- les commandes : une attaque et une cible pour chaque carte en vie
-  function ciblesPossibles(sc, i, a){
-    const camp = sc.U[i].camp;
-    const v = (k) => !sc.U[k].ko;
-    if(a.cible === 'ennemi') return sc.U.map((u, k) => k).filter((k) => sc.U[k].camp !== camp && v(k));
-    if(a.cible === 'allie') return sc.U.map((u, k) => k).filter((k) => sc.U[k].camp === camp && v(k));
+  function bandeau(sc, texte, c){
+    const b = sc.ov.querySelector('[data-bandeau]');
+    if(!b) return;
+    b.style.setProperty('--tc', couleur(c));
+    b.querySelector('span').textContent = texte;
+    b.classList.remove('on');
+    void b.offsetWidth;
+    b.classList.add('on');
+  }
+
+  // Les textes courts des effets d'une technique (pour les boutons).
+  function effetsTexte(t){
+    const l = [];
+    (t.effets || []).forEach((e) => {
+      const ch = e.chance && e.chance < 100 ? ' ' + e.chance + ' %' : '';
+      const v = e.v ? ' ' + e.v + ' %' : '';
+      const d = e.d ? ' · ' + e.d + 't' : '';
+      const sur = e.sur === 'soi' ? ' (soi)' : e.sur === 'allies' ? ' (duo)' : e.sur === 'ennemis' ? ' (adv.)' : '';
+      const nom = { soin: 'Soin', bouclier: 'Bouclier', vampirisme: 'Vol de PV', recul: 'Recul', 'pui+': 'PUI+', 'pui-': 'PUI−', 'def+': 'DÉF+', 'def-': 'DÉF−', 'vit+': 'VIT+', 'vit-': 'VIT−',
+        etourdi: 'Étourdit', gel: 'Gèle', brulure: 'Brûle', poison: 'Empoisonne', regen: 'Régén.', marque: 'Marque', provoc: 'Provoque', purif: 'Purifie', 'jauge+': 'Jauge+', 'jauge-': 'Jauge−' }[e.k] || e.k;
+      l.push(nom + (['soin', 'bouclier', 'vampirisme', 'recul', 'pui+', 'pui-', 'def+', 'def-', 'vit+', 'vit-', 'brulure', 'poison', 'regen', 'marque', 'jauge+', 'jauge-'].includes(e.k) ? v : '') + d + sur + (ch ? ' (' + ch.trim() + ')' : ''));
+    });
+    return l;
+  }
+
+  function resumeTech(t){
+    const bits = [];
+    if(t.puissance) bits.push('Puiss. ' + t.puissance + (t.hits > 1 ? '×' + t.hits : ''));
+    const eff = effetsTexte(t);
+    return bits.concat(eff.slice(0, 2)).join(' · ') || CIBLES[t.cible] || '';
+  }
+
+  function ciblesValides(sc, ct){
+    if(ct === 'ennemi'){
+      const e = vivants(sc, 1);
+      const prov = e.find((i) => (sc.U[i].statuts || []).some((s) => s.k === 'provoc'));
+      return prov !== undefined ? [prov] : e;
+    }
+    if(ct === 'allie') return vivants(sc, 0);
     return [];
   }
 
-  function plusFaible(sc, liste){
-    return liste.slice().sort((a, b) => sc.U[a].pv - sc.U[b].pv)[0];
+  function efficaciteSur(t, e){
+    if(!t.puissance || !t.type || !e) return 0;
+    if((e.faiblesses || []).includes(t.type)) return 1;
+    if((e.resistances || []).includes(t.type)) return -1;
+    return 0;
   }
 
-  function efficacite(sc, i, a, c){
-    if(!a.puissance || !a.type || c === null || c === undefined) return '';
-    const t = sc.U[c];
-    if((t.faiblesses || []).includes(a.type)) return '<span class="e sup">Super efficace ×1,5</span>';
-    if((t.resistances || []).includes(a.type)) return '<span class="e peu">Peu efficace ×0,67</span>';
-    return '<span class="e"></span>';
+  function validerPresel(sc){
+    const v = vivants(sc, 1);
+    if(sc.presel !== null && sc.presel !== undefined && !v.includes(sc.presel)) sc.presel = v.length ? v[0] : null;
   }
 
-  function commandes(sc){
-    const zone = sc.ov.querySelector('[data-cmd]');
-    const mes = [0, 1].filter((i) => !sc.U[i].ko);
-    sc.choix = {};
-    mes.forEach((i) => {
-      const cibles = ciblesPossibles(sc, i, sc.U[i].attaques[0]);
-      sc.choix[i] = { a: 0, c: cibles.length ? plusFaible(sc, cibles) : null };
-    });
-    zone.innerHTML = `
-      <div class="cb-cmd-grille">${[0, 1].map((i) => {
-        const u = sc.U[i];
-        if(u.ko) return `<div class="cb-cmd-u ko"><div class="cb-cmd-t"><span>${esc(u.nom)}</span><span>K.O.</span></div></div>`;
-        return `<div class="cb-cmd-u" data-cu="${i}" style="--tc:${couleur(u.couleur)}"><div class="cb-cmd-t"><span>${esc(u.nom)}</span>${chip(u.type_nom, u.couleur)}</div>
-          <div data-atts></div><div class="cb-cibles" data-cibles></div></div>`;
-      }).join('')}</div>
-      <div class="cb-go"><button type="button" class="ct-btn principal grand" data-go>Combattre !</button></div>`;
-    mes.forEach((i) => dessinerChoix(sc, i));
-    zone.querySelector('[data-go]').addEventListener('click', () => jouerTour(sc));
-    const premier = zone.querySelector('.cb-attbtn');
-    if(premier && !calme()) { /* le focus reste à l'utilisateur */ }
-  }
-
-  function dessinerChoix(sc, i){
-    const u = sc.U[i], ch = sc.choix[i];
-    const bloc = sc.ov.querySelector(`[data-cu="${i}"]`);
-    if(!bloc) return;
-    bloc.querySelector('[data-atts]').innerHTML = u.attaques.map((a, k) => `
-      <button type="button" class="cb-attbtn" data-a="${k}" aria-pressed="${ch.a === k}" style="--tc:${couleur(a.couleur)}">
-        <span class="n"><span>${esc(a.nom)}</span>${a.type ? chip(a.type_nom, a.couleur) : ''}</span>
-        <span class="m">${a.puissance ? 'Puissance ' + a.puissance + ' · ' : ''}${esc(a.description || CIBLES[a.cible])}</span>
-        ${ch.a === k ? efficacite(sc, i, a, ch.c) : ''}
-      </button>`).join('');
-    const a = u.attaques[ch.a], cibles = ciblesPossibles(sc, i, a);
-    const zc = bloc.querySelector('[data-cibles]');
-    if(cibles.length){
-      if(!cibles.includes(ch.c)) ch.c = plusFaible(sc, cibles);
-      zc.innerHTML = '<span>Cible :</span>' + cibles.map((k) => `<button type="button" data-c="${k}" aria-pressed="${ch.c === k}">${k === i ? 'Soi-même' : esc(sc.U[k].nom)}</button>`).join('');
-    }else{
-      zc.innerHTML = `<span>Cible : ${esc(CIBLES[a.cible] || '')}</span>`;
+  function dessinerPanneau(sc){
+    const z = sc.ov.querySelector('[data-pan]');
+    if(!z || sc.fin) return;
+    validerPresel(sc);
+    sc.U.forEach((u, i) => { const d = elTuile(sc, i); if(d){ d.classList.remove('cible'); d.classList.toggle('presel', sc.presel === i && !u.ko && u.camp === 1); const o = d.querySelector('.cb-effn'); if(o) o.remove(); } });
+    if(attend(sc)){
+      const u = sc.U[sc.jeu.actif];
+      const pre = sc.presel !== null && sc.presel !== undefined ? sc.U[sc.presel] : null;
+      const tous = vivants(sc, 1).map((i) => sc.U[i]);
+      z.innerHTML = `
+        <div class="cb-pan-actif" style="--tc:${couleur(u.couleur)}"><img src="${esc(A.safeUrl(u.photo))}" alt=""><div><b>${esc(u.nom)} · à toi de jouer</b><small>${esc(u.role_nom || '')}${u.capacite ? ' · passif ' + esc(u.capacite.nom) : ''}</small></div>
+          <button type="button" class="cb-mini" data-info aria-label="Fiche de ${esc(u.nom)}">i</button></div>
+        <div class="cb-techs">${(u.techs || []).map((t, n) => {
+          const cd = (u.cd || [])[n] || 0;
+          const e = pre && ['ennemi'].includes(t.cible) ? efficaciteSur(t, pre) : (['ennemi', 'ennemis'].includes(t.cible) ? (tous.some((x) => efficaciteSur(t, x) > 0) ? 1 : tous.length && tous.every((x) => efficaciteSur(t, x) < 0) ? -1 : 0) : 0);
+          return `<button type="button" class="cb-tech" data-t="${n}" style="--tc:${couleur(t.couleur)}" ${cd > 0 ? 'disabled' : ''} aria-pressed="${sc.choix === n}" aria-label="${esc(t.nom)}, ${cd > 0 ? 'recharge ' + cd + ' tours' : 'prête'}">
+            <span class="k">${n + 1}</span><span class="n">${esc(t.nom)}</span><span class="m">${esc(resumeTech(t))}</span>
+            <span class="e ${e > 0 ? 'sup' : e < 0 ? 'peu' : ''}">${e > 0 ? '▲ super efficace' : e < 0 ? '▼ peu efficace' : '&nbsp;'}</span>
+            <span class="r ${cd > 0 ? 'cd' : 'pret'}">${cd > 0 ? 'Recharge ' + cd : (t.slot === 1 ? 'Toujours prête' : 'Prête')}</span></button>`;
+        }).join('')}</div>
+        <div class="cb-pan-aide">${sc.choix !== null ? 'Touche une cible en surbrillance.' : (pre && vivants(sc, 1).length > 1 ? 'Cible : <b>' + esc(pre.nom) + '</b> · touche un adversaire pour changer de cible.' : 'Touche une technique.')}</div>
+        <div class="cb-pan-bas"><button type="button" class="cb-mini" data-passer>Passer le tour</button></div>`;
+      z.querySelectorAll('[data-t]').forEach((b) => b.addEventListener('click', () => choisirTech(sc, Number(b.dataset.t))));
+      z.querySelector('[data-info]').addEventListener('click', () => ficheUnite(u));
+      z.querySelector('[data-passer]').addEventListener('click', () => { sc.choix = null; pas(sc, { passer: true }); });
+      if(sc.choix !== null){
+        const t = u.techs[sc.choix];
+        ciblesValides(sc, t.cible).forEach((i) => {
+          const d = elTuile(sc, i);
+          if(!d) return;
+          d.classList.add('cible');
+          const e = efficaciteSur(t, sc.U[i]);
+          if(e){ const s = document.createElement('span'); s.className = 'cb-effn'; s.textContent = e > 0 ? '▲ ×1,5' : '▼ ×0,67'; s.style.cssText = 'position:absolute;z-index:4;top:-6px;left:4px;padding:1px 6px;border-radius:6px;font-size:10px;font-weight:900;color:#06110a;background:' + (e > 0 ? '#5BE0A6' : '#FF9AA3'); d.appendChild(s); }
+        });
+      }
+      return;
     }
-    bloc.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => { ch.a = Number(b.dataset.a); ch.c = null; dessinerChoix(sc, i); }));
-    bloc.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => { ch.c = Number(b.dataset.c); dessinerChoix(sc, i); }));
+    if(!sc.occupe && !sc.auto && (sc.jeu.actif === null || sc.jeu.actif === undefined)){
+      z.innerHTML = `<div class="cb-pan-msg" data-msg>${esc(sc.texte || 'Le combat est prêt.')}</div><div class="cb-pan-bas"><button type="button" class="cb-mini" data-suite>Continuer</button></div>`;
+      z.querySelector('[data-suite]').addEventListener('click', () => pas(sc, null));
+      return;
+    }
+    z.innerHTML = `<div class="cb-pan-msg" data-msg aria-live="polite">${esc(sc.texte || (sc.auto ? 'Mode Auto : l\'ordinateur joue pour toi.' : 'Le combat commence !'))}</div>
+      ${sc.auto ? '<div class="cb-pan-aide">Touche AUTO pour reprendre la main.</div>' : ''}`;
   }
 
-  // --- un tour : on envoie les choix, puis on rejoue les événements un à un
-  async function jouerTour(sc){
+  function choisirTech(sc, n){
+    if(!attend(sc)) return;
+    const u = sc.U[sc.jeu.actif], t = (u.techs || [])[n];
+    if(!t || ((u.cd || [])[n] || 0) > 0) return;
+    if(sc.choix === n){ sc.choix = null; dessinerPanneau(sc); return; }
+    if(t.cible === 'ennemi' || t.cible === 'allie'){
+      const l = ciblesValides(sc, t.cible);
+      if(!l.length) return;
+      if(t.cible === 'ennemi'){
+        if(l.length === 1) return envoyer(sc, { t: n, c: l[0] });
+        if(sc.presel !== null && sc.presel !== undefined && l.includes(sc.presel)) return envoyer(sc, { t: n, c: sc.presel });
+      }
+      sc.choix = n;
+      dessinerPanneau(sc);
+      return;
+    }
+    envoyer(sc, { t: n, c: null });
+  }
+
+  function cliquerUnite(sc, i){
+    if(sc.appuiFait){ sc.appuiFait = false; return; }
+    const u = sc.U[i];
+    if(!u || u.ko) return;
+    const d = elTuile(sc, i);
+    if(attend(sc) && sc.choix !== null && d && d.classList.contains('cible')) return envoyer(sc, { t: sc.choix, c: i });
+    if(u.camp === 1 && !sc.occupe && !sc.fin){
+      sc.presel = i;
+      sc.U.forEach((x, k) => majTuile(sc, k));
+      dessinerPanneau(sc);
+    }
+  }
+
+  function envoyer(sc, action){
+    sc.choix = null;
+    return pas(sc, action);
+  }
+
+  // Une étape : envoie l'action (ou rien), anime les événements reçus, recommence tant que le serveur a encore des tours à jouer.
+  async function pas(sc, action){
     if(sc.occupe || sc.fin) return;
     sc.occupe = true;
-    const zone = sc.ov.querySelector('[data-cmd]');
-    zone.querySelectorAll('button').forEach((b) => { b.disabled = true; });
-    const actions = Object.keys(sc.choix).map((i) => ({ u: Number(i), a: sc.choix[i].a, c: sc.choix[i].c }));
-    let r;
+    sc.choix = null;
+    dessinerPanneau(sc);
+    let act = action || null;
     try{
-      r = await A.appel('combat_tour', { p_id: sc.id, p_actions: actions });
+      for(;;){
+        const r = await A.appel('combat_avancer', { p_id: sc.id, p_action: act, p_auto: sc.auto });
+        act = null;
+        if(sc.fin) return;
+        if(r.expire){ A.toast('Ce combat a expiré.', 'err'); fermerScene(); rafraichir(); return; }
+        await jouer(sc, r.evenements || []);
+        if(sc.fin) return;
+        sc.U = r.unites;
+        sc.jeu = r.jeu;
+        sc.ordre = r.ordre;
+        sc.actifIdx = null;
+        sc.U.forEach((u, i) => majTuile(sc, i));
+        majFrise(sc);
+        if(r.fini){ sc.occupe = false; await terminer(sc, r); return; }
+        if(r.continuer) continue;
+        break;
+      }
     }catch(e){
       A.toast(e.message, 'err');
-      sc.occupe = false;
-      zone.querySelectorAll('button').forEach((b) => { b.disabled = false; });
-      return;
     }
     if(sc.fin) return;
-    if(r.expire){
-      msg(sc, 'Ce combat a expiré (trop longtemps sans jouer).');
-      sc.fin = true;
-      zone.innerHTML = '<div class="cb-fin"><h3>Combat expiré</h3><div class="boutons"><button type="button" class="ct-btn principal" data-retour>Retour</button></div></div>';
-      zone.querySelector('[data-retour]').addEventListener('click', () => { fermerScene(); rafraichir(); });
-      return;
-    }
-    A.Son.pret();
-    let dernierType = null;
-    for(const ev of r.evenements){
-      if(sc.fin) return;
-      if(ev.t === 'usage') dernierType = couleurAttaque(sc, ev);
-      await rejouer(sc, ev, dernierType);
-    }
-    sc.U = JSON.parse(JSON.stringify(r.unites));
-    [0, 1, 2, 3].forEach((i) => majTuile(sc, i));
-    sc.tour = r.tour;
-    const t = sc.ov.querySelector('[data-tour]');
-    if(t) t.textContent = String(Math.min(sc.tour, (sc.partie.max_tours || 20)));
     sc.occupe = false;
-    if(r.fini){ terminer(sc, r); return; }
-    msg(sc, 'Que va jouer ton duo ?');
-    commandes(sc);
+    sc.texte = '';
+    sc.U.forEach((u, i) => majTuile(sc, i));
+    dessinerPanneau(sc);
   }
 
-  function couleurAttaque(sc, ev){
-    const a = (sc.U[ev.u].attaques || []).find((x) => x.nom === ev.a);
-    return a && a.type ? a.couleur : '#ffffff';
+  async function jouer(sc, evs){
+    for(const ev of evs){
+      if(sc.fin) return;
+      await evenement(sc, ev);
+    }
   }
 
-  const nomU = (sc, i) => sc.U[i].nom;
+  const NOMS_STATUT = { 'pui+': 'Puissance', 'pui-': 'Puissance', 'def+': 'Défense', 'def-': 'Défense', 'vit+': 'Vitesse', 'vit-': 'Vitesse' };
+  function libelleStatut(ev){
+    const d = STAT[ev.k];
+    if(!d) return ev.k;
+    if(NOMS_STATUT[ev.k]) return NOMS_STATUT[ev.k] + ' ' + (ev.k.endsWith('+') ? '+' : '−') + Math.round(ev.v) + ' %';
+    if(ev.k === 'bouclier') return 'Bouclier ' + Math.round(ev.v);
+    if(['brulure', 'poison', 'regen', 'marque'].includes(ev.k)) return d.c + ' ' + Math.round(ev.v) + ' %';
+    return d.c;
+  }
 
-  async function rejouer(sc, ev, coul){
+  async function evenement(sc, ev){
     const U = sc.U;
+    const nom = (i) => (U[i] ? U[i].nom : '?');
     switch(ev.t){
-      case 'usage':
-        msg(sc, `${nomU(sc, ev.u)} utilise ${ev.a} !`);
-        classe(sc, ev.u, U[ev.u].camp === 0 ? 'agit-b' : 'agit-h', 520);
-        await pause(sc, 800);
+      case 'debut':
+        sc.actifIdx = ev.u;
+        if(U[ev.u]) U[ev.u].cd = ev.cd;
+        (ev.jauges || []).forEach((j, k) => { if(U[k]) U[k].jauge = j; });
+        sc.ordre = ev.ordre || sc.ordre;
+        U.forEach((u, i) => majTuile(sc, i));
+        majFrise(sc);
+        await pause(sc, 160);
         break;
+      case 'tech': {
+        const u = U[ev.u];
+        u.cd = ev.cd;
+        msg(sc, nom(ev.u) + ' · ' + ev.nom);
+        bandeau(sc, ev.nom, ev.couleur);
+        classe(sc, ev.u, u.camp === 0 ? 'agit-b' : 'agit-h', 520);
+        (ev.c || []).forEach((c) => effetType(sc, c, ev.couleur));
+        A.Son.jouer('tic');
+        await pause(sc, 620);
+        break;
+      }
       case 'rate':
-        msg(sc, `${nomU(sc, ev.c)} esquive l'attaque !`);
-        flotter(sc, ev.c, 'Raté', 'texte');
-        await pause(sc, 700);
+        flotter(sc, ev.c, 'Raté !', 'texte');
+        await pause(sc, 320);
         break;
       case 'degats': {
         const u = U[ev.c];
+        if(!u) break;
         u.pv = ev.pv;
         if(ev.ko) u.ko = true;
+        const lib = ev.dot ? (STAT[ev.dot] ? STAT[ev.dot].c.toLowerCase() : '') : '';
+        if(ev.d > 0 || !ev.a) flotter(sc, ev.c, '−' + ev.d + (lib ? ' ' + lib : ''), ev.crit ? 'crit' : 'degat');
+        if(ev.a) flotter(sc, ev.c, 'Bouclier −' + ev.a, 'texte');
+        if(ev.crit) flotter(sc, ev.c, 'CRITIQUE !', 'crit');
+        else if(ev.m > 1 && !ev.dot) flotter(sc, ev.c, '▲ Super efficace', 'sup');
+        else if(ev.m < 1 && !ev.dot) flotter(sc, ev.c, '▼ Peu efficace', 'mal');
         classe(sc, ev.c, 'touche', 500);
-        if(!ev.indirect) effetType(sc, ev.c, coul);
-        flotter(sc, ev.c, '−' + ev.d, 'degat');
-        A.Son.jouer('tic');
-        A.vibre(ev.crit ? [20, 30, 20] : 12);
         majTuile(sc, ev.c);
-        if(ev.recul) msg(sc, `${nomU(sc, ev.c)} subit le recul !`);
-        else if(ev.poison) msg(sc, `${nomU(sc, ev.c)} souffre du poison.`);
-        else if(ev.crit) msg(sc, 'Coup critique !');
-        else if(ev.m > 1) msg(sc, 'C\'est super efficace !');
-        else if(ev.m < 1) msg(sc, 'Ce n\'est pas très efficace…');
-        await pause(sc, 750);
-        if(ev.ko){ msg(sc, `${nomU(sc, ev.c)} est K.O. !`); await pause(sc, 800); }
+        A.Son.jouer('volte');
+        await pause(sc, ev.h > 1 ? 280 : 430);
         break;
       }
-      case 'soin':
-        U[ev.u].pv = ev.pv;
-        classe(sc, ev.u, 'soin', 700);
-        flotter(sc, ev.u, '+' + ev.v, 'soin');
-        majTuile(sc, ev.u);
-        msg(sc, `${nomU(sc, ev.u)} récupère ${ev.v} PV.`);
-        await pause(sc, 800);
+      case 'soin': {
+        const u = U[ev.c];
+        if(!u) break;
+        u.pv = ev.pv;
+        flotter(sc, ev.c, '+' + ev.v, 'soin');
+        classe(sc, ev.c, 'soigne', 700);
+        majTuile(sc, ev.c);
+        A.Son.jouer('gain');
+        await pause(sc, 400);
         break;
-      case 'stat':
-        U[ev.u].mods[ev.s] = ev.n;
-        majTuile(sc, ev.u);
-        flotter(sc, ev.u, LIB[ev.s].slice(0, 3) + ' ' + (ev.v > 0 ? '▲' : '▼'), 'texte');
-        msg(sc, `${LIB[ev.s]} de ${nomU(sc, ev.u)} ${ev.v > 0 ? 'augmente' : 'baisse'}${Math.abs(ev.v) > 1 ? ' beaucoup' : ''} !`);
-        await pause(sc, 800);
-        break;
-      case 'stat_max':
-        msg(sc, `${LIB[ev.s]} de ${nomU(sc, ev.u)} ne peut pas aller plus loin.`);
-        await pause(sc, 600);
-        break;
+      }
       case 'statut':
-        if(ev.s === 'etourdi'){ U[ev.u].statut.etourdi = 1; msg(sc, `${nomU(sc, ev.u)} est étourdi !`); }
-        else{ U[ev.u].statut.poison = 3; msg(sc, `${nomU(sc, ev.u)} est empoisonné !`); }
-        majTuile(sc, ev.u);
-        await pause(sc, 800);
+        flotter(sc, ev.c, libelleStatut(ev), (STAT[ev.k] && STAT[ev.k].t === 'haut') ? 'soin' : 'texte');
+        await pause(sc, 260);
+        break;
+      case 'statuts':
+        if(U[ev.c]){ U[ev.c].statuts = ev.s; majTuile(sc, ev.c); }
+        break;
+      case 'fin_statut':
+        flotter(sc, ev.c, (STAT[ev.k] ? STAT[ev.k].c : ev.k) + ' : fin', 'texte');
+        await pause(sc, 140);
         break;
       case 'immunise':
-        msg(sc, `${nomU(sc, ev.u)} garde son sang-froid : rien ne l'atteint.`);
-        flotter(sc, ev.u, 'Immunisé', 'texte');
-        await pause(sc, 800);
+        flotter(sc, ev.c, 'Immunisé !', 'texte');
+        await pause(sc, 260);
         break;
-      case 'etourdi':
-        U[ev.u].statut.etourdi = 0;
-        majTuile(sc, ev.u);
-        msg(sc, `${nomU(sc, ev.u)} est trop étourdi pour agir !`);
-        await pause(sc, 800);
+      case 'purif':
+        flotter(sc, ev.c, 'Purifié', 'soin');
+        await pause(sc, 260);
         break;
-      case 'epuise':
-        msg(sc, `${nomU(sc, ev.u)} n'a plus assez d'énergie pour recommencer (${ev.a}).`);
-        await pause(sc, 800);
+      case 'jauge':
+        if(U[ev.c]){ U[ev.c].jauge = ev.j; majTuile(sc, ev.c); }
+        flotter(sc, ev.c, 'Jauge ' + signe(Math.round(ev.v)), 'texte');
+        await pause(sc, 260);
         break;
-      case 'capacite': {
-        const txt = { epines: `${nomU(sc, ev.u)} renvoie les coups avec sa langue acérée !`, survivant: `${nomU(sc, ev.u)} s'accroche et reste debout avec 1 PV !`, dernier_souffle: `${nomU(sc, ev.u)} lance son dernier couplet !` }[ev.code];
-        if(txt){ msg(sc, txt); await pause(sc, 800); }
+      case 'passif': {
+        const u = U[ev.u];
+        const cap = u && u.capacite ? u.capacite.nom : 'Passif';
+        flotter(sc, ev.u, cap, 'texte');
+        msg(sc, nom(ev.u) + ' · ' + cap);
+        await pause(sc, 340);
         break;
       }
-      case 'limite':
-        msg(sc, 'Le temps est écoulé : le duo qui a le plus de PV l\'emporte.');
-        await pause(sc, 1000);
+      case 'saut':
+        flotter(sc, ev.u, ev.k === 'gel' ? 'Gelé !' : 'Étourdi !', 'texte');
+        msg(sc, nom(ev.u) + ' saute son tour.');
+        await pause(sc, 560);
         break;
-      default: break;
+      case 'passe':
+        msg(sc, nom(ev.u) + ' passe son tour.');
+        await pause(sc, 300);
+        break;
+      case 'ko':
+        if(U[ev.c]) U[ev.c].ko = true;
+        majTuile(sc, ev.c);
+        msg(sc, nom(ev.c) + ' est K.O. !');
+        await pause(sc, 520);
+        break;
+      case 'limite':
+        msg(sc, 'Durée maximale atteinte : les PV restants décident.');
+        await pause(sc, 700);
+        break;
+      default:
+        break;
     }
   }
 
-  function terminer(sc, r){
-    sc.fin = true;
-    const gagne = r.etat === 'victoire';
-    const g = r.gains || {};
-    A.Son.jouer(gagne ? 'r4' : 'volte');
-    if(gagne) A.vibre([30, 50, 30]);
-    msg(sc, gagne ? 'Victoire !' : 'Défaite…');
-    const zone = sc.ov.querySelector('[data-cmd]');
-    const d = r.trophees_delta;
-    zone.innerHTML = `
-      <div class="cb-fin ${gagne ? 'victoire' : 'defaite'}">
-        <h3>${gagne ? 'Victoire !' : 'Défaite'}</h3>
-        <div class="cb-fin-gains">
-          ${g.vinyles ? `<span>${A.ico('vinyle', 15)} +${g.vinyles} vinyle${g.vinyles > 1 ? 's' : ''}${g.premiere ? ' · première victoire' : ''}</span>` : ''}
-          ${typeof d === 'number' ? `<span>${A.ico('trophee', 15)} ${signe(d)} trophée${Math.abs(d) > 1 ? 's' : ''} · ${nf(r.trophees)}</span>` : ''}
-          ${!g.vinyles && typeof d !== 'number' ? `<span>${gagne ? 'Bien joué, aucun gain cette fois (déjà obtenu ou plafond du jour atteint).' : 'Aucune carte perdue : retente ta chance !'}</span>` : ''}
-        </div>
-        <div class="boutons"><button type="button" class="ct-btn principal grand" data-rejouer>Rejouer</button><button type="button" class="ct-btn grand" data-retour>Retour</button></div>
-      </div>`;
-    zone.querySelector('[data-retour]').addEventListener('click', () => { fermerScene(); rafraichir(); });
-    zone.querySelector('[data-rejouer]').addEventListener('click', async () => {
-      const ctx = sc.ctx;
-      fermerScene();
-      await rafraichir();
-      lancer(ctx.mode, ctx.cible);
+  // ---------------------------------------------------------------------
+  // Le tutoriel du premier combat et l'écran de fin
+  // ---------------------------------------------------------------------
+
+  const TUTO = [
+    ['La jauge de tour', 'Chaque carte remplit sa jauge selon sa Vitesse. Quand elle est pleine, elle joue. La frise « À venir » en haut montre qui joue ensuite.', 'JAUGE ▮▮▮▮▯'],
+    ['Trois techniques', 'La première est toujours prête. Les deux autres demandent quelques tours de recharge après usage. Touche une technique, puis un adversaire ; ou touche un adversaire avant pour présélectionner ta cible.', '1 · 2 · 3'],
+    ['Styles et rôles', '▲ super efficace (×1,5) ou ▼ peu efficace (×0,67) selon les styles. Chaque carte a un rôle : Lyriciste, Pilier, Beatmaker, Hype man, Clasheur ou Briseur.', '▲ ×1,5   ▼ ×0,67'],
+    ['Auto, ×2, Passer', 'AUTO joue à ta place, ×2 accélère les animations, « Passer » saute ton tour. Appui long sur une carte (ou touche I) : sa fiche complète.', 'AUTO · ×2']
+  ];
+
+  function tutoriel(sc){
+    return new Promise((resolve) => {
+      let n = 0;
+      const v = document.createElement('div');
+      v.className = 'cb-voile';
+      sc.ov.appendChild(v);
+      const fin = () => { stock.ecrire('wc-cb-tuto', '1'); v.remove(); resolve(); };
+      const dessine = () => {
+        const [t, p, ill] = TUTO[n];
+        v.innerHTML = `<div class="cb-tuto" role="dialog" aria-label="Comment jouer"><div class="ill">${esc(ill)}</div><h3>${esc(t)}</h3><p>${esc(p)}</p>
+          <div class="pts">${TUTO.map((_, i) => `<i class="${i === n ? 'on' : ''}"></i>`).join('')}</div>
+          <div class="boutons"><button type="button" class="ct-btn" data-passer>Passer</button><button type="button" class="ct-btn principal" data-suite>${n === TUTO.length - 1 ? 'Au combat !' : 'Suivant'}</button></div></div>`;
+        v.querySelector('[data-passer]').addEventListener('click', fin);
+        v.querySelector('[data-suite]').addEventListener('click', () => { if(n === TUTO.length - 1) fin(); else { n++; dessine(); } });
+        v.querySelector('[data-suite]').focus({ preventScroll: true });
+      };
+      dessine();
     });
-    A.rafraichirEtat();
+  }
+
+  async function terminer(sc, r){
+    sc.occupe = false;
+    sc.texte = '';
+    const gagne = r.etat === 'victoire';
+    A.Son.jouer(gagne ? 'niveau' : 'volte');
+    await pause(sc, 400);
+    if(sc.fin) return;
+    const sco = (u) => (u.stats ? u.stats.deg + u.stats.soins * 1.2 + u.stats.ko * 80 : 0);
+    const moi = sc.U.filter((u) => u.camp === 0), eux = sc.U.filter((u) => u.camp === 1);
+    const mvp = moi.reduce((m, u) => (!m || sco(u) > sco(m) ? u : m), null);
+    const g = r.gains || {};
+    const gains = [];
+    if(g.vinyles) gains.push(`+${g.vinyles} vinyle${g.vinyles > 1 ? 's' : ''}`);
+    if(r.trophees_delta) gains.push(`${signe(r.trophees_delta)} trophées`);
+    Object.keys(g).filter((k) => !['vinyles', 'premiere'].includes(k) && typeof g[k] === 'number').forEach((k) => gains.push(`+${g[k]} ${k}`));
+    const ligne = (u, adv) => `<div class="l${u === mvp ? ' mvp' : ''}${adv ? ' adv' : ''}" style="--tc:${couleur(u.couleur)}"><img src="${esc(A.safeUrl(u.photo))}" alt=""><div><b>${esc(u.nom)}${u === mvp ? '<span class="mvp-t">MVP</span>' : ''}</b><span style="font-size:11px; color:rgba(255,255,255,.6)">${esc(u.role_nom || '')}${u.ko ? ' · K.O.' : ''}</span></div>
+      <span class="c"><strong>${nf(u.stats ? u.stats.deg : 0)}</strong>dégâts</span><span class="c"><strong>${nf(u.stats ? u.stats.soins : 0)}</strong>soins</span><span class="c"><strong>${u.stats ? u.stats.ko : 0}</strong>K.O.</span></div>`;
+    const v = document.createElement('div');
+    v.className = 'cb-voile';
+    v.innerHTML = `<div class="cb-fin ${gagne ? 'victoire' : 'defaite'}" role="dialog" aria-label="Fin du combat">
+      <h3>${gagne ? 'VICTOIRE' : (r.etat === 'abandon' ? 'ABANDON' : 'DÉFAITE')}</h3>
+      <p style="margin:0; color:rgba(255,255,255,.75); font-size:14px">${esc(sc.partie.titre || sc.partie.adversaire)}</p>
+      ${gains.length ? `<div class="cb-fin-gains">${gains.map((t) => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
+      <div class="cb-bilan">${moi.map((u) => ligne(u, false)).join('')}${eux.map((u) => ligne(u, true)).join('')}</div>
+      <div class="boutons"><button type="button" class="ct-btn principal" data-rejouer>Rejouer</button><button type="button" class="ct-btn" data-fermer>Fermer</button></div></div>`;
+    sc.ov.appendChild(v);
+    v.querySelector('[data-fermer]').addEventListener('click', () => { fermerScene(); rafraichir(); });
+    v.querySelector('[data-rejouer]').addEventListener('click', () => {
+      const o = sc.ctx && sc.ctx.o;
+      const choix = sc.ctx && sc.ctx.choix;
+      fermerScene();
+      if(o) lancerCombat(Object.assign({}, o, { choix: choix ? Object.assign({}, choix, { auto: sc.auto }) : null })); else rafraichir();
+    });
+    v.querySelector('[data-rejouer]').focus({ preventScroll: true });
+    S.acc = null;
   }
 
   // ---------------------------------------------------------------------
@@ -991,7 +1726,7 @@
 
   async function equipe(hote, api){
     init(api);
-    const vues = [['cartes', 'Cartes'], ['types', 'Types et affinités'], ['attaques', 'Attaques'], ['capacites', 'Capacités'], ['arene', 'Arène'], ['test', 'Test de combat']];
+    const vues = [['cartes', 'Cartes'], ['types', 'Types et affinités'], ['techniques', 'Techniques'], ['capacites', 'Passifs'], ['arene', 'Arène'], ['test', 'Test de combat']];
     let vue = 'cartes';
     hote.innerHTML = `<div class="ct cb" style="padding:0"><nav class="cb-seg" aria-label="Réglages du combat">${vues.map(([id, nom]) => `<button type="button" data-v="${id}" aria-pressed="${id === vue}">${nom}</button>`).join('')}</nav><div data-corps><div class="ct-vide">Chargement…</div></div></div>`;
     const corps = hote.querySelector('[data-corps]');
@@ -1003,7 +1738,7 @@
         const cat = await catalogue(true);
         if(v === 'cartes') await eqCartes(corps, cat);
         else if(v === 'types') eqTypes(corps, cat);
-        else if(v === 'attaques') eqAttaques(corps, cat);
+        else if(v === 'techniques') eqTechniques(corps, cat);
         else if(v === 'capacites') eqCapacites(corps, cat);
         else if(v === 'arene') eqArene(corps, cat);
         else await eqTest(corps, cat);
@@ -1025,8 +1760,8 @@
         const e = c.effectif;
         return `<div class="cb-ligne" style="--tc:${couleur(e.couleur)}">
           <div class="cb-portraits"><img src="${esc(A.safeUrl(c.photo))}" alt="" loading="lazy"></div>
-          <div><h4>${esc(c.nom)} ${chip(e.type_nom, e.couleur)} ${e.surcharge ? '<span class="cb-puce or">Réglé</span>' : ''}</h4>
-            <p>PV ${nf(e.pv)} · PUI ${nf(e.pui)} · DÉF ${nf(e.def)} · VIT ${nf(e.vit)} — ${e.attaques.map((a) => esc(a.nom)).join(' / ')} — ${esc(e.capacite.nom)}</p></div>
+          <div><h4>${esc(c.nom)} ${chip(e.type_nom, e.couleur)} ${roleChip(e.role_nom)} ${e.surcharge ? '<span class="cb-puce or">Réglé</span>' : ''}</h4>
+            <p>PV ${nf(e.pv)} · PUI ${nf(e.pui)} · DÉF ${nf(e.def)} · VIT ${nf(e.vit)} — ${e.techniques.map((a) => esc(a.nom)).join(' / ')} — ${e.capacite ? esc(e.capacite.nom) : 'pas de passif'}</p></div>
           <button type="button" class="ct-btn petit" data-i="${i}">Modifier</button></div>`;
       }).join('') : '<div class="ct-panneau ct-vide">Aucun artiste trouvé.</div>'}</div>`;
     let minuteur = null;
@@ -1049,11 +1784,10 @@
     try{ [c, cat] = await Promise.all([A.appel('combat_equipe_carte', { p_artist: artistId }), catalogue()]); }
     catch(e){ hote.innerHTML = `<div class="ct-panneau ct-vide">${esc(e.message)}</div>`; return; }
     const e = c.effectif, d = c.defaut, sur = e.surcharge || {};
-    const attaques = cat.attaques.filter((a) => a.actif || a.id === sur.atk1 || a.id === sur.atk2);
-    const optsAtt = (cle, defId) => `<option value="">Par défaut (${esc((cat.attaques.find((a) => a.id === defId) || {}).nom || '—')})</option>` +
-      cat.types.concat([{ id: null, nom: 'Neutre' }]).map((t) => {
-        const l = attaques.filter((a) => (a.type || null) === t.id);
-        return l.length ? `<optgroup label="${esc(t.nom)}">${l.map((a) => OPT(a.id, a.nom + (a.puissance ? ' · ' + a.puissance : ' · soutien'), sur[cle])).join('')}</optgroup>` : '';
+    const optsTech = (slot, cle, defId) => `<option value="">Par défaut (${esc((cat.techniques.find((a) => a.id === defId) || {}).nom || '—')})</option>` +
+      cat.roles.map((r) => {
+        const l = cat.techniques.filter((a) => a.role === r.id && (a.slot === slot || a.id === sur[cle]) && (a.actif || a.id === sur[cle]));
+        return l.length ? `<optgroup label="${esc(r.nom)}">${l.map((a) => OPT(a.id, a.nom + (a.puissance ? ' · ' + a.puissance : ' · soutien'), sur[cle])).join('')}</optgroup>` : '';
       }).join('');
     const M = [1, 1.08, 1.18, 1.3, 1.45];
     const base = e.base;
@@ -1061,13 +1795,15 @@
       <div style="display:flex; align-items:center; gap:14px; padding-right:40px">
         <img class="cb-avatar" style="width:56px; height:56px" src="${esc(A.safeUrl(c.photo))}" alt="">
         <div><h2 style="margin:0">${esc(c.nom)}</h2><p class="sous" style="margin:2px 0 0">${nf(c.fans)} fans · ${c.boosters.map((b) => esc(b.nom) + ' (' + esc(A.rar(b.rarete).nom) + ')').join(', ') || 'dans aucun booster'}</p></div></div>
-      <p class="sous" style="margin-top:10px">Laisse un champ vide pour la valeur par défaut. Les stats saisies sont des <b>stats de base</b> : le multiplicateur de rareté du booster et le bonus holo s'y ajoutent.</p>
+      <p class="sous" style="margin-top:10px">Laisse un champ vide pour la valeur par défaut. Les stats saisies sont des <b>stats de base</b> (le rôle n'y ajoute rien) : le multiplicateur de rareté du booster et le bonus holo s'y ajoutent. Le passif n'est donné par défaut qu'aux Légendaires et Mythiques.</p>
       <div class="cb-form">
-        <label>Type<select class="cb-champ-eq" data-k="type"><option value="">Par défaut (${esc(d.type_nom)})</option>${cat.types.map((t) => OPT(t.id, t.nom, sur.type)).join('')}</select></label>
+        <label>Style<select class="cb-champ-eq" data-k="type"><option value="">Par défaut (${esc(d.type_nom)})</option>${cat.types.map((t) => OPT(t.id, t.nom, sur.type)).join('')}</select></label>
+        <label>Rôle<select class="cb-champ-eq" data-k="role"><option value="">Par défaut (${esc(d.role_nom)})</option>${cat.roles.map((r) => OPT(r.id, r.nom, sur.role)).join('')}</select></label>
         ${['pv', 'pui', 'def', 'vit'].map((k) => `<label>${LIB[k]} de base<input class="cb-champ-eq" type="number" min="${k === 'pv' ? 20 : 10}" max="${k === 'pv' ? 400 : 300}" data-k="${k}" value="${sur[k] !== undefined ? sur[k] : ''}" placeholder="${d.base[k]}"><small>Par défaut : ${d.base[k]}</small></label>`).join('')}
-        <label>Attaque 1<select class="cb-champ-eq" data-k="atk1">${optsAtt('atk1', d.attaques[0].id)}</select></label>
-        <label>Attaque 2<select class="cb-champ-eq" data-k="atk2">${optsAtt('atk2', d.attaques[1].id)}</select></label>
-        <label>Capacité<select class="cb-champ-eq" data-k="capacite"><option value="">Par défaut (${esc(d.capacite.nom)})</option>${cat.capacites.map((k) => OPT(k.id, k.nom, sur.capacite)).join('')}</select></label>
+        <label>Technique 1 (base)<select class="cb-champ-eq" data-k="tech1">${optsTech(1, 'tech1', d.techniques[0].id)}</select></label>
+        <label>Technique 2 (spéciale)<select class="cb-champ-eq" data-k="tech2">${optsTech(2, 'tech2', d.techniques[1].id)}</select></label>
+        <label>Technique 3 (ultime)<select class="cb-champ-eq" data-k="tech3">${optsTech(3, 'tech3', d.techniques[2].id)}</select></label>
+        <label>Passif<select class="cb-champ-eq" data-k="capacite"><option value="">Par défaut (${d.capacite ? esc(d.capacite.nom) : 'aucun'})</option>${cat.capacites.map((k) => OPT(k.id, k.nom, sur.capacite)).join('')}</select></label>
         <label class="large">Citation (160 caractères)<input class="cb-champ-eq" type="text" maxlength="160" data-k="citation" value="${esc(sur.citation || '')}" placeholder="${esc(d.citation)}"></label>
       </div>
       <p class="sous" style="margin-top:14px">Stats finales selon la rareté (avec tes réglages actuels) :</p>
@@ -1086,6 +1822,84 @@
     };
     hote.querySelector('[data-ok]').addEventListener('click', (ev) => envoyer(lire(false), ev.currentTarget));
     hote.querySelector('[data-defaut]').addEventListener('click', (ev) => envoyer(lire(true), ev.currentTarget));
+  }
+
+  function eqTechniques(corps, cat, filtre){
+    const f = filtre === undefined ? 'tous' : filtre;
+    const roleNom = (id) => (cat.roles.find((r) => r.id === id) || {}).nom || id;
+    const liste = cat.techniques.filter((a) => f === 'tous' || a.role === f);
+    corps.innerHTML = `
+      <div class="cb-sel-tete"><button type="button" class="ct-btn principal" data-nouv>Nouvelle technique</button></div>
+      <div class="cb-filtres"><button type="button" data-f="tous" aria-pressed="${f === 'tous'}">Toutes</button>${cat.roles.map((r) => `<button type="button" data-f="${esc(r.id)}" aria-pressed="${f === r.id}">${esc(r.nom)}</button>`).join('')}</div>
+      <div class="cb-liste">${liste.map((a) => {
+        const ty = cat.types.find((t) => t.id === a.type);
+        return `<div class="cb-ligne${a.actif ? '' : ' verrou'}" style="--tc:${couleur(ty ? ty.couleur : null)}">
+          <span class="cb-n" style="min-width:56px">${a.puissance || '—'}</span>
+          <div><h4>${esc(a.nom)} ${roleChip(roleNom(a.role))} <span class="cb-puce">${a.slot === 1 ? 'Base' : a.slot === 2 ? 'Spéciale' : 'Ultime'}</span> ${ty ? chip(ty.nom, ty.couleur) : ''} ${a.actif ? '' : '<span class="cb-puce">Désactivée</span>'}</h4>
+            <p>${esc(CIBLES[a.cible])} · ${a.hits > 1 ? a.hits + ' coups · ' : ''}${a.justesse} % de précision · recharge ${a.recharge}${a.perce ? ' · perce ' + a.perce + ' %' : ''}${(a.effets || []).length ? ' · ' + a.effets.map((e) => esc(e.k + (e.v ? ' ' + e.v : '') + (e.d ? ' / ' + e.d + 't' : ''))).join(', ') : ''}<br>${esc(a.description)}</p></div>
+          <button type="button" class="ct-btn petit" data-id="${esc(a.id)}">Modifier</button></div>`;
+      }).join('')}</div>`;
+    corps.querySelectorAll('[data-f]').forEach((b) => b.addEventListener('click', () => eqTechniques(corps, cat, b.dataset.f)));
+    const edit = (a) => formTechnique(a, cat, async () => { await catalogue(true); eqTechniques(corps, S.cat, f); });
+    corps.querySelector('[data-nouv]').addEventListener('click', () => edit(null));
+    corps.querySelectorAll('[data-id]').forEach((b) => b.addEventListener('click', () => edit(cat.techniques.find((a) => a.id === b.dataset.id))));
+  }
+
+  function formTechnique(a, cat, apres){
+    const nouv = !a;
+    a = a || { id: '', nom: '', role: cat.roles[0].id, slot: 1, type: null, puissance: 50, hits: 1, justesse: 95, cible: 'ennemi', recharge: 0, perce: 0, effets: [], description: '', actif: true };
+    const f = A.fenetre(`
+      <h2>${nouv ? 'Nouvelle technique' : esc(a.nom)}</h2>
+      <div class="cb-form">
+        <label>Identifiant<input class="cb-champ-eq" data-k="id" value="${esc(a.id)}" ${nouv ? '' : 'readonly'} placeholder="ex. ly-punchline"><small>Minuscules, chiffres et tirets.</small></label>
+        <label>Nom<input class="cb-champ-eq" data-k="nom" value="${esc(a.nom)}"></label>
+        <label>Rôle<select class="cb-champ-eq" data-k="role">${cat.roles.map((r) => OPT(r.id, r.nom, a.role)).join('')}</select></label>
+        <label>Emplacement<select class="cb-champ-eq" data-k="slot">${OPT(1, '1 · base (toujours prête)', a.slot)}${OPT(2, '2 · spéciale', a.slot)}${OPT(3, '3 · ultime', a.slot)}</select></label>
+        <label>Style<select class="cb-champ-eq" data-k="type"><option value="">Celui de la carte</option>${cat.types.map((t) => OPT(t.id, t.nom, a.type)).join('')}</select><small>Vide : suit le style de la carte (bonus de même style).</small></label>
+        <label>Puissance (0 = soutien)<input class="cb-champ-eq" type="number" min="0" max="250" data-k="puissance" value="${a.puissance}"></label>
+        <label>Coups<input class="cb-champ-eq" type="number" min="1" max="4" data-k="hits" value="${a.hits}"></label>
+        <label>Précision (%)<input class="cb-champ-eq" type="number" min="1" max="100" data-k="justesse" value="${a.justesse}"></label>
+        <label>Cible<select class="cb-champ-eq" data-k="cible">${Object.keys(CIBLES).map((k) => OPT(k, CIBLES[k], a.cible)).join('')}</select></label>
+        <label>Recharge (tours)<input class="cb-champ-eq" type="number" min="0" max="9" data-k="recharge" value="${a.recharge}"></label>
+        <label>Perce-défense (%)<input class="cb-champ-eq" type="number" min="0" max="100" data-k="perce" value="${a.perce}"></label>
+        <label class="large">Effets (JSON)<textarea class="cb-champ-eq" style="height:84px; padding:8px 12px; font-family:monospace; font-size:12px" data-k="effets">${esc(JSON.stringify(a.effets || []))}</textarea><small>${esc(EFFETS_AIDE)}</small></label>
+        <label class="large">Description<input class="cb-champ-eq" data-k="description" value="${esc(a.description)}"></label>
+        <label><span>Active</span><select class="cb-champ-eq" data-k="actif">${OPT('true', 'Oui', String(a.actif))}${OPT('false', 'Non (n\'est plus tirée par défaut)', String(a.actif))}</select></label>
+      </div>
+      <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-ok>Enregistrer</button></div>`, true);
+    f.corps.querySelector('[data-non]').addEventListener('click', f.fermer);
+    const ok = f.corps.querySelector('[data-ok]');
+    ok.addEventListener('click', async () => {
+      const p = {};
+      f.corps.querySelectorAll('[data-k]').forEach((x) => { p[x.dataset.k] = x.value; });
+      ['slot', 'puissance', 'hits', 'justesse', 'recharge', 'perce'].forEach((k) => { p[k] = Number(p[k]); });
+      p.actif = p.actif === 'true';
+      try{ p.effets = JSON.parse(p.effets || '[]'); }catch(e){ A.toast('Les effets doivent être un JSON valide, par exemple [{"k":"soin","v":30}].', 'err'); return; }
+      ok.disabled = true;
+      try{ await A.appel('combat_equipe_technique_sauver', { p }); A.toast('Technique enregistrée.'); f.fermer(); await apres(); }
+      catch(e){ A.toast(e.message, 'err'); ok.disabled = false; }
+    });
+  }
+
+  // Le test : deux duos choisis, joués par l'ordinateur ; un combat détaillé, ou 20 combats pour juger l'équilibre.
+  function texteEvenement(U, ev){
+    const n = (i) => U[i] ? U[i].nom : '?';
+    switch(ev.t){
+      case 'debut': return `— ${n(ev.u)} prend la main.`;
+      case 'tech': return `${n(ev.u)} utilise ${ev.nom}.`;
+      case 'rate': return `… raté sur ${n(ev.c)}.`;
+      case 'degats': return `${n(ev.c)} perd ${ev.d} PV${ev.a ? ' (+' + ev.a + ' absorbés)' : ''} (${ev.pv} restants)${ev.dot ? ', ' + ev.dot : ''}${ev.crit ? ', coup critique' : ev.m > 1 ? ', super efficace' : ev.m < 1 ? ', peu efficace' : ''}${ev.ko ? ' — K.O. !' : ''}`;
+      case 'soin': return `${n(ev.c)} récupère ${ev.v} PV.`;
+      case 'statut': return `${n(ev.c)} : ${ev.k} (${Math.round(ev.v)}, ${ev.d} tour${ev.d > 1 ? 's' : ''}).`;
+      case 'saut': return `${n(ev.u)} saute son tour (${ev.k}).`;
+      case 'passe': return `${n(ev.u)} passe son tour.`;
+      case 'immunise': return `${n(ev.c)} est immunisé.`;
+      case 'purif': return `${n(ev.c)} est purifié.`;
+      case 'jauge': return `Jauge de ${n(ev.c)} : ${Math.round(ev.v) > 0 ? '+' : ''}${Math.round(ev.v)}.`;
+      case 'passif': return `Passif de ${n(ev.u)} : ${ev.code}.`;
+      case 'limite': return 'Limite de durée atteinte.';
+      default: return '';
+    }
   }
 
   function eqTypes(corps, cat){
@@ -1136,60 +1950,9 @@
 
   const chipCourt = (t) => `<span class="cb-type" style="--tc:${couleur(t.couleur)}" title="${esc(t.nom)}">${esc(t.nom.slice(0, 5))}</span>`;
 
-  function eqAttaques(corps, cat, filtre){
-    const f = filtre === undefined ? 'tous' : filtre;
-    const liste = cat.attaques.filter((a) => f === 'tous' || (f === 'neutre' ? !a.type : a.type === f));
-    corps.innerHTML = `
-      <div class="cb-sel-tete"><button type="button" class="ct-btn principal" data-nouv>Nouvelle attaque</button></div>
-      <div class="cb-filtres"><button type="button" data-f="tous" aria-pressed="${f === 'tous'}">Toutes</button>${cat.types.map((t) => `<button type="button" data-f="${esc(t.id)}" style="--tc:${couleur(t.couleur)}" aria-pressed="${f === t.id}">${esc(t.nom)}</button>`).join('')}<button type="button" data-f="neutre" aria-pressed="${f === 'neutre'}">Neutres</button></div>
-      <div class="cb-liste">${liste.map((a) => `
-        <div class="cb-ligne${a.actif ? '' : ' verrou'}" style="--tc:${couleur((cat.types.find((t) => t.id === a.type) || {}).couleur)}">
-          <span class="cb-n" style="min-width:56px">${a.puissance || '—'}</span>
-          <div><h4>${esc(a.nom)} ${chip((cat.types.find((t) => t.id === a.type) || {}).nom, (cat.types.find((t) => t.id === a.type) || {}).couleur)} ${a.actif ? '' : '<span class="cb-puce">Désactivée</span>'}</h4>
-            <p>${esc(ROLES[a.role])} · ${esc(CIBLES[a.cible])} · ${a.justesse} % de précision${a.effet ? ' · ' + esc(EFFETS[a.effet]) + ' ' + a.valeur + (a.chance < 100 ? ' (' + a.chance + ' %)' : '') : ''}<br>${esc(a.description)}</p></div>
-          <button type="button" class="ct-btn petit" data-id="${esc(a.id)}">Modifier</button></div>`).join('')}</div>`;
-    corps.querySelectorAll('[data-f]').forEach((b) => b.addEventListener('click', () => eqAttaques(corps, cat, b.dataset.f)));
-    const edit = (a) => formAttaque(a, cat, async () => { await catalogue(true); eqAttaques(corps, S.cat, f); });
-    corps.querySelector('[data-nouv]').addEventListener('click', () => edit(null));
-    corps.querySelectorAll('[data-id]').forEach((b) => b.addEventListener('click', () => edit(cat.attaques.find((a) => a.id === b.dataset.id))));
-  }
-
-  function formAttaque(a, cat, apres){
-    const nouv = !a;
-    a = a || { id: '', nom: '', type: null, role: 'base', puissance: 50, justesse: 95, effet: null, valeur: 0, chance: 100, cible: 'ennemi', description: '', actif: true };
-    const f = A.fenetre(`
-      <h2>${nouv ? 'Nouvelle attaque' : esc(a.nom)}</h2>
-      <div class="cb-form">
-        <label>Identifiant<input class="cb-champ-eq" data-k="id" value="${esc(a.id)}" ${nouv ? '' : 'readonly'} placeholder="ex. trap-808"><small>Minuscules, chiffres et tirets.</small></label>
-        <label>Nom<input class="cb-champ-eq" data-k="nom" value="${esc(a.nom)}"></label>
-        <label>Style<select class="cb-champ-eq" data-k="type"><option value="">Neutre (sans style)</option>${cat.types.map((t) => OPT(t.id, t.nom, a.type)).join('')}</select></label>
-        <label>Rôle<select class="cb-champ-eq" data-k="role">${Object.keys(ROLES).map((k) => OPT(k, ROLES[k], a.role)).join('')}</select><small>Sert au choix des attaques par défaut.</small></label>
-        <label>Puissance (0 = soutien)<input class="cb-champ-eq" type="number" min="0" max="200" data-k="puissance" value="${a.puissance}"></label>
-        <label>Précision (%)<input class="cb-champ-eq" type="number" min="1" max="100" data-k="justesse" value="${a.justesse}"></label>
-        <label>Cible<select class="cb-champ-eq" data-k="cible">${Object.keys(CIBLES).map((k) => OPT(k, CIBLES[k], a.cible)).join('')}</select></label>
-        <label>Effet<select class="cb-champ-eq" data-k="effet"><option value="">Aucun</option>${Object.keys(EFFETS).map((k) => OPT(k, EFFETS[k], a.effet)).join('')}</select></label>
-        <label>Valeur de l'effet<input class="cb-champ-eq" type="number" min="0" max="100" data-k="valeur" value="${a.valeur}"><small>% (soin, poison, vol de PV, recul) ou niveaux de stat.</small></label>
-        <label>Chance de l'effet (%)<input class="cb-champ-eq" type="number" min="0" max="100" data-k="chance" value="${a.chance}"></label>
-        <label class="large">Description<input class="cb-champ-eq" data-k="description" value="${esc(a.description)}"></label>
-        <label><span>Active</span><select class="cb-champ-eq" data-k="actif">${OPT('true', 'Oui', String(a.actif))}${OPT('false', 'Non (n\'est plus tirée par défaut)', String(a.actif))}</select></label>
-      </div>
-      <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-ok>Enregistrer</button></div>`, true);
-    f.corps.querySelector('[data-non]').addEventListener('click', f.fermer);
-    const ok = f.corps.querySelector('[data-ok]');
-    ok.addEventListener('click', async () => {
-      const p = {};
-      f.corps.querySelectorAll('[data-k]').forEach((x) => { p[x.dataset.k] = x.value; });
-      ['puissance', 'justesse', 'valeur', 'chance'].forEach((k) => { p[k] = Number(p[k]); });
-      p.actif = p.actif === 'true';
-      ok.disabled = true;
-      try{ await A.appel('combat_equipe_attaque_sauver', { p }); A.toast('Attaque enregistrée.'); f.fermer(); await apres(); }
-      catch(e){ A.toast(e.message, 'err'); ok.disabled = false; }
-    });
-  }
-
   function eqCapacites(corps, cat){
     corps.innerHTML = `
-      <div class="cb-sel-tete"><button type="button" class="ct-btn principal" data-nouv>Nouvelle capacité</button></div>
+      <div class="cb-sel-tete"><button type="button" class="ct-btn principal" data-nouv>Nouveau passif</button></div>
       <div class="cb-liste">${cat.capacites.map((c) => `
         <div class="cb-ligne"><span class="cb-n" style="min-width:56px">${c.valeur || '—'}</span>
           <div><h4>${esc(c.nom)}</h4><p>${esc(CODES[c.code] || c.code)}<br>${esc(c.description)}</p></div>
@@ -1198,7 +1961,7 @@
       const nouv = !c;
       c = c || { id: '', nom: '', code: 'regeneration', valeur: 5, description: '' };
       const f = A.fenetre(`
-        <h2>${nouv ? 'Nouvelle capacité' : esc(c.nom)}</h2>
+        <h2>${nouv ? 'Nouveau passif' : esc(c.nom)}</h2>
         <div class="cb-form">
           <label>Identifiant<input class="cb-champ-eq" data-k="id" value="${esc(c.id)}" ${nouv ? '' : 'readonly'}></label>
           <label>Nom<input class="cb-champ-eq" data-k="nom" value="${esc(c.nom)}"></label>
@@ -1214,7 +1977,7 @@
         f.corps.querySelectorAll('[data-k]').forEach((x) => { p[x.dataset.k] = x.value; });
         p.valeur = Number(p.valeur);
         ok.disabled = true;
-        try{ await A.appel('combat_equipe_capacite_sauver', { p }); A.toast('Capacité enregistrée.'); f.fermer(); await catalogue(true); eqCapacites(corps, S.cat); }
+        try{ await A.appel('combat_equipe_capacite_sauver', { p }); A.toast('Passif enregistré.'); f.fermer(); await catalogue(true); eqCapacites(corps, S.cat); }
         catch(e){ A.toast(e.message, 'err'); ok.disabled = false; }
       });
     };
@@ -1253,25 +2016,6 @@
     }));
   }
 
-  // Le test : deux duos choisis, jouels par l'ordinateur ; un combat détaillé, ou 20 combats pour juger l'équilibre.
-  function texteEvenement(U, ev){
-    const n = (i) => U[i] ? U[i].nom : '?';
-    switch(ev.t){
-      case 'usage': return `${n(ev.u)} utilise ${ev.a}.`;
-      case 'rate': return `… raté sur ${n(ev.c)}.`;
-      case 'degats': return `${n(ev.c)} perd ${ev.d} PV (${ev.pv} restants)${ev.crit ? ', coup critique' : ev.m > 1 ? ', super efficace' : ev.m < 1 ? ', peu efficace' : ''}${ev.ko ? ' — K.O. !' : ''}`;
-      case 'soin': return `${n(ev.u)} récupère ${ev.v} PV.`;
-      case 'stat': return `${LIB[ev.s]} de ${n(ev.u)} ${ev.v > 0 ? 'monte' : 'baisse'} (niveau ${ev.n}).`;
-      case 'statut': return `${n(ev.u)} est ${ev.s === 'etourdi' ? 'étourdi' : 'empoisonné'}.`;
-      case 'etourdi': return `${n(ev.u)} ne peut pas agir.`;
-      case 'immunise': return `${n(ev.u)} est immunisé.`;
-      case 'epuise': return `${n(ev.u)} ne peut plus se soigner.`;
-      case 'capacite': return `Capacité de ${n(ev.u)} : ${ev.code}.`;
-      case 'limite': return 'Limite de tours atteinte.';
-      default: return '';
-    }
-  }
-
   async function eqTest(corps, cat){
     const cartes = await A.appel('combat_equipe_cartes', { p_q: null });
     const optA = (sel) => cartes.map((c) => OPT(c.artist_id, c.nom + ' · ' + c.effectif.type_nom, sel)).join('');
@@ -1293,7 +2037,7 @@
       try{
         const r = await A.appel('combat_equipe_simuler', { p_a: duo('a'), p_b: duo('b') });
         const U = r.depart;
-        res.innerHTML = `<div class="ct-panneau"><h3>${r.vainqueur === 0 ? 'Le camp A l\'emporte' : 'Le camp B l\'emporte'} en ${r.tours.length} tour${r.tours.length > 1 ? 's' : ''}</h3>
+        res.innerHTML = `<div class="ct-panneau"><h3>${r.vainqueur === 0 ? 'Le camp A l\'emporte' : 'Le camp B l\'emporte'} en ${r.actions} actions</h3>
           <p class="sous">${r.unites.map((u) => `${esc(u.nom)} : ${u.pv}/${u.pv_max} PV`).join(' · ')}</p>
           <div class="cb-journal" style="margin-top:12px">${r.tours.map((t) => `<h5>Tour ${t.tour}</h5>${t.ev.map((e) => esc(texteEvenement(U, e))).filter(Boolean).join('<br>')}`).join('')}</div></div>`;
       }catch(e){ res.innerHTML = `<div class="ct-panneau ct-vide">${esc(e.message)}</div>`; }
@@ -1306,14 +2050,15 @@
         for(let i = 0; i < 20; i++){
           res.innerHTML = `<div class="ct-vide" style="padding:20px">Combat ${i + 1} / 20…</div>`;
           const r = await A.appel('combat_equipe_simuler', { p_a: duo('a'), p_b: duo('b') });
-          n++; tours += r.tours.length; if(r.vainqueur === 0) a++;
+          n++; tours += r.actions; if(r.vainqueur === 0) a++;
         }
-        res.innerHTML = `<div class="ct-panneau"><h3>Camp A : ${a} victoire${a > 1 ? 's' : ''} sur ${n}</h3><p class="sous">Camp B : ${n - a} · durée moyenne ${(tours / n).toFixed(1).replace('.', ',')} tours. Autour de 10 sur 20, le duel est équilibré.</p></div>`;
+        res.innerHTML = `<div class="ct-panneau"><h3>Camp A : ${a} victoire${a > 1 ? 's' : ''} sur ${n}</h3><p class="sous">Camp B : ${n - a} · durée moyenne ${(tours / n).toFixed(1).replace('.', ',')} actions. Autour de 10 sur 20, le duel est équilibré.</p></div>`;
       }catch(e){ res.innerHTML = `<div class="ct-panneau ct-vide">${esc(e.message)}</div>`; }
       bouton(null, false);
     });
   }
 
-  window.WaveCombat = { monter, quitter, fiche, equipe, equipeCarte };
+
+  window.WaveCombat = { monter, quitter, fiche, equipe, equipeCarte, lancerCombat, equipeModal, modes: { enregistrer, liste: () => S.modes.slice() } };
 
 })();
