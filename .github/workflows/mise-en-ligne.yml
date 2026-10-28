@@ -33,6 +33,7 @@ on:
       - combat.js
       - combat-pve.js
       - combat-pvp.js
+      - combat-rivaux.js
       - marche.js
       - cartes-equipe.js
       - modeles/**
