@@ -237,6 +237,7 @@
     'carte-bas': (el) => deplacerCarte(el.dataset.a, 1),
     'carte-retirer': (el) => retirerCartes([el.dataset.a]),
     'carte-apercu': (el) => apercu(el.dataset.a),
+    'carte-son': (el) => sonCarte(el.dataset.a),
     'carte-ajouter': () => ajouterArtistes(),
     'carte-auto': () => raretesAuto(),
     'carte-filtre-rarete': (el) => { const r = Number(el.dataset.r); E.rareteFiltre = E.rareteFiltre === r ? null : r; dessinerCartes(); },
@@ -606,10 +607,11 @@
           <input type="checkbox" class="ee-coche" data-act="carte-sel" data-a="${esc(c.artist_id)}" ${E.sel.has(c.artist_id) ? 'checked' : ''} aria-label="Sélectionner ${esc(c.nom || '')}">
           <span class="ee-num">${esc(String(c.numero).padStart(2, '0'))}</span>
           <img class="ee-photo" src="${esc(api.safeUrl(c.photo))}" alt="" loading="lazy">
-          <div class="ee-nom"><b>${esc(c.nom || 'Artiste')}</b><small>${c.fans ? esc(api.court(c.fans)) + ' fans' : 'fans inconnus'}${c.joueurs ? ' · ' + c.joueurs + ' joueur' + (c.joueurs > 1 ? 's' : '') : ''}</small></div>
+          <div class="ee-nom"><b>${esc(c.nom || 'Artiste')}</b><small>${c.fans ? esc(api.court(c.fans)) + ' fans' : 'fans inconnus'}${c.joueurs ? ' · ' + c.joueurs + ' joueur' + (c.joueurs > 1 ? 's' : '') : ''}${Number(c.rarete) === 5 && (c.son_titre || c.clip_id) ? ' · ♪ ' + esc([c.son_nom ? c.son_nom : '', c.clip_id ? 'clip' : ''].filter(Boolean).join(' + ')) : ''}</small></div>
           ${pts(c.rarete, `data-act="carte-rarete" data-a="${esc(c.artist_id)}"`)}
           <div class="ee-outils">
             ${filtre ? '' : `<button type="button" class="ee-ib" data-act="carte-haut" data-a="${esc(c.artist_id)}" aria-label="Monter" ${i === 0 ? 'disabled' : ''}>${ic('haut', 15)}</button><button type="button" class="ee-ib" data-act="carte-bas" data-a="${esc(c.artist_id)}" aria-label="Descendre" ${i === vis.length - 1 ? 'disabled' : ''}>${ic('bas', 15)}</button>`}
+            ${Number(c.rarete) === 5 ? `<button type="button" class="ee-ib son${c.son_titre || c.clip_id ? ' actif' : ''}" data-act="carte-son" data-a="${esc(c.artist_id)}" aria-label="Morceau et clip de la carte Mythique" title="Morceau et clip de la carte Mythique">${api.ico('son', 15)}</button>` : ''}
             <button type="button" class="ee-ib" data-act="carte-apercu" data-a="${esc(c.artist_id)}" aria-label="Aperçu de la carte">${ic('oeil', 15)}</button>
             <button type="button" class="ee-ib danger" data-act="carte-retirer" data-a="${esc(c.artist_id)}" aria-label="Retirer ${esc(c.nom || '')}">${ic('corbeille', 15)}</button>
           </div>
@@ -924,6 +926,170 @@
   // ---------------------------------------------------------------------
 
   // ---------------------------------------------------------------------
+  // Morceau et clip d'une carte Mythique (sql/cartes-son-artiste.sql)
+  // ---------------------------------------------------------------------
+
+  // L'identifiant d'une vidéo YouTube depuis un lien collé (watch, youtu.be, shorts, embed, live) ou l'identifiant seul.
+  function ytId(texte){
+    const t = String(texte || '').trim();
+    if(/^[A-Za-z0-9_-]{11}$/.test(t)) return t;
+    const m = t.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/|v\/))([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+  // « 1:30 », « 90 », « 1m30s » → des secondes.
+  function tempsEnSecondes(texte){
+    const t = String(texte || '').trim().toLowerCase();
+    if(!t) return 0;
+    let m = t.match(/^(?:(\d+):)?(\d+):(\d{1,2})$/);
+    if(m) return (Number(m[1] || 0) * 3600) + Number(m[2]) * 60 + Number(m[3]);
+    m = t.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/);
+    if(m && (m[1] || m[2] || m[3])) return Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0);
+    return NaN;
+  }
+  const secondesEnTexte = (n) => { n = Math.max(0, Math.round(n || 0)); return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
+
+  async function sonCarte(artistId){
+    const c = E.cartes.find((x) => x.artist_id === artistId);
+    if(!c) return;
+    const etat = { titre: c.son_titre || null, nom: c.son_nom || '', debut: Number(c.son_debut) || 0, liste: [], audio: null, ecoute: null };
+    let clipTexte = c.clip_id ? 'https://www.youtube.com/watch?v=' + c.clip_id : '';
+    let clipDebut = Number(c.clip_debut) || 0;
+
+    const fen = api.fenetre(`
+      <div class="ee-fen-son">
+        <h2>Son de ${esc(c.nom || 'l\'artiste')}</h2>
+        <p class="ee-aide">Se joue quand cette carte sort en Mythique, à l'instant et au volume réglés dans « Sons ». Le morceau tourne en boucle tant que la carte n'est pas passée.</p>
+        <section class="ee-bloc">
+          <h3>Morceau</h3>
+          <div class="ee-son-liste" data-liste><div class="ct-vide">Chargement des morceaux…</div></div>
+          <div class="ee-champ"><span>Départ dans l'extrait de 30 s : <b data-debut-txt></b></span>
+            <input type="range" min="0" max="29" step="1" data-debut value="${etat.debut}">
+            <small>Deezer ne donne que 30 secondes de chaque morceau : elles sont prises au milieu du titre.</small></div>
+          <div><button type="button" class="ct-btn petit" data-ecouter>${api.ico('son', 14)}Écouter depuis ce point</button></div>
+        </section>
+        <section class="ee-bloc">
+          <h3>Clip en fond (YouTube)</h3>
+          <label class="ee-champ"><span>Lien YouTube</span>
+            <input type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=…" data-clip value="${esc(clipTexte)}"></label>
+          <div class="ee-clip-info" data-clip-info></div>
+          <label class="ee-champ"><span>Départ du clip</span>
+            <input type="text" inputmode="numeric" placeholder="0:00" data-clip-debut value="${clipDebut ? esc(secondesEnTexte(clipDebut)) : ''}">
+            <small>Minutes:secondes, ou secondes (ex. 1:30 ou 90). Le clip est joué sans son derrière la carte, en boucle.</small></label>
+        </section>
+        <div class="ee-son-barre">
+          <span class="ee-etat" data-etat></span>
+          <button type="button" class="ct-btn" data-retirer>Tout retirer</button>
+          <button type="button" class="ct-btn principal" data-sauver>Enregistrer</button>
+        </div>
+      </div>`, true, () => { arreter(); });
+
+    const z = fen.corps, $z = (sel) => z.querySelector(sel);
+    function arreter(){ if(etat.audio){ try{ etat.audio.pause(); }catch(e){} etat.audio = null; etat.ecoute = null; } majLignes(); }
+    function jouer(url, id, depart){
+      if(etat.audio && etat.ecoute === id && !depart){ arreter(); return; }
+      arreter();
+      const a = new Audio(url);
+      a.volume = .8;
+      etat.audio = a; etat.ecoute = id;
+      if(depart) a.addEventListener('loadedmetadata', () => { try{ a.currentTime = depart; }catch(e){} }, { once: true });
+      a.onended = () => { if(etat.audio === a){ etat.audio = null; etat.ecoute = null; majLignes(); } };
+      a.play().catch(() => { api.toast('Lecture impossible ici.', 'err'); arreter(); });
+      majLignes();
+    }
+    function majLignes(){
+      z.querySelectorAll('[data-t]').forEach((l) => {
+        const id = Number(l.dataset.t);
+        l.classList.toggle('choisi', id === etat.titre);
+        const b = l.querySelector('[data-jouer]');
+        if(b) b.innerHTML = etat.ecoute === id ? '❚❚' : '▶';
+      });
+    }
+    function majDebut(){ $z('[data-debut-txt]').textContent = secondesEnTexte(etat.debut) + ' / 0:30'; }
+    function majClip(){
+      const id = ytId($z('[data-clip]').value);
+      const zone = $z('[data-clip-info]');
+      const v = $z('[data-clip]').value.trim();
+      if(!v){ zone.innerHTML = ''; return; }
+      zone.innerHTML = id
+        ? `<img src="https://i.ytimg.com/vi/${esc(id)}/mqdefault.jpg" alt="" loading="lazy"><span>Lien reconnu. Si le clip ne se joue pas en jeu, c'est que son propriétaire interdit de l'intégrer ailleurs.</span>`
+        : '<span class="ee-clip-err">Ce lien YouTube n\'est pas reconnu.</span>';
+    }
+    majDebut(); majClip();
+
+    z.addEventListener('input', (ev) => {
+      if(ev.target.matches('[data-debut]')){ etat.debut = Number(ev.target.value) || 0; majDebut(); }
+      else if(ev.target.matches('[data-clip]')){
+        majClip();
+        // Un lien avec « &t=90 » ou « ?start=90 » donne aussi le départ.
+        const m = ev.target.value.match(/[?&](?:t|start)=([0-9hms]+)/);
+        const champ = $z('[data-clip-debut]');
+        if(m && !champ.value){ const sec = tempsEnSecondes(m[1]); if(sec > 0) champ.value = secondesEnTexte(sec); }
+      }
+    });
+    z.addEventListener('click', (ev) => {
+      const t = ev.target.closest('button');
+      if(!t) return;
+      if(t.matches('[data-jouer]')){
+        const l = t.closest('[data-t]'); const tr = etat.liste.find((x) => x.id === Number(l.dataset.t));
+        if(tr) jouer(tr.preview, tr.id, 0);
+      }else if(t.matches('[data-choisir]')){
+        const l = t.closest('[data-t]'); const tr = etat.liste.find((x) => x.id === Number(l.dataset.t));
+        if(tr){ etat.titre = tr.id; etat.nom = tr.titre; majLignes(); }
+      }else if(t.matches('[data-ecouter]')){
+        const tr = etat.liste.find((x) => x.id === etat.titre);
+        if(!tr){ api.toast('Choisis d\'abord un morceau.', 'err'); return; }
+        jouer(tr.preview, tr.id, etat.debut);
+      }else if(t.matches('[data-retirer]')){
+        etat.titre = null; etat.nom = ''; etat.debut = 0; $z('[data-debut]').value = 0; majDebut();
+        $z('[data-clip]').value = ''; $z('[data-clip-debut]').value = ''; majClip(); majLignes();
+      }else if(t.matches('[data-sauver]')){
+        sauver(t);
+      }
+    });
+
+    async function sauver(bouton){
+      const lien = $z('[data-clip]').value.trim();
+      const id = lien ? ytId(lien) : null;
+      if(lien && !id){ api.toast('Ce lien YouTube n\'est pas reconnu.', 'err'); return; }
+      const dep = tempsEnSecondes($z('[data-clip-debut]').value);
+      if(Number.isNaN(dep)){ api.toast('Le départ du clip s\'écrit 1:30 ou 90.', 'err'); return; }
+      bouton.disabled = true;
+      try{
+        const v = await api.appel('jeu_equipe_carte_son', { p_booster: E.cid, p_artiste: artistId, p_titre: etat.titre, p_nom: etat.nom || null, p_debut: etat.debut, p_clip: id, p_clip_debut: id ? dep : 0 });
+        Object.assign(c, v);
+        api.toast(v.son_titre || v.clip_id ? 'Enregistré : s\'applique à la prochaine Mythique de ' + (c.nom || 'l\'artiste') + '.' : 'Son et clip retirés.');
+        fen.fermer();
+        dessinerCartes();
+      }catch(e){
+        api.toast(e.message || 'L\'enregistrement a échoué.', 'err');
+        bouton.disabled = false;
+      }
+    }
+
+    // Les morceaux de l'artiste : son identifiant Deezer, puis ses titres les plus écoutés.
+    try{
+      let idDz = null;
+      if(typeof supabaseClient !== 'undefined'){
+        const { data } = await supabaseClient.from('artists').select('deezer_artist_id').eq('id', artistId).maybeSingle();
+        idDz = data && data.deezer_artist_id;
+      }
+      if(!idDz){ $z('[data-liste]').innerHTML = '<div class="ct-vide">Cet artiste n\'est pas relié à Deezer : pas de morceau à choisir.</div>'; return; }
+      etat.liste = await api.Extrait.titresArtiste(idDz);
+      if(etat.titre && !etat.liste.some((t) => t.id === etat.titre) && etat.nom) etat.liste.unshift({ id: etat.titre, titre: etat.nom, album: 'Choix actuel', cover: '', preview: '' });
+      $z('[data-liste]').innerHTML = etat.liste.length
+        ? etat.liste.map((t) => `<div class="ee-titre-ligne" data-t="${t.id}">
+            ${t.cover ? `<img src="${esc(api.safeUrl(t.cover))}" alt="" loading="lazy">` : '<span class="ee-titre-img"></span>'}
+            <div class="ee-nom"><b>${esc(t.titre)}</b><small>${esc(t.album)}</small></div>
+            ${t.preview ? '<button type="button" class="ee-ib" data-jouer aria-label="Écouter">▶</button>' : ''}
+            <button type="button" class="ct-btn petit" data-choisir>Choisir</button></div>`).join('')
+        : '<div class="ct-vide">Deezer ne propose aucun extrait pour cet artiste.</div>';
+      majLignes();
+    }catch(e){
+      $z('[data-liste]').innerHTML = '<div class="ct-vide">Les morceaux n\'ont pas pu être chargés. Réessaie dans un instant.</div>';
+    }
+  }
+
+  // ---------------------------------------------------------------------
   // Sons : ce qui se joue quand une carte Mythique est révélée (sql/cartes-son-mythique.sql)
   // ---------------------------------------------------------------------
 
@@ -945,7 +1111,7 @@
   }
 
   async function sSons(){
-    E.main.innerHTML = tete('Sons', 'Les sons du jeu. Pour l\'instant : ce qui se joue quand un joueur tombe sur une carte Mythique.') + '<div data-son><div class="ct-vide">Chargement…</div></div>';
+    E.main.innerHTML = tete('Sons', 'Ce qui se joue quand un joueur tombe sur une carte Mythique. Pour choisir le morceau et le clip d\'un artiste, ouvre l\'onglet Cartes : un bouton ♪ apparaît à côté de ses cartes Mythiques.') + '<div data-son><div class="ct-vide">Chargement…</div></div>';
     let cfg;
     try{ cfg = api.SonMythique.valider(await api.appel('jeu_reglage_son_mythique')); }
     catch(e){
@@ -956,8 +1122,8 @@
     E.sonNom = '';
     $('[data-son]').innerHTML = `
       <section class="ee-bloc ee-son">
-        <h3>Carte Mythique</h3>
-        <label class="ee-champ"><span>Son à la révélation</span>
+        <h3>Cartes Mythiques : réglage général</h3>
+        <label class="ee-champ"><span>Son à la révélation (quand l'artiste n'a pas de morceau choisi)</span>
           <select data-in="son-choix">${SONS_CHOIX.map(([id, nom]) => `<option value="${id}" ${id === E.son.son ? 'selected' : ''}>${esc(nom)}</option>`).join('')}</select>
           <small data-son-aide></small></label>
         <div class="ee-champ" data-son-zone-fichier><span>Fichier audio</span>
@@ -1142,7 +1308,10 @@
   .ct-btn.danger{color:#ff9a9a; border-color:rgba(255,120,120,.3);}
   .ct-btn.danger:hover{background:rgba(255,90,90,.12);}
   /* formulaire de collection */
-  .ee-grille2{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px; align-items:start;}
+  /* Deux colonnes seulement s'il y a la place : dans l'espace équipe la console est coincée entre deux menus, la largeur de
+     l'écran ne dit rien de la largeur disponible. */
+  .ee-grille2{display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap:18px; align-items:start;}
+  .ee-grille2 > *{min-width:0;}
   .ee-pile{display:grid; gap:18px;}
   .ee-bloc{padding:20px; border-radius:20px; border:1px solid var(--ct-trait); background:var(--ct-surface); display:grid; gap:14px;}
   .ee-bloc h3{margin:0; font-size:13px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
@@ -1152,7 +1321,8 @@
   .ee-champ input:not([type=checkbox]):not([type=color]):not([type=file]), .ee-champ select, .ee-champ textarea, .ee-taux input{width:100%; min-height:42px; padding:9px 12px; border-radius:12px; border:1px solid var(--ct-trait-fort); background:rgba(0,0,0,.28); color:var(--ink); font:inherit; font-size:14.5px;}
   .ee-champ textarea{resize:vertical; line-height:1.45;}
   .ee-champ input:focus-visible, .ee-champ select:focus-visible, .ee-champ textarea:focus-visible, .ee-taux input:focus-visible{outline:2px solid var(--ct-accent); outline-offset:1px; border-color:transparent;}
-  .ee-ligne2{display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:end;}
+  .ee-ligne2{display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap:12px; align-items:end;}
+  .ee-ligne2 > *{min-width:0;}
   .ee-visuel{display:flex; gap:16px; align-items:center;}
   .ee-visuel-img{flex:none; width:120px; height:120px; border-radius:10px; overflow:hidden; background:linear-gradient(160deg, #0d2b4c, #08121f); box-shadow:0 14px 28px -14px rgba(0,0,0,.8); position:relative;}
   .ee-visuel-img.charge::after{content:'Envoi…'; position:absolute; inset:0; display:grid; place-items:center; background:rgba(0,0,0,.6); font-size:13px; font-weight:600;}
@@ -1269,6 +1439,18 @@
   .ee{font-weight:400;}
   .ee b, .ee strong{font-weight:700;}
   .ee-son{max-width:640px;}
+  .ee-ib.son.actif{color:#FF5C8A;}
+  .ee-fen-son{display:grid; gap:14px; min-width:0;}
+  .ee-fen-son h2{margin:0; font-size:20px;}
+  .ee-son-liste{display:grid; gap:6px; max-height:260px; overflow-y:auto; scrollbar-width:thin; padding-right:4px;}
+  .ee-titre-ligne{display:flex; align-items:center; gap:10px; padding:6px 8px; border-radius:12px; border:1px solid transparent; background:rgba(255,255,255,.03);}
+  .ee-titre-ligne.choisi{border-color:#FF5C8A; background:rgba(255,92,138,.1);}
+  .ee-titre-ligne img, .ee-titre-img{width:40px; height:40px; border-radius:8px; object-fit:cover; flex:none; background:#0a1018;}
+  .ee-titre-ligne .ee-nom{flex:1; min-width:0;}
+  .ee-titre-ligne .ee-nom b, .ee-titre-ligne .ee-nom small{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ee-clip-info{display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--muted);}
+  .ee-clip-info img{width:96px; height:54px; border-radius:8px; object-fit:cover; flex:none;}
+  .ee-clip-err{color:#ff8fa8;}
   .ee [hidden]{display:none !important;}
   .ee-son input[type=range]{width:100%; accent-color:#2C9BEF; cursor:pointer;}
   .ee-son input[type=file]{font:inherit; font-size:13.5px; color:var(--ink-soft);}
