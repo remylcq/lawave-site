@@ -96,6 +96,9 @@
   .cb-seg button:hover{color:var(--ink);}
   .cb-seg button[aria-pressed="true"]{color:#05070a; background:#F4F5F6;}
   .cb-seg button:focus-visible{outline:2px solid var(--ct-accent); outline-offset:2px;}
+  /* La console de l'équipe a une dizaine de vues : elles passent à la ligne au lieu de se cacher hors de l'écran. */
+  .cb-seg.wrap{flex-wrap:wrap; overflow-x:visible;}
+  .cb-seg.wrap button{flex:1 1 auto;}
 
   .cb-rang{display:grid; grid-template-columns:auto 1fr; gap:18px; align-items:center;}
   .cb-trophees{display:grid; place-items:center; min-width:112px; padding:14px 16px; border-radius:18px; background:linear-gradient(180deg, rgba(242,193,78,.18), rgba(242,193,78,.04)); border:1px solid rgba(242,193,78,.35);}
@@ -1755,7 +1758,7 @@
     const vues = [['cartes', 'Cartes'], ['types', 'Types et affinités'], ['techniques', 'Techniques'], ['capacites', 'Passifs'], ['arene', 'Arène'], ['test', 'Test de combat']]
       .concat(vuesEquipe.map((v) => [v.id, v.nom]));
     let vue = 'cartes';
-    hote.innerHTML = `<div class="ct cb" style="padding:0"><nav class="cb-seg" aria-label="Réglages du combat">${vues.map(([id, nom]) => `<button type="button" data-v="${id}" aria-pressed="${id === vue}">${nom}</button>`).join('')}</nav><div data-corps><div class="ct-vide">Chargement…</div></div></div>`;
+    hote.innerHTML = `<div class="ct cb" style="padding:0"><nav class="cb-seg wrap" aria-label="Réglages du combat">${vues.map(([id, nom]) => `<button type="button" data-v="${id}" aria-pressed="${id === vue}">${nom}</button>`).join('')}</nav><div data-corps><div class="ct-vide">Chargement…</div></div></div>`;
     const corps = hote.querySelector('[data-corps]');
     const aller = async (v) => {
       vue = v;

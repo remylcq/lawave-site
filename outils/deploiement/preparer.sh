@@ -34,11 +34,6 @@ if [ -d img ]; then
   cp -r img "$dest/img"
 fi
 
-# Les sons de Wave Cards (vrais échantillons libres de droits : voir sons/LISEZMOI.txt), s'il y en a.
-if [ -d sons ]; then
-  cp -r sons "$dest/sons"
-fi
-
 # Les logos des médias vérifiés posés par l'équipe (voir sql/logo-media.sql), s'il y en a.
 if [ -d logos ]; then
   cp -r logos "$dest/logos"
