@@ -300,25 +300,6 @@
   // Le visuel d'un booster : une image du dossier img/ ou un fichier du stockage du site (téléversé depuis la console équipe).
   const visuelOk = (v) => /^img\/[\w.-]+$/.test(v || '') || /^https:\/\/bqataeghgjyiqrnnesqq\.supabase\.co\/storage\/v1\/object\/public\/Covers\/[A-Za-z0-9._\/%~-]+$/.test(v || '');
 
-  const etoile4 = (x, y, r, op) => `<path d="M${x} ${y - r}Q${x} ${y} ${x + r * .55} ${y}Q${x} ${y} ${x} ${y + r}Q${x} ${y} ${x - r * .55} ${y}Q${x} ${y} ${x} ${y - r}Z" fill="#fff" opacity="${op}"/>`;
-
-  // La carte Spécial : de grands éclats de glace aux angles, des étoiles, un double cadre.
-  function decorSpecial(){
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="e" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".55" stop-color="#8fefff" stop-opacity=".35"/><stop offset="1" stop-color="#b9a8ff" stop-opacity=".12"/></linearGradient>
-        <linearGradient id="f" x1="1" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".9"/><stop offset=".55" stop-color="#8fefff" stop-opacity=".35"/><stop offset="1" stop-color="#b9a8ff" stop-opacity=".12"/></linearGradient>
-      </defs>
-      <polygon points="0,0 26,0 14,13 22,26 0,38" fill="url(#e)"/>
-      <polygon points="100,140 74,140 86,127 78,114 100,102" fill="url(#f)"/>
-      <polygon points="100,0 100,24 90,16 84,8 90,0" fill="url(#e)" opacity=".7"/>
-      <polygon points="0,140 0,118 10,126 16,134 10,140" fill="url(#f)" opacity=".7"/>
-      <polyline points="0,38 22,26 14,13 26,0" fill="none" stroke="#fff" stroke-width=".8" vector-effect="non-scaling-stroke" opacity=".95"/>
-      <polyline points="100,102 78,114 86,127 74,140" fill="none" stroke="#fff" stroke-width=".8" vector-effect="non-scaling-stroke" opacity=".95"/>
-      ${[[20, 60, 5], [82, 40, 4], [14, 100, 3.5], [88, 92, 5.5], [50, 14, 3], [62, 120, 3.5]].map(([x, y, r]) => etoile4(x, y, r, .95)).join('')}
-    </svg>`;
-  }
-  const DECO_SPECIAL = svgUri(decorSpecial());
 
   const PACKS_CSS = THEMES.map((t) => `.ct-pack.t-${t}{--pk-fond:${svgUri(artPack(t))};}`).join('\n  ');
 
@@ -406,24 +387,20 @@
   .ct-pastille{min-width:18px; height:18px; padding:0 5px; border-radius:99px; display:inline-grid; place-items:center; font-size:11px; font-weight:700; color:#fff; background:var(--ct-accent-fonce);}
 
   /* ---------- la carte d'artiste ---------- */
-  .ct-carte{position:relative; container-type:inline-size; aspect-ratio:5 / 7; border-radius:13px; padding:2px; color:#fff; text-align:left;
-    background:var(--ct-cadre); box-shadow:0 14px 30px -14px rgba(0,0,0,.8); isolation:isolate; --rc:var(--r1); --rf:#10151d;}
-  .ct-carte.r1{--rc:var(--r1); --rf:#10151d; --ct-cadre:linear-gradient(155deg, #eef1f5, #98a3b0 40%, #4b5563 78%, #b4bdc8);}
-  .ct-carte.r2{--rc:var(--r2); --rf:#0a1a2e; --ct-cadre:linear-gradient(155deg, #c9ebff, #45a6f4 42%, #12549a 78%, #7fc6ff);}
-  .ct-carte.r3{--rc:var(--r3); --rf:#150c2e; --ct-cadre:linear-gradient(155deg, #ecdcff, #9466f7 42%, #4b2399 78%, #c4a3ff);}
-  .ct-carte.r4{--rc:var(--r4); --rf:#1d1507; --ct-cadre:linear-gradient(155deg, #fff6c9, #eab645 38%, #95600f 70%, #f9dc7e);}
-  .ct-carte.r5{--rc:var(--r5); --rf:#190b1b; --ct-cadre:conic-gradient(from var(--ct-a), #ff5c8a, #ffb547, #fff27a, #5cffc8, #5cb8ff, #b36bff, #ff5c8a);}
-  .ct-carte.r6{--rc:var(--r6); --rf:#06182a; --ct-cadre:conic-gradient(from var(--ct-a), #ffffff, #8fefff, #b9a8ff, #ffffff, #7fd4ff, #e6f9ff, #c7b8ff, #ffffff);}
-  .ct-c-in{position:relative; width:100%; height:100%; border-radius:11px; overflow:hidden; background:var(--rf);}
-  .ct-c-photo{position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:50% 24%; display:block; transition:transform .5s cubic-bezier(.2,.8,.2,1);}
-  .ct-c-voile{position:absolute; inset:0; pointer-events:none;
-    background:radial-gradient(90% 38% at 50% 100%, color-mix(in srgb, var(--rc) 30%, transparent), transparent 72%), linear-gradient(180deg, rgba(3,6,10,.5) 0, transparent 20%, transparent 46%, rgba(3,6,10,.6) 68%, rgba(3,6,10,.94) 100%);}
-  .ct-c-num{position:absolute; top:5.2cqw; left:6cqw; font-size:max(7px, 5.4cqw); font-weight:700; line-height:1; letter-spacing:.08em; font-variant-numeric:tabular-nums; text-shadow:0 1px 8px rgba(0,0,0,.6);}
-  .ct-c-logo{position:absolute; top:3.8cqw; right:5.4cqw; height:9cqw; width:auto; max-width:none; display:block; opacity:.92; filter:drop-shadow(0 1px 6px rgba(0,0,0,.55));}
-  .ct-c-plaque{position:absolute; left:6cqw; right:6cqw; bottom:6.4cqw; display:flex; flex-direction:column; gap:2.2cqw;}
-  .ct-c-rar{display:flex; align-items:center; gap:2.6cqw; font-size:max(6px, 3.8cqw); font-weight:700; line-height:1; letter-spacing:.22em; text-transform:uppercase; color:var(--rc); filter:brightness(1.18);}
-  .ct-c-rar::before{content:''; flex:none; width:7cqw; height:max(1px, .6cqw); border-radius:99px; background:currentColor;}
-  .ct-c-nom{font-size:calc(var(--nf, 1) * 12cqw); font-weight:800; line-height:1.08; letter-spacing:-.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-bottom:.5cqw; text-shadow:0 2px 14px rgba(0,0,0,.55);}
+  /* Le modèle de carte (fait sur Canva) : un cadre noir arrondi, la photo plein cadre, le numéro en haut à gauche, le logo en haut à droite,
+     le nom en grandes capitales (Anton) et la rareté en italique fin dessous. Tout le jeu utilise ce même modèle. */
+  @font-face{font-family:'Anton'; font-style:normal; font-weight:400; font-display:swap; src:url(lib/fonts/anton-latin.woff2) format('woff2');}
+  .ct-carte{position:relative; container-type:inline-size; aspect-ratio:4 / 5; border-radius:5% / 4%; color:#fff; text-align:left;
+    background:#000; box-shadow:0 14px 30px -14px rgba(0,0,0,.8); isolation:isolate; --rc:var(--r1);}
+  .ct-carte.r1{--rc:var(--r1);} .ct-carte.r2{--rc:var(--r2);} .ct-carte.r3{--rc:var(--r3);} .ct-carte.r4{--rc:var(--r4);} .ct-carte.r5{--rc:var(--r5);} .ct-carte.r6{--rc:var(--r6);}
+  .ct-c-in{position:absolute; inset:1.7cqw; border-radius:3.9cqw; overflow:hidden; background:#0b0d12;}
+  .ct-c-photo{position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:50% 22%; display:block; transition:transform .5s cubic-bezier(.2,.8,.2,1);}
+  .ct-c-voile{position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg, transparent 50%, rgba(0,0,0,.5) 70%, rgba(0,0,0,.92) 90%, #000 100%);}
+  .ct-c-num{position:absolute; top:5.6cqw; left:6.6cqw; font-size:max(7px, 4.3cqw); font-style:italic; font-weight:300; line-height:1; letter-spacing:.02em; font-variant-numeric:tabular-nums; text-shadow:0 1px 8px rgba(0,0,0,.5);}
+  .ct-c-logo{position:absolute; top:4.2cqw; right:6cqw; height:8cqw; width:auto; max-width:none; display:block;}
+  .ct-c-plaque{position:absolute; left:4cqw; right:4cqw; bottom:7cqw; display:flex; flex-direction:column-reverse; align-items:center; gap:1.2cqw; text-align:center;}
+  .ct-c-rar{font-size:max(6px, 4.3cqw); font-style:italic; font-weight:300; line-height:1.1; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.92);}
+  .ct-c-nom{max-width:100%; font-family:'Anton', 'Bebas Neue', Impact, 'Arial Narrow', sans-serif; font-size:calc(var(--nf, 1) * 15.5cqw); font-weight:400; text-transform:uppercase; line-height:1.02; letter-spacing:.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ct-c-reflet{position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .3s;}
   .ct-carte.r4 .ct-c-reflet, .ct-carte.r5 .ct-c-reflet, .ct-carte.r6 .ct-c-reflet{opacity:1; background:linear-gradient(115deg, transparent 38%, rgba(255,255,255,.22) 48%, transparent 58%); background-size:300% 100%; background-position:var(--ct-lum, 120%) 0;}
   .ct-carte.holo .ct-c-reflet{opacity:.55; mix-blend-mode:color-dodge;
@@ -435,22 +412,12 @@
   .ct-carte.vivante.r4, .ct-carte.r4:hover{box-shadow:0 0 0 1px rgba(242,193,78,.35), 0 0 34px -6px rgba(242,193,78,.55), 0 14px 30px -14px rgba(0,0,0,.8);}
   .ct-carte.vivante.r5, .ct-carte.r5:hover{box-shadow:0 0 40px -6px rgba(255,92,138,.55), 0 14px 30px -14px rgba(0,0,0,.8);}
   .ct-carte.vivante.r6, .ct-carte.r6:hover{box-shadow:0 0 0 1px rgba(200,246,255,.5), 0 0 46px -4px rgba(143,239,255,.7), 0 14px 30px -14px rgba(0,0,0,.8);}
-  .ct-carte.vivante.r5, .ct-carte.vivante.r6{animation:ctBord 5s linear infinite;}
   .ct-carte.vivante.r4 .ct-c-reflet, .ct-carte.vivante.r5 .ct-c-reflet, .ct-carte.vivante.r6 .ct-c-reflet{animation:ctLum 3.6s ease-in-out infinite;}
-  /* La carte Spécial : une aurore boréale glisse sur la photo, de grands éclats de glace tiennent les angles. */
-  .ct-c-aurore{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
-  .ct-c-aurore::before{content:''; position:absolute; inset:-20% -10%; mix-blend-mode:screen; opacity:.5; filter:blur(2cqw);
-    background:linear-gradient(118deg, transparent 20%, rgba(110,255,214,.6) 35%, rgba(120,170,255,.65) 50%, rgba(196,140,255,.6) 65%, transparent 80%); background-size:200% 200%;
-    -webkit-mask-image:linear-gradient(180deg, transparent 4%, #000 30%, #000 62%, transparent 92%); mask-image:linear-gradient(180deg, transparent 4%, #000 30%, #000 62%, transparent 92%);}
-  .ct-carte.vivante .ct-c-aurore::before{animation:ctAurore 7s ease-in-out infinite alternate;}
-  .ct-c-aurore::after{content:''; position:absolute; inset:0; background:${DECO_SPECIAL} center / 100% 100% no-repeat; filter:drop-shadow(0 0 1.6cqw rgba(190,246,255,.9));}
-  @keyframes ctAurore{0%{background-position:0% 30%;} 100%{background-position:100% 70%;}}
   @media (hover:hover){
-    .ct-carte.r5:hover, .ct-carte.r6:hover{animation:ctBord 5s linear infinite;}
     .ct-carte.r4:hover .ct-c-reflet, .ct-carte.r5:hover .ct-c-reflet, .ct-carte.r6:hover .ct-c-reflet{animation:ctLum 2.4s ease-in-out infinite;}
     .ct-case:hover .ct-c-photo{transform:scale(1.05);}
   }
-  .ct-carte.verrou{--ct-cadre:linear-gradient(155deg, #2c333d, #161b22 60%, #252c35); --rc:#6b7684; box-shadow:none;}
+  .ct-carte.verrou{--rc:#6b7684; box-shadow:none;}
   .ct-carte.verrou .ct-c-photo{filter:grayscale(1) brightness(.26) contrast(1.15);}
   .ct-carte.verrou .ct-c-logo{opacity:.4;}
   .ct-carte.verrou .ct-c-nom{color:rgba(255,255,255,.55); text-shadow:none;}
@@ -640,7 +607,7 @@
   @keyframes ctSort{to{opacity:0; transform:translate(-95%, -35%) rotate(-18deg) scale(.7);}}
   @keyframes ctSheen{to{transform:translateX(130%);}}
   /* la pile de cartes : la carte du dessus se soulève, se retourne, part ; la suivante prend sa place */
-  .ct-pile{position:relative; width:var(--lc, 240px); aspect-ratio:5 / 7;}
+  .ct-pile{position:relative; width:var(--lc, 240px); aspect-ratio:4 / 5;}
   .ct-pile .ct-place{position:absolute; inset:0; width:auto; max-width:none; cursor:pointer; --k:0; transform:translate(calc(var(--k) * 7px), calc(var(--k) * -5px)) rotate(calc(var(--k) * 1.8deg)); transition:transform .32s cubic-bezier(.2,.8,.2,1);}
   .ct-pile.entre .ct-place{animation:ctSurgit .7s cubic-bezier(.2,.9,.25,1) backwards; animation-delay:calc(var(--k) * 70ms);}
   .ct-pile .ct-place.retournee{transform:none;}
@@ -659,17 +626,16 @@
   .ct-donne{display:grid; gap:40px 14px; width:min(1000px, 100%); grid-template-columns:repeat(var(--cols, 5), minmax(0, 1fr)); justify-items:center; align-content:center;}
   .ct-place{position:relative; width:100%; max-width:var(--lc, 180px); perspective:1000px;}
   .ct-donne.seule .ct-place{--lc:min(300px, 66vw, 40vh);}
-  .ct-volte{position:relative; width:100%; aspect-ratio:5 / 7; cursor:pointer; transform-style:preserve-3d; transition:transform .75s cubic-bezier(.2,.75,.25,1);}
+  .ct-volte{position:relative; width:100%; aspect-ratio:4 / 5; cursor:pointer; transform-style:preserve-3d; transition:transform .75s cubic-bezier(.2,.75,.25,1);}
   .ct-volte:focus-visible{outline:2px solid #fff; outline-offset:4px; border-radius:14px;}
   .ct-place.retournee .ct-volte{transform:rotateY(180deg);}
   .ct-place.donne{animation:ctDonne .6s cubic-bezier(.2,.9,.25,1) both;}
-  .ct-dos, .ct-face{position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden; border-radius:13px;}
+  .ct-dos, .ct-face{position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden; border-radius:5% / 4%;}
   .ct-face{transform:rotateY(180deg);}
   .ct-face .ct-carte{width:100%; height:100%;}
-  .ct-dos{display:grid; place-items:center; padding:3px; background:linear-gradient(155deg, #3c4757, #1a212b 50%, #2d3644); box-shadow:0 18px 40px -16px rgba(0,0,0,.9);}
-  .ct-dos-in{width:100%; height:100%; border-radius:10px; display:grid; place-items:center; color:rgba(255,255,255,.85);
-    background:radial-gradient(80% 60% at 50% 40%, color-mix(in srgb, var(--accb, #4FB4FF) 34%, transparent), transparent 70%), repeating-linear-gradient(45deg, rgba(255,255,255,.035) 0 6px, transparent 6px 12px), linear-gradient(160deg, #0d2b4c, #08121f);}
-  .ct-dos-logo{width:60%; max-width:none; height:auto; display:block; opacity:.95; filter:drop-shadow(0 0 14px rgba(255,255,255,.28));}
+  .ct-dos{display:grid; place-items:center; padding:1.7%; background:#000; box-shadow:0 18px 40px -16px rgba(0,0,0,.9);}
+  .ct-dos-in{width:100%; height:100%; border-radius:3.6% / 2.9%; background:#06101c url(img/carte-dos.webp) center / cover no-repeat;}
+  .ct-dos-logo{display:none;}
   .ct-dos[data-r="2"]{box-shadow:0 0 0 1px rgba(79,180,255,.5), 0 0 26px -2px rgba(79,180,255,.55), 0 18px 40px -16px rgba(0,0,0,.9);}
   .ct-dos[data-r="3"]{box-shadow:0 0 0 1px rgba(168,121,255,.6), 0 0 34px 0 rgba(168,121,255,.6), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls 1.6s ease-in-out infinite; --pc:rgba(168,121,255,.75);}
   .ct-dos[data-r="4"]{box-shadow:0 0 0 1px rgba(242,193,78,.7), 0 0 42px 2px rgba(242,193,78,.65), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls 1.1s ease-in-out infinite; --pc:rgba(242,193,78,.85);}
@@ -1336,13 +1302,14 @@
     const verrou = !!o.verrou;
     const holo = !!c.holo && !verrou;
     const lg = String(c.nom || '').length;
-    const taille = lg <= 10 ? 1 : (lg <= 13 ? .86 : (lg <= 16 ? .72 : .6));
+    // Anton est une police étroite : le nom tient sur 80 % de la largeur jusqu'à 12 lettres, puis rétrécit.
+    const taille = Math.max(.42, Math.min(1, 12.5 / Math.max(lg, 1)));
     return `
       <div class="ct-carte r${r}${holo ? ' holo' : ''}${verrou ? ' verrou' : ''}${o.vivante ? ' vivante' : ''}" style="--nf:${taille}">
         <div class="ct-c-in">
           <img class="ct-c-photo" src="${esc(safeUrl(c.photo))}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async">
           <div class="ct-c-voile"></div>
-          ${r === 6 && !verrou ? '<div class="ct-c-aurore"></div>' : ''}
+          
           <span class="ct-c-num">${numero(c.numero)}</span>
           <img class="ct-c-logo" src="img/logo-wave.png" alt="La Wave" width="380" height="204" decoding="async">
           ${verrou ? `<span class="ct-c-cadenas">${ico('cadenas', 24)}</span>` : ''}
@@ -2029,7 +1996,7 @@
 
       function distribuer(){
         phase = 'pile';
-        const lc = Math.max(150, Math.floor(Math.min(300, window.innerWidth * .66, (window.innerHeight - 250) / 1.4)));
+        const lc = Math.max(150, Math.floor(Math.min(300, window.innerWidth * .66, (window.innerHeight - 250) / 1.25)));
         pile = el('div', 'ct-pile entre');
         pile.style.setProperty('--lc', lc + 'px');
         pile.innerHTML = cartes.map((c, i) => `
@@ -2219,7 +2186,7 @@
           // Assez petites pour tenir à l'écran sans défiler.
           const lignes = Math.ceil(n / cols);
           const hDispo = window.innerHeight - 64 - 130 - (lignes - 1) * 40 - 30;
-          const lc = Math.max(70, Math.min(180, (hDispo / lignes) * 5 / 7, (Math.min(window.innerWidth, 1000) - 32 - (cols - 1) * 14) / cols));
+          const lc = Math.max(70, Math.min(180, (hDispo / lignes) * 4 / 5, (Math.min(window.innerWidth, 1000) - 32 - (cols - 1) * 14) / cols));
           donne.style.setProperty('--lc', Math.floor(lc) + 'px');
         }
         donne.innerHTML = cartes.map((c, i) => {
