@@ -607,7 +607,7 @@
           <input type="checkbox" class="ee-coche" data-act="carte-sel" data-a="${esc(c.artist_id)}" ${E.sel.has(c.artist_id) ? 'checked' : ''} aria-label="Sélectionner ${esc(c.nom || '')}">
           <span class="ee-num">${esc(String(c.numero).padStart(2, '0'))}</span>
           <img class="ee-photo" src="${esc(api.safeUrl(c.photo))}" alt="" loading="lazy">
-          <div class="ee-nom"><b>${esc(c.nom || 'Artiste')}</b><small>${c.fans ? esc(api.court(c.fans)) + ' fans' : 'fans inconnus'}${c.joueurs ? ' · ' + c.joueurs + ' joueur' + (c.joueurs > 1 ? 's' : '') : ''}${Number(c.rarete) === 5 && (c.son_titre || c.clip_id) ? ' · ♪ ' + esc([c.son_nom ? c.son_nom : '', c.clip_id ? 'clip' : ''].filter(Boolean).join(' + ')) : ''}</small></div>
+          <div class="ee-nom"><b>${esc(c.nom || 'Artiste')}</b><small>${c.fans ? esc(api.court(c.fans)) + ' fans' : 'fans inconnus'}${c.joueurs ? ' · ' + c.joueurs + ' joueur' + (c.joueurs > 1 ? 's' : '') : ''}${Number(c.rarete) === 5 && (c.son_titre || c.clip_id) ? ' · ♪ ' + esc([c.son_nom ? c.son_nom : '', c.clip_id ? (c.clip_son ? 'clip + son du clip' : 'clip') : ''].filter(Boolean).join(' + ')) : ''}</small></div>
           ${pts(c.rarete, `data-act="carte-rarete" data-a="${esc(c.artist_id)}"`)}
           <div class="ee-outils">
             ${filtre ? '' : `<button type="button" class="ee-ib" data-act="carte-haut" data-a="${esc(c.artist_id)}" aria-label="Monter" ${i === 0 ? 'disabled' : ''}>${ic('haut', 15)}</button><button type="button" class="ee-ib" data-act="carte-bas" data-a="${esc(c.artist_id)}" aria-label="Descendre" ${i === vis.length - 1 ? 'disabled' : ''}>${ic('bas', 15)}</button>`}
@@ -974,7 +974,9 @@
           <div class="ee-clip-info" data-clip-info></div>
           <label class="ee-champ"><span>Départ du clip</span>
             <input type="text" inputmode="numeric" placeholder="0:00" data-clip-debut value="${clipDebut ? esc(secondesEnTexte(clipDebut)) : ''}">
-            <small>Minutes:secondes, ou secondes (ex. 1:30 ou 90). Le clip est joué sans son derrière la carte, en boucle.</small></label>
+            <small>Minutes:secondes, ou secondes (ex. 1:30 ou 90). Le clip tourne en boucle derrière la carte, en plein écran et sans sous-titres.</small></label>
+          <label class="ee-case"><input type="checkbox" data-clip-son ${c.clip_son ? 'checked' : ''}> Jouer le son du clip (le morceau en entier) à la place de l'extrait Deezer de 30 s</label>
+          <small class="ee-aide">Le clip démarre dès que la carte est touchée et le son s'allume à l'instant réglé dans « Sons » : mets le départ du clip environ 2 secondes avant l'endroit voulu.</small>
         </section>
         <div class="ee-son-barre">
           <span class="ee-etat" data-etat></span>
@@ -1041,7 +1043,7 @@
         jouer(tr.preview, tr.id, etat.debut);
       }else if(t.matches('[data-retirer]')){
         etat.titre = null; etat.nom = ''; etat.debut = 0; $z('[data-debut]').value = 0; majDebut();
-        $z('[data-clip]').value = ''; $z('[data-clip-debut]').value = ''; majClip(); majLignes();
+        $z('[data-clip]').value = ''; $z('[data-clip-debut]').value = ''; $z('[data-clip-son]').checked = false; majClip(); majLignes();
       }else if(t.matches('[data-sauver]')){
         sauver(t);
       }
@@ -1055,7 +1057,7 @@
       if(Number.isNaN(dep)){ api.toast('Le départ du clip s\'écrit 1:30 ou 90.', 'err'); return; }
       bouton.disabled = true;
       try{
-        const v = await api.appel('jeu_equipe_carte_son', { p_booster: E.cid, p_artiste: artistId, p_titre: etat.titre, p_nom: etat.nom || null, p_debut: etat.debut, p_clip: id, p_clip_debut: id ? dep : 0 });
+        const v = await api.appel('jeu_equipe_carte_son', { p_booster: E.cid, p_artiste: artistId, p_titre: etat.titre, p_nom: etat.nom || null, p_debut: etat.debut, p_clip: id, p_clip_debut: id ? dep : 0, p_clip_son: !!($z('[data-clip-son]') && $z('[data-clip-son]').checked) });
         Object.assign(c, v);
         api.toast(v.son_titre || v.clip_id ? 'Enregistré : s\'applique à la prochaine Mythique de ' + (c.nom || 'l\'artiste') + '.' : 'Son et clip retirés.');
         fen.fermer();

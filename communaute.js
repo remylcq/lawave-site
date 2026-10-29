@@ -7759,14 +7759,15 @@ function demarrerMinuteurs(){
 
     y0 = y;
 
-    if(!haut || inactif()) return;
-
-    // Tout en haut de la page : la barre est toujours là.
-    if(y < 80){
+    // Tout en haut de la page : la barre est toujours là. Même quand la communauté n'est pas à l'écran : sinon, la
+    // barre cachée en descendant le restait au retour, la page ayant été remontée en haut pendant l'absence.
+    if(haut && y < 80){
       cumul = 0;
       haut.classList.remove('cache');
       return;
     }
+
+    if(!haut || inactif()) return;
 
     // Un changement de sens repart de zéro ; un petit geste ne suffit pas à la faire bouger.
     if(Math.sign(d) !== Math.sign(cumul)) cumul = 0;
@@ -7794,6 +7795,10 @@ async function ouvrirReel(){
   const racine = document.getElementById('com-racine');
 
   if(!racine) return;
+
+  // À chaque retour dans la communauté, la barre du haut est là : elle ne se cache qu'en descendant dans la page.
+  const barreHaut = S.coque && $('.com-haut', S.coque);
+  if(barreHaut) barreHaut.classList.remove('cache');
 
   const u = moi();
   const id = u ? u.id : null;
