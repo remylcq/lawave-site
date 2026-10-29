@@ -51,8 +51,12 @@
     cartes: '<rect x="3" y="5" width="12" height="16" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/>',
     pack: '<path d="M4 8 12 4l8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/>',
     joueurs: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3 3 0 0 1 0 5.6M21 20c0-2.6-1.6-4.8-4-5.6"/>',
-    ensemble: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', croix: '<path d="M6 6l12 12M18 6 6 18"/>'
+    ensemble: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', croix: '<path d="M6 6l12 12M18 6 6 18"/>',
+    image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/>'
   };
+  // Vague Glaciale a une sixième rareté, « Spécial » ; les autres collections en ont cinq.
+  const nbRar = (id) => id === 'glaciale' ? 6 : 5;
+  const listeRar = (id) => Array.from({ length: nbRar(id) }, (_, k) => k + 1);
   const ic = (n, t) => `<svg class="ee-ico" width="${t || 16}" height="${t || 16}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[n] || ''}</svg>`;
 
   // Un appel à la base : l'erreur (écrite en français dans le SQL) s'affiche telle quelle.
@@ -87,7 +91,7 @@
     if(annuler) s.querySelector('button').addEventListener('click', () => { clearTimeout(fin); s.remove(); annuler(); });
   }
 
-  const pts = (sel, attrs) => `<span class="ee-pts" role="group" aria-label="Rareté">${[1, 2, 3, 4, 5].map(r =>
+  const pts = (sel, attrs, nb) => `<span class="ee-pts" role="group" aria-label="Rareté">${listeRar(nb === 6 ? 'glaciale' : '').map(r =>
     `<button type="button" class="ee-pt${Number(sel) === r ? ' on' : ''}" style="--rc:${rar(r).c}" data-r="${r}" ${attrs || ''} aria-label="${esc(rar(r).nom)}" aria-pressed="${Number(sel) === r}" title="${esc(rar(r).nom)}"></button>`).join('')}</span>`;
 
   const quand = (iso) => {
@@ -233,6 +237,7 @@
     'carte-retirer': (el) => retirerCartes([el.dataset.a]),
     'carte-apercu': (el) => apercu(el.dataset.a),
     'carte-son': (el) => sonCarte(el.dataset.a),
+    'carte-photo': (el) => photoCarte(el.dataset.a),
     'carte-ajouter': () => ajouterArtistes(),
     'carte-auto': () => raretesAuto(),
     'carte-filtre-rarete': (el) => { const r = Number(el.dataset.r); E.rareteFiltre = E.rareteFiltre === r ? null : r; dessinerCartes(); },
@@ -408,9 +413,9 @@
           <section class="ee-bloc"><h3>Tirage</h3>
             <label class="ee-champ"><span>Prix d'un pack (vinyles)</span><input type="number" min="1" max="10000" step="1" data-in="col-champ" data-f="cout" value="${f.cout}"><small>1 vinyle = 1 ouverture de pack.</small></label>
             <div class="ee-champ"><span>Chances par rareté (%)</span>
-              <div class="ee-taux">${[1, 2, 3, 4, 5].map(r => `<label style="--rc:${rar(r).c}"><i></i><span>${esc(rar(r).nom)}</span><input type="number" min="0" max="100" step="0.5" data-in="col-taux" data-i="${r - 1}" value="${f.taux[r - 1]}" aria-label="${esc(rar(r).nom)}"></label>`).join('')}</div>
+              <div class="ee-taux" style="--nr:${f.taux.length}">${listeRar(f.id).map(r => `<label style="--rc:${rar(r).c}"><i></i><span>${esc(rar(r).nom)}</span><input type="number" min="0" max="100" step="0.5" data-in="col-taux" data-i="${r - 1}" value="${f.taux[r - 1]}" aria-label="${esc(rar(r).nom)}"></label>`).join('')}</div>
               <div class="ee-total" data-total></div>
-              <div class="ee-presets">${PRESETS.map(([n, t]) => `<button type="button" class="ct-btn petit" data-act="col-preset" data-t="${t.join(',')}">${n}</button>`).join('')}</div>
+              ${f.taux.length === 5 ? `<div class="ee-presets">${PRESETS.map(([n, t]) => `<button type="button" class="ct-btn petit" data-act="col-preset" data-t="${t.join(',')}">${n}</button>`).join('')}</div>` : ''}
             </div>
             <label class="ee-champ"><span>Multiplicateur holo</span><input type="number" min="0" max="20" step="0.5" data-in="col-champ" data-f="holo_x" value="${f.holo_x}"><small>1 = chances normales d'obtenir une carte holo.</small></label>
           </section>
@@ -566,7 +571,7 @@
   function dessinerTete(){
     const b = E.boosters.find(x => x.id === E.cid) || {};
     const vis = cartesVisibles();
-    const par = [1, 2, 3, 4, 5].map(r => E.cartes.filter(c => Number(c.rarete) === r).length);
+    const nr = nbRar(E.cid), par = listeRar(E.cid).map(r => E.cartes.filter(c => Number(c.rarete) === r).length);
     const tout = vis.length && vis.every(c => E.sel.has(c.artist_id));
     $('[data-cartes-tete]').innerHTML = `
       <div class="ee-barre-outils">
@@ -578,7 +583,7 @@
         <button type="button" class="ct-btn petit" data-act="aller-collection" data-id="${esc(E.cid)}">Réglages de la collection</button>
       </div>
       <div class="ee-resume">
-        ${[5, 4, 3, 2, 1].map(r => `<button type="button" class="ee-chip${E.rareteFiltre === r ? ' on' : ''}" style="--rc:${rar(r).c}" data-act="carte-filtre-rarete" data-r="${r}" aria-pressed="${E.rareteFiltre === r}"><i></i>${esc(rar(r).nom)}<b>${par[r - 1]}</b></button>`).join('')}
+        ${listeRar(E.cid).reverse().map(r => `<button type="button" class="ee-chip${E.rareteFiltre === r ? ' on' : ''}" style="--rc:${rar(r).c}" data-act="carte-filtre-rarete" data-r="${r}" aria-pressed="${E.rareteFiltre === r}"><i></i>${esc(rar(r).nom)}<b>${par[r - 1]}</b></button>`).join('')}
         <span class="ee-total-cartes">${nf(E.cartes.length)} carte${E.cartes.length > 1 ? 's' : ''}${b.actif ? '' : ' · archivée'}</span>
       </div>
       <div class="ee-barre-outils">
@@ -586,7 +591,7 @@
         <label class="ee-case"><input type="checkbox" data-act="carte-tout" ${tout ? 'checked' : ''}> Tout sélectionner</label>
       </div>
       ${E.sel.size ? `<div class="ee-selection" role="region" aria-label="Sélection">
-        <b>${E.sel.size} sélectionnée${E.sel.size > 1 ? 's' : ''}</b><span class="ee-sel-rar">Rareté ${pts(0, 'data-act="carte-sel-rarete"')}</span>
+        <b>${E.sel.size} sélectionnée${E.sel.size > 1 ? 's' : ''}</b><span class="ee-sel-rar">Rareté ${pts(0, 'data-act="carte-sel-rarete"', nr)}</span>
         <button type="button" class="ct-btn petit danger" data-act="carte-sel-retirer">Retirer</button><button type="button" class="ct-btn petit" data-act="carte-sel-vider">Désélectionner</button></div>` : ''}`;
   }
 
@@ -600,13 +605,14 @@
       ? `${filtre ? '' : '<p class="ee-aide ee-cg-aide">Glisse une carte avant ou après une autre pour changer l\'ordre.</p>'}
         <div class="ee-cg-grille" role="list">${vis.map((c, i) => `
         <div class="ee-cg${E.sel.has(c.artist_id) ? ' sel' : ''}" role="listitem" data-a="${esc(c.artist_id)}" style="--rc:${rar(c.rarete).c}" ${filtre ? '' : 'draggable="true"'}>
-          <div class="ee-cg-carte">${api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, fans: c.fans }, {})}</div>
+          <div class="ee-cg-carte">${api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, fans: c.fans, classeur: E.cid }, {})}</div>
           <div class="ee-cg-pied">
-            <div class="ee-nom"><b>${esc(c.nom || 'Artiste')}</b><small>${c.fans ? esc(api.court(c.fans)) + ' fans' : 'fans inconnus'}${c.joueurs ? ' · ' + c.joueurs + ' joueur' + (c.joueurs > 1 ? 's' : '') : ''}${Number(c.rarete) === 5 && c.clip_id ? ' · clip ♪' : ''}</small></div>
-            ${pts(c.rarete, `data-act="carte-rarete" data-a="${esc(c.artist_id)}"`)}
+            <div class="ee-nom"><b>${esc(c.nom || 'Artiste')}</b><small>${c.fans ? esc(api.court(c.fans)) + ' fans' : 'fans inconnus'}${c.joueurs ? ' · ' + c.joueurs + ' joueur' + (c.joueurs > 1 ? 's' : '') : ''}${Number(c.rarete) >= 5 && c.clip_id ? ' · clip ♪' : ''}${c.photo_perso ? ' · photo choisie' : ''}</small></div>
+            ${pts(c.rarete, `data-act="carte-rarete" data-a="${esc(c.artist_id)}"`, nbRar(E.cid))}
             <div class="ee-outils">
               ${filtre ? '' : `<button type="button" class="ee-ib" data-act="carte-haut" data-a="${esc(c.artist_id)}" aria-label="Avant" ${i === 0 ? 'disabled' : ''}>${ic('haut', 15)}</button><button type="button" class="ee-ib" data-act="carte-bas" data-a="${esc(c.artist_id)}" aria-label="Après" ${i === vis.length - 1 ? 'disabled' : ''}>${ic('bas', 15)}</button>`}
-              ${Number(c.rarete) === 5 ? `<button type="button" class="ee-ib son${c.clip_id ? ' actif' : ''}" data-act="carte-son" data-a="${esc(c.artist_id)}" aria-label="Clip de la carte Mythique" title="Clip de la carte Mythique">${api.ico('son', 15)}</button>` : ''}
+              ${Number(c.rarete) >= 5 ? `<button type="button" class="ee-ib son${c.clip_id ? ' actif' : ''}" data-act="carte-son" data-a="${esc(c.artist_id)}" aria-label="Clip de la carte" title="Clip de la carte (Mythique et Spécial)">${api.ico('son', 15)}</button>` : ''}
+              <button type="button" class="ee-ib${c.photo_perso ? ' son actif' : ''}" data-act="carte-photo" data-a="${esc(c.artist_id)}" aria-label="Changer la photo de la carte" title="Changer la photo de la carte">${ic('image', 15)}</button>
               <button type="button" class="ee-ib" data-act="carte-apercu" data-a="${esc(c.artist_id)}" aria-label="Aperçu de la carte">${ic('oeil', 15)}</button>
               <button type="button" class="ee-ib danger" data-act="carte-retirer" data-a="${esc(c.artist_id)}" aria-label="Retirer ${esc(c.nom || '')}">${ic('corbeille', 15)}</button>
               <input type="checkbox" class="ee-coche" data-act="carte-sel" data-a="${esc(c.artist_id)}" ${E.sel.has(c.artist_id) ? 'checked' : ''} aria-label="Sélectionner ${esc(c.nom || '')}" title="Sélectionner">
@@ -730,7 +736,7 @@
           <div data-combat></div>
         </div>
       </div>`, true);
-    const dessin = () => { $('[data-carte]', f.corps).innerHTML = api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, holo, fans: c.fans }, { eager: true, vivante: true }); };
+    const dessin = () => { $('[data-carte]', f.corps).innerHTML = api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, holo, fans: c.fans, classeur: E.cid }, { eager: true, vivante: true }); };
     dessin();
     $('[data-holo]', f.corps).addEventListener('change', (ev) => { holo = ev.target.checked; dessin(); });
     try{
@@ -835,7 +841,8 @@
   function raretesAuto(){
     if(!E.cartes.length){ api.toast('La collection est vide.', 'err'); return; }
     const parts = [40, 25, 20, 10, 5];   // Commun … Mythique
-    const classes = E.cartes.slice().sort((a, b) => (Number(b.fans) || 0) - (Number(a.fans) || 0));
+    // Les cartes Spécial (Vague Glaciale) se règlent à la main : le calcul automatique n'y touche pas.
+    const classes = E.cartes.filter(c => Number(c.rarete) < 6).sort((a, b) => (Number(b.fans) || 0) - (Number(a.fans) || 0));
     const calcul = () => {
       const n = classes.length, nb = parts.map(p => Math.round(n * p / 100));
       nb[0] = Math.max(0, n - nb.slice(1).reduce((a, b) => a + b, 0));
@@ -1058,6 +1065,94 @@
     }
   }
 
+  // La photo de la carte : on envoie une image (ou on colle une adresse) qui remplace celle de l'artiste, sur toutes ses cartes.
+  async function photoCarte(artistId){
+    const c = E.cartes.find((x) => x.artist_id === artistId);
+    if(!c) return;
+    let photo = c.photo || '', perso = !!c.photo_perso, envoi = false;
+
+    const fen = api.fenetre(`
+      <div class="ee-fen-photo">
+        <h2>Photo de ${esc(c.nom || 'l\'artiste')}</h2>
+        <p class="ee-aide">Cette photo remplace celle de l'artiste sur toutes ses cartes (collections, combats, marché). Mets une image en hauteur : la carte la recadre autour du haut du visage.</p>
+        <div class="ee-photo-corps">
+          <div class="ee-photo-carte" data-carte></div>
+          <div class="ee-photo-champs">
+            <button type="button" class="ct-btn principal" data-fichier>${ic('televerser', 16)}Choisir une image</button>
+            <input type="file" accept="image/jpeg,image/png,image/webp" hidden data-fichier-in>
+            <label class="ee-champ"><span>…ou une adresse d'image</span><input type="url" inputmode="url" placeholder="https://…" data-url></label>
+            <small class="ee-aide" data-etat-photo></small>
+          </div>
+        </div>
+        <div class="ee-son-barre">
+          <button type="button" class="ct-btn" data-defaut>Revenir à la photo de l'artiste</button>
+          <button type="button" class="ct-btn principal" data-sauver>Enregistrer</button>
+        </div>
+      </div>`, true);
+
+    const z = fen.corps, $z = (sel) => z.querySelector(sel);
+    const dessin = () => {
+      $z('[data-carte]').innerHTML = api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo, fans: c.fans, classeur: E.cid }, { eager: true, vivante: true });
+      $z('[data-etat-photo]').textContent = envoi ? 'Envoi…' : (perso ? 'Photo choisie par l\'équipe.' : 'Photo de l\'artiste (aucune photo choisie).');
+      $z('[data-defaut]').disabled = !perso && !c.photo_perso;
+    };
+    dessin();
+
+    // Une image de 1 100 px au plus, en WEBP : légère, sans recadrer (la carte recadre elle-même).
+    async function televerserPhoto(fichier){
+      if(typeof Fichiers === 'undefined'){ api.toast('Le stockage d\'images n\'est pas disponible ici.', 'err'); return; }
+      if(!/^image\/(jpeg|png|webp)$/.test(fichier.type)){ api.toast('Choisis une image JPG, PNG ou WEBP.', 'err'); return; }
+      envoi = true; dessin();
+      try{
+        const u = URL.createObjectURL(fichier);
+        const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ko(new Error('Image illisible.')); i.src = u; });
+        URL.revokeObjectURL(u);
+        const k = Math.min(1, 1100 / Math.max(img.naturalWidth, img.naturalHeight));
+        const cv = document.createElement('canvas'); cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
+        const x = cv.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, cv.width, cv.height);
+        let blob = await new Promise(ok => cv.toBlob(ok, 'image/webp', .9)), type = 'image/webp', ext = '.webp';
+        if(!blob || blob.type !== 'image/webp'){ blob = await new Promise(ok => cv.toBlob(ok, 'image/jpeg', .9)); type = 'image/jpeg'; ext = '.jpg'; }
+        photo = await Fichiers.envoyer(blob, Fichiers.nommer('wave-cards-photo', c.nom || artistId, ext), type);
+        perso = true;
+      }catch(e){
+        api.toast(e.message || 'L\'envoi a échoué.', 'err');
+      }finally{
+        envoi = false; dessin();
+      }
+    }
+
+    $z('[data-fichier]').addEventListener('click', () => $z('[data-fichier-in]').click());
+    $z('[data-fichier-in]').addEventListener('change', (ev) => { const f = ev.target.files && ev.target.files[0]; if(f) televerserPhoto(f); ev.target.value = ''; });
+    $z('[data-url]').addEventListener('change', (ev) => {
+      const v = ev.target.value.trim();
+      if(!v) return;
+      if(!/^https:\/\//i.test(v)){ api.toast('L\'adresse doit commencer par https://', 'err'); return; }
+      photo = v; perso = true; dessin();
+    });
+    $z('[data-defaut]').addEventListener('click', async (ev) => {
+      const b = ev.currentTarget;
+      b.disabled = true;
+      try{
+        const v = await api.appel('jeu_equipe_carte_photo', { p_artist: artistId, p_photo: null });
+        c.photo = v.photo; c.photo_perso = false;
+        api.toast('Photo de l\'artiste rétablie.');
+        fen.fermer(); dessinerCartes();
+      }catch(e){ api.toast(e.message || 'Échec.', 'err'); b.disabled = false; }
+    });
+    $z('[data-sauver]').addEventListener('click', async (ev) => {
+      const b = ev.currentTarget;
+      if(envoi) return;
+      if(!perso){ api.toast('Choisis une image ou colle une adresse.', 'err'); return; }
+      b.disabled = true;
+      try{
+        const v = await api.appel('jeu_equipe_carte_photo', { p_artist: artistId, p_photo: photo });
+        c.photo = v.photo; c.photo_perso = true;
+        api.toast('Photo enregistrée pour ' + (c.nom || 'l\'artiste') + '.');
+        fen.fermer(); dessinerCartes();
+      }catch(e){ api.toast(e.message || 'L\'enregistrement a échoué.', 'err'); b.disabled = false; }
+    });
+  }
+
   async function sModule(nom, global, titre, texte){
     E.main.innerHTML = tete(titre, texte) + '<div data-module><div class="ct-vide">Chargement…</div></div>';
     const z = $('[data-module]');
@@ -1181,7 +1276,7 @@
   .ee-theme svg{width:70%; height:auto;}
   .ee-couleur{display:flex; gap:10px;}
   .ee-couleur input[type=color]{width:46px; height:42px; padding:3px; border-radius:10px; border:1px solid var(--ct-trait-fort); background:rgba(0,0,0,.28); cursor:pointer; flex:none;}
-  .ee-taux{display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:8px;}
+  .ee-taux{display:grid; grid-template-columns:repeat(var(--nr, 5), minmax(0, 1fr)); gap:8px;}
   .ee-taux label{display:grid; gap:5px; font-size:11.5px; font-weight:600; color:var(--ink-soft); text-align:center;}
   .ee-taux label i{display:block; height:4px; border-radius:99px; background:var(--rc);}
   .ee-taux input{text-align:center; padding:9px 4px !important;}
@@ -1302,6 +1397,11 @@
   .ee b, .ee strong{font-weight:700;}
   .ee-son{max-width:640px;}
   .ee-ib.son.actif{color:#FF5C8A;}
+  .ee-fen-photo h2{margin:0 0 6px;}
+  .ee-photo-corps{display:grid; grid-template-columns:minmax(150px, 210px) 1fr; gap:22px; align-items:start; margin:16px 0 6px;}
+  .ee-photo-carte .ct-carte{width:100%;}
+  .ee-photo-champs{display:grid; gap:14px; align-content:start;}
+  @media (max-width:560px){ .ee-photo-corps{grid-template-columns:1fr;} .ee-photo-carte{max-width:220px; margin:0 auto;} }
   .ee-fen-son{display:grid; gap:14px; min-width:0;}
   .ee-fen-son h2{margin:0; font-size:20px;}
   .ee-son-liste{display:grid; gap:6px; max-height:260px; overflow-y:auto; scrollbar-width:thin; padding-right:4px;}
