@@ -485,18 +485,13 @@
   .ct-carte.vivante.r6, .ct-carte.r6:hover{box-shadow:0 0 0 1px rgba(200,246,255,.5), 0 0 46px -4px rgba(143,239,255,.7), 0 14px 30px -14px rgba(0,0,0,.8);}
   .ct-carte.vivante.r5, .ct-carte.vivante.r6{animation:ctBord 5s linear infinite;}
   .ct-carte.vivante.r4 .ct-c-reflet, .ct-carte.vivante.r5 .ct-c-reflet, .ct-carte.vivante.r6 .ct-c-reflet{animation:ctLum 3.6s ease-in-out infinite;}
-  /* Vague Glaciale : le givre gagne les bords, des glaçons pendent en haut, des flocons ornent les angles, la neige tombe quand la carte est vivante. */
+  /* Vague Glaciale : le givre gagne les bords, des glaçons pendent en haut, des flocons ornent les angles. */
   .ct-c-deco{position:absolute; inset:0; pointer-events:none; background:
       radial-gradient(130% 100% at 50% 45%, transparent 56%, rgba(190,236,255,.34) 100%),
       linear-gradient(180deg, rgba(214,244,255,.26), transparent 15%), linear-gradient(0deg, rgba(190,236,255,.2), transparent 12%);}
   .ct-c-deco::before{content:''; position:absolute; inset:0; background:${DECO_GLACE} center / 100% 100% no-repeat; filter:drop-shadow(0 0 2.2cqw rgba(150,222,255,.75));}
-  .ct-c-deco::after{content:''; position:absolute; inset:0; opacity:.6;
-    background-image:radial-gradient(circle, #fff 0 .5cqw, transparent .9cqw), radial-gradient(circle, #fff 0 .8cqw, transparent 1.25cqw), radial-gradient(circle, #e8f8ff 0 .35cqw, transparent .65cqw);
-    background-size:21cqw 24cqw, 34cqw 37cqw, 13cqw 17cqw; background-position:0 0, 9cqw 11cqw, 4cqw 6cqw;}
-  .ct-carte.d-glace.vivante .ct-c-deco::after{animation:ctNeige 10s linear infinite;}
   .ct-carte.d-glace .ct-c-in{box-shadow:inset 0 0 0 1px rgba(214,244,255,.5), inset 0 0 3cqw rgba(150,222,255,.4);}
   .ct-carte.d-glace.r1 .ct-c-deco::before, .ct-carte.d-glace.r2 .ct-c-deco::before{opacity:.88;}
-  @keyframes ctNeige{to{background-position:-6cqw 24cqw, 3cqw 48cqw, -4cqw 23cqw;}}
   /* La carte Spécial : une aurore boréale glisse sur la photo, de grands éclats de glace tiennent les angles. */
   .ct-c-aurore{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
   .ct-c-aurore::before{content:''; position:absolute; inset:-20% -10%; mix-blend-mode:screen; opacity:.5; filter:blur(2cqw);
@@ -668,6 +663,7 @@
   .ct-vinyle .ct-pk-lumiere{top:50%;}
   .ct-vinyle .ct-pk-pile{border-radius:6px; background:linear-gradient(160deg, #20364a, #0b1620);}
   .ct-vinyle .ct-pk-indice{top:50%;}
+  .ct-scene-pack.tremble .ct-vinyle{animation:ctTremble .12s linear infinite;}
   .ct-pk-indice{position:absolute; z-index:6; left:8%; top:14%; width:30px; height:30px; margin-top:-15px; border-radius:50%; background:rgba(255,255,255,.9); box-shadow:0 0 0 6px rgba(255,255,255,.18), 0 0 24px rgba(255,255,255,.6); animation:ctIndice 1.8s cubic-bezier(.5,0,.2,1) infinite; pointer-events:none;}
 
   /* ---------- la scène d'ouverture ---------- */
@@ -690,82 +686,34 @@
     -webkit-mask-image:radial-gradient(circle, #000 0%, transparent 42%); mask-image:radial-gradient(circle, #000 0%, transparent 42%); animation:ctTourne 40s linear infinite;}
   .ct-rayons.on{opacity:.7;}
   .ct-scene.secousse .ct-scene-centre{animation:ctSecousse .55s cubic-bezier(.36,.07,.19,.97);}
-  /* ---- le pack en 3D : il arrive en tournant, flotte, suit le doigt ou la souris, puis se déchire par le haut ---- */
-  .ct-scene-centre{perspective:1300px; perspective-origin:50% 40%;}
-  .ct-scene-centre > *{grid-area:1 / 1;}
-  .ct-scene-pack{position:relative; transform-style:preserve-3d; animation:ctPose3D 1s cubic-bezier(.18,1.05,.3,1) both; transition:transform .8s cubic-bezier(.5,0,.9,.4), opacity .6s .15s;}
-  .ct-scene-pack.chute{transform:translate3d(0, 62vh, -180px) rotateX(38deg) rotateZ(7deg) scale(.82); opacity:0; pointer-events:none;}
-  .p3-incl{transform-style:preserve-3d; transform:rotateX(var(--px, 0deg)) rotateY(var(--py, 0deg)); transition:transform .22s ease-out;}
-  .p3-flot{transform-style:preserve-3d; animation:ctFlotte3D 6.5s ease-in-out infinite;}
-  .p3{position:relative; transform-style:preserve-3d; width:max-content;}
-  .ct-scene-pack .ct-pack{--pk-w:min(240px, 56vw); filter:none; animation:none;}
+  .ct-scene-pack{position:relative; transition:transform .6s cubic-bezier(.2,.8,.2,1), opacity .5s;}
+    .ct-scene-pack .ct-pack{--pk-w:min(240px, 56vw); animation:ctPose .45s cubic-bezier(.2,.9,.3,1) both;}
   .ct-scene-pack .ct-vinyle{--pk-w:min(290px, 66vw);}
-  .ct-scene-pack .ct-vi-img{transform:none;}
-  .ct-scene-pack .ct-pk-ligne{transition:width .7s cubic-bezier(.3,.7,.2,1);}
-  .ct-scene-pack .ct-vinyle .ct-pk-ligne{top:14%; left:0; width:calc(var(--dech, 0) * 100%) !important; background:#fff; box-shadow:0 0 10px #fff, 0 0 22px var(--teinte, #4FB4FF);}
-  .ct-scene-pack .ct-vinyle .ct-pk-lumiere{top:14%;}
-  .ct-scene-pack .ct-vinyle .ct-pk-haut{display:block; background:var(--vi) 50% 0 / 100% 714.3% no-repeat; border-radius:6px 6px 0 0;}
-  .ct-scene-pack .ct-vinyle .ct-pk-haut::before, .ct-scene-pack .ct-vinyle .ct-pk-haut::after{display:none;}
-  .p3-epais{position:absolute; inset:0; transform-style:preserve-3d; pointer-events:none;}
-  .p3-epais i{position:absolute; inset:0; border-radius:12px; background:color-mix(in srgb, var(--teinte) 32%, #0a1018); transform:translateZ(calc(var(--j) * -1.4px));}
-  .ct-vinyle ~ .p3-epais i, .p3:has(.ct-vinyle) .p3-epais i{border-radius:6px;}
-  .p3-halo{position:absolute; inset:-35%; border-radius:50%; pointer-events:none; transform:translateZ(-50px); opacity:.5; transition:opacity .5s;
-    background:radial-gradient(closest-side, color-mix(in srgb, var(--lueur, var(--teinte)) 48%, transparent), transparent);}
-  .ct-scene-pack.tremble .p3-halo{opacity:1;}
-  .ct-scene-pack.tremble .p3{animation:ctTremble .12s linear infinite;}
-  .p3-brillance{position:absolute; inset:0; border-radius:12px; pointer-events:none; mix-blend-mode:soft-light; transform:translateZ(2px);
-    background:linear-gradient(112deg, transparent calc(var(--bx, 50%) - 26%), rgba(255,255,255,.8) var(--bx, 50%), transparent calc(var(--bx, 50%) + 26%));}
-  .p3-faisceau{position:absolute; left:6%; width:88%; bottom:86%; height:100vh; transform-origin:50% 100%; transform:translateZ(6px) scaleY(0); opacity:0; pointer-events:none;
-    background:linear-gradient(0deg, color-mix(in srgb, var(--lueur, #fff) 55%, #fff) 0%, color-mix(in srgb, var(--lueur, #fff) 45%, transparent) 35%, transparent 100%);
-    clip-path:polygon(6% 100%, 94% 100%, 100% 0, 0 0); -webkit-mask-image:linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent); mask-image:linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);}
-  .ct-scene-pack.ouvert .p3-faisceau{animation:ctFaisceau 1.2s ease-out forwards;}
-  /* le déchirement : le haut part en volant, avec un bord déchiré ; le corps garde le sien, éclairé de l'intérieur */
-  .ct-pk-haut.part{transition:transform .9s cubic-bezier(.25,.6,.25,1), opacity .9s .15s; transform:translate3d(-34%, -340%, 160px) rotateX(-80deg) rotateY(30deg) rotateZ(-38deg); opacity:0;}
-  .ct-pack.ouvert .ct-pk-haut{clip-path:polygon(0 0, 100% 0, 100% 80%, 93% 100%, 86% 78%, 79% 100%, 72% 82%, 65% 100%, 58% 78%, 51% 100%, 44% 82%, 37% 100%, 30% 78%, 23% 100%, 16% 82%, 9% 100%, 0 80%);}
-  .ct-pack.ouvert .ct-pk-corps{clip-path:polygon(0 2%, 7% 0, 14% 3%, 21% 0.5%, 28% 3.5%, 35% 0, 42% 2.5%, 49% 0.5%, 56% 3.5%, 63% 0, 70% 3%, 77% 0.5%, 84% 3%, 91% 0, 100% 2.5%, 100% 100%, 0 100%); box-shadow:inset 0 18px 22px -14px rgba(255,255,255,.85), inset 0 0 0 1px rgba(255,255,255,.14);}
-  .ct-pack.ouvert .ct-vi-img{clip-path:polygon(0 15%, 7% 14%, 14% 16.6%, 21% 14.4%, 28% 16.9%, 35% 14%, 42% 16.2%, 49% 14.4%, 56% 16.9%, 63% 14%, 70% 16.6%, 77% 14.4%, 84% 16.6%, 91% 14%, 100% 16.2%, 100% 100%, 0 100%);}
-  .ct-sol{position:absolute; z-index:2; left:50%; top:var(--sol-y, calc(50% + 175px)); width:min(580px, 92vw); height:100px; transform:translate(-50%, -50%); border-radius:50%; pointer-events:none; opacity:.7;
-    background:radial-gradient(closest-side, color-mix(in srgb, var(--teinte) 50%, transparent), transparent 72%); filter:blur(6px);}
-  @keyframes ctPose3D{0%{opacity:0; transform:translate3d(0, 48vh, -260px) rotateY(-220deg) rotateX(36deg) scale(.55);} 35%{opacity:1;} 100%{opacity:1; transform:none;}}
-  @keyframes ctFlotte3D{0%, 100%{transform:translateY(0) rotateY(-7deg) rotateX(2deg);} 50%{transform:translateY(-12px) rotateY(7deg) rotateX(-2deg);}}
-  @keyframes ctFaisceau{0%{opacity:0; transform:translateZ(6px) scaleY(.05);} 22%{opacity:1; transform:translateZ(6px) scaleY(1);} 100%{opacity:0; transform:translateZ(6px) scaleY(1.15);}}
-  @keyframes ctSort{to{opacity:0; transform:translate3d(-115%, -34%, 140px) rotateY(-38deg) rotateZ(-17deg) scale(.7);}}
+  .ct-scene-pack.plonge{transform:scale(var(--zoom, 12)); opacity:0; transition:transform .78s cubic-bezier(.55,0,.95,.5), opacity .3s .5s linear; will-change:transform;}
+  @keyframes ctPose{from{opacity:0; transform:scale(.86);}}
+  @keyframes ctSurgit{from{opacity:0; transform:scale(2.4) translateY(50px);}}
+  @keyframes ctSort{to{opacity:0; transform:translate(-95%, -35%) rotate(-18deg) scale(.7);}}
   @keyframes ctSheen{to{transform:translateX(130%);}}
   /* la pile de cartes : la carte du dessus se soulève, se retourne, part ; la suivante prend sa place */
-  .ct-pile{position:relative; width:var(--lc, 240px); aspect-ratio:5 / 7; transform-style:preserve-3d; perspective:1100px;}
-  .ct-pile .ct-place{position:absolute; inset:0; width:auto; max-width:none; cursor:pointer; --k:0; transform-style:preserve-3d;
-    transform:translate3d(calc(var(--k) * 7px), calc(var(--k) * -5px), calc(var(--k) * -16px)) rotate(calc(var(--k) * 1.8deg)); transition:transform .4s cubic-bezier(.2,.8,.2,1);}
-  .ct-pile.entre .ct-place{animation:ctMonte3D .95s cubic-bezier(.2,.9,.25,1) backwards; animation-delay:calc(var(--k) * 80ms);}
-  .ct-pile .ct-place.retournee{transform:translate3d(0, 0, 50px);}
-  .ct-pile .ct-place.leve{transform:translate3d(0, -18px, 90px) scale(1.06);}
-  .ct-pile .ct-place.sort{animation:ctSort .55s cubic-bezier(.5,0,.8,.4) forwards; pointer-events:none;}
+  .ct-pile{position:relative; width:var(--lc, 240px); aspect-ratio:5 / 7;}
+  .ct-pile .ct-place{position:absolute; inset:0; width:auto; max-width:none; cursor:pointer; --k:0; transform:translate(calc(var(--k) * 7px), calc(var(--k) * -5px)) rotate(calc(var(--k) * 1.8deg)); transition:transform .32s cubic-bezier(.2,.8,.2,1);}
+  .ct-pile.entre .ct-place{animation:ctSurgit .7s cubic-bezier(.2,.9,.25,1) backwards; animation-delay:calc(var(--k) * 70ms);}
+  .ct-pile .ct-place.retournee{transform:none;}
+  .ct-pile .ct-place.leve{transform:translateY(-16px) scale(1.05);}
+  .ct-pile .ct-place.sort{animation:ctSort .5s cubic-bezier(.5,0,.8,.4) forwards; pointer-events:none;}
   .ct-pile .ct-place.rapide .ct-volte{transition-duration:.3s;}
-  .ct-pile .ct-place.sort.rapide{animation-duration:.24s;}
-  .ct-pile .ct-place.retournee .ct-volte{animation:ctFlip .85s cubic-bezier(.3,.7,.2,1);}
-  .ct-pile .ct-place.rapide.retournee .ct-volte{animation-duration:.32s;}
-  .ct-incl, .ct-flot{width:100%; transform-style:preserve-3d;}
-  .ct-incl{transform:rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg)); transition:transform .14s ease-out;}
-  .ct-pile .ct-place.retournee .ct-flot{animation:ctFlotteCarte 5s 1s ease-in-out infinite;}
-  .ct-place .ct-carte{transition:transform .14s ease-out;}
-  @keyframes ctMonte3D{from{opacity:0; transform:translate3d(0, 16vh, -300px) rotateX(58deg) scale(.5);} 55%{opacity:1; transform:translate3d(0, -5vh, 70px) rotateX(-6deg) scale(1.05);}}
-  @keyframes ctFlip{0%{transform:translateZ(0) rotateY(0) rotateZ(0);} 45%{transform:translateZ(150px) rotateY(104deg) rotateZ(-5deg);} 100%{transform:translateZ(0) rotateY(180deg) rotateZ(0);}}
-  @keyframes ctFlotteCarte{0%, 100%{transform:translateY(0);} 50%{transform:translateY(-7px);}}
-  /* le faisceau d'un projecteur tombe sur les belles cartes */
-  .ct-spot{position:absolute; left:50%; bottom:76%; width:210%; height:170%; transform:translateX(-50%) translateZ(-60px); pointer-events:none; opacity:0; mix-blend-mode:screen; animation:ctSpot 1.1s .05s ease-out forwards;
-    background:linear-gradient(180deg, transparent, color-mix(in srgb, var(--rc) 60%, transparent)); clip-path:polygon(38% 0, 62% 0, 100% 100%, 0 100%);
-    -webkit-mask-image:linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent); mask-image:linear-gradient(90deg, transparent, #000 25%, #000 75%, transparent);}
-  @keyframes ctSpot{to{opacity:.8;}}
+  .ct-pile .ct-place.sort.rapide{animation-duration:.22s;}
   .ct-sheen{position:absolute; inset:3px; border-radius:10px; overflow:hidden; pointer-events:none; z-index:5;}
   .ct-sheen::after{content:''; position:absolute; inset:0; background:linear-gradient(105deg, transparent 38%, rgba(255,255,255,.6) 50%, transparent 62%); transform:translateX(-130%);}
   .ct-place.retournee .ct-sheen::after{animation:ctSheen .9s .45s ease-out both;}
+  .ct-scene-pack.tremble .ct-pack{animation:ctTremble .12s linear infinite;}
+  .ct-pk-haut.part{transition:transform .65s cubic-bezier(.3,.6,.2,1), opacity .65s; transform:translate(-18%, -230%) rotate(-28deg); opacity:0;}
   .ct-pk-lumiere.on{animation:ctLumiere .9s ease-out forwards;}
   .ct-scene-pack.parti{transform:translateY(55vh) scale(.8) rotate(6deg); opacity:0;}
 
   .ct-donne{display:grid; gap:40px 14px; width:min(1000px, 100%); grid-template-columns:repeat(var(--cols, 5), minmax(0, 1fr)); justify-items:center; align-content:center;}
   .ct-place{position:relative; width:100%; max-width:var(--lc, 180px); perspective:1000px;}
   .ct-donne.seule .ct-place{--lc:min(300px, 66vw, 40vh);}
-  .ct-donne{perspective:1200px;}
-  .ct-donne .ct-face{perspective:800px;}
   .ct-volte{position:relative; width:100%; aspect-ratio:5 / 7; cursor:pointer; transform-style:preserve-3d; transition:transform .75s cubic-bezier(.2,.75,.25,1);}
   .ct-volte:focus-visible{outline:2px solid #fff; outline-offset:4px; border-radius:14px;}
   .ct-place.retournee .ct-volte{transform:rotateY(180deg);}
@@ -792,19 +740,17 @@
   .ct-titre-rar{position:absolute; left:0; right:0; top:12%; z-index:4; text-align:center; pointer-events:none; font-size:clamp(28px, 7vw, 64px); font-weight:900; letter-spacing:.18em; text-transform:uppercase;
     color:#fff; text-shadow:0 0 30px var(--teinte), 0 0 60px var(--teinte); animation:ctTitre 1.6s cubic-bezier(.2,.8,.2,1) both;}
   /* le pack : il tremble, la lumière de la meilleure carte filtre au travers, puis l'onde de choc */
-  .ct-scene-pack.tremble .ct-pack{filter:brightness(1.16);}
+  .ct-scene-pack.tremble{filter:drop-shadow(0 0 30px var(--lueur, #fff)) brightness(1.18);}
   .ct-onde{position:absolute; left:50%; top:45%; width:20vmin; height:20vmin; margin:-10vmin 0 0 -10vmin; border-radius:50%; z-index:5; pointer-events:none; opacity:0;
     border:3px solid var(--oc, #fff); box-shadow:0 0 36px var(--oc, #fff), inset 0 0 36px var(--oc, #fff); animation:ctOnde 1.2s cubic-bezier(.1,.7,.3,1) forwards;}
   @keyframes ctOnde{0%{opacity:.95; transform:scale(.1);} 100%{opacity:0; transform:scale(9);}}
   /* la carte Mythique : la salle s'assombrit, un halo irisé tourne derrière elle, la caméra s'approche lentement */
   .ct-scene-fond{transition:background .8s ease, filter 1s ease;}
   .ct-scene.sombre .ct-scene-fond{filter:brightness(.5) saturate(1.3);}
-  .ct-halo{position:absolute; left:50%; top:50%; width:200%; aspect-ratio:1; transform:translate(-50%, -50%) translateZ(-80px); z-index:-1; pointer-events:none; opacity:0; border-radius:50%; filter:blur(22px);
+  .ct-halo{position:absolute; left:50%; top:50%; width:200%; aspect-ratio:1; transform:translate(-50%, -50%); z-index:-1; pointer-events:none; opacity:0; border-radius:50%; filter:blur(22px);
     background:conic-gradient(from 0deg, #ff5c8a, #ffb547, #fff27a, #5cffc8, #5cb8ff, #b36bff, #ff5c8a);
     -webkit-mask-image:radial-gradient(circle, #000 0%, transparent 60%); mask-image:radial-gradient(circle, #000 0%, transparent 60%);
-    animation:ctHaloIn 1.4s ease forwards, ctTourneHalo 9s linear infinite;}
-  .ct-halo.special{background:conic-gradient(from 0deg, #ffffff, #8fefff, #b9a8ff, #ffffff, #7fd4ff, #e6f9ff, #ffffff);}
-  @keyframes ctTourneHalo{to{transform:translate(-50%, -50%) translateZ(-80px) rotate(360deg);}}
+    animation:ctHaloIn 1.4s ease forwards, ctTourne 9s linear infinite;}
   @keyframes ctHaloIn{to{opacity:.9;}}
   .ct-clip{position:absolute; inset:0; z-index:0; overflow:hidden; opacity:0; transition:opacity 1.2s ease; pointer-events:none;}
   .ct-clip.on{opacity:.9;}
@@ -819,6 +765,7 @@
   .ct-titre-rar.mythe{letter-spacing:.16em; animation:ctTitreMythe 2.8s ease both; text-shadow:none; filter:drop-shadow(0 0 22px var(--teinte)) drop-shadow(0 0 48px var(--teinte));}
   .ct-titre-rar.mythe span{display:inline-block; opacity:0; background:linear-gradient(180deg, #fff, #ffd2e1 45%, var(--teinte)); -webkit-background-clip:text; background-clip:text; color:transparent;
     animation:ctLettre .8s cubic-bezier(.2,1.4,.3,1) forwards; animation-delay:calc(var(--i) * 80ms);}
+  .ct-halo.special{background:conic-gradient(from 0deg, #ffffff, #8fefff, #b9a8ff, #ffffff, #7fd4ff, #e6f9ff, #ffffff);}
   .ct-titre-rar.special span{background:linear-gradient(180deg, #fff, #d7f6ff 45%, var(--teinte)); -webkit-background-clip:text; background-clip:text;}
   @keyframes ctLettre{from{opacity:0; transform:translateY(40px) scale(2.2) rotateX(70deg);} to{opacity:1; transform:none;}}
   @keyframes ctTitreMythe{0%,82%{opacity:1;} 100%{opacity:0;}}
@@ -958,7 +905,7 @@
   @keyframes ctFlash{0%{opacity:.95;} 100%{opacity:0;}}
   @keyframes ctTourne{to{transform:translate(-50%, -50%) rotate(360deg);}}
   @keyframes ctSecousse{10%,90%{transform:translate(-2px, 1px);} 20%,80%{transform:translate(4px, -2px);} 30%,50%,70%{transform:translate(-7px, 3px);} 40%,60%{transform:translate(7px, -3px);}}
-  @keyframes ctDonne{from{opacity:0; transform:translate3d(var(--dx, 0), var(--dy, 0), -260px) rotateX(48deg) scale(.4) rotate(var(--rot, 0deg));} 60%{opacity:1;} to{opacity:1; transform:none;}}
+  @keyframes ctDonne{from{opacity:0; transform:translate(var(--dx, 0), var(--dy, 0)) scale(.35) rotate(var(--rot, 0deg));} 60%{opacity:1;} to{opacity:1; transform:none;}}
   @keyframes ctPouls{0%,100%{filter:brightness(1);} 50%{filter:brightness(1.25) drop-shadow(0 0 14px var(--pc));}}
   @keyframes ctCharge{0%{transform:translate(0,0) rotate(0);} 25%{transform:translate(-2px,1px) rotate(-1.2deg);} 50%{transform:translate(2px,-1px) rotate(1.2deg);} 75%{transform:translate(-1px,-2px) rotate(-.6deg);} 100%{transform:translate(0,0) rotate(0);}}
   @keyframes ctEtiq{from{opacity:0; transform:translate(-50%, 8px) scale(.7);} to{opacity:1; transform:translate(-50%, 0) scale(1);}}
@@ -1008,8 +955,6 @@
     .ct-carte, .ct-c-reflet, .ct-pack, .ct-car-item.centre .ct-pack, .ct-vit-info-in, .ct-pile .ct-place, .ct-pk-haut::after, .ct-pk-corps::before, .ct-dos, .ct-rayons, .ct-pk-indice{animation:none !important;}
     .ct-volte, .ct-roue-disque{transition-duration:.01s !important;}
     .ct-pile .ct-place.sort{opacity:0 !important;}
-    .ct-scene-pack, .p3-flot, .ct-flot, .ct-spot, .ct-pile .ct-volte{animation:none !important;}
-    .ct-spot{opacity:.6;}
   }`;
 
   function poserStyle(){
@@ -1680,7 +1625,7 @@
     // Un booster à vinyle : un disque carré qui tourne, à la place du paquet (le geste d'ouverture l'incline et l'agrandit).
     if(visuelOk(b.visuel)){
       return `
-      <div class="ct-pack ct-vinyle" style="--teinte:${couleurOk(b.accent)}; --vi:url('${esc(b.visuel)}')"${o.attrs || ''}>
+      <div class="ct-pack ct-vinyle" style="--teinte:${couleurOk(b.accent)}"${o.attrs || ''}>
         ${o.pile ? Array.from({ length: o.pile }, (_, k) => `<div class="ct-pk-pile" style="transform:translate(${(k + 1) * 8}px, ${(k + 1) * -6}px); z-index:-${k + 1}"></div>`).join('') : ''}
         <img class="ct-vi-img" src="${esc(b.visuel)}" alt="${esc(b.nom)}" draggable="false" decoding="async">
         <div class="ct-pk-haut"></div>
@@ -2000,7 +1945,6 @@
       ov.innerHTML = `
         <div class="ct-scene-fond"></div>
         <div class="ct-rayons"></div>
-        <div class="ct-sol"></div>
         <div class="ct-flash"></div>
         <canvas></canvas>
         <button type="button" class="ct-scene-x" aria-label="Fermer">${ico('croix', 20)}</button>
@@ -2081,51 +2025,14 @@
 
       const centreDe = (elm) => { const b = elm.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; };
 
-      // ---- 1. le pack, en 3D : il arrive en tournant, flotte, suit le doigt ou la souris ; puis son haut se déchire
-      const zonePack = el('div', 'ct-scene-pack');
-      zonePack.innerHTML = `
-        <div class="p3-incl"><div class="p3-flot"><div class="p3">
-          <div class="p3-halo"></div>
-          <div class="p3-epais">${Array.from({ length: 9 }, (_, j) => `<i style="--j:${j + 1}"></i>`).join('')}</div>
-          ${packHtml({ booster, nombre: n })}
-          <div class="p3-faisceau"></div>
-          <div class="p3-brillance"></div>
-        </div></div></div>`;
+      // ---- 1. la pochette, puis le zoom qui nous fait entrer dedans
+      const zonePack = el('div', 'ct-scene-pack', packHtml({ booster, nombre: n }));
       centre.appendChild(zonePack);
       const pack = zonePack.querySelector('.ct-pack');
       pack.style.setProperty('--teinte', teinteBooster);
-      const incl = zonePack.querySelector('.p3-incl'), bril = zonePack.querySelector('.p3-brillance');
-      let packVivant = true;
-      fx.poussiere(teinteBooster, 9000);
 
-      // Le pack et la carte du dessus suivent le pointeur (le doigt, sur un écran tactile) ; un geste n'est pas un toucher.
-      let dep = null;
-      ov.addEventListener('pointerdown', (ev) => { dep = { x: ev.clientX, y: ev.clientY }; });
-      const peutTap = (ev) => !dep || Math.hypot(ev.clientX - dep.x, ev.clientY - dep.y) < 12;
-      ov.addEventListener('pointermove', (ev) => {
-        if(fini || calme()) return;
-        const x = Math.max(-1, Math.min(1, (ev.clientX / window.innerWidth - .5) * 2));
-        const y = Math.max(-1, Math.min(1, (ev.clientY / window.innerHeight - .5) * 2));
-        if(packVivant){
-          incl.style.setProperty('--py', (x * 26).toFixed(1) + 'deg');
-          incl.style.setProperty('--px', (-y * 20).toFixed(1) + 'deg');
-          bril.style.setProperty('--bx', (50 + x * 48).toFixed(0) + '%');
-          return;
-        }
-        const pl = places[courante];
-        if(!pl || (phase !== 'pile' && phase !== 'revele' && phase !== 'revelee')) return;
-        const ic = pl.querySelector('.ct-incl'), ca = pl.querySelector('.ct-carte');
-        if(!ic) return;
-        ic.style.setProperty('--ty', (x * 16).toFixed(1) + 'deg');
-        ic.style.setProperty('--tx', (-y * 13).toFixed(1) + 'deg');
-        if(ca){
-          ca.style.setProperty('--hx', ((x + 1) * 50).toFixed(0) + '%');
-          ca.style.setProperty('--hy', ((y + 1) * 50).toFixed(0) + '%');
-          ca.style.setProperty('--ct-lum', (130 - (x + 1) * 80).toFixed(0) + '%');
-        }
-      });
-
-      // Des ondes de choc pour les belles cartes.
+      // Un souffle de plus d'une seconde pour les belles pochettes : la pochette tremble, la couleur de la meilleure
+      // carte filtre au travers, la lumière s'aspire vers elle, puis le zoom.
       const ondes = (couleurs) => {
         if(calme()) return;
         couleurs.forEach((c, k) => {
@@ -2137,45 +2044,41 @@
         });
       };
 
-      // Il arrive (1 s), il tremble et la lumière de la meilleure carte filtre par la fente, puis le haut se déchire :
-      // un faisceau jaillit, les cartes sortent et le paquet tombe.
-      async function ouvrirPack(){
-        await attendre(calme() ? 30 : 950);
+      async function plonger(){
+        await attendre(calme() ? 30 : 520);
         if(fini) return;
         if(!calme()){
           phase = 'tension';
           zonePack.style.setProperty('--lueur', teinteMeilleure);
-          pack.style.setProperty('--dech', 1);
           zonePack.classList.add('tremble');
           Son.jouer('froisse');
           vibre(meilleure >= 4 ? [15, 40, 15, 40, 15] : 15);
-          const c = centreDe(pack);
+          const c = centreDe(zonePack);
           fx.aspire(c.x, c.y, teinteMeilleure, meilleure >= 4 ? 44 : 22);
           await attendre(meilleure >= 5 ? 1000 : (meilleure >= 3 ? 750 : 480));
           if(fini) return;
           zonePack.classList.remove('tremble');
         }
-        phase = 'dechire';
-        packVivant = false;
+        phase = 'plonge';
         const b = pack.getBoundingClientRect();
+        const zoom = Math.max(window.innerWidth, window.innerHeight) / Math.min(b.width, b.height) * 2;
+        pack.style.filter = 'none';
+        zonePack.style.setProperty('--zoom', zoom.toFixed(2));
         Son.jouer('dechire');
         vibre(meilleure >= 4 ? [20, 30, 60] : 25);
-        pack.classList.add('ouvert');
-        zonePack.classList.add('ouvert');
-        const haut = pack.querySelector('.ct-pk-haut'); if(haut) haut.classList.add('part');
-        const lum = pack.querySelector('.ct-pk-lumiere'); if(lum) lum.classList.add('on');
-        teinte(teinteMeilleure);
-        if(meilleure >= 3) eclair();
-        fx.gerbe(b.left + b.width / 2, b.top + b.height * .14, ['#ffffff', teinteMeilleure], meilleure >= 4 ? 56 : 28, { vitesse: meilleure >= 4 ? 9 : 6, vie: 50, monte: 3 });
-        if(meilleure >= 4) ondes([teinteMeilleure, '#ffffff']);
-        await attendre(calme() ? 40 : 600);
+        zonePack.classList.add('plonge');
+        await attendre(calme() ? 40 : 760);
         if(fini) return;
-        zonePack.classList.add('chute');
+        teinte(teinteMeilleure);
+        eclair();
+        ondes(meilleure >= 4 ? [teinteMeilleure, '#ffffff'] : [teinteMeilleure]);
+        fx.gerbe(window.innerWidth / 2, window.innerHeight / 2, ['#ffffff', teinteMeilleure], meilleure >= 4 ? 60 : 24, { vitesse: meilleure >= 4 ? 10 : 7, vie: 50 });
+        await attendre(calme() ? 40 : 260);
+        if(fini) return;
+        zonePack.remove();
         distribuer();
-        await attendre(calme() ? 40 : 800);
-        if(!fini) zonePack.remove();
       }
-      ouvrirPack();
+      plonger();
 
       // ---- 2. les cartes surgissent en pile
       const indice = (texte) => `<p>${texte}</p>${n > 1 ? '<div class="boutons"><button type="button" class="ct-btn" data-passer>Tout voir</button></div>' : ''}`;
@@ -2187,15 +2090,14 @@
         pile.style.setProperty('--lc', lc + 'px');
         pile.innerHTML = cartes.map((c, i) => `
           <div class="ct-place" data-i="${i}" style="--rc:${rar(c.rarete).c}; --k:${Math.min(i, 4)}; z-index:${n - i}">
-            <div class="ct-incl"><div class="ct-flot"><div class="ct-volte">
+            <div class="ct-volte">
               <div class="ct-dos" data-r="${c.rarete}"><div class="ct-dos-in"><img class="ct-dos-logo" src="img/logo-wave.png" alt="La Wave" width="380" height="204" decoding="async"></div></div>
               <div class="ct-face">${carteHtml(c, { vivante: true, eager: true })}<span class="ct-sheen"></span></div>
-            </div></div></div>
+            </div>
           </div>`).join('');
         centre.appendChild(pile);
-        ov.style.setProperty('--sol-y', 'calc(50% + ' + Math.round(lc * .7 - 6) + 'px)');
         places = [...pile.querySelectorAll('.ct-place')];
-        pile.addEventListener('click', (ev) => { if(peutTap(ev)) suite(); });
+        pile.addEventListener('click', suite);
         Son.jouer('donne');
         pied.innerHTML = indice(n === 1 ? 'Touche la carte pour la révéler' : 'Touche la carte du dessus pour la révéler');
       }
@@ -2271,7 +2173,6 @@
         await attendre(calme() ? 10 : (rapide ? 0 : 150));
         if(fini){ occupe = false; return; }
         p.classList.add('retournee');
-        if(r >= 3 && !calme()) p.insertAdjacentHTML('afterbegin', '<div class="ct-spot"></div>');
         if(clip) clip.classList.add('on');
         Son.jouer('volte');
         setTimeout(() => {
@@ -2397,7 +2298,6 @@
           const i = Number(p.dataset.i);
           const v = p.querySelector('.ct-volte');
           v.addEventListener('click', () => fiche(cartes[i].id, cartes[i].classeur || null));
-          inclinable(p, p.querySelector('.ct-carte'));
           v.addEventListener('keydown', (ev) => { if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); ev.stopPropagation(); v.click(); } });
         });
         Son.jouer('gain');
