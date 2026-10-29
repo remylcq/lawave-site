@@ -603,23 +603,17 @@
   /* Le vinyle : il flotte et attend qu'on le touche ; le disque glisse hors de la pochette, vient au centre et tourne de plus en plus vite,
      puis il éclate : les cartes jaillissent en éventail et se rangent en pile. */
   .ct-scene-pack.attend{cursor:pointer; animation:ctFlotte2 5.5s ease-in-out infinite;}
-  .ct-scene-pack.attend::after{content:''; position:absolute; z-index:3; inset:-5%; border-radius:12px; border:2px solid var(--teinte); pointer-events:none; animation:ctAttend 1.8s ease-out infinite;}
   .ct-scene-pack.vide .ct-pack{transform:translateY(46%) scale(.92); opacity:0;}
   .ct-disque{position:absolute; z-index:1; left:6%; width:88%; top:6%; aspect-ratio:1; border-radius:50%; pointer-events:none; opacity:0;
-    background:#0a0a10; box-shadow:0 0 0 2px #05050a, 0 12px 34px rgba(0,0,0,.6); transform:translateY(0) scale(.94); transition:transform .65s cubic-bezier(.2,.9,.3,1), opacity .2s, box-shadow .5s;}
-  .ct-disque-rot{position:absolute; inset:0; border-radius:50%;
-    background:conic-gradient(from 0deg, rgba(255,255,255,.24), transparent 18%, rgba(255,255,255,.12) 40%, transparent 58%, rgba(255,255,255,.24) 80%, transparent),
-      repeating-radial-gradient(circle at 50% 50%, #0c0c12 0 1.5px, #1c1c26 1.5px 3px);}
-  .ct-disque-etq{position:absolute; left:50%; top:50%; width:34%; aspect-ratio:1; transform:translate(-50%, -50%); border-radius:50%; display:grid; place-items:center; background:var(--etq, #4FB4FF); box-shadow:inset 0 0 0 3px rgba(0,0,0,.25), 0 0 0 2px #07070b;}
-  .ct-disque-etq img{width:68%; height:auto; display:block; filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));}
-  .ct-disque.sort{opacity:1; transform:translateY(-58%) scale(1);}
+    box-shadow:0 12px 34px rgba(0,0,0,.6); transform:translateX(0) scale(.94); transition:transform .65s cubic-bezier(.2,.9,.3,1), opacity .2s, box-shadow .5s;}
+  .ct-disque-rot{position:absolute; inset:0; width:100%; height:100%; max-width:none; display:block; border-radius:50%; user-select:none; -webkit-user-drag:none;}
+  .ct-disque.sort{opacity:1; transform:translateX(44%) scale(1);}
   .ct-disque.sort .ct-disque-rot{animation:ctGira 2.2s linear infinite;}
-  .ct-disque.centre{z-index:3; transform:translateY(0) scale(1.12); box-shadow:0 0 0 2px #05050a, 0 0 70px 12px var(--lueur, #fff);}
+  .ct-disque.centre{z-index:3; transform:translateX(0) scale(1.12); box-shadow:0 0 70px 12px var(--lueur, #fff);}
   .ct-disque.centre .ct-disque-rot{animation-duration:.5s;}
   .ct-disque.boom{animation:ctBoom .32s ease-out forwards;}
   @keyframes ctGira{to{transform:rotate(360deg);}}
-  @keyframes ctAttend{0%{opacity:.7; transform:scale(.96);} 100%{opacity:0; transform:scale(1.14);}}
-  @keyframes ctBoom{from{opacity:1; transform:translateY(0) scale(1.12);} to{opacity:0; transform:translateY(0) scale(2.6);}}
+  @keyframes ctBoom{from{opacity:1; transform:translateX(0) scale(1.12);} to{opacity:0; transform:translateX(0) scale(2.6);}}
   @keyframes ctPose{from{opacity:0; transform:scale(.86);}}
   @keyframes ctJaillit{0%{opacity:0; transform:translate(0, -6vh) scale(.15) rotate(0deg);} 18%{opacity:1;} 52%{opacity:1; transform:translate(var(--fx), var(--fy)) scale(.9) rotate(var(--fr));}}
   @keyframes ctSort{to{opacity:0; transform:translate(-95%, -35%) rotate(-18deg) scale(.7);}}
@@ -1954,12 +1948,11 @@
 
       // ---- 1. le vinyle : il attend qu'on le touche ; le disque en sort, tourne de plus en plus vite, puis éclate en cartes
       const zonePack = el('div', 'ct-scene-pack attend', packHtml({ booster, nombre: n }));
-      zonePack.insertAdjacentHTML('afterbegin', '<div class="ct-disque"><div class="ct-disque-rot"><span class="ct-disque-etq"><img src="img/logo-wave.png" alt="" width="380" height="204"></span></div></div>');
+      zonePack.insertAdjacentHTML('afterbegin', '<div class="ct-disque"><img class="ct-disque-rot" src="img/vinyle.webp" alt="" width="600" height="600" draggable="false"></div>');
       centre.appendChild(zonePack);
       const pack = zonePack.querySelector('.ct-pack');
       const disque = zonePack.querySelector('.ct-disque');
       pack.style.setProperty('--teinte', teinteBooster);
-      zonePack.style.setProperty('--etq', teinteBooster);
       phase = 'attente';
       pied.innerHTML = '<p>Touche le vinyle pour l\'ouvrir</p>';
       zonePack.addEventListener('click', () => { if(phase === 'attente') ouvrirVinyle(); });
@@ -1982,7 +1975,7 @@
         zonePack.classList.remove('attend');
         pied.innerHTML = '';
         Son.jouer('donne');
-        // 1. le disque glisse hors de la pochette
+        // 1. le disque glisse hors de la pochette, vers la droite (comme l'ouverture d'une vraie pochette)
         disque.classList.add('sort');
         await attendre(calme() ? 30 : 650);
         if(fini) return;
