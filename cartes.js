@@ -888,35 +888,72 @@
   const vibre = (m) => { try{ if(navigator.vibrate) navigator.vibrate(m); }catch(e){} };
 
   // ---------------------------------------------------------------------
-  // Le son : tout est synthétisé (rien à charger), coupable d'un clic. Façon prod de drill : 808 qui glissent, rouleaux
-  // de charleston, clap, notes sombres en mi phrygien.
+  // Le son, façon prod de drill : 808 qui glissent, rouleaux de charleston, clap, piano sombre en mi phrygien. De vrais
+  // échantillons libres de droits (sons/) quand ils sont chargés, de la synthèse en attendant ; coupable d'un clic.
   // ---------------------------------------------------------------------
 
   const Son = {
     ctx: null,
     sortie: null,
+    rev: null,
     bruitBuf: null,
+    buf: {},
+    charge: false,
     actif(){ try{ return localStorage.getItem('lw-cartes-son') !== '0'; }catch(e){ return true; } },
     basculer(){ const v = !this.actif(); try{ localStorage.setItem('lw-cartes-son', v ? '1' : '0'); }catch(e){} return v; },
     pret(){
       if(!this.actif()) return null;
       try{
         if(!this.ctx){
-          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-          // Un compresseur en sortie : les 808 sont lourds, il les garde propres quand tout tape en même temps.
-          const c = this.ctx.createDynamicsCompressor();
-          c.threshold.value = -14; c.knee.value = 12; c.ratio.value = 6; c.attack.value = .003; c.release.value = .2;
-          const m = this.ctx.createGain();
-          m.gain.value = .9;
-          c.connect(m); m.connect(this.ctx.destination);
+          const a = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+          // Sortie : compresseur (les 808 sont lourds, il les garde propres) puis volume général.
+          const c = a.createDynamicsCompressor();
+          c.threshold.value = -16; c.knee.value = 10; c.ratio.value = 5; c.attack.value = .003; c.release.value = .18;
+          const m = a.createGain();
+          m.gain.value = .72;
+          c.connect(m); m.connect(a.destination);
           this.sortie = c;
+          // Un peu de salle : une réverbération synthétique (bruit qui s'éteint), pour le piano et les claps.
+          const n = Math.floor(a.sampleRate * 1.9), ir = a.createBuffer(2, n, a.sampleRate);
+          for(let ch = 0; ch < 2; ch++){
+            const d = ir.getChannelData(ch);
+            for(let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3.4);
+          }
+          const r = a.createConvolver(), rg = a.createGain();
+          r.buffer = ir; rg.gain.value = .55;
+          r.connect(rg); rg.connect(c);
+          this.rev = r;
         }
         if(this.ctx.state === 'suspended') this.ctx.resume();
+        this.charger();
       }catch(e){ return null; }
       return this.ctx;
     },
+    // Les vrais échantillons (dossier sons/, libres de droits : voir sons/LISEZMOI.txt) se chargent au premier son ;
+    // tant qu'ils ne sont pas là, chaque instrument se rabat sur sa version synthétisée.
+    charger(){
+      if(this.charge) return;
+      this.charge = true;
+      ['kick.wav', 'clap.wav', 'hat.wav', 'hato.wav', 'pe3.mp3', 'pb3.mp3'].forEach((nom) => {
+        try{
+          fetch('sons/' + nom)
+            .then((r) => r.ok ? r.arrayBuffer() : Promise.reject())
+            .then((b) => this.ctx.decodeAudioData(b))
+            .then((audio) => { this.buf[nom.split('.')[0]] = audio; })
+            .catch(() => {});
+        }catch(e){ /* pas de fetch : on reste en synthèse */ }
+      });
+    },
 
-    // ---- les briques : tout est synthétisé, rien à charger -------------------------------------------------
+    // ---- les briques --------------------------------------------------------------------------------------
+    vers(noeud, envoi){
+      noeud.connect(this.sortie);
+      if(envoi && this.rev){
+        const e = this.ctx.createGain();
+        e.gain.value = envoi;
+        noeud.connect(e); e.connect(this.rev);
+      }
+    },
     tampon(){
       const a = this.ctx;
       if(!this.bruitBuf){
@@ -926,6 +963,16 @@
       }
       return this.bruitBuf;
     },
+    // Joue un échantillon (vitesse = transposition) ; rend faux s'il n'est pas encore chargé.
+    ech(nom, debut, vol, vitesse, envoi){
+      const b = this.buf[nom];
+      if(!b) return false;
+      const a = this.ctx, s = a.createBufferSource(), g = a.createGain();
+      s.buffer = b; s.playbackRate.value = vitesse || 1; g.gain.value = vol;
+      s.connect(g); this.vers(g, envoi);
+      s.start(a.currentTime + debut);
+      return true;
+    },
     // Souffle filtré qui glisse de f0 à f1 (montées, impacts, déchirure).
     bruit(debut, duree, f0, f1, vol, q){
       const a = this.ctx, src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(), t = a.currentTime + debut;
@@ -934,93 +981,117 @@
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + duree * .15); g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
       src.connect(f); f.connect(g); g.connect(this.sortie); src.start(t); src.stop(t + duree + .02);
     },
-    // Une note de cloche (reste pour les éclats aigus du holo).
+    // Quelques éclats de cloche très aigus (le holo).
     cloche(f, debut, duree, vol){
       const a = this.ctx, t = a.currentTime + debut;
       [[1, 1], [2.76, .35], [5.4, .12]].forEach(([m, v]) => {
         const o = a.createOscillator(), g = a.createGain();
         o.type = 'sine'; o.frequency.setValueAtTime(f * m, t);
         g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * v, t + .01); g.gain.exponentialRampToValueAtTime(0.0001, t + duree / m);
-        o.connect(g); g.connect(this.sortie); o.start(t); o.stop(t + duree + .05);
+        o.connect(g); this.vers(g, .25); o.start(t); o.stop(t + duree + .05);
       });
     },
-    // Le 808 : un sinus grave avec son « punch » de départ, saturé pour qu'on l'entende aussi sur un petit haut-parleur,
-    // et qui peut glisser vers une autre note (le slide typique de la drill).
+    // Le 808 : un sinus grave saturé (pour s'entendre aussi sur un petit haut-parleur), avec le claquement d'une vraie caisse
+    // au départ ; il tient sa note puis glisse vers la suivante : le slide de la drill.
     s808(f, debut, duree, vol, glisse){
-      const a = this.ctx, t = a.currentTime + debut, o = a.createOscillator(), g = a.createGain(), sat = a.createWaveShaper();
+      const a = this.ctx, t = a.currentTime + debut, o = a.createOscillator(), h = a.createOscillator(), g = a.createGain(), hg = a.createGain(), sat = a.createWaveShaper(), bas = a.createBiquadFilter();
       const courbe = new Float32Array(257);
-      for(let i = 0; i < 257; i++){ const x = i / 128 - 1; courbe[i] = Math.tanh(x * 2.6); }
+      for(let i = 0; i < 257; i++){ const x = i / 128 - 1; courbe[i] = Math.tanh(x * 4); }
       sat.curve = courbe; sat.oversample = '2x';
-      o.type = 'sine';
-      o.frequency.setValueAtTime(f * 1.9, t);
-      o.frequency.exponentialRampToValueAtTime(f, t + .035);
-      if(glisse) o.frequency.exponentialRampToValueAtTime(glisse, t + Math.max(.1, duree * .85));
+      bas.type = 'lowpass'; bas.frequency.value = 1100;
+      o.type = 'sine'; h.type = 'triangle';
+      const fin = Math.max(.12, duree * .85), glisse0 = t + Math.min(.22, duree * .3);
+      [o, h].forEach((x, k) => {
+        const m = k ? 2 : 1;
+        x.frequency.setValueAtTime(f * m * 2.2, t);
+        x.frequency.exponentialRampToValueAtTime(f * m, t + .03);
+        if(glisse){ x.frequency.setValueAtTime(f * m, glisse0); x.frequency.exponentialRampToValueAtTime(glisse * m, t + fin); }
+      });
+      hg.gain.value = .22;
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .006);
-      g.gain.setValueAtTime(vol, t + Math.min(.12, duree * .2)); g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
-      o.connect(sat); sat.connect(g); g.connect(this.sortie); o.start(t); o.stop(t + duree + .05);
+      g.gain.setValueAtTime(vol, t + Math.min(.14, duree * .25)); g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
+      o.connect(sat); h.connect(hg); hg.connect(sat); sat.connect(bas); bas.connect(g); g.connect(this.sortie);
+      o.start(t); h.start(t); o.stop(t + duree + .05); h.stop(t + duree + .05);
+      this.caisse(debut, vol * .9);
     },
-    // La grosse caisse : un coup sec qui tombe vite.
+    // La grosse caisse : l'échantillon, ou un coup synthétisé en attendant.
     caisse(debut, vol){
+      if(this.ech('kick', debut, vol * 1.5, 1)) return;
       const a = this.ctx, t = a.currentTime + debut, o = a.createOscillator(), g = a.createGain();
       o.type = 'sine'; o.frequency.setValueAtTime(170, t); o.frequency.exponentialRampToValueAtTime(46, t + .1);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .004); g.gain.exponentialRampToValueAtTime(0.0001, t + .28);
-      o.connect(g); g.connect(this.sortie); o.start(t); o.stop(t + .32);
-      this.bruit(debut, .03, 3500, 1500, vol * .25, 2);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .004); g.gain.exponentialRampToValueAtTime(0.0001, t + .26);
+      o.connect(g); g.connect(this.sortie); o.start(t); o.stop(t + .3);
     },
-    // Le charleston : un souffle très aigu, court (fermé) ou long (ouvert).
+    clap(debut, vol){
+      if(this.ech('clap', debut, vol * 1.2, 1, .35)) return;
+      [0, .011, .022].forEach((d, i) => this.bruit(debut + d, i < 2 ? .02 : .14, 1700, 1100, vol * (i < 2 ? .4 : .6), 1.1));
+    },
+    // Le charleston : un peu de hasard sur la force, la hauteur et l'instant, pour qu'il respire.
     hat(debut, vol, ouvert){
-      const a = this.ctx, t = a.currentTime + debut, src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(), d = ouvert ? .17 : .035;
+      const v = vol * (.85 + Math.random() * .3), t = Math.max(0, debut + (Math.random() - .5) * .006);
+      if(this.ech(ouvert ? 'hato' : 'hat', t, v, .96 + Math.random() * .1, ouvert ? .15 : 0)) return;
+      const a = this.ctx, src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(), tt = a.currentTime + t, d = ouvert ? .17 : .035;
       src.buffer = this.tampon(); f.type = 'highpass'; f.frequency.value = 7200;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .002); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
-      src.connect(f); f.connect(g); g.connect(this.sortie); src.start(t); src.stop(t + d + .02);
+      g.gain.setValueAtTime(0.0001, tt); g.gain.exponentialRampToValueAtTime(v * .5, tt + .002); g.gain.exponentialRampToValueAtTime(0.0001, tt + d);
+      src.connect(f); f.connect(g); g.connect(this.sortie); src.start(tt); src.stop(tt + d + .02);
     },
     // Un rouleau de charleston qui accélère (n frappes, de `de` à `vers` secondes entre deux) : la signature drill.
     rouleau(debut, n, de, vers, vol){
       let t = debut;
       for(let i = 0; i < n; i++){
         const k = n > 1 ? i / (n - 1) : 0;
-        this.hat(t, vol * (.55 + .45 * k) * (i % 2 ? .75 : 1));
+        this.hat(t, vol * (.6 + .4 * k) * (i % 2 ? .7 : 1));
         t += de + (vers - de) * k;
       }
       return t - debut;
     },
-    // Le clap : trois claques rapprochées et une queue.
-    clap(debut, vol){
-      [0, .011, .022].forEach((d, i) => this.bruit(debut + d, i < 2 ? .02 : .14, 1700, 1100, vol * (i < 2 ? .7 : 1), 1.1));
-    },
-    // Une note de piano / boîte à musique, sombre : triangle qui s'éteint dans un filtre.
-    pluck(f, debut, duree, vol){
-      const a = this.ctx, t = a.currentTime + debut, o = a.createOscillator(), fl = a.createBiquadFilter(), g = a.createGain();
+    // Le piano à queue : l'échantillon (mi3 ou si3, transposé en le jouant plus vite ou plus lentement) dans la salle.
+    piano(f, debut, duree, vol){
+      const mi = 164.81, si = 246.94, base = Math.abs(Math.log(f / mi)) < Math.abs(Math.log(f / si)) ? ['pe3', mi] : ['pb3', si];
+      const b = this.buf[base[0]], a = this.ctx;
+      if(b){
+        const s = a.createBufferSource(), g = a.createGain(), fl = a.createBiquadFilter(), t = a.currentTime + debut;
+        s.buffer = b; s.playbackRate.value = f / base[1];
+        fl.type = 'lowpass'; fl.frequency.value = 5200;
+        g.gain.setValueAtTime(vol, t); g.gain.setValueAtTime(vol, t + duree * .6); g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
+        s.connect(fl); fl.connect(g); this.vers(g, .4);
+        s.start(t); s.stop(t + duree + .05);
+        return;
+      }
+      const t = a.currentTime + debut, o = a.createOscillator(), fl = a.createBiquadFilter(), g = a.createGain();
       o.type = 'triangle'; o.frequency.setValueAtTime(f, t);
       fl.type = 'lowpass'; fl.frequency.setValueAtTime(3200, t); fl.frequency.exponentialRampToValueAtTime(500, t + duree);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .006); g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
-      o.connect(fl); fl.connect(g); g.connect(this.sortie); o.start(t); o.stop(t + duree + .05);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * .5, t + .006); g.gain.exponentialRampToValueAtTime(0.0001, t + duree);
+      o.connect(fl); fl.connect(g); this.vers(g, .3); o.start(t); o.stop(t + duree + .05);
     },
 
     jouer(quoi){
       if(!this.pret()) return;
       // Les notes sont en mi phrygien (mi, fa, sol, si) : le côté sombre des prods de drill.
       try{
-        if(quoi === 'dechire'){ this.bruit(0, .34, 900, 3800, .2, .8); this.rouleau(0, 9, .05, .018, .05); this.s808(55, .32, .8, .3, 46); this.clap(.32, .1); }
-        else if(quoi === 'donne'){ this.hat(0, .1); this.hat(.045, .05); }
-        else if(quoi === 'volte'){ this.caisse(0, .3); this.hat(.03, .06); }
-        else if(quoi === 'charge'){ this.rouleau(0, 10, .09, .025, .05); this.s808(41, 0, .85, .2, 58); this.bruit(0, .8, 700, 5500, .03, 1); }
-        else if(quoi === 'montee'){ this.rouleau(0, 22, .13, .028, .055); this.s808(36, 0, 1.85, .22, 118); this.bruit(0, 1.85, 500, 8500, .035, 1); }
-        else if(quoi === 'r1'){ this.hat(0, .1); this.pluck(659, .01, .5, .09); }
-        else if(quoi === 'r2'){ this.caisse(0, .26); this.hat(.02, .07); this.pluck(659, 0, .6, .09); this.pluck(784, .09, .6, .08); }
-        else if(quoi === 'r3'){ this.s808(55, 0, .75, .3, 49); this.clap(0, .09); [659, 784, 988].forEach((f, k) => this.pluck(f, k * .08, .9, .06)); this.hat(.1, .06); }
-        else if(quoi === 'r4'){ this.s808(49, 0, 1.15, .36, 41); this.caisse(0, .2); this.clap(0, .12); this.rouleau(.05, 7, .06, .028, .05);
-          [659, 784, 988, 1175].forEach((f, k) => this.pluck(f, k * .08, 1.2, .065)); }
-        else if(quoi === 'r5'){
-          this.s808(55, 0, 2, .44, 36); this.caisse(0, .3); this.clap(0, .16); this.clap(.46, .1);
-          this.rouleau(.12, 14, .07, .02, .06);
-          [659, 698, 659, 494, 587, 659].forEach((f, k) => this.pluck(f, .08 + k * .14, 1.4, .07));
-          this.bruit(0, 1.4, 6500, 300, .06, .8); this.cloche(1319, .5, 1.6, .035);
+        if(quoi === 'tic'){ this.hat(0, .13); }
+        else if(quoi === 'donne'){ this.hat(0, .15); this.hat(.05, .08); }
+        else if(quoi === 'volte'){ this.caisse(0, .45); this.hat(.04, .1); }
+        else if(quoi === 'gain'){ this.piano(988, 0, .4, .12); this.piano(1319, .08, .45, .1); this.hat(.05, .08); }
+        else if(quoi === 'dechire'){ this.bruit(0, .3, 900, 3800, .16, .8); this.rouleau(0, 8, .05, .02, .12); this.s808(55, .3, .75, .3, 46); this.clap(.3, .5); }
+        else if(quoi === 'charge'){ this.rouleau(0, 9, .1, .03, .12); this.s808(41, 0, .8, .2, 58); this.bruit(0, .8, 700, 5500, .028, 1); }
+        else if(quoi === 'montee'){
+          this.rouleau(0, 22, .13, .028, .13); this.s808(36, 0, 1.85, .22, 118); this.bruit(0, 1.85, 500, 8500, .03, 1);
+          [0, .43, .86, 1.29].forEach((d, k) => this.caisse(d, .3 + k * .08)); this.clap(.86, .35);
         }
-        else if(quoi === 'holo'){ [1568, 2093, 2637, 3136].forEach((f, k) => this.cloche(f, .1 + k * .05, .7, .03)); this.hat(.1, .05, true); }
-        else if(quoi === 'gain'){ this.pluck(988, 0, .35, .06); this.pluck(1319, .07, .45, .05); this.hat(.04, .05); }
-        else if(quoi === 'niveau'){ this.s808(41, 0, .9, .26, 49); [330, 392, 494, 659].forEach((f, k) => this.pluck(f, k * .11, 1, .07)); this.rouleau(.1, 6, .08, .04, .04); }
-        else if(quoi === 'tic'){ this.hat(0, .06); }
+        else if(quoi === 'r1'){ this.hat(0, .2); this.piano(659, 0, .3, .1); }
+        else if(quoi === 'r2'){ this.caisse(0, .5); this.hat(.02, .15); this.piano(659, 0, .45, .14); this.piano(784, .09, .45, .12); }
+        else if(quoi === 'r3'){ this.s808(55, 0, .7, .3, 49); this.clap(0, .5); [659, 784, 988].forEach((f, k) => this.piano(f, k * .07, .8, .14)); this.hat(.1, .15); }
+        else if(quoi === 'r4'){ this.s808(49, 0, 1, .36, 41); this.caisse(0, .7); this.clap(0, .6); this.rouleau(.05, 7, .06, .028, .13);
+          [659, 784, 988, 1175].forEach((f, k) => this.piano(f, k * .08, .9, .15)); this.hat(.3, .14, true); }
+        else if(quoi === 'r5'){
+          this.s808(55, 0, 1.7, .45, 36); this.caisse(0, .9); this.clap(0, .7); this.clap(.43, .5);
+          this.rouleau(.1, 12, .07, .02, .14);
+          [659, 698, 659, 494, 587, 659].forEach((f, k) => this.piano(f, .06 + k * .15, 1.1, .17));
+          this.hat(.9, .16, true); this.bruit(0, 1.3, 6500, 300, .05, .8); this.cloche(1319, .5, 1.4, .03);
+        }
+        else if(quoi === 'holo'){ [1568, 2093, 2637, 3136].forEach((f, k) => this.cloche(f, .1 + k * .05, .7, .03)); this.hat(.1, .12, true); }
+        else if(quoi === 'niveau'){ this.s808(41, 0, .8, .26, 49); [330, 392, 494, 659].forEach((f, k) => this.piano(f, k * .1, .9, .14)); this.rouleau(.1, 6, .08, .04, .1); }
       }catch(e){ /* un navigateur sans audio : on joue en silence */ }
     }
   };
