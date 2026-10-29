@@ -650,6 +650,27 @@
   .ct-donne:not(.seule) .ct-etiq{top:calc(100% + 8px); font-size:10px; padding:4px 9px; letter-spacing:.1em;}
   .ct-titre-rar{position:absolute; left:0; right:0; top:12%; z-index:4; text-align:center; pointer-events:none; font-size:clamp(28px, 7vw, 64px); font-weight:900; letter-spacing:.18em; text-transform:uppercase;
     color:#fff; text-shadow:0 0 30px var(--teinte), 0 0 60px var(--teinte); animation:ctTitre 1.6s cubic-bezier(.2,.8,.2,1) both;}
+  /* le pack : il tremble, la lumière de la meilleure carte filtre au travers, puis l'onde de choc */
+  .ct-scene-pack.tremble{filter:drop-shadow(0 0 30px var(--lueur, #fff)) brightness(1.18);}
+  .ct-onde{position:absolute; left:50%; top:45%; width:20vmin; height:20vmin; margin:-10vmin 0 0 -10vmin; border-radius:50%; z-index:5; pointer-events:none; opacity:0;
+    border:3px solid var(--oc, #fff); box-shadow:0 0 36px var(--oc, #fff), inset 0 0 36px var(--oc, #fff); animation:ctOnde 1.2s cubic-bezier(.1,.7,.3,1) forwards;}
+  @keyframes ctOnde{0%{opacity:.95; transform:scale(.1);} 100%{opacity:0; transform:scale(9);}}
+  /* la carte Mythique : la salle s'assombrit, un halo irisé tourne derrière elle, la caméra s'approche lentement */
+  .ct-scene-fond{transition:background .8s ease, filter 1s ease;}
+  .ct-scene.sombre .ct-scene-fond{filter:brightness(.5) saturate(1.3);}
+  .ct-halo{position:absolute; left:50%; top:50%; width:200%; aspect-ratio:1; transform:translate(-50%, -50%); z-index:-1; pointer-events:none; opacity:0; border-radius:50%; filter:blur(22px);
+    background:conic-gradient(from 0deg, #ff5c8a, #ffb547, #fff27a, #5cffc8, #5cb8ff, #b36bff, #ff5c8a);
+    -webkit-mask-image:radial-gradient(circle, #000 0%, transparent 60%); mask-image:radial-gradient(circle, #000 0%, transparent 60%);
+    animation:ctHaloIn 1.4s ease forwards, ctTourne 9s linear infinite;}
+  @keyframes ctHaloIn{to{opacity:.9;}}
+  .ct-pile.mythe{animation:ctPousse 7s ease-out both;}
+  @keyframes ctPousse{from{transform:scale(1);} to{transform:scale(1.07);}}
+  .ct-titre-rar.mythe{letter-spacing:.16em; animation:ctTitreMythe 2.8s ease both; text-shadow:none; filter:drop-shadow(0 0 22px var(--teinte)) drop-shadow(0 0 48px var(--teinte));}
+  .ct-titre-rar.mythe span{display:inline-block; opacity:0; background:linear-gradient(180deg, #fff, #ffd2e1 45%, var(--teinte)); -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation:ctLettre .8s cubic-bezier(.2,1.4,.3,1) forwards; animation-delay:calc(var(--i) * 80ms);}
+  @keyframes ctLettre{from{opacity:0; transform:translateY(40px) scale(2.2) rotateX(70deg);} to{opacity:1; transform:none;}}
+  @keyframes ctTitreMythe{0%,82%{opacity:1;} 100%{opacity:0;}}
+  @media (prefers-reduced-motion: reduce){ .ct-onde, .ct-halo{display:none;} .ct-pile.mythe{animation:none;} }
   .ct-bilan{display:flex; flex-wrap:wrap; justify-content:center; gap:8px;}
   .ct-bilan span{display:inline-flex; align-items:center; gap:6px; padding:6px 12px; border-radius:99px; font-size:13px; font-weight:600; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1);}
   .ct-bilan span i{width:8px; height:8px; border-radius:2px; transform:rotate(45deg); background:var(--rc);}
@@ -913,6 +934,7 @@
         else if(quoi === 'donne'){ this.bruit(0, .12, 500, 1600, .07, 1.5); }
         else if(quoi === 'volte'){ this.bruit(0, .1, 1800, 700, .1, 1.4); }
         else if(quoi === 'charge'){ this.ton(160, 620, 0, .8, .07, 'sawtooth'); this.ton(320, 1240, 0, .8, .03); }
+        else if(quoi === 'montee'){ this.ton(110, 1500, 0, 1.9, .06, 'sawtooth'); this.ton(220, 3000, 0, 1.9, .03); this.bruit(0, 1.9, 400, 6500, .035, 1); }
         else if(quoi === 'r1'){ this.cloche(784, 0, .5, .05); }
         else if(quoi === 'r2'){ this.cloche(880, 0, .7, .07); this.cloche(1175, .08, .7, .05); }
         else if(quoi === 'r3'){ [784, 988, 1319].forEach((f, k) => this.cloche(f, k * .08, 1, .07)); }
@@ -1023,7 +1045,7 @@
 
   function Effets(canvas){
     const g = canvas.getContext('2d');
-    let parts = [], boucle = 0, l = 0, h = 0;
+    let parts = [], boucle = 0, l = 0, h = 0, flux = 0;
     function taille(){
       const dpr = Math.min(2, window.devicePixelRatio || 1);
       l = canvas.clientWidth; h = canvas.clientHeight;
@@ -1084,7 +1106,23 @@
         }
         lancer();
       },
-      fin(){ cancelAnimationFrame(boucle); boucle = 0; parts = []; window.removeEventListener('resize', taille); }
+      // Des braises qui montent doucement pendant `ms` : le décor reste vivant tant qu'une carte Mythique est à l'écran.
+      braises(couleurs, ms){
+        if(calme()) return;
+        clearInterval(flux);
+        const fin = performance.now() + (ms || 4000);
+        flux = setInterval(() => {
+          if(performance.now() > fin){ clearInterval(flux); flux = 0; return; }
+          for(let i = 0; i < 3; i++){
+            const vie = 150 + Math.random() * 120;
+            parts.push({ x: Math.random() * l, y: h + 10, vx: (Math.random() - .5) * .8, vy: -(1.2 + Math.random() * 2.2), grav: 0, frein: .999,
+              t: 1.5 + Math.random() * 2.5, c: couleurs[Math.floor(Math.random() * couleurs.length)], vie, vie0: vie, rot: 0, vr: 0, forme: 'etincelle' });
+          }
+          lancer();
+        }, 70);
+      },
+      calmer(){ clearInterval(flux); flux = 0; },
+      fin(){ clearInterval(flux); cancelAnimationFrame(boucle); boucle = 0; parts = []; window.removeEventListener('resize', taille); }
     };
   }
 
@@ -1731,9 +1769,34 @@
       const pack = zonePack.querySelector('.ct-pack');
       pack.style.setProperty('--teinte', teinteBooster);
 
+      // Un souffle de plus d'une seconde pour les belles pochettes : la pochette tremble, la couleur de la meilleure
+      // carte filtre au travers, la lumière s'aspire vers elle, puis le zoom.
+      const ondes = (couleurs) => {
+        if(calme()) return;
+        couleurs.forEach((c, k) => {
+          const o = el('div', 'ct-onde');
+          o.style.setProperty('--oc', c);
+          o.style.animationDelay = (k * 150) + 'ms';
+          ov.appendChild(o);
+          setTimeout(() => o.remove(), 1500 + k * 150);
+        });
+      };
+
       async function plonger(){
         await attendre(calme() ? 30 : 520);
         if(fini) return;
+        if(!calme()){
+          phase = 'tension';
+          zonePack.style.setProperty('--lueur', teinteMeilleure);
+          zonePack.classList.add('tremble');
+          Son.jouer('charge');
+          vibre(meilleure >= 4 ? [15, 40, 15, 40, 15] : 15);
+          const c = centreDe(zonePack);
+          fx.aspire(c.x, c.y, teinteMeilleure, meilleure >= 4 ? 44 : 22);
+          await attendre(meilleure >= 5 ? 1000 : (meilleure >= 3 ? 750 : 480));
+          if(fini) return;
+          zonePack.classList.remove('tremble');
+        }
         phase = 'plonge';
         const b = pack.getBoundingClientRect();
         const zoom = Math.max(window.innerWidth, window.innerHeight) / Math.min(b.width, b.height) * 2;
@@ -1746,7 +1809,8 @@
         if(fini) return;
         teinte(teinteMeilleure);
         eclair();
-        if(meilleure >= 4) fx.gerbe(window.innerWidth / 2, window.innerHeight / 2, ['#ffffff', teinteMeilleure], 60, { vitesse: 10, vie: 50 });
+        ondes(meilleure >= 4 ? [teinteMeilleure, '#ffffff'] : [teinteMeilleure]);
+        fx.gerbe(window.innerWidth / 2, window.innerHeight / 2, ['#ffffff', teinteMeilleure], meilleure >= 4 ? 60 : 24, { vitesse: meilleure >= 4 ? 10 : 7, vie: 50 });
         await attendre(calme() ? 40 : 260);
         if(fini) return;
         zonePack.remove();
@@ -1796,13 +1860,24 @@
         // Mythique : l'extrait de l'artiste se prépare pendant l'attente et se lance quand la carte se retourne.
         const extrait = r >= 5 ? Extrait.preparer(c) : null;
 
+        if(r >= 5){
+          // Mythique : la salle s'assombrit et un halo irisé se lève derrière la carte.
+          ov.classList.add('sombre');
+          p.insertAdjacentHTML('afterbegin', '<div class="ct-halo"></div>');
+        }
+
         if(r >= 3 && !calme()){
           // L'attente : la carte vibre, la lumière se rassemble.
           p.classList.add('charge');
-          Son.jouer('charge');
-          vibre(r >= 4 ? [15, 40, 15, 40, 15] : 20);
+          Son.jouer(r >= 5 ? 'montee' : 'charge');
+          vibre(r >= 5 ? [15, 40, 15, 40, 15, 40, 30, 60, 60] : (r >= 4 ? [15, 40, 15, 40, 15] : 20));
           fx.aspire(pos.x, pos.y, RAR[r].c, r >= 5 ? 60 : (r >= 4 ? 42 : 24));
-          await attendre(r >= 5 ? 1150 : (r >= 4 ? 850 : 520));
+          if(r >= 5){
+            // Deux vagues de plus, de plus en plus serrées, pendant que la carte bat plus vite.
+            setTimeout(() => { if(!fini) fx.aspire(pos.x, pos.y, '#ffffff', 50); }, 700);
+            setTimeout(() => { if(!fini) fx.aspire(pos.x, pos.y, RAR[5].c, 70); }, 1300);
+          }
+          await attendre(r >= 5 ? 1900 : (r >= 4 ? 850 : 520));
           p.classList.remove('charge');
         }
         if(fini){ occupe = false; return; }
@@ -1836,9 +1911,17 @@
             eclair();
             ov.classList.remove('secousse'); void ov.offsetWidth; ov.classList.add('secousse');
             fx.pluie(r >= 5 ? ['#ff5c8a', '#ffb547', '#fff27a', '#5cffc8', '#5cb8ff', '#b36bff'] : ['#F2C14E', '#fff3c4', '#ffffff', '#e9a73a'], r >= 5 ? 160 : 90);
-            const titre = el('div', 'ct-titre-rar', esc(RAR[r].nom));
+            const mythe = r >= 5 && !calme();
+            const titre = el('div', 'ct-titre-rar' + (mythe ? ' mythe' : ''),
+              mythe ? [...RAR[r].nom].map((ch, k) => `<span style="--i:${k}">${esc(ch)}</span>`).join('') : esc(RAR[r].nom));
             ov.appendChild(titre);
-            setTimeout(() => titre.remove(), 1700);
+            setTimeout(() => titre.remove(), mythe ? 2900 : 1700);
+            if(mythe){
+              // Onde de choc double, braises qui montent, la caméra s'approche doucement.
+              ondes([RAR[5].c, '#ffffff', '#ffb547']);
+              fx.braises(['#ff5c8a', '#ffb547', '#fff27a', '#b36bff'], 6000);
+              if(pile) pile.classList.add('mythe');
+            }
           }else if(r === 3){
             teinte(RAR[3].c);
           }
@@ -1858,6 +1941,9 @@
         const p = places[courante];
         const et = p.querySelector('.ct-etiq'); if(et) et.remove();
         Extrait.arreter();
+        ov.classList.remove('sombre');
+        if(pile) pile.classList.remove('mythe');
+        fx.calmer();
         rayons.classList.remove('on');
         teinte(teinteBooster);
         p.classList.add('sort');
@@ -1884,6 +1970,8 @@
       // ---- 4. le bilan
       function bilan(){
         phase = 'bilan';
+        ov.classList.remove('sombre');
+        fx.calmer();
         rayons.classList.remove('on');
         teinte(teinteBooster);
         if(pile){ pile.remove(); pile = null; }
