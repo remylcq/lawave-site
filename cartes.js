@@ -664,9 +664,13 @@
     animation:ctHaloIn 1.4s ease forwards, ctTourne 9s linear infinite;}
   @keyframes ctHaloIn{to{opacity:.9;}}
   .ct-clip{position:absolute; inset:0; z-index:0; overflow:hidden; opacity:0; transition:opacity 1.2s ease; pointer-events:none;}
-  .ct-clip.on{opacity:.6;}
-  .ct-clip iframe{position:absolute; left:50%; top:50%; width:max(100vw, 177.78vh); height:max(100vh, 56.25vw); transform:translate(-50%, -50%); border:0; pointer-events:none;}
-  .ct-clip::after{content:''; position:absolute; inset:0; background:radial-gradient(75% 65% at 50% 46%, rgba(3,4,7,.1), rgba(3,4,7,.78));}
+  .ct-clip.on{opacity:.9;}
+  /* Le clip couvre tout l'écran, quel que soit son format : 16:9 étiré jusqu'aux quatre bords, puis agrandi de 18 % pour
+     perdre les bandes noires et le bandeau de titre de YouTube. */
+  .ct-clip iframe{position:absolute; left:50%; top:50%; width:max(100vw, 177.78vh); height:max(100vh, 56.25vw); transform:translate(-50%, -50%) scale(1.18); border:0; pointer-events:none;}
+  .ct-clip::after{content:''; position:absolute; inset:0; background:radial-gradient(80% 70% at 50% 46%, rgba(3,4,7,.05), rgba(3,4,7,.5));}
+  /* Pendant l'ouverture, on touche les cartes pour avancer : rien ne doit se sélectionner. */
+  .ct-scene, .ct-scene *{-webkit-user-select:none; user-select:none; -webkit-touch-callout:none; -webkit-tap-highlight-color:transparent;}
   .ct-pile.mythe{animation:ctPousse 7s ease-out both;}
   @keyframes ctPousse{from{transform:scale(1);} to{transform:scale(1.07);}}
   .ct-titre-rar.mythe{letter-spacing:.16em; animation:ctTitreMythe 2.8s ease both; text-shadow:none; filter:drop-shadow(0 0 22px var(--teinte)) drop-shadow(0 0 48px var(--teinte));}
@@ -1952,6 +1956,10 @@
 
   function scene(cartes, garanti, booster){
 
+    // De la moins rare à la plus rare (à rareté égale, les holos après) : on finit toujours en beauté.
+    cartes = cartes.map((c, i) => [c, i]).sort((a, b) =>
+      ((Number(a[0].rarete) || 1) - (Number(b[0].rarete) || 1)) || ((a[0].holo ? 1 : 0) - (b[0].holo ? 1 : 0)) || (a[1] - b[1])).map((x) => x[0]);
+
     return new Promise((fin) => {
 
       booster = garanti ? BOOSTER_GARANTI : (booster || REPLI[0]);
@@ -1995,7 +2003,19 @@
         retirerClip(true);
         const f = el('div', 'ct-clip');
         const dep = Math.max(0, Math.min(3599, Number(perso.clip_debut) || 0));
-        f.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${id}&start=${dep}&modestbranding=1&playsinline=1&rel=0&disablekb=1&fs=0&iv_load_policy=3" title="" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" tabindex="-1" aria-hidden="true"></iframe>`;
+        // cc_load_policy=0 : pas de sous-titres ; enablejsapi : on peut aussi les décharger, et allumer le son, par message.
+        f.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${id}&start=${dep}&modestbranding=1&playsinline=1&rel=0&disablekb=1&fs=0&iv_load_policy=3&cc_load_policy=0&hl=fr&enablejsapi=1&origin=${encodeURIComponent(location.origin)}" title="" allow="autoplay; encrypted-media" referrerpolicy="strict-origin-when-cross-origin" tabindex="-1" aria-hidden="true"></iframe>`;
+        const ifr = f.firstChild;
+        const cmd = (func, args) => { try{ ifr.contentWindow.postMessage(JSON.stringify({ event: 'command', func, args: args || [] }), '*'); }catch(e){} };
+        const sansSousTitres = () => { cmd('unloadModule', ['captions']); cmd('unloadModule', ['cc']); };
+        ifr.addEventListener('load', () => {
+          try{ ifr.contentWindow.postMessage(JSON.stringify({ event: 'listening', id: 1 }), '*'); }catch(e){}
+          sansSousTitres();
+          setTimeout(sansSousTitres, 1200);
+          setTimeout(sansSousTitres, 3000);
+        });
+        // Le son du clip (le morceau en entier) : on l'allume à l'instant voulu, au volume voulu.
+        f.parler = (v) => { cmd('unMute'); cmd('setVolume', [Math.round(Math.max(0, Math.min(1, v)) * 100)]); cmd('playVideo'); };
         ov.insertBefore(f, ov.querySelector('.ct-rayons'));
         return (clipCourant = f);
       }
@@ -2142,15 +2162,21 @@
             Promise.race([propre, attendre(450).then(() => null)])
           ]);
           cfg = lu;
-          if(perso && perso.titre){ cfg = Object.assign({}, cfg, { son: 'titre' }); extrait = Extrait.titre(perso); }
-          else extrait = SonMythique.preparer(cfg, c);
           if(perso && perso.clip) clip = poserClip(perso);
+          // Le son du clip (le morceau en entier) remplace l'extrait de 30 s de Deezer.
+          if(clip && perso.clip_son){ cfg = Object.assign({}, cfg, { son: 'clip' }); extrait = Promise.resolve(null); }
+          else if(perso && perso.titre){ cfg = Object.assign({}, cfg, { son: 'titre' }); extrait = Extrait.titre(perso); }
+          else extrait = SonMythique.preparer(cfg, c);
           if(fini){ occupe = false; return; }
           // Le retournement a lieu à 2,05 s (1,9 s de montée + 0,15 s de soulèvement) : le son part à cet instant + le délai.
           const tFlip = calme() ? 10 : 2050;
           setTimeout(() => {
             if(fini || courante !== i) return;
-            extrait.then((pret) => { if(!fini && courante === i) SonMythique.jouer(cfg, pret); });
+            extrait.then((pret) => {
+              if(fini || courante !== i) return;
+              if(cfg.son === 'clip'){ if(clip && clip.parler && cfg.volume > 0) clip.parler(cfg.volume / 100); }
+              else SonMythique.jouer(cfg, pret);
+            });
           }, Math.max(0, tFlip + cfg.delai_ms));
         }
 
