@@ -615,6 +615,8 @@
   .ct-pile .ct-place.retournee{transform:none;}
   .ct-pile .ct-place.leve{transform:translateY(-16px) scale(1.05);}
   .ct-pile .ct-place.sort{animation:ctSort .5s cubic-bezier(.5,0,.8,.4) forwards; pointer-events:none;}
+  .ct-pile .ct-place.rapide .ct-volte{transition-duration:.3s;}
+  .ct-pile .ct-place.sort.rapide{animation-duration:.22s;}
   .ct-sheen{position:absolute; inset:3px; border-radius:10px; overflow:hidden; pointer-events:none; z-index:5;}
   .ct-sheen::after{content:''; position:absolute; inset:0; background:linear-gradient(105deg, transparent 38%, rgba(255,255,255,.6) 50%, transparent 62%); transform:translateX(-130%);}
   .ct-place.retournee .ct-sheen::after{animation:ctSheen .9s .45s ease-out both;}
@@ -1953,7 +1955,12 @@
       plonger();
 
       // ---- 2. les cartes surgissent en pile
-      const indice = (texte) => `<p>${texte}</p>${n > 1 ? '<div class="boutons"><button type="button" class="ct-btn" data-passer>Tout voir</button></div>' : ''}`;
+      // « Aux belles cartes » saute d'un coup toutes les communes et les rares qui restent (Épique et au-dessus).
+      const indice = (texte) => {
+        const belle = cartes.findIndex((c) => (Number(c.rarete) || 1) >= 3);
+        const saut = n > 1 && belle > courante;
+        return `<p>${texte}</p>${n > 1 ? `<div class="boutons">${saut ? '<button type="button" class="ct-btn" data-belles>Aux belles cartes</button>' : ''}<button type="button" class="ct-btn" data-passer>Tout voir</button></div>` : ''}`;
+      };
 
       function distribuer(){
         phase = 'pile';
@@ -1974,12 +1981,36 @@
         pied.innerHTML = indice(n === 1 ? 'Touche la carte pour la révéler' : 'Touche la carte du dessus pour la révéler');
       }
 
-      pied.addEventListener('click', (ev) => { if(ev.target.closest('[data-passer]')) passer(); });
+      pied.addEventListener('click', (ev) => {
+        if(ev.target.closest('[data-belles]')) versBelles();
+        else if(ev.target.closest('[data-passer]')) passer();
+      });
 
+      function versBelles(){
+        if(fini || occupe || (phase !== 'pile' && phase !== 'revelee')) return;
+        const k = cartes.findIndex((c) => (Number(c.rarete) || 1) >= 3);
+        if(k < 0 || k <= courante) return;
+        if(phase === 'revelee'){ const et = places[courante].querySelector('.ct-etiq'); if(et) et.remove(); }
+        for(let j = courante; j < k; j++) places[j].classList.add('sort', 'rapide');
+        courante = k;
+        for(let j = k; j < n; j++) places[j].style.setProperty('--k', Math.min(j - k, 4));
+        phase = 'pile';
+        Son.jouer('donne');
+        pied.innerHTML = indice('Touche la carte pour la révéler');
+      }
+
+      // Un toucher donné pendant l'animation d'une commune ou d'une rare n'est pas perdu : il est repris dès que la scène est prête.
+      let tapEnAttente = false;
       function suite(){
         if(fini) return;
         if(phase === 'pile') reveler();
         else if(phase === 'revelee') avancer();
+        else if((phase === 'revele' || phase === 'sort') && courante < n && (Number(cartes[courante].rarete) || 1) <= 2) tapEnAttente = true;
+      }
+      function reprendreTap(){
+        if(!tapEnAttente || fini) return;
+        tapEnAttente = false;
+        suite();
       }
 
       // ---- 3. révéler la carte du dessus
@@ -2029,8 +2060,11 @@
         }
         if(fini){ occupe = false; return; }
 
+        // Les communes et les rares passent vite : retournement en 0,3 s, pas de soulèvement, pas d'attente.
+        const rapide = r <= 2 && !calme();
+        if(rapide) p.classList.add('rapide');
         p.classList.add('leve');
-        await attendre(calme() ? 10 : 150);
+        await attendre(calme() ? 10 : (rapide ? 0 : 150));
         if(fini){ occupe = false; return; }
         p.classList.add('retournee');
         if(clip) clip.classList.add('on');
@@ -2072,13 +2106,14 @@
           }else if(r === 3){
             teinte(RAR[3].c);
           }
-        }, 330);
+        }, rapide ? 140 : 330);
 
-        await attendre(calme() ? 120 : (r >= 4 ? 1000 : (r >= 3 ? 620 : 420)));
+        await attendre(calme() ? 120 : (rapide ? 110 : (r >= 4 ? 1000 : (r >= 3 ? 620 : 420))));
         occupe = false;
         if(fini) return;
         phase = 'revelee';
         pied.innerHTML = indice(courante < n - 1 ? 'Touche pour passer à la carte suivante' : 'Touche pour voir tes cartes');
+        reprendreTap();
       }
 
       // ---- la carte part, la suivante prend sa place
@@ -2093,6 +2128,8 @@
         fx.calmer();
         rayons.classList.remove('on');
         teinte(teinteBooster);
+        const rapideSortie = (Number(cartes[courante].rarete) || 1) <= 2 && !calme();
+        if(rapideSortie) p.classList.add('rapide');
         p.classList.add('sort');
         Son.jouer('donne');
         courante++;
@@ -2106,7 +2143,8 @@
           if(fini) return;
           phase = 'pile';
           pied.innerHTML = indice('Touche la carte pour la révéler');
-        }, calme() ? 20 : 320);
+          reprendreTap();
+        }, calme() ? 20 : (rapideSortie ? 130 : 320));
       }
 
       function passer(){
