@@ -3952,7 +3952,8 @@
     font-size:11px; font-weight:600; letter-spacing:.07em; text-transform:uppercase;
     color:var(--blue-bright); background:rgba(79,180,255,0.1); border:1px solid rgba(79,180,255,0.2);
   }
-  #page-admin .admin-section h3{
+  /* Les titres de la console Wave Cards (.ee) portent leur propre style : la règle ne s'y applique pas. */
+  #page-admin .admin-section h3:not(.ee h3){
     margin:0 0 6px !important; font-size:22px !important; font-weight:700;
     letter-spacing:-0.02em; line-height:1.2; color:var(--ink);
   }
@@ -4311,7 +4312,7 @@
   @media (max-width:620px){
     #page-admin .admin-row{padding:16px; gap:14px;}
     #page-admin .admin-row img{width:56px; height:56px;}
-    #page-admin .admin-section h3{font-size:20px !important;}
+    #page-admin .admin-section h3:not(.ee h3){font-size:20px !important;}
     #page-admin .admin-actions button{height:38px;}
   }
 

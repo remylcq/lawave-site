@@ -40,7 +40,6 @@ on:
       - modeles/**
       - decor/**
       - logos/**
-      - sons/**
       - lib/**
       - outils/deploiement/**
       - .github/workflows/mise-en-ligne.yml

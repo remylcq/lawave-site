@@ -139,7 +139,7 @@
 
   const SECTIONS = [
     ['ensemble', 'Vue d\'ensemble', 'ensemble'], ['collections', 'Collections', 'pack'], ['cartes', 'Cartes', 'cartes'],
-    ['joueurs', 'Joueurs', 'joueurs'], ['combat', 'Combat', null], ['marche', 'Marché', null], ['quotidien', 'Quotidien', null]
+    ['joueurs', 'Joueurs', 'joueurs'], ['combat', 'Combat', null], ['marche', 'Marché', null], ['quotidien', 'Quotidien', null], ['sons', 'Sons', null]
   ];
 
   async function monter(hote, a){
@@ -149,7 +149,7 @@
     E.root.className = 'ct ee';
     E.root.innerHTML = `
       <nav class="ee-nav" role="tablist" aria-label="Wave Cards, équipe">${SECTIONS.map(([id, nom, icone]) =>
-        `<button type="button" role="tab" data-act="section" data-id="${id}" class="${id === E.section ? 'actif' : ''}" aria-selected="${id === E.section}">${icone ? ic(icone, 17) : api.ico({ combat: 'combat', quotidien: 'calendrier' }[id] || 'marche', 17)}<span>${esc(nom)}</span></button>`).join('')}</nav>
+        `<button type="button" role="tab" data-act="section" data-id="${id}" class="${id === E.section ? 'actif' : ''}" aria-selected="${id === E.section}">${icone ? ic(icone, 17) : api.ico({ combat: 'combat', quotidien: 'calendrier', sons: 'son' }[id] || 'marche', 17)}<span>${esc(nom)}</span></button>`).join('')}</nav>
       <div class="ee-main" data-main><div class="ct-vide">Chargement…</div></div>`;
     hote.innerHTML = '';
     hote.appendChild(E.root);
@@ -170,6 +170,7 @@
       else if(E.section === 'cartes') await sCartes();
       else if(E.section === 'joueurs') await sJoueurs();
       else if(E.section === 'combat') await sModule('combat', 'WaveCombat', 'Combat', 'Types, statistiques et attaques des cartes.');
+      else if(E.section === 'sons') await sSons();
       else if(E.section === 'quotidien') await sModule('accueil', 'WaveAccueil', 'Quotidien', 'Événements à durée limitée et nouveautés du jeu.');
       else await sModule('marche', 'WaveMarche', 'Marché', 'Annonces, prix et ventes entre joueurs.');
     }catch(e){
@@ -212,6 +213,10 @@
     'nouvelle-collection': () => aller('collections', { col: '+' }),
     'donner-vinyles': () => aller('joueurs', { joueur: null }),
     journal: () => voirJournal(),
+    // Sons
+    'son-ecouter': () => sonEcouter(),
+    'son-sauver': () => sonSauver(),
+    'son-repere': (el) => { E.son.delai_ms = Number(el.dataset.ms) || 0; sonMajVue(true); },
     // Collections
     'col-ouvrir': (el) => { E.col = el.dataset.id; return sCollections(); },
     'col-retour': async () => { if(!(await abandonOk())) return; E.col = null; return sCollections(); },
@@ -247,6 +252,11 @@
   };
 
   const SAISIES = {
+    'son-choix': (el) => { E.son.son = el.value; sonMajVue(); },
+    'son-delai': (el) => { E.son.delai_ms = Number(el.value) || 0; sonMajVue(); },
+    'son-volume': (el) => { E.son.volume = Number(el.value) || 0; sonMajVue(); },
+    'son-montee': (el) => { E.son.montee = el.checked; sonMajVue(); },
+    'son-fichier': (el) => sonEnvoyer(el.files && el.files[0], el),
     'col-champ': (el) => { E.form[el.dataset.f] = el.type === 'number' ? Number(el.value) : el.value; if(el.dataset.f === 'accent'){ const t = $('[data-in="col-accent-t"]'); if(t) t.value = el.value; } majBarre(); },
     'col-accent-t': (el) => { if(/^#[0-9a-fA-F]{6}$/.test(el.value)){ E.form.accent = el.value; const c = $('[data-f="accent"]'); if(c) c.value = el.value; majBarre(); } },
     'col-actif': (el) => { E.form.actif = el.checked; majBarre(); },
@@ -913,6 +923,132 @@
   // 5 et 6. Combat et marché : des panneaux fournis par leurs modules
   // ---------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------
+  // Sons : ce qui se joue quand une carte Mythique est révélée (sql/cartes-son-mythique.sql)
+  // ---------------------------------------------------------------------
+
+  const SONS_CHOIX = [
+    ['fanfare', 'Fanfare (par défaut)', 'Un grand coup de basse, un accord qui gonfle, un arpège qui monte.'],
+    ['impact', 'Impact grave', 'Un seul coup de basse très profond.'],
+    ['cristal', 'Cristal', 'Quatre notes douces qui s\'égrènent.'],
+    ['artiste', 'Extrait de l\'artiste', 'Les 30 secondes de son titre le plus écouté sur Deezer, joué sur sa propre carte. Il ne s\'écoute pas ici : il faut une vraie carte.'],
+    ['fichier', 'Mon fichier audio', 'Un son que tu envoies : mp3, wav, ogg ou m4a, 2 Mo au plus.'],
+    ['aucun', 'Aucun son', 'Rien ne se joue à la révélation.']
+  ];
+  const SON_T_MONTEE = 1.9, SON_T_FLIP = 2.05, SON_T_FIN = 6.05;
+
+  // « 0,5 s avant le retournement », « Au retournement de la carte ».
+  function sonDelaiTexte(ms){
+    if(!ms) return 'au retournement de la carte';
+    const s = String(Math.round(Math.abs(ms) / 10) / 100).replace('.', ',');
+    return s + ' s ' + (ms < 0 ? 'avant' : 'après') + ' le retournement';
+  }
+
+  async function sSons(){
+    E.main.innerHTML = tete('Sons', 'Les sons du jeu. Pour l\'instant : ce qui se joue quand un joueur tombe sur une carte Mythique.') + '<div data-son><div class="ct-vide">Chargement…</div></div>';
+    let cfg;
+    try{ cfg = api.SonMythique.valider(await api.appel('jeu_reglage_son_mythique')); }
+    catch(e){
+      $('[data-son]').innerHTML = vide('Les réglages de son ne sont pas encore activés', 'Le fichier cartes-son-mythique.sql n\'a pas été passé dans Supabase.');
+      return;
+    }
+    E.son = Object.assign({}, cfg);
+    E.sonNom = '';
+    $('[data-son]').innerHTML = `
+      <section class="ee-bloc ee-son">
+        <h3>Carte Mythique</h3>
+        <label class="ee-champ"><span>Son à la révélation</span>
+          <select data-in="son-choix">${SONS_CHOIX.map(([id, nom]) => `<option value="${id}" ${id === E.son.son ? 'selected' : ''}>${esc(nom)}</option>`).join('')}</select>
+          <small data-son-aide></small></label>
+        <div class="ee-champ" data-son-zone-fichier><span>Fichier audio</span>
+          <input type="file" data-in="son-fichier" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/webm,.mp3,.wav,.ogg,.m4a">
+          <small data-son-fichier-nom></small></div>
+        <div class="ee-champ"><span>Quand il se lance : <b data-son-delai-texte></b></span>
+          <input type="range" min="-2000" max="4000" step="50" data-in="son-delai" value="${E.son.delai_ms}" aria-label="Instant du son, en millisecondes autour du retournement">
+          <div class="ee-son-reperes">
+            <button type="button" class="ct-btn petit" data-act="son-repere" data-ms="-1500">Pendant la montée</button>
+            <button type="button" class="ct-btn petit" data-act="son-repere" data-ms="0">Au retournement</button>
+            <button type="button" class="ct-btn petit" data-act="son-repere" data-ms="1000">1 s après</button>
+          </div></div>
+        <div class="ee-son-tl" data-son-tl aria-hidden="true">
+          <div class="ee-son-piste"><i class="ee-son-montee" data-son-montee></i><i class="ee-son-pin flip" data-son-flip></i><i class="ee-son-pin son" data-son-pin></i></div>
+          <div class="ee-son-legende"><span>0 s</span><span data-son-leg-montee>Montée</span><span data-son-leg-flip>Retournement</span><span data-son-leg-son>Son</span></div>
+        </div>
+        <label class="ee-champ"><span>Volume : <b data-son-vol-texte></b></span>
+          <input type="range" min="0" max="100" step="5" data-in="son-volume" value="${E.son.volume}"></label>
+        <label class="ee-case"><input type="checkbox" data-in="son-montee" ${E.son.montee ? 'checked' : ''}> Jouer la montée sonore avant le retournement</label>
+        <div class="ee-son-barre">
+          <span class="ee-etat" data-son-etat></span>
+          <button type="button" class="ct-btn" data-act="son-ecouter">${api.ico('son', 16)}Écouter</button>
+          <button type="button" class="ct-btn principal" data-act="son-sauver">Enregistrer</button>
+        </div>
+      </section>`;
+    sonMajVue();
+  }
+
+  // Remet à jour tout ce qui dépend du réglage en cours (libellés, repères, frise) sans toucher aux champs que l'on tape.
+  function sonMajVue(depuisRepere){
+    const d = E.son, z = $('[data-son]');
+    if(!z) return;
+    const choix = SONS_CHOIX.find((c) => c[0] === d.son) || SONS_CHOIX[0];
+    $('[data-son-aide]').textContent = choix[2];
+    $('[data-son-zone-fichier]').hidden = d.son !== 'fichier';
+    $('[data-son-fichier-nom]').textContent = d.url ? 'Fichier actuel : ' + (E.sonNom || decodeURIComponent(String(d.url).split('/').pop())) : 'Aucun fichier envoyé pour l\'instant.';
+    $('[data-son-delai-texte]').textContent = sonDelaiTexte(d.delai_ms);
+    $('[data-son-vol-texte]').textContent = d.volume + ' %';
+    if(depuisRepere){ const r = $('[data-in="son-delai"]'); if(r) r.value = d.delai_ms; }
+    const pct = (t) => Math.max(0, Math.min(100, t / SON_T_FIN * 100));
+    const montee = $('[data-son-montee]');
+    montee.style.width = pct(SON_T_MONTEE) + '%';
+    montee.classList.toggle('coupee', !d.montee);
+    $('[data-son-flip]').style.left = pct(SON_T_FLIP) + '%';
+    const pin = $('[data-son-pin]');
+    pin.style.left = pct(SON_T_FLIP + d.delai_ms / 1000) + '%';
+    pin.classList.toggle('muet', d.son === 'aucun' || d.volume === 0);
+    $('[data-son-leg-son]').textContent = d.son === 'aucun' ? 'Pas de son' : 'Son : ' + (SONS_CHOIX.find((c) => c[0] === d.son) || ['', ''])[1].split(' (')[0].toLowerCase();
+    $('[data-son-etat]').textContent = '';
+  }
+
+  async function sonEnvoyer(fichier, champ){
+    if(!fichier) return;
+    const types = { 'audio/mpeg': '.mp3', 'audio/mp3': '.mp3', 'audio/wav': '.wav', 'audio/x-wav': '.wav', 'audio/ogg': '.ogg', 'audio/mp4': '.m4a', 'audio/x-m4a': '.m4a', 'audio/webm': '.webm' };
+    const ext = types[fichier.type];
+    if(!ext){ api.toast('Choisis un fichier mp3, wav, ogg ou m4a.', 'err'); champ.value = ''; return; }
+    if(fichier.size > 2 * 1024 * 1024){ api.toast('2 Mo au plus : ce fichier est trop lourd.', 'err'); champ.value = ''; return; }
+    if(typeof supabaseClient === 'undefined'){ api.toast('Le stockage n\'est pas disponible ici.', 'err'); return; }
+    const nom = Date.now() + '-mythique' + ext;
+    $('[data-son-fichier-nom]').textContent = 'Envoi en cours…';
+    const { error } = await supabaseClient.storage.from('sons-jeu').upload(nom, fichier, { contentType: fichier.type, upsert: false });
+    if(error){ api.toast('Envoi impossible : ' + error.message, 'err'); sonMajVue(); return; }
+    E.son.url = supabaseClient.storage.from('sons-jeu').getPublicUrl(nom).data.publicUrl;
+    E.sonNom = fichier.name;
+    api.toast('Fichier envoyé. Pense à enregistrer.');
+    sonMajVue();
+  }
+
+  function sonEcouter(){
+    const ok = api.SonMythique.apercu(E.son);
+    if(!ok) api.toast('L\'extrait d\'un artiste se joue sur sa carte : ouvre un pack pour l\'entendre.', 'err');
+  }
+
+  async function sonSauver(){
+    const d = E.son;
+    if(d.son === 'fichier' && !d.url){ api.toast('Envoie un fichier audio, ou choisis un autre son.', 'err'); return; }
+    const bouton = $('[data-act="son-sauver"]');
+    bouton.disabled = true;
+    try{
+      const v = await api.appel('jeu_equipe_son_mythique_sauver', { p_donnees: { son: d.son, delai_ms: d.delai_ms, volume: d.volume, montee: d.montee, url: d.url } });
+      E.son = Object.assign({}, api.SonMythique.valider(v));
+      api.SonMythique.invalider();
+      api.toast('Son enregistré : il s\'applique à la prochaine carte Mythique.');
+      $('[data-son-etat]').textContent = 'Enregistré';
+    }catch(e){
+      api.toast(e.message || 'L\'enregistrement a échoué.', 'err');
+    }finally{
+      bouton.disabled = false;
+    }
+  }
+
   async function sModule(nom, global, titre, texte){
     E.main.innerHTML = tete(titre, texte) + '<div data-module><div class="ct-vide">Chargement…</div></div>';
     const z = $('[data-module]');
@@ -1129,10 +1265,28 @@
   .ee-rec span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ee-snack{position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:99999; display:flex; align-items:center; gap:16px; padding:12px 14px 12px 18px; border-radius:14px; background:#F4F5F6; color:#05070a; font:600 14px/1.3 Inter, system-ui, sans-serif; box-shadow:0 20px 40px -12px rgba(0,0,0,.7); max-width:calc(100vw - 24px);}
   .ee-snack button{appearance:none; border:0; background:rgba(5,7,10,.1); color:#05070a; font:inherit; font-weight:700; padding:7px 12px; border-radius:9px; cursor:pointer;}
+  /* Dans l'espace équipe, le site met tout en 300 et enlève le gras des <b> : la console reprend ses graisses. */
+  .ee{font-weight:400;}
+  .ee b, .ee strong{font-weight:700;}
+  .ee-son{max-width:640px;}
+  .ee [hidden]{display:none !important;}
+  .ee-son input[type=range]{width:100%; accent-color:#2C9BEF; cursor:pointer;}
+  .ee-son input[type=file]{font:inherit; font-size:13.5px; color:var(--ink-soft);}
+  .ee-son-reperes{display:flex; flex-wrap:wrap; gap:8px;}
+  .ee-son-tl{display:grid; gap:6px; padding:12px 14px; border-radius:14px; border:1px solid var(--ct-trait); background:rgba(0,0,0,.2);}
+  .ee-son-piste{position:relative; height:26px; border-radius:8px; background:rgba(255,255,255,.05);}
+  .ee-son-montee{position:absolute; left:0; top:0; bottom:0; border-radius:8px 0 0 8px; background:linear-gradient(90deg, rgba(79,180,255,.15), rgba(255,92,138,.55));}
+  .ee-son-montee.coupee{background:repeating-linear-gradient(45deg, rgba(255,255,255,.07) 0 6px, transparent 6px 12px);}
+  .ee-son-pin{position:absolute; top:-4px; bottom:-4px; width:3px; margin-left:-1.5px; border-radius:2px;}
+  .ee-son-pin.flip{background:rgba(255,255,255,.75);}
+  .ee-son-pin.son{background:#FF5C8A; box-shadow:0 0 10px #FF5C8A; transition:left .12s;}
+  .ee-son-pin.son.muet{background:rgba(255,255,255,.25); box-shadow:none;}
+  .ee-son-legende{display:flex; justify-content:space-between; gap:8px; font-size:12px; color:var(--muted);}
+  .ee-son-barre{display:flex; flex-wrap:wrap; align-items:center; gap:10px; justify-content:flex-end;}
+  .ee-son-barre .ee-etat{margin-right:auto;}
   @media (max-width:860px){
     .ee{grid-template-columns:1fr; gap:16px; padding-bottom:110px;}
-    .ee-nav{position:static; flex-direction:row; overflow-x:auto; gap:6px; padding-bottom:4px; scrollbar-width:none;}
-    .ee-nav::-webkit-scrollbar{display:none;}
+    .ee-nav{position:static; flex-direction:row; flex-wrap:wrap; gap:6px; padding-bottom:4px;}
     .ee-nav button{flex:none; height:40px; padding:0 14px; background:var(--ct-surface);}
     .ee-nav button.actif{box-shadow:none; background:#F4F5F6; color:#05070a;}
     .ee-grille2{grid-template-columns:1fr;}
