@@ -116,7 +116,7 @@
 
   .cb-duo{display:grid; grid-template-columns:repeat(2, minmax(0, 150px)); gap:14px; justify-content:start;}
   .cb-slot{display:grid; gap:8px; align-content:start;}
-  .cb-slot .vide{display:grid; place-items:center; aspect-ratio:5 / 7; border-radius:14px; border:2px dashed var(--ct-trait-fort); color:var(--muted); font-size:13px; text-align:center; padding:10px;}
+  .cb-slot .vide{display:grid; place-items:center; aspect-ratio:4 / 5; border-radius:14px; border:2px dashed var(--ct-trait-fort); color:var(--muted); font-size:13px; text-align:center; padding:10px;}
   .cb-slot-i{font-size:12px; color:var(--ink-soft); line-height:1.5;}
   .cb-slot-i b{display:block; font-size:14px; color:var(--ink);}
   .cb-mini-stats{display:flex; flex-wrap:wrap; gap:3px 8px; font-size:11.5px; color:var(--ink-soft); font-variant-numeric:tabular-nums;}
