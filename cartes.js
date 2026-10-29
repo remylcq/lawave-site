@@ -44,8 +44,6 @@
     { nom: 'Spécial', c: '#8FEFFF' }   // propre à Vague Glaciale
   ];
   const rar = (r) => RAR[Math.min(Math.max(Number(r) || 1, 1), 6)];
-  // La décoration d'une carte selon sa collection : Vague Glaciale est givrée (cadre de cristal, glaçons, flocons).
-  const DECOS = { glaciale: 'glace' };
 
   const VUES = [['accueil', 'Accueil'], ['packs', 'Packs'], ['collection', 'Collection'], ['combat', 'Combat'], ['marche', 'Marché'], ['missions', 'Missions'], ['bonus', 'Bonus'], ['succes', 'Succès']];
 
@@ -302,53 +300,8 @@
   // Le visuel d'un booster : une image du dossier img/ ou un fichier du stockage du site (téléversé depuis la console équipe).
   const visuelOk = (v) => /^img\/[\w.-]+$/.test(v || '') || /^https:\/\/bqataeghgjyiqrnnesqq\.supabase\.co\/storage\/v1\/object\/public\/Covers\/[A-Za-z0-9._\/%~-]+$/.test(v || '');
 
-  // Un flocon à six branches, chacune avec deux paires de barbes.
-  function flocon(cx, cy, r, w, op){
-    let d = '';
-    for(let k = 0; k < 6; k++){
-      const a = k * Math.PI / 3, ux = Math.cos(a), uy = Math.sin(a);
-      d += `M${cx} ${cy}L${(cx + ux * r).toFixed(2)} ${(cy + uy * r).toFixed(2)}`;
-      [[.52, .36], [.78, .24]].forEach(([t, l]) => {
-        const bx = cx + ux * r * t, by = cy + uy * r * t;
-        [-1, 1].forEach((sg) => { const b = a + sg * Math.PI / 3.1; d += `M${bx.toFixed(2)} ${by.toFixed(2)}L${(bx + Math.cos(b) * r * l).toFixed(2)} ${(by + Math.sin(b) * r * l).toFixed(2)}`; });
-      });
-    }
-    return `<path d="${d}" fill="none" stroke="#fff" stroke-width="${w}" stroke-linecap="round" opacity="${op}"/>`;
-  }
   const etoile4 = (x, y, r, op) => `<path d="M${x} ${y - r}Q${x} ${y} ${x + r * .55} ${y}Q${x} ${y} ${x} ${y + r}Q${x} ${y} ${x - r * .55} ${y}Q${x} ${y} ${x} ${y - r}Z" fill="#fff" opacity="${op}"/>`;
 
-  // Vague Glaciale : un cadre de cristal aux angles coupés, des glaçons accrochés en haut, une crête de givre en bas, des flocons.
-  function decorGlace(){
-    let gl = 'M0 0';
-    for(let i = 0, x = 0; x < 100; i++){
-      const w = 3.6 + (i % 3) * .8, h = 3 + 7.5 * Math.abs(Math.sin(i * 1.93 + .6));
-      gl += `L${x.toFixed(1)} 0L${(x + w / 2).toFixed(1)} ${h.toFixed(1)}L${(x + w).toFixed(1)} 0`;
-      x += w + .7;
-    }
-    gl += 'L100 0Z';
-    let givre = 'M0 140L0 134';
-    for(let i = 0, x = 0; x < 100; i++){
-      const w = 5 + (i % 2) * 2;
-      givre += `L${(x + w * .45).toFixed(1)} ${(130.5 + 3 * Math.abs(Math.sin(i * 2.3))).toFixed(1)}L${(x + w).toFixed(1)} 134`;
-      x += w;
-    }
-    givre += 'L100 140Z';
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#b9e8ff" stop-opacity=".25"/></linearGradient>
-        <linearGradient id="b" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#bfeaff" stop-opacity="0"/></linearGradient>
-        <linearGradient id="c" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff"/><stop offset=".5" stop-color="#9fdcff"/><stop offset="1" stop-color="#fff"/></linearGradient>
-      </defs>
-      <path d="${givre}" fill="url(#b)"/>
-      <path d="M5.5 2.2H94.5L97.8 5.5V134.5L94.5 137.8H5.5L2.2 134.5V5.5Z" fill="none" stroke="url(#c)" stroke-width="1" vector-effect="non-scaling-stroke" opacity=".9"/>
-      <path d="M8 4.8H92L95.2 8V132L92 135.2H8L4.8 132V8Z" fill="none" stroke="#fff" stroke-width=".5" vector-effect="non-scaling-stroke" opacity=".38"/>
-      <path d="${gl}" fill="url(#a)"/>
-      ${flocon(2.6, 72, 6.4, .7, .95)}${flocon(97.4, 72, 6.4, .7, .95)}
-      ${flocon(5.6, 5.6, 2.6, .55, .8)}${flocon(94.4, 5.6, 2.6, .55, .8)}${flocon(5.4, 135, 2.6, .55, .8)}${flocon(94.6, 135, 2.6, .55, .8)}
-      ${[[2.4, 44], [97.6, 44], [2.4, 98], [97.6, 98]].map(([x, y]) => `<path d="M${x} ${y - 3.2}L${x + 1.7} ${y}L${x} ${y + 3.2}L${x - 1.7} ${y}Z" fill="#fff" opacity=".9"/>`).join('')}
-      ${etoile4(17, 36, 3, .9)}${etoile4(84, 62, 2.4, .8)}${etoile4(12, 86, 2, .7)}${etoile4(90, 108, 2.8, .85)}
-    </svg>`;
-  }
   // La carte Spécial : de grands éclats de glace aux angles, des étoiles, un double cadre.
   function decorSpecial(){
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 140" preserveAspectRatio="none">
@@ -365,7 +318,6 @@
       ${[[20, 60, 5], [82, 40, 4], [14, 100, 3.5], [88, 92, 5.5], [50, 14, 3], [62, 120, 3.5]].map(([x, y, r]) => etoile4(x, y, r, .95)).join('')}
     </svg>`;
   }
-  const DECO_GLACE = svgUri(decorGlace());
   const DECO_SPECIAL = svgUri(decorSpecial());
 
   const PACKS_CSS = THEMES.map((t) => `.ct-pack.t-${t}{--pk-fond:${svgUri(artPack(t))};}`).join('\n  ');
@@ -485,13 +437,6 @@
   .ct-carte.vivante.r6, .ct-carte.r6:hover{box-shadow:0 0 0 1px rgba(200,246,255,.5), 0 0 46px -4px rgba(143,239,255,.7), 0 14px 30px -14px rgba(0,0,0,.8);}
   .ct-carte.vivante.r5, .ct-carte.vivante.r6{animation:ctBord 5s linear infinite;}
   .ct-carte.vivante.r4 .ct-c-reflet, .ct-carte.vivante.r5 .ct-c-reflet, .ct-carte.vivante.r6 .ct-c-reflet{animation:ctLum 3.6s ease-in-out infinite;}
-  /* Vague Glaciale : le givre gagne les bords, des glaçons pendent en haut, des flocons ornent les angles. */
-  .ct-c-deco{position:absolute; inset:0; pointer-events:none; background:
-      radial-gradient(130% 100% at 50% 45%, transparent 56%, rgba(190,236,255,.34) 100%),
-      linear-gradient(180deg, rgba(214,244,255,.26), transparent 15%), linear-gradient(0deg, rgba(190,236,255,.2), transparent 12%);}
-  .ct-c-deco::before{content:''; position:absolute; inset:0; background:${DECO_GLACE} center / 100% 100% no-repeat; filter:drop-shadow(0 0 2.2cqw rgba(150,222,255,.75));}
-  .ct-carte.d-glace .ct-c-in{box-shadow:inset 0 0 0 1px rgba(214,244,255,.5), inset 0 0 3cqw rgba(150,222,255,.4);}
-  .ct-carte.d-glace.r1 .ct-c-deco::before, .ct-carte.d-glace.r2 .ct-c-deco::before{opacity:.88;}
   /* La carte Spécial : une aurore boréale glisse sur la photo, de grands éclats de glace tiennent les angles. */
   .ct-c-aurore{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
   .ct-c-aurore::before{content:''; position:absolute; inset:-20% -10%; mix-blend-mode:screen; opacity:.5; filter:blur(2cqw);
@@ -1392,13 +1337,12 @@
     const holo = !!c.holo && !verrou;
     const lg = String(c.nom || '').length;
     const taille = lg <= 10 ? 1 : (lg <= 13 ? .86 : (lg <= 16 ? .72 : .6));
-    const deco = DECOS[c.classeur] || (r === 6 ? 'glace' : '');
     return `
-      <div class="ct-carte r${r}${holo ? ' holo' : ''}${verrou ? ' verrou' : ''}${o.vivante ? ' vivante' : ''}${deco ? ' d-' + deco : ''}" style="--nf:${taille}">
+      <div class="ct-carte r${r}${holo ? ' holo' : ''}${verrou ? ' verrou' : ''}${o.vivante ? ' vivante' : ''}" style="--nf:${taille}">
         <div class="ct-c-in">
           <img class="ct-c-photo" src="${esc(safeUrl(c.photo))}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async">
           <div class="ct-c-voile"></div>
-          ${deco ? '<div class="ct-c-deco"></div>' : ''}${r === 6 && !verrou ? '<div class="ct-c-aurore"></div>' : ''}
+          ${r === 6 && !verrou ? '<div class="ct-c-aurore"></div>' : ''}
           <span class="ct-c-num">${numero(c.numero)}</span>
           <img class="ct-c-logo" src="img/logo-wave.png" alt="La Wave" width="380" height="204" decoding="async">
           ${verrou ? `<span class="ct-c-cadenas">${ico('cadenas', 24)}</span>` : ''}
@@ -2143,10 +2087,9 @@
         }
 
         if(r >= 5){
-          // Mythique et Spécial : la salle s'assombrit et un halo se lève derrière la carte (de la neige tombe pour le Spécial).
+          // Mythique et Spécial : la salle s'assombrit et un halo se lève derrière la carte .
           ov.classList.add('sombre');
           p.insertAdjacentHTML('afterbegin', `<div class="ct-halo${r === 6 ? ' special' : ''}"></div>`);
-          if(r === 6) fx.neige(11000);
         }
 
         if(r >= 3 && !calme()){
