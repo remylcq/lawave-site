@@ -393,14 +393,14 @@
   .ct-carte{position:relative; container-type:inline-size; aspect-ratio:4 / 5; border-radius:5% / 4%; color:#fff; text-align:left;
     background:#000; box-shadow:0 14px 30px -14px rgba(0,0,0,.8); isolation:isolate; --rc:var(--r1);}
   .ct-carte.r1{--rc:var(--r1);} .ct-carte.r2{--rc:var(--r2);} .ct-carte.r3{--rc:var(--r3);} .ct-carte.r4{--rc:var(--r4);} .ct-carte.r5{--rc:var(--r5);} .ct-carte.r6{--rc:var(--r6);}
-  .ct-c-in{position:absolute; inset:1.7cqw; border-radius:3.9cqw; overflow:hidden; background:#0b0d12;}
+  .ct-c-in{position:absolute; inset:.75cqw; border-radius:4.3cqw; overflow:hidden; background:#0b0d12;}
   .ct-c-photo{position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:50% 22%; display:block; transition:transform .5s cubic-bezier(.2,.8,.2,1);}
   .ct-c-voile{position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg, transparent 50%, rgba(0,0,0,.5) 70%, rgba(0,0,0,.92) 90%, #000 100%);}
   .ct-c-num{position:absolute; top:5.6cqw; left:6.6cqw; font-size:max(7px, 4.3cqw); font-style:italic; font-weight:300; line-height:1; letter-spacing:.02em; font-variant-numeric:tabular-nums; text-shadow:0 1px 8px rgba(0,0,0,.5);}
   .ct-c-logo{position:absolute; top:4.2cqw; right:6cqw; height:8cqw; width:auto; max-width:none; display:block;}
-  .ct-c-plaque{position:absolute; left:4cqw; right:4cqw; bottom:7cqw; display:flex; flex-direction:column-reverse; align-items:center; gap:1.2cqw; text-align:center;}
-  .ct-c-rar{font-size:max(6px, 4.3cqw); font-style:italic; font-weight:300; line-height:1.1; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.92);}
-  .ct-c-nom{max-width:100%; font-family:'Anton', 'Bebas Neue', Impact, 'Arial Narrow', sans-serif; font-size:calc(var(--nf, 1) * 15.5cqw); font-weight:400; text-transform:uppercase; line-height:1.02; letter-spacing:.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .ct-c-plaque{position:absolute; left:4cqw; right:4cqw; bottom:6.6cqw; display:flex; flex-direction:column-reverse; align-items:center; gap:0; text-align:center;}
+  .ct-c-rar{margin-top:.6cqw; font-size:max(6px, 4.3cqw); font-style:italic; font-weight:400; line-height:1; letter-spacing:.1em; text-transform:uppercase; color:var(--rc); filter:brightness(1.12);}
+  .ct-c-nom{max-width:100%; font-family:'Anton', 'Bebas Neue', Impact, 'Arial Narrow', sans-serif; font-size:calc(var(--nf, 1) * 15.5cqw); font-weight:400; text-transform:uppercase; line-height:.98; padding-top:.5cqw; letter-spacing:.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ct-c-reflet{position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .3s;}
   .ct-carte.r4 .ct-c-reflet, .ct-carte.r5 .ct-c-reflet, .ct-carte.r6 .ct-c-reflet{opacity:1; background:linear-gradient(115deg, transparent 38%, rgba(255,255,255,.22) 48%, transparent 58%); background-size:300% 100%; background-position:var(--ct-lum, 120%) 0;}
   .ct-carte.holo .ct-c-reflet{opacity:.55; mix-blend-mode:color-dodge;
@@ -633,8 +633,8 @@
   .ct-dos, .ct-face{position:absolute; inset:0; backface-visibility:hidden; -webkit-backface-visibility:hidden; border-radius:5% / 4%;}
   .ct-face{transform:rotateY(180deg);}
   .ct-face .ct-carte{width:100%; height:100%;}
-  .ct-dos{display:grid; place-items:center; padding:1.7%; background:#000; box-shadow:0 18px 40px -16px rgba(0,0,0,.9);}
-  .ct-dos-in{width:100%; height:100%; border-radius:3.6% / 2.9%; background:#06101c url(img/carte-dos.webp) center / cover no-repeat;}
+  .ct-dos{display:grid; place-items:center; padding:.75%; background:#000; box-shadow:0 18px 40px -16px rgba(0,0,0,.9);}
+  .ct-dos-in{width:100%; height:100%; border-radius:4.3% / 3.4%; background:#06101c url(img/carte-dos.webp) center / cover no-repeat;}
   .ct-dos-logo{display:none;}
   .ct-dos[data-r="2"]{box-shadow:0 0 0 1px rgba(79,180,255,.5), 0 0 26px -2px rgba(79,180,255,.55), 0 18px 40px -16px rgba(0,0,0,.9);}
   .ct-dos[data-r="3"]{box-shadow:0 0 0 1px rgba(168,121,255,.6), 0 0 34px 0 rgba(168,121,255,.6), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls 1.6s ease-in-out infinite; --pc:rgba(168,121,255,.75);}
