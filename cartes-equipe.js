@@ -1086,7 +1086,7 @@
     const fen = api.fenetre(`
       <div class="ee-fen-photo">
         <h2>Photo de ${esc(c.nom || 'l\'artiste')}</h2>
-        <p class="ee-aide">Cette photo remplace celle de l'artiste sur toutes ses cartes (collections, combats, marché). Mets une image en hauteur : la carte la recadre autour du haut du visage.</p>
+        <p class="ee-aide">Cette photo ne change que la carte de cette collection (« ${esc((E.boosters.find((b) => b.id === E.cid) || {}).nom || 'cette collection')} ») : l'artiste garde sa photo dans les autres collections. Mets une image en hauteur : la carte la recadre autour du haut du visage.</p>
         <div class="ee-photo-corps">
           <div class="ee-photo-carte" data-carte></div>
           <div class="ee-photo-champs">
@@ -1105,7 +1105,7 @@
     const z = fen.corps, $z = (sel) => z.querySelector(sel);
     const dessin = () => {
       $z('[data-carte]').innerHTML = api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo, fans: c.fans, classeur: E.cid }, { eager: true, vivante: true });
-      $z('[data-etat-photo]').textContent = envoi ? 'Envoi…' : (perso ? 'Photo choisie par l\'équipe.' : 'Photo de l\'artiste (aucune photo choisie).');
+      $z('[data-etat-photo]').textContent = envoi ? 'Envoi…' : (perso ? 'Photo choisie pour cette collection.' : 'Photo de l\'artiste (aucune photo choisie).');
       $z('[data-defaut]').disabled = !perso && !c.photo_perso;
     };
     dessin();
@@ -1145,7 +1145,7 @@
       const b = ev.currentTarget;
       b.disabled = true;
       try{
-        const v = await api.appel('jeu_equipe_carte_photo', { p_artist: artistId, p_photo: null });
+        const v = await api.appel('jeu_equipe_carte_photo', { p_booster: E.cid, p_artist: artistId, p_photo: null });
         c.photo = v.photo; c.photo_perso = false;
         api.toast('Photo de l\'artiste rétablie.');
         fen.fermer(); dessinerCartes();
@@ -1157,7 +1157,7 @@
       if(!perso){ api.toast('Choisis une image ou colle une adresse.', 'err'); return; }
       b.disabled = true;
       try{
-        const v = await api.appel('jeu_equipe_carte_photo', { p_artist: artistId, p_photo: photo });
+        const v = await api.appel('jeu_equipe_carte_photo', { p_booster: E.cid, p_artist: artistId, p_photo: photo });
         c.photo = v.photo; c.photo_perso = true;
         api.toast('Photo enregistrée pour ' + (c.nom || 'l\'artiste') + '.');
         fen.fermer(); dessinerCartes();
