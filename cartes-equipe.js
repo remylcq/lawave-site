@@ -52,6 +52,7 @@
     pack: '<path d="M4 8 12 4l8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/>',
     joueurs: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3 3 0 0 1 0 5.6M21 20c0-2.6-1.6-4.8-4-5.6"/>',
     ensemble: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', croix: '<path d="M6 6l12 12M18 6 6 18"/>',
+    points: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
     image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/>'
   };
   // Vague Glaciale a une sixième rareté, « Spécial » ; les autres collections en ont cinq.
@@ -259,6 +260,7 @@
     'col-theme': (el) => { E.form.theme = el.value; const p = $('[data-theme-apercu]'); if(p) p.innerHTML = api.EMBLEMES[api.theme(el.value)]; majVisuel(); majBarre(); },
     'col-taux': (el) => { E.form.taux[Number(el.dataset.i)] = Number(el.value); majTaux(false); majBarre(); },
     'col-fichier': (el) => { if(el.files && el.files[0]) televerser(el.files[0]); el.value = ''; },
+    'carte-rar': (el) => changerRarete([el.dataset.a], Number(el.value)),
     'carte-filtre': (el) => { E.filtre = el.value; dessinerListe(); },
     'carte-tri': (el) => { const v = el.value; el.value = ''; if(v) trierCartes(v); },
     'carte-cible': (el) => { E.cid = el.value; E.sel.clear(); E.filtre = ''; E.rareteFiltre = null; return sCartes(); },
@@ -563,6 +565,13 @@
         ${tete('Cartes', 'Les artistes de chaque collection et la rareté de leur carte.')}
         <div data-cartes-tete></div><div data-cartes-liste></div>`;
       brancherGlisser($('[data-cartes-liste]'));
+      if(!E.menuOk){
+        E.menuOk = true;
+        // Un seul menu ouvert à la fois ; il se ferme après un choix ou un clic ailleurs.
+        document.addEventListener('click', (ev) => {
+          document.querySelectorAll('.ee-plus[open]').forEach((d) => { if(!d.contains(ev.target) || ev.target.closest('.ee-menu button')) d.removeAttribute('open'); });
+        });
+      }
     }
     dessinerTete();
     dessinerListe();
@@ -605,17 +614,20 @@
       ? `${filtre ? '' : '<p class="ee-aide ee-cg-aide">Glisse une carte avant ou après une autre pour changer l\'ordre.</p>'}
         <div class="ee-cg-grille" role="list">${vis.map((c, i) => `
         <div class="ee-cg${E.sel.has(c.artist_id) ? ' sel' : ''}" role="listitem" data-a="${esc(c.artist_id)}" style="--rc:${rar(c.rarete).c}" ${filtre ? '' : 'draggable="true"'}>
+          <label class="ee-cg-sel" title="Sélectionner"><input type="checkbox" class="ee-coche" data-act="carte-sel" data-a="${esc(c.artist_id)}" ${E.sel.has(c.artist_id) ? 'checked' : ''} aria-label="Sélectionner ${esc(c.nom || '')}"></label>
           <div class="ee-cg-carte">${api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, fans: c.fans, classeur: E.cid }, {})}</div>
           <div class="ee-cg-pied">
-            <div class="ee-nom"><b>${esc(c.nom || 'Artiste')}</b><small>${c.fans ? esc(api.court(c.fans)) + ' fans' : 'fans inconnus'}${c.joueurs ? ' · ' + c.joueurs + ' joueur' + (c.joueurs > 1 ? 's' : '') : ''}${Number(c.rarete) >= 5 && c.clip_id ? ' · clip ♪' : ''}${c.photo_perso ? ' · photo choisie' : ''}</small></div>
-            ${pts(c.rarete, `data-act="carte-rarete" data-a="${esc(c.artist_id)}"`, nbRar(E.cid))}
-            <div class="ee-outils">
-              ${filtre ? '' : `<button type="button" class="ee-ib" data-act="carte-haut" data-a="${esc(c.artist_id)}" aria-label="Avant" ${i === 0 ? 'disabled' : ''}>${ic('haut', 15)}</button><button type="button" class="ee-ib" data-act="carte-bas" data-a="${esc(c.artist_id)}" aria-label="Après" ${i === vis.length - 1 ? 'disabled' : ''}>${ic('bas', 15)}</button>`}
-              ${Number(c.rarete) >= 5 ? `<button type="button" class="ee-ib son${c.clip_id ? ' actif' : ''}" data-act="carte-son" data-a="${esc(c.artist_id)}" aria-label="Clip de la carte" title="Clip de la carte (Mythique et Spécial)">${api.ico('son', 15)}</button>` : ''}
-              <button type="button" class="ee-ib${c.photo_perso ? ' son actif' : ''}" data-act="carte-photo" data-a="${esc(c.artist_id)}" aria-label="Changer la photo de la carte" title="Changer la photo de la carte">${ic('image', 15)}</button>
-              <button type="button" class="ee-ib" data-act="carte-apercu" data-a="${esc(c.artist_id)}" aria-label="Aperçu de la carte">${ic('oeil', 15)}</button>
-              <button type="button" class="ee-ib danger" data-act="carte-retirer" data-a="${esc(c.artist_id)}" aria-label="Retirer ${esc(c.nom || '')}">${ic('corbeille', 15)}</button>
-              <input type="checkbox" class="ee-coche" data-act="carte-sel" data-a="${esc(c.artist_id)}" ${E.sel.has(c.artist_id) ? 'checked' : ''} aria-label="Sélectionner ${esc(c.nom || '')}" title="Sélectionner">
+            <div class="ee-nom"><b>${esc(c.nom || 'Artiste')}</b><small>${c.fans ? esc(api.court(c.fans)) + ' fans' : 'fans inconnus'}${c.joueurs ? ' · ' + c.joueurs + ' joueur' + (c.joueurs > 1 ? 's' : '') : ''}</small></div>
+            <div class="ee-cg-ligne">
+              <select class="ee-rar" data-in="carte-rar" data-a="${esc(c.artist_id)}" style="--rc:${rar(c.rarete).c}" aria-label="Rareté de ${esc(c.nom || '')}">${listeRar(E.cid).map((r) => `<option value="${r}"${Number(c.rarete) === r ? ' selected' : ''}>${esc(rar(r).nom)}</option>`).join('')}</select>
+              <details class="ee-plus"><summary aria-label="Options de ${esc(c.nom || '')}" title="Options">${ic('points', 16)}</summary>
+                <div class="ee-menu">
+                  <button type="button" data-act="carte-photo" data-a="${esc(c.artist_id)}">${ic('image', 16)}Changer la photo${c.photo_perso ? '<small>choisie</small>' : ''}</button>
+                  ${Number(c.rarete) >= 5 ? `<button type="button" data-act="carte-son" data-a="${esc(c.artist_id)}">${api.ico('son', 16)}Clip YouTube${c.clip_id ? '<small>réglé</small>' : ''}</button>` : ''}
+                  <button type="button" data-act="carte-apercu" data-a="${esc(c.artist_id)}">${ic('oeil', 16)}Aperçu</button>
+                  ${filtre ? '' : `<button type="button" data-act="carte-haut" data-a="${esc(c.artist_id)}" ${i === 0 ? 'disabled' : ''}>${ic('haut', 16)}Avancer</button><button type="button" data-act="carte-bas" data-a="${esc(c.artist_id)}" ${i === vis.length - 1 ? 'disabled' : ''}>${ic('bas', 16)}Reculer</button>`}
+                  <button type="button" class="danger" data-act="carte-retirer" data-a="${esc(c.artist_id)}">${ic('corbeille', 16)}Retirer de la collection</button>
+                </div></details>
             </div>
           </div>
         </div>`).join('')}</div>`
@@ -1330,7 +1342,23 @@
   .ee-cg.apres::after{right:-12px;}
   .ee-cg-carte{width:100%; pointer-events:none; user-select:none; -webkit-user-select:none;}
   .ee-cg-carte .ct-carte{width:100%;}
-  .ee-cg .ee-coche{width:22px; height:22px; margin-left:auto; align-self:center;}
+  .ee-cg-sel{position:absolute; top:18px; left:18px; z-index:3; width:28px; height:28px; display:grid; place-items:center; border-radius:9px; background:rgba(8,12,20,.78); cursor:pointer; opacity:0; transition:opacity .15s;}
+  .ee-cg:hover .ee-cg-sel, .ee-cg.sel .ee-cg-sel, .ee-cg-sel:focus-within{opacity:1;}
+  @media (hover:none){ .ee-cg-sel{opacity:1;} }
+  .ee-cg-ligne{display:flex; gap:8px; align-items:center;}
+  .ee-rar{flex:1; min-width:0; height:36px; padding:0 10px; border-radius:10px; border:1px solid var(--ct-trait-fort); border-left:4px solid var(--rc); background:rgba(0,0,0,.28); color:var(--ink); font:inherit; font-size:13.5px; font-weight:600; cursor:pointer;}
+  .ee-rar:focus-visible, .ee-plus summary:focus-visible{outline:2px solid var(--ct-accent); outline-offset:1px;}
+  .ee-plus{position:relative; flex:none;}
+  .ee-plus summary{list-style:none; width:36px; height:36px; display:grid; place-items:center; border-radius:10px; border:1px solid var(--ct-trait); background:var(--ct-surface); color:var(--ink-soft); cursor:pointer;}
+  .ee-plus summary::-webkit-details-marker{display:none;}
+  .ee-plus summary:hover, .ee-plus[open] summary{background:var(--ct-surface-2); color:var(--ink);}
+  .ee-menu{position:absolute; right:0; top:calc(100% + 6px); z-index:30; min-width:210px; display:grid; gap:2px; padding:6px; border-radius:12px; border:1px solid var(--ct-trait-fort); background:rgba(14,20,30,.98); box-shadow:0 20px 40px -12px rgba(0,0,0,.9);}
+  .ee-menu button{all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--ink-soft);}
+  .ee-menu button:hover{background:var(--ct-surface-2); color:var(--ink);}
+  .ee-menu button:focus-visible{outline:2px solid var(--ct-accent);}
+  .ee-menu button[disabled]{opacity:.35; cursor:default;}
+  .ee-menu button small{margin-left:auto; font-size:11px; font-weight:600; color:#FF5C8A;}
+  .ee-menu button.danger:hover{color:#ff8a8a; background:rgba(255,120,120,.1);}
   .ee-cg-pied{display:grid; gap:8px; min-width:0;}
   .ee-cg-pied .ee-nom{min-width:0;}
   .ee-cg-pied .ee-nom b, .ee-cg-pied .ee-nom small{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
