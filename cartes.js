@@ -575,7 +575,6 @@
   .ct-vinyle .ct-pk-lumiere{top:50%;}
   .ct-vinyle .ct-pk-pile{border-radius:6px; background:linear-gradient(160deg, #20364a, #0b1620);}
   .ct-vinyle .ct-pk-indice{top:50%;}
-  .ct-scene-pack.tremble .ct-vinyle{animation:ctTremble .12s linear infinite;}
   .ct-pk-indice{position:absolute; z-index:6; left:8%; top:14%; width:30px; height:30px; margin-top:-15px; border-radius:50%; background:rgba(255,255,255,.9); box-shadow:0 0 0 6px rgba(255,255,255,.18), 0 0 24px rgba(255,255,255,.6); animation:ctIndice 1.8s cubic-bezier(.5,0,.2,1) infinite; pointer-events:none;}
 
   /* ---------- la scène d'ouverture ---------- */
@@ -599,17 +598,36 @@
   .ct-rayons.on{opacity:.7;}
   .ct-scene.secousse .ct-scene-centre{animation:ctSecousse .55s cubic-bezier(.36,.07,.19,.97);}
   .ct-scene-pack{position:relative; transition:transform .6s cubic-bezier(.2,.8,.2,1), opacity .5s;}
-    .ct-scene-pack .ct-pack{--pk-w:min(240px, 56vw); animation:ctPose .45s cubic-bezier(.2,.9,.3,1) both;}
+    .ct-scene-pack .ct-pack{--pk-w:min(240px, 56vw); position:relative; z-index:2; animation:ctPose .45s cubic-bezier(.2,.9,.3,1) both; transition:transform .7s cubic-bezier(.5,0,.8,.3), opacity .5s;}
   .ct-scene-pack .ct-vinyle{--pk-w:min(290px, 66vw);}
-  .ct-scene-pack.plonge{transform:scale(var(--zoom, 12)); opacity:0; transition:transform .78s cubic-bezier(.55,0,.95,.5), opacity .3s .5s linear; will-change:transform;}
+  /* Le vinyle : il flotte et attend qu'on le touche ; le disque glisse hors de la pochette, vient au centre et tourne de plus en plus vite,
+     puis il éclate : les cartes jaillissent en éventail et se rangent en pile. */
+  .ct-scene-pack.attend{cursor:pointer; animation:ctFlotte2 5.5s ease-in-out infinite;}
+  .ct-scene-pack.attend::after{content:''; position:absolute; z-index:3; inset:-5%; border-radius:12px; border:2px solid var(--teinte); pointer-events:none; animation:ctAttend 1.8s ease-out infinite;}
+  .ct-scene-pack.vide .ct-pack{transform:translateY(46%) scale(.92); opacity:0;}
+  .ct-disque{position:absolute; z-index:1; left:6%; width:88%; top:6%; aspect-ratio:1; border-radius:50%; pointer-events:none; opacity:0;
+    background:#0a0a10; box-shadow:0 0 0 2px #05050a, 0 12px 34px rgba(0,0,0,.6); transform:translateY(0) scale(.94); transition:transform .65s cubic-bezier(.2,.9,.3,1), opacity .2s, box-shadow .5s;}
+  .ct-disque-rot{position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 0deg, rgba(255,255,255,.24), transparent 18%, rgba(255,255,255,.12) 40%, transparent 58%, rgba(255,255,255,.24) 80%, transparent),
+      repeating-radial-gradient(circle at 50% 50%, #0c0c12 0 1.5px, #1c1c26 1.5px 3px);}
+  .ct-disque-etq{position:absolute; left:50%; top:50%; width:34%; aspect-ratio:1; transform:translate(-50%, -50%); border-radius:50%; display:grid; place-items:center; background:var(--etq, #4FB4FF); box-shadow:inset 0 0 0 3px rgba(0,0,0,.25), 0 0 0 2px #07070b;}
+  .ct-disque-etq img{width:68%; height:auto; display:block; filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));}
+  .ct-disque.sort{opacity:1; transform:translateY(-58%) scale(1);}
+  .ct-disque.sort .ct-disque-rot{animation:ctGira 2.2s linear infinite;}
+  .ct-disque.centre{z-index:3; transform:translateY(0) scale(1.12); box-shadow:0 0 0 2px #05050a, 0 0 70px 12px var(--lueur, #fff);}
+  .ct-disque.centre .ct-disque-rot{animation-duration:.5s;}
+  .ct-disque.boom{animation:ctBoom .32s ease-out forwards;}
+  @keyframes ctGira{to{transform:rotate(360deg);}}
+  @keyframes ctAttend{0%{opacity:.7; transform:scale(.96);} 100%{opacity:0; transform:scale(1.14);}}
+  @keyframes ctBoom{from{opacity:1; transform:translateY(0) scale(1.12);} to{opacity:0; transform:translateY(0) scale(2.6);}}
   @keyframes ctPose{from{opacity:0; transform:scale(.86);}}
-  @keyframes ctSurgit{from{opacity:0; transform:scale(2.4) translateY(50px);}}
+  @keyframes ctJaillit{0%{opacity:0; transform:translate(0, -6vh) scale(.15) rotate(0deg);} 18%{opacity:1;} 52%{opacity:1; transform:translate(var(--fx), var(--fy)) scale(.9) rotate(var(--fr));}}
   @keyframes ctSort{to{opacity:0; transform:translate(-95%, -35%) rotate(-18deg) scale(.7);}}
   @keyframes ctSheen{to{transform:translateX(130%);}}
   /* la pile de cartes : la carte du dessus se soulève, se retourne, part ; la suivante prend sa place */
   .ct-pile{position:relative; width:var(--lc, 240px); aspect-ratio:4 / 5;}
   .ct-pile .ct-place{position:absolute; inset:0; width:auto; max-width:none; cursor:pointer; --k:0; transform:translate(calc(var(--k) * 7px), calc(var(--k) * -5px)) rotate(calc(var(--k) * 1.8deg)); transition:transform .32s cubic-bezier(.2,.8,.2,1);}
-  .ct-pile.entre .ct-place{animation:ctSurgit .7s cubic-bezier(.2,.9,.25,1) backwards; animation-delay:calc(var(--k) * 70ms);}
+  .ct-pile.entre .ct-place{animation:ctJaillit .95s cubic-bezier(.2,.9,.25,1) backwards; animation-delay:calc(var(--ji) * 60ms);}
   .ct-pile .ct-place.retournee{transform:none;}
   .ct-pile .ct-place.leve{transform:translateY(-16px) scale(1.05);}
   .ct-pile .ct-place.sort{animation:ctSort .5s cubic-bezier(.5,0,.8,.4) forwards; pointer-events:none;}
@@ -618,7 +636,6 @@
   .ct-sheen{position:absolute; inset:3px; border-radius:10px; overflow:hidden; pointer-events:none; z-index:5;}
   .ct-sheen::after{content:''; position:absolute; inset:0; background:linear-gradient(105deg, transparent 38%, rgba(255,255,255,.6) 50%, transparent 62%); transform:translateX(-130%);}
   .ct-place.retournee .ct-sheen::after{animation:ctSheen .9s .45s ease-out both;}
-  .ct-scene-pack.tremble .ct-pack{animation:ctTremble .12s linear infinite;}
   .ct-pk-haut.part{transition:transform .65s cubic-bezier(.3,.6,.2,1), opacity .65s; transform:translate(-18%, -230%) rotate(-28deg); opacity:0;}
   .ct-pk-lumiere.on{animation:ctLumiere .9s ease-out forwards;}
   .ct-scene-pack.parti{transform:translateY(55vh) scale(.8) rotate(6deg); opacity:0;}
@@ -651,7 +668,6 @@
   .ct-titre-rar{position:absolute; left:0; right:0; top:12%; z-index:4; text-align:center; pointer-events:none; font-size:clamp(28px, 7vw, 64px); font-weight:900; letter-spacing:.18em; text-transform:uppercase;
     color:#fff; text-shadow:0 0 30px var(--teinte), 0 0 60px var(--teinte); animation:ctTitre 1.6s cubic-bezier(.2,.8,.2,1) both;}
   /* le pack : il tremble, la lumière de la meilleure carte filtre au travers, puis l'onde de choc */
-  .ct-scene-pack.tremble{filter:drop-shadow(0 0 30px var(--lueur, #fff)) brightness(1.18);}
   .ct-onde{position:absolute; left:50%; top:45%; width:20vmin; height:20vmin; margin:-10vmin 0 0 -10vmin; border-radius:50%; z-index:5; pointer-events:none; opacity:0;
     border:3px solid var(--oc, #fff); box-shadow:0 0 36px var(--oc, #fff), inset 0 0 36px var(--oc, #fff); animation:ctOnde 1.2s cubic-bezier(.1,.7,.3,1) forwards;}
   @keyframes ctOnde{0%{opacity:.95; transform:scale(.1);} 100%{opacity:0; transform:scale(9);}}
@@ -1936,14 +1952,19 @@
 
       const centreDe = (elm) => { const b = elm.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; };
 
-      // ---- 1. la pochette, puis le zoom qui nous fait entrer dedans
-      const zonePack = el('div', 'ct-scene-pack', packHtml({ booster, nombre: n }));
+      // ---- 1. le vinyle : il attend qu'on le touche ; le disque en sort, tourne de plus en plus vite, puis éclate en cartes
+      const zonePack = el('div', 'ct-scene-pack attend', packHtml({ booster, nombre: n }));
+      zonePack.insertAdjacentHTML('afterbegin', '<div class="ct-disque"><div class="ct-disque-rot"><span class="ct-disque-etq"><img src="img/logo-wave.png" alt="" width="380" height="204"></span></div></div>');
       centre.appendChild(zonePack);
       const pack = zonePack.querySelector('.ct-pack');
+      const disque = zonePack.querySelector('.ct-disque');
       pack.style.setProperty('--teinte', teinteBooster);
+      zonePack.style.setProperty('--etq', teinteBooster);
+      phase = 'attente';
+      pied.innerHTML = '<p>Touche le vinyle pour l\'ouvrir</p>';
+      zonePack.addEventListener('click', () => { if(phase === 'attente') ouvrirVinyle(); });
 
-      // Un souffle de plus d'une seconde pour les belles pochettes : la pochette tremble, la couleur de la meilleure
-      // carte filtre au travers, la lumière s'aspire vers elle, puis le zoom.
+      // Des ondes de choc pour les belles cartes.
       const ondes = (couleurs) => {
         if(calme()) return;
         couleurs.forEach((c, k) => {
@@ -1955,41 +1976,45 @@
         });
       };
 
-      async function plonger(){
-        await attendre(calme() ? 30 : 520);
+      async function ouvrirVinyle(){
+        if(phase !== 'attente' || fini) return;
+        phase = 'ouvre';
+        zonePack.classList.remove('attend');
+        pied.innerHTML = '';
+        Son.jouer('donne');
+        // 1. le disque glisse hors de la pochette
+        disque.classList.add('sort');
+        await attendre(calme() ? 30 : 650);
         if(fini) return;
+        // 2. la pochette tombe, le disque vient au centre, brille de la couleur de la meilleure carte et s'emballe
+        zonePack.classList.add('vide');
+        disque.classList.add('centre');
+        zonePack.style.setProperty('--lueur', teinteMeilleure);
         if(!calme()){
-          phase = 'tension';
-          zonePack.style.setProperty('--lueur', teinteMeilleure);
-          zonePack.classList.add('tremble');
+          teinte(teinteMeilleure);
+          rayons.classList.add('on');
           Son.jouer('froisse');
           vibre(meilleure >= 4 ? [15, 40, 15, 40, 15] : 15);
-          const c = centreDe(zonePack);
+          const c = centreDe(disque);
           fx.aspire(c.x, c.y, teinteMeilleure, meilleure >= 4 ? 44 : 22);
-          await attendre(meilleure >= 5 ? 1000 : (meilleure >= 3 ? 750 : 480));
-          if(fini) return;
-          zonePack.classList.remove('tremble');
+          await attendre(meilleure >= 5 ? 1500 : (meilleure >= 3 ? 1100 : 800));
         }
-        phase = 'plonge';
-        const b = pack.getBoundingClientRect();
-        const zoom = Math.max(window.innerWidth, window.innerHeight) / Math.min(b.width, b.height) * 2;
-        pack.style.filter = 'none';
-        zonePack.style.setProperty('--zoom', zoom.toFixed(2));
+        if(fini) return;
+        // 3. il éclate
+        phase = 'jaillit';
         Son.jouer('dechire');
         vibre(meilleure >= 4 ? [20, 30, 60] : 25);
-        zonePack.classList.add('plonge');
-        await attendre(calme() ? 40 : 760);
-        if(fini) return;
-        teinte(teinteMeilleure);
+        disque.classList.add('boom');
+        const c = centreDe(disque);
         eclair();
         ondes(meilleure >= 4 ? [teinteMeilleure, '#ffffff'] : [teinteMeilleure]);
-        fx.gerbe(window.innerWidth / 2, window.innerHeight / 2, ['#ffffff', teinteMeilleure], meilleure >= 4 ? 60 : 24, { vitesse: meilleure >= 4 ? 10 : 7, vie: 50 });
+        fx.gerbe(c.x, c.y, ['#ffffff', teinteMeilleure], meilleure >= 4 ? 60 : 28, { vitesse: meilleure >= 4 ? 10 : 7, vie: 50 });
+        rayons.classList.remove('on');
         await attendre(calme() ? 40 : 260);
         if(fini) return;
         zonePack.remove();
         distribuer();
       }
-      plonger();
 
       // ---- 2. les cartes surgissent en pile
       const indice = (texte) => `<p>${texte}</p>${n > 1 ? '<div class="boutons"><button type="button" class="ct-btn" data-passer>Tout voir</button></div>' : ''}`;
@@ -1999,8 +2024,9 @@
         const lc = Math.max(150, Math.floor(Math.min(300, window.innerWidth * .66, (window.innerHeight - 250) / 1.25)));
         pile = el('div', 'ct-pile entre');
         pile.style.setProperty('--lc', lc + 'px');
+        const mil = (n - 1) / 2, ecart = Math.min(54, (window.innerWidth * .84 - lc) / Math.max(n - 1, 1));
         pile.innerHTML = cartes.map((c, i) => `
-          <div class="ct-place" data-i="${i}" style="--rc:${rar(c.rarete).c}; --k:${Math.min(i, 4)}; z-index:${n - i}">
+          <div class="ct-place" data-i="${i}" style="--rc:${rar(c.rarete).c}; --k:${Math.min(i, 4)}; --ji:${i}; --fx:${((i - mil) * ecart).toFixed(0)}px; --fy:${(Math.pow(Math.abs(i - mil), 2) * 2.2 - 30).toFixed(0)}px; --fr:${((i - mil) * 6).toFixed(1)}deg; z-index:${n - i}">
             <div class="ct-volte">
               <div class="ct-dos" data-r="${c.rarete}"><div class="ct-dos-in"><img class="ct-dos-logo" src="img/logo-wave.png" alt="La Wave" width="380" height="204" decoding="async"></div></div>
               <div class="ct-face">${carteHtml(c, { vivante: true, eager: true })}<span class="ct-sheen"></span></div>
@@ -2019,7 +2045,8 @@
       let tapEnAttente = false;
       function suite(){
         if(fini) return;
-        if(phase === 'pile') reveler();
+        if(phase === 'attente') ouvrirVinyle();
+        else if(phase === 'pile') reveler();
         else if(phase === 'revelee') avancer();
         else if((phase === 'revele' || phase === 'sort') && courante < n && (Number(cartes[courante].rarete) || 1) <= 2) tapEnAttente = true;
       }
