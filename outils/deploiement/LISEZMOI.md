@@ -1,7 +1,7 @@
 # Mise en ligne automatique
 
 Chaque fusion sur `main` qui touche un fichier du site (`index.html`, `waveurs.js`, `communaute.js`,
-`portail.js`, `sondage.js`, `verification.js`, `parcours.js`, `profil.js`, `xp.js`, `cartes.js`, `accueil.js`, `combat.js`, `combat-pve.js`, `combat-pvp.js`, `combat-rivaux.js`, `combat-quete.js`, `marche.js`, `cartes-equipe.js`, `404.html`, `robots.txt`, `sitemap.xml`, `site.webmanifest`, `img/`, `modeles/`, `decor/`, `lib/`) l'envoie sur l'hébergement OVH par SFTP (SSH, chiffré), puis vérifie que `lawave.fr` sert bien
+`portail.js`, `sondage.js`, `verification.js`, `parcours.js`, `profil.js`, `xp.js`, `cartes.js`, `accueil.js`, `combat.js`, `combat-pve.js`, `combat-pvp.js`, `combat-rivaux.js`, `combat-quete.js`, `marche.js`, `cartes-equipe.js`, `404.html`, `robots.txt`, `sitemap.xml`, `site.webmanifest`, `img/`, `sons/`, `modeles/`, `decor/`, `lib/`) l'envoie sur l'hébergement OVH par SFTP (SSH, chiffré), puis vérifie que `lawave.fr` sert bien
 les fichiers envoyés. Le workflow est `.github/workflows/mise-en-ligne.yml`.
 
 **Jamais envoyés :** `sql/` (à passer dans Supabase), `outils/`, `.github/` et le `.htaccess` de la racine (qui reste sur le

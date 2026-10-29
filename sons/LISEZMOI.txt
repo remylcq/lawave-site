@@ -1,0 +1,13 @@
+Sons de Wave Cards : vrais échantillons, tous libres de droits (licence CC0, domaine public).
+Ils sont rognés, normalisés et passés en mono 32 kHz (WAV ou MP3). cartes.js les joue quand ils sont chargés, et se rabat
+sur des sons synthétisés sinon.
+
+  kick.wav   Kickmess Snappy 3   Meadowlark Factory Library (BillyDM)   CC0   github.com/BillyDM/meadowlark-factory-library
+  clap.wav   Clap_rr6            Versilian Community Sample Library     CC0   github.com/sgossner/VCSL
+  hat.wav    HiHat_HitC_v3_rr1   Versilian Community Sample Library     CC0   github.com/sgossner/VCSL
+  hato.wav   HiHat_HitO_rr1      Versilian Community Sample Library     CC0   github.com/sgossner/VCSL
+  pe3.mp3    GrandPno_Main_Sus_E3_v1_rr1   VCSL, piano à queue Kawai     CC0   github.com/sgossner/VCSL
+  pb3.mp3    GrandPno_Main_Sus_B3_v1_rr1   VCSL, piano à queue Kawai     CC0   github.com/sgossner/VCSL
+
+Pour changer un son : remplacer le fichier par un autre du même nom (court, mono, bien normalisé) ; les noms sont lus
+dans Son.charger() de cartes.js.
