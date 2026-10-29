@@ -223,7 +223,7 @@
   // ---------------------------------------------------------------------
 
   const OPT = (valeur, texte, sel) => `<option value="${esc(valeur)}"${String(sel) === String(valeur) ? ' selected' : ''}>${esc(texte)}</option>`;
-  const DECORS = [['studio', 'Studio'], ['concert', 'Concert'], ['plateau', 'Plateau télé'], ['ruelle', 'Ruelle'], ['toit', 'Toit']];
+  const DECORS = [['concert', 'Concert (arène)'], ['studio', 'Club (briques et néon)'], ['plateau', 'Plateau télé'], ['ruelle', 'Concert de rue'], ['toit', 'Toit au coucher du soleil']];
   const JOURS = ['', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
   // Un sélecteur d'artiste : recherche (3 lettres), puis choix dans la liste.

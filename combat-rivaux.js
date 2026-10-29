@@ -265,7 +265,7 @@
   // ---------------------------------------------------------------------
 
   const OPT = (valeur, texte, sel) => `<option value="${esc(valeur)}"${String(sel) === String(valeur) ? ' selected' : ''}>${esc(texte)}</option>`;
-  const DECORS = [['studio', 'Studio'], ['concert', 'Concert'], ['plateau', 'Plateau télé'], ['ruelle', 'Ruelle'], ['toit', 'Toit']];
+  const DECORS = [['concert', 'Concert (arène)'], ['studio', 'Club (briques et néon)'], ['plateau', 'Plateau télé'], ['ruelle', 'Concert de rue'], ['toit', 'Toit au coucher du soleil']];
 
   function pickerHtml(n, id, nom){
     return `<div class="rv-pick" data-pick="${n}"><input type="hidden" data-k="artist${n}" value="${esc(id)}">

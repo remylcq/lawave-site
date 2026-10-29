@@ -259,103 +259,112 @@
   .cb-scene{--tc:#4FB4FF; background:#05080d; font-family:inherit; overflow:hidden; display:flex; flex-direction:column;}
   .cb-scene .ct-scene-fond{display:none;}
   .cb-scene .ct-scene-x{display:none;}
-  .cb-decor{position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; contain:strict;}
-  .cb-decor svg{position:absolute; inset:0; width:100%; height:100%; overflow:visible;}
-  .cb-decor::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(3,5,8,.45) 0%, rgba(3,5,8,.1) 35%, rgba(3,5,8,.55) 100%);}
-  .cb-decor .anim-pulse{animation:cbPulse 2.4s ease-in-out infinite;}
-  .cb-decor .anim-flick{animation:cbFlick 4.2s steps(1) infinite;}
-  .cb-decor .anim-sweep{transform-box:fill-box; transform-origin:50% 0; animation:cbSweep 7s ease-in-out infinite alternate;}
-  .cb-decor .anim-sweep2{transform-box:fill-box; transform-origin:50% 0; animation:cbSweep 9s ease-in-out -3s infinite alternate-reverse;}
-  .cb-decor .anim-foule{animation:cbFoule 1.6s ease-in-out infinite alternate;}
-  .cb-decor .anim-foule2{animation:cbFoule 2.1s ease-in-out -.7s infinite alternate;}
-  .cb-decor .anim-derive{animation:cbDerive 40s linear infinite;}
-  @keyframes cbPulse{50%{opacity:.45;}}
-  @keyframes cbFlick{0%,100%{opacity:1;} 47%{opacity:1;} 48%{opacity:.25;} 50%{opacity:1;} 52%{opacity:.4;} 54%{opacity:1;}}
-  @keyframes cbSweep{from{transform:rotate(-14deg);} to{transform:rotate(14deg);}}
-  @keyframes cbFoule{from{transform:translateY(0);} to{transform:translateY(-7px);}}
-  @keyframes cbDerive{from{transform:translateX(0);} to{transform:translateX(-120px);}}
+  /* Le décor est une image pixel-art (img/combat/, fabriquée par outils/combat/fonds.py) affichée sans lissage ;
+     les combattants se tiennent sur un disque de scène, leur barre de vie au-dessus. Sur grand écran : les alliés en bas à gauche,
+     les adversaires en haut à droite, la liste des tours en haut à gauche, le panneau d'actions en bas. */
+  .cb-scene{--vw:clamp(60px, 19vw, 92px); --uw:calc(var(--vw) + 44px);}
+  .cb-decor{position:absolute; inset:0; z-index:0; overflow:hidden; pointer-events:none; contain:strict; background:#05070d;}
+  .cb-fond{position:absolute; inset:0; width:100%; height:100%; max-width:none; object-fit:cover; object-position:50% 64%; image-rendering:pixelated; image-rendering:crisp-edges; display:block; animation:cbRespire 3.6s steps(5) infinite alternate;}
+  .cb-decor::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(3,5,12,.22) 0%, rgba(3,5,12,0) 36%, rgba(3,5,12,.34) 100%);}
+  .cb-lum{position:absolute; left:-10%; right:-10%; top:-30%; height:90%; mix-blend-mode:screen; opacity:.5; transform-origin:50% 0;
+    background:conic-gradient(from 170deg at 50% 0%, transparent 0 14deg, var(--lc) 19deg, transparent 27deg 40deg, var(--lc) 44deg, transparent 51deg); animation:cbBalaye 7s ease-in-out infinite alternate;}
+  .cb-lum.b{opacity:.38; animation-duration:9s; animation-delay:-3s; animation-direction:alternate-reverse;}
+  @keyframes cbRespire{from{filter:brightness(.96);} to{filter:brightness(1.12);}}
+  @keyframes cbBalaye{from{transform:rotate(-7deg);} to{transform:rotate(7deg);}}
 
-  .cb-s-tete{position:relative; z-index:7; display:flex; align-items:center; gap:8px; padding:max(10px, env(safe-area-inset-top)) 12px 6px;}
+  .cb-s-tete{position:relative; z-index:7; display:flex; align-items:center; gap:7px; padding:max(10px, env(safe-area-inset-top)) 12px 4px;}
   .cb-s-tete > div:first-child{flex:1; min-width:0;}
-  .cb-s-tete small{display:block; font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.6);}
-  .cb-s-tete b{display:block; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 6px rgba(0,0,0,.8);}
-  .cb-mini{all:unset; cursor:pointer; box-sizing:border-box; height:34px; min-width:34px; padding:0 11px; display:inline-flex; align-items:center; justify-content:center; border-radius:10px; font-size:12px; font-weight:800; letter-spacing:.04em; color:rgba(255,255,255,.85); border:1px solid rgba(255,255,255,.2); background:rgba(8,12,20,.6); white-space:nowrap; backdrop-filter:blur(6px);}
-  .cb-mini:hover{background:rgba(255,255,255,.14);}
-  .cb-mini[aria-pressed="true"]{color:#05070a; background:#F4F5F6; border-color:#F4F5F6;}
-  .cb-mini[disabled]{opacity:.4; cursor:default;}
-  .cb-mini:focus-visible{outline:2px solid #fff;}
-  .cb-frise{position:relative; z-index:6; display:flex; align-items:center; gap:5px; padding:2px 12px 4px; min-height:38px;}
-  .cb-frise > small{font-size:9.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.55); margin-right:2px;}
-  .cb-frise .f{position:relative; width:30px; height:30px; flex:0 0 auto; border-radius:50%; border:2px solid var(--fc, #888); background:#0a1018 center / cover no-repeat; opacity:.9; transition:transform .3s, opacity .3s;}
+  .cb-s-tete small{display:block; font-size:10px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:rgba(255,255,255,.7); text-shadow:0 1px 4px rgba(0,0,0,.9);}
+  .cb-s-tete b{display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-shadow:0 1px 6px rgba(0,0,0,.9);}
+  .cb-mini{all:unset; cursor:pointer; box-sizing:border-box; height:34px; min-width:36px; padding:0 11px; display:inline-flex; align-items:center; justify-content:center; border-radius:8px; font-size:12px; font-weight:800; letter-spacing:.05em; color:#1a2547; background:#f4f6fb; border:2px solid #fff; box-shadow:0 3px 0 #7f8db0, 0 6px 14px rgba(0,0,0,.4); white-space:nowrap; transition:transform .1s, box-shadow .1s;}
+  .cb-mini:hover{background:#fff;}
+  .cb-mini:active{transform:translateY(2px); box-shadow:0 1px 0 #7f8db0;}
+  .cb-mini[aria-pressed="true"]{color:#fff; background:#2f7be0; border-color:#9cc8ff; box-shadow:0 3px 0 #17407f, 0 6px 14px rgba(0,0,0,.4);}
+  .cb-mini[disabled]{opacity:.45; cursor:default;}
+  .cb-mini:focus-visible{outline:2px solid #FFD76B; outline-offset:2px;}
+  .cb-frise{position:relative; z-index:6; display:flex; align-items:center; gap:3px; margin:2px 12px 4px; padding:4px; width:max-content; max-width:calc(100% - 24px); overflow:hidden; border-radius:9px; background:rgba(8,13,32,.84); border:2px solid #1d2c5c; box-shadow:0 4px 12px rgba(0,0,0,.4);}
+  .cb-frise > small{display:none;}
+  .cb-frise .f{position:relative; width:32px; height:32px; flex:0 0 auto; border-radius:4px; border:2px solid var(--fc, #888); background:#0a1018 center / cover no-repeat; opacity:.88; transition:transform .3s, opacity .3s;}
   .cb-frise .f.allie{--fc:#5BB8FF;} .cb-frise .f.ennemi{--fc:#FF6B77;}
-  .cb-frise .f:first-of-type{width:36px; height:36px; opacity:1; box-shadow:0 0 0 2px rgba(255,255,255,.7), 0 0 14px var(--fc);}
+  .cb-frise .f:first-of-type{width:40px; height:40px; opacity:1; border-color:#fff; box-shadow:0 0 0 2px var(--fc), 0 0 12px var(--fc);}
   .cb-frise .f.ko{filter:grayscale(1); opacity:.3;}
-  .cb-champ{position:relative; z-index:3; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:space-around; gap:6px; padding:2px 10px 4px;}
-  .cb-rangee{display:flex; justify-content:center; align-items:flex-start; gap:clamp(8px, 5vw, 56px);}
-  .cb-u{position:relative; width:clamp(104px, 40vw, 168px); display:grid; gap:4px; transition:opacity .4s, filter .4s;}
-  .cb-u-vis{position:relative; width:clamp(58px, 17vw, 96px); aspect-ratio:1; margin:0 auto; border-radius:50%; border:3px solid var(--tc); background:#0a1018; box-shadow:0 0 0 2px rgba(0,0,0,.5), 0 6px 22px color-mix(in srgb, var(--tc) 45%, transparent);}
-  .cb-u-vis img{width:100%; height:100%; border-radius:50%; object-fit:cover; object-position:50% 22%; display:block;}
-  .cb-u-role{position:absolute; z-index:2; left:50%; bottom:-7px; transform:translateX(-50%); padding:1px 7px; border-radius:99px; font-size:8.5px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:#06090e; background:var(--tc); white-space:nowrap;}
-  .cb-u.actif .cb-u-vis{box-shadow:0 0 0 3px #fff, 0 0 26px 4px var(--tc);}
-  .cb-u.actif::before{content:''; position:absolute; z-index:1; left:50%; top:-9px; width:0; height:0; margin-left:-7px; border:7px solid transparent; border-top-color:#fff; filter:drop-shadow(0 0 5px #fff); animation:cbMarque .8s ease-in-out infinite alternate;}
+  .cb-champ{position:relative; z-index:3; flex:1 1 auto; min-height:0; display:flex; flex-direction:column; justify-content:space-around; gap:6px; padding:2px 10px 18px;}
+  .cb-rangee{position:relative; display:flex; justify-content:center; align-items:flex-start; gap:clamp(8px, 4vw, 40px);}
+  /* le disque de scène sous chaque camp */
+  .cb-rangee::before{content:''; position:absolute; z-index:0; left:50%; top:calc(100% - var(--sx, 0px) / 2); width:calc(100% + 44px); aspect-ratio:160 / 52; transform:translate(-50%, -38%);
+    background:var(--plat) center / 100% 100% no-repeat; image-rendering:pixelated; pointer-events:none;}
+  .cb-rangee[data-rang="0"]{--plat:url(img/combat/plateforme-allie.png);}
+  .cb-rangee[data-rang="1"]{--plat:url(img/combat/plateforme-ennemi.png);}
+  .cb-u{position:relative; z-index:1; width:var(--uw); display:grid; gap:3px; justify-items:center; align-content:start; transition:opacity .4s, filter .4s;}
+  .cb-u-nom{order:1; display:flex; align-items:center; justify-content:center; gap:5px; max-width:100%; font-size:11.5px; font-weight:800; text-align:center; text-shadow:0 1px 5px rgba(0,0,0,.95), 0 0 2px rgba(0,0,0,.9); line-height:1.15;}
+  .cb-u-nom span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
+  .cb-pv{order:2; position:relative; width:100%; height:11px; border-radius:2px; background:#150c1a; border:2px solid #0a0610; box-shadow:0 0 0 1px rgba(255,255,255,.2), 0 2px 6px rgba(0,0,0,.5); overflow:hidden;}
+  .cb-u.ennemi .cb-pv{border-color:#7a1c24;} .cb-u.allie .cb-pv{border-color:#14502e;}
+  .cb-pv i{position:absolute; inset:0 auto 0 0; background:#43d88f; box-shadow:inset 0 2px 0 rgba(255,255,255,.4), inset 0 -2px 0 rgba(0,0,0,.28); transition:width .55s cubic-bezier(.2,.8,.2,1), background .3s;}
+  .cb-pv.mid i{background:#F2C14E;} .cb-pv.bas i{background:#FF5C6A;}
+  .cb-pv b{position:absolute; inset:0; display:grid; place-items:center; font-size:8.5px; font-weight:800; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,1), 0 0 3px rgba(0,0,0,.9); font-variant-numeric:tabular-nums;}
+  .cb-jauge{order:3; position:relative; width:88%; height:5px; border-radius:1px; background:#0a0610; border:1px solid #0a0610; box-shadow:0 0 0 1px rgba(255,255,255,.14); overflow:hidden;}
+  .cb-jauge i{position:absolute; inset:0 auto 0 0; width:0; background:linear-gradient(90deg, #2f8fe8, #8fd3ff); transition:width .5s ease;}
+  .cb-u.ennemi .cb-jauge i{background:linear-gradient(90deg, #e8503f, #ffb08f);}
+  .cb-jauge.pleine i{box-shadow:0 0 8px #fff;}
+  .cb-badges{order:4; display:flex; flex-wrap:wrap; justify-content:center; gap:3px; min-height:15px;}
+  .cb-badges span{display:inline-flex; align-items:center; gap:3px; height:15px; padding:0 5px; border-radius:3px; font-size:9px; font-weight:900; letter-spacing:.03em; background:rgba(8,12,28,.8); border:1px solid rgba(255,255,255,.2); color:#fff; white-space:nowrap;}
+  .cb-badges span i{font-style:normal; opacity:.75;}
+  .cb-badges .haut{background:rgba(20,80,46,.9); color:#9af5cb;}
+  .cb-badges .bas{background:rgba(90,20,30,.92); color:#ffadb5;}
+  .cb-badges .neutre{background:rgba(80,60,10,.92); color:#ffe39a;}
+  /* le combattant : un portrait à coins taillés au pixel, debout sur le disque */
+  .cb-u-vis{order:5; position:relative; width:var(--vw); aspect-ratio:4 / 5; margin-top:2px; filter:drop-shadow(0 4px 0 rgba(0,0,0,.35));}
+  .cb-u-vis::before{content:''; position:absolute; z-index:-1; left:-10%; right:-10%; bottom:-9px; height:14px; border-radius:50%; background:rgba(0,0,0,.42);}
+  .cb-u-cadre{position:absolute; inset:0; padding:3px; background:var(--tc); clip-path:polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px));}
+  .cb-u-cadre img{width:100%; height:100%; object-fit:cover; object-position:50% 20%; display:block; background:#0a1018; clip-path:polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));}
+  .cb-u-role{position:absolute; z-index:2; left:50%; bottom:-8px; transform:translateX(-50%); padding:1px 7px; border-radius:3px; font-size:8.5px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:#06090e; background:var(--tc); border:1px solid rgba(0,0,0,.5); white-space:nowrap;}
+  .cb-u.actif .cb-u-vis{filter:drop-shadow(0 0 9px var(--tc)) drop-shadow(0 4px 0 rgba(0,0,0,.35));}
+  .cb-u.actif::before{content:''; position:absolute; z-index:2; left:50%; top:-12px; width:0; height:0; margin-left:-7px; border:7px solid transparent; border-top-color:#FFD25A; filter:drop-shadow(0 0 4px rgba(255,210,90,.9)); animation:cbMarque .8s steps(3) infinite alternate;}
   .cb-u.agit-b .cb-u-vis{animation:cbAvB .5s cubic-bezier(.3,.7,.3,1);}
   .cb-u.agit-h .cb-u-vis{animation:cbAvH .5s cubic-bezier(.3,.7,.3,1);}
   .cb-u.touche .cb-u-vis{animation:cbSecoue .45s;}
-  .cb-u.touche .cb-u-vis::after{content:''; position:absolute; inset:0; border-radius:50%; background:rgba(255,70,70,.5); animation:cbFlash .45s both; pointer-events:none;}
-  .cb-u.soigne .cb-u-vis::after{content:''; position:absolute; inset:0; border-radius:50%; background:rgba(91,224,166,.5); animation:cbFlash .6s both; pointer-events:none;}
-  .cb-u.cible .cb-u-vis{cursor:pointer; animation:cbCible .7s ease-in-out infinite alternate;}
-  .cb-u.cible{cursor:pointer;}
-  .cb-u.cible .cb-u-vis{box-shadow:0 0 0 3px #FFD76B, 0 0 24px 4px rgba(255,215,107,.7);}
-  .cb-u.presel::after{content:'CIBLE'; position:absolute; z-index:3; right:6px; top:0; padding:1px 6px; border-radius:6px; font-size:8.5px; font-weight:900; letter-spacing:.08em; color:#1c1500; background:#FFD76B;}
+  .cb-u.touche .cb-u-cadre::after{content:''; position:absolute; inset:0; background:rgba(255,70,70,.55); animation:cbFlash .45s both; pointer-events:none;}
+  .cb-u.soigne .cb-u-cadre::after{content:''; position:absolute; inset:0; background:rgba(91,224,166,.55); animation:cbFlash .6s both; pointer-events:none;}
+  .cb-u.cible, .cb-u.cible .cb-u-vis{cursor:pointer;}
+  .cb-u.cible .cb-u-vis{animation:cbCible .7s steps(4) infinite alternate; filter:drop-shadow(0 0 10px rgba(255,215,107,.95));}
+  .cb-u.cible .cb-u-cadre{background:#FFD76B;}
+  .cb-u.cible .cb-u-vis::before{border:2px dashed #ff6b77; background:rgba(255,80,80,.2);}
+  .cb-u.presel::after{content:'CIBLE'; position:absolute; z-index:3; right:2px; top:-4px; padding:1px 6px; border-radius:3px; font-size:8.5px; font-weight:900; letter-spacing:.08em; color:#1c1500; background:#FFD76B;}
   .cb-u.ko{filter:grayscale(1); opacity:.4;}
-  .cb-ko{position:absolute; z-index:6; left:50%; top:50%; transform:translate(-50%, -50%) rotate(-12deg); display:none; padding:2px 9px; border-radius:7px; font-size:15px; font-weight:900; letter-spacing:.08em; color:#fff; background:rgba(220,50,60,.94);}
+  .cb-ko{position:absolute; z-index:6; left:50%; top:50%; transform:translate(-50%, -50%) rotate(-12deg); display:none; padding:2px 9px; border-radius:4px; font-size:15px; font-weight:900; letter-spacing:.08em; color:#fff; background:rgba(220,50,60,.94); border:2px solid #fff;}
   .cb-u.ko .cb-ko{display:block;}
-  .cb-u-nom{display:flex; align-items:center; justify-content:center; gap:5px; margin-top:5px; font-size:12px; font-weight:800; text-align:center; text-shadow:0 1px 5px rgba(0,0,0,.9); line-height:1.15;}
-  .cb-u-nom span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
-  .cb-pv{position:relative; height:13px; border-radius:99px; background:rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.18); overflow:hidden;}
-  .cb-pv i{position:absolute; inset:0 auto 0 0; border-radius:99px; background:#5BE0A6; transition:width .55s cubic-bezier(.2,.8,.2,1), background .3s;}
-  .cb-pv.mid i{background:#F2C14E;} .cb-pv.bas i{background:#FF5C6A;}
-  .cb-pv b{position:absolute; inset:0; display:grid; place-items:center; font-size:9.5px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.9); font-variant-numeric:tabular-nums;}
-  .cb-jauge{position:relative; height:5px; border-radius:99px; background:rgba(0,0,0,.5); overflow:hidden;}
-  .cb-jauge i{position:absolute; inset:0 auto 0 0; width:0; border-radius:99px; background:linear-gradient(90deg, #4FB4FF, #A3E3FF); transition:width .5s ease;}
-  .cb-u.ennemi .cb-jauge i{background:linear-gradient(90deg, #FF6B77, #FFB1B8);}
-  .cb-jauge.pleine i{box-shadow:0 0 8px #fff;}
-  .cb-badges{display:flex; flex-wrap:wrap; justify-content:center; gap:3px; min-height:15px;}
-  .cb-badges span{display:inline-flex; align-items:center; gap:3px; height:15px; padding:0 5px; border-radius:5px; font-size:9px; font-weight:900; letter-spacing:.03em; background:rgba(255,255,255,.14); color:#fff; white-space:nowrap;}
-  .cb-badges span i{font-style:normal; opacity:.75;}
-  .cb-badges .haut{background:rgba(91,224,166,.28); color:#9af5cb;}
-  .cb-badges .bas{background:rgba(255,92,106,.3); color:#ffadb5;}
-  .cb-badges .neutre{background:rgba(255,215,107,.25); color:#ffe39a;}
-  .cb-flotte{position:absolute; z-index:9; left:50%; top:18%; transform:translateX(-50%); font-size:24px; font-weight:900; pointer-events:none; text-shadow:0 2px 8px rgba(0,0,0,.95); white-space:nowrap; animation:cbFlotte 1.15s ease-out both;}
+  .cb-flotte{position:absolute; z-index:9; left:50%; top:18%; transform:translateX(-50%); font-size:24px; font-weight:900; pointer-events:none; text-shadow:0 2px 0 rgba(0,0,0,.95), 0 0 8px rgba(0,0,0,.9); white-space:nowrap; animation:cbFlotte 1.15s ease-out both;}
   .cb-flotte.degat{color:#ff6b75;} .cb-flotte.soin{color:#5BE0A6;} .cb-flotte.texte{font-size:14px; color:#fff;} .cb-flotte.crit{color:#FFD76B; font-size:30px;}
   .cb-flotte.sup{color:#7dffb3;} .cb-flotte.mal{color:#ff9aa3;}
   .cb-fx{position:absolute; z-index:5; inset:-30%; border-radius:50%; pointer-events:none; background:radial-gradient(circle, var(--tc) 0%, transparent 68%); mix-blend-mode:screen; animation:cbFx .55s ease-out both;}
   .cb-bandeau{position:absolute; z-index:10; left:0; right:0; top:44%; display:grid; place-items:center; pointer-events:none; opacity:0;}
   .cb-bandeau span{padding:7px 22px; font-size:clamp(15px, 4.4vw, 22px); font-weight:900; letter-spacing:.04em; text-transform:uppercase; color:#fff; background:linear-gradient(90deg, transparent, color-mix(in srgb, var(--tc) 85%, #000) 18%, color-mix(in srgb, var(--tc) 85%, #000) 82%, transparent); text-shadow:0 2px 8px rgba(0,0,0,.7); transform:skewX(-10deg);}
   .cb-bandeau.on{animation:cbBandeau 1s ease both;}
-  .cb-panneau{position:relative; z-index:7; padding:8px 10px max(12px, env(safe-area-inset-bottom)); background:linear-gradient(180deg, transparent, rgba(4,7,12,.88) 22%);}
-  .cb-pan-in{max-width:900px; margin:0 auto; display:grid; gap:8px;}
-  .cb-pan-actif{display:flex; align-items:center; gap:10px; min-height:34px;}
-  .cb-pan-actif img{width:34px; height:34px; border-radius:50%; object-fit:cover; object-position:50% 22%; border:2px solid var(--tc); background:#0a1018; flex:0 0 auto;}
+  /* le panneau du bas : le combattant qui joue à gauche, ses techniques en cartes à droite */
+  .cb-panneau{position:relative; z-index:7; padding:14px 10px max(12px, env(safe-area-inset-bottom)); background:linear-gradient(180deg, rgba(6,10,28,0), rgba(6,10,28,.9) 16px, #070b1e 100%); border-top:2px solid rgba(60,90,190,.35);}
+  .cb-pan-in{max-width:1100px; margin:0 auto; display:grid; gap:8px; grid-template-areas:'a' 't' 'h' 'b';}
+  .cb-pan-actif{grid-area:a; display:flex; align-items:center; gap:10px; min-height:34px;}
+  .cb-pan-actif img{width:38px; height:38px; border-radius:4px; object-fit:cover; object-position:50% 20%; border:2px solid var(--tc); background:#0a1018; flex:0 0 auto;}
   .cb-pan-actif div{min-width:0; flex:1; font-size:13px; line-height:1.25;}
-  .cb-pan-actif b{display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  .cb-pan-actif small{color:rgba(255,255,255,.65); font-size:11.5px;}
-  .cb-techs{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px;}
-  .cb-tech{all:unset; box-sizing:border-box; cursor:pointer; position:relative; display:grid; gap:3px; align-content:start; min-height:76px; padding:8px 9px; border-radius:12px; border:2px solid rgba(255,255,255,.12); border-top:4px solid var(--tc, #9aa4b2); background:rgba(10,14,22,.82);}
-  .cb-tech:hover{background:rgba(255,255,255,.1);}
-  .cb-tech:focus-visible{outline:2px solid #fff; outline-offset:1px;}
-  .cb-tech[aria-pressed="true"]{border-color:#FFD76B; background:rgba(255,215,107,.14);}
+  .cb-pan-actif b{display:block; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cb-pan-actif small{color:rgba(255,255,255,.68); font-size:11.5px;}
+  .cb-techs{grid-area:t; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px;}
+  .cb-tech{all:unset; box-sizing:border-box; cursor:pointer; position:relative; display:grid; gap:3px; align-content:start; min-height:76px; padding:8px 9px; border-radius:9px; border:2px solid #243a78; border-top:4px solid var(--tc, #9aa4b2); background:#0d1736; box-shadow:0 3px 0 #050a1c;}
+  .cb-tech:hover{background:#13214a; border-color:#3560c8;}
+  .cb-tech:focus-visible{outline:2px solid #FFD76B; outline-offset:1px;}
+  .cb-tech[aria-pressed="true"]{border-color:#FFD76B; background:#1b2a58; box-shadow:0 0 0 1px #FFD76B, 0 3px 0 #050a1c;}
   .cb-tech[disabled]{opacity:.45; cursor:default;}
   .cb-tech .n{font-size:12.5px; font-weight:800; line-height:1.2;}
-  .cb-tech .m{font-size:10.5px; color:rgba(255,255,255,.65); line-height:1.3;}
+  .cb-tech .m{font-size:10.5px; color:rgba(255,255,255,.66); line-height:1.3;}
   .cb-tech .r{font-size:10.5px; font-weight:900; letter-spacing:.04em; text-transform:uppercase;}
   .cb-tech .r.pret{color:#5BE0A6;} .cb-tech .r.cd{color:#ffb35c;}
   .cb-tech .e{font-size:10.5px; font-weight:900; min-height:13px;}
   .cb-tech .e.sup{color:#7dffb3;} .cb-tech .e.peu{color:#ff9aa3;}
   .cb-tech .k{position:absolute; top:5px; right:7px; font-size:10px; font-weight:800; color:rgba(255,255,255,.35);}
-  .cb-pan-msg{min-height:44px; display:grid; place-items:center; padding:6px 10px; border-radius:12px; background:rgba(8,12,20,.7); border:1px solid rgba(255,255,255,.1); text-align:center; font-size:13.5px; font-weight:700; line-height:1.35;}
-  .cb-pan-aide{font-size:11.5px; color:rgba(255,255,255,.65); text-align:center;}
-  .cb-pan-bas{display:flex; justify-content:center; gap:8px;}
+  .cb-pan-msg{min-height:44px; display:grid; place-items:center; padding:6px 10px; border-radius:9px; background:#0d1736; border:2px solid #243a78; text-align:center; font-size:13.5px; font-weight:700; line-height:1.35;}
+  .cb-pan-aide{grid-area:h; font-size:11.5px; color:rgba(255,255,255,.66); text-align:center;}
+  .cb-pan-bas{grid-area:b; display:flex; justify-content:center; gap:8px;}
 
   /* ---------- le tutoriel et l'écran de fin ---------- */
   .cb-voile{position:absolute; z-index:30; inset:0; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(3,5,8,.82); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); overflow-y:auto;}
@@ -402,16 +411,33 @@
     .cb-eq-opt > span{min-width:100%;}
   }
   @media (max-height:700px){
-    .cb-u-vis{width:clamp(50px, 14vw, 74px);}
+    .cb-scene{--vw:clamp(50px, 14vw, 74px);}
     .cb-tech{min-height:62px; padding:6px 8px;}
     .cb-tech .m{display:none;}
     .cb-pan-aide{display:none;}
   }
-  @media (min-width:900px) and (min-height:760px){
-    .cb-u{width:190px;}
-    .cb-u-vis{width:112px;}
-    .cb-u-nom{font-size:13.5px;}
+  /* grand écran en largeur : la scène comme dans un jeu de rôle (alliés en bas à gauche, adversaires en haut à droite) */
+  @media (min-width:900px) and (min-aspect-ratio:13/10){
+    .cb-scene{--vw:clamp(96px, 8.4vw, 150px); --uw:calc(var(--vw) + 56px);}
+    .cb-s-tete{position:absolute; top:0; left:0; right:0; z-index:8; pointer-events:none; padding-top:max(12px, env(safe-area-inset-top));}
+    .cb-s-tete > *{pointer-events:auto;}
+    .cb-s-tete > div:first-child{position:absolute; left:50%; top:max(12px, env(safe-area-inset-top)); transform:translateX(-50%); flex:none; text-align:center; max-width:36vw; pointer-events:none;}
+    .cb-s-tete > .cb-mini:first-of-type{margin-left:auto;}
+    .cb-frise{position:absolute; left:12px; top:12px; margin:0; z-index:9;}
+    .cb-champ{display:block; padding:0;}
+    .cb-rangee{position:absolute; gap:clamp(28px, 5vw, 90px);}
+    .cb-rangee[data-rang="0"]{left:6%; bottom:9%; width:42%; --sx:70px; padding-bottom:6px;}
+    .cb-rangee[data-rang="1"]{right:6%; top:17%; width:40%; --sx:-50px;}
+    .cb-rangee[data-rang="0"] .cb-u:nth-child(2){margin-top:calc(var(--sx) * -1);}
+    .cb-rangee[data-rang="1"] .cb-u:nth-child(2){margin-top:calc(var(--sx) * -1);}
+    .cb-rangee::before{width:calc(100% + 90px);}
+    .cb-u-nom{font-size:13px;}
     .cb-flotte{font-size:30px;}
+    .cb-pan-in{grid-template-columns:minmax(240px, 1fr) minmax(0, 2.2fr); grid-template-areas:'a t' 'h t' 'b t'; column-gap:18px; align-items:start;}
+    .cb-pan-in > .cb-pan-msg{grid-column:1 / -1;}
+    .cb-pan-actif{padding-top:4px;} .cb-pan-aide{text-align:left;} .cb-pan-bas{justify-content:flex-start;}
+    .cb-tech{min-height:96px; padding:10px 12px;}
+    .cb-tech .n{font-size:14px;}
   }
   @media (prefers-reduced-motion: reduce){
     .cb-u.agit-b .cb-u-vis, .cb-u.agit-h .cb-u-vis, .cb-u.touche .cb-u-vis, .cb-fx, .cb-decor *, .cb-u.cible .cb-u-vis, .cb-u.actif::before, .cb-fin h3{animation:none !important;}
@@ -1086,86 +1112,20 @@
   // Les décors : studio, concert, plateau, ruelle, toit (CSS + SVG animés)
   // ---------------------------------------------------------------------
 
+  // Chaque décor : une image pixel-art (img/combat/<id>.png) et la couleur de ses deux faisceaux de lumière qui balaient la salle.
   const DECORS = {
-    studio: `<svg viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs><linearGradient id="dS" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d2f40"/><stop offset="1" stop-color="#050e16"/></linearGradient>
-        <pattern id="dSp" width="50" height="60" patternUnits="userSpaceOnUse"><rect x="3" y="3" width="44" height="54" rx="4" fill="#12475f"/><path d="M3 22h44M3 40h44" stroke="#0a2c3c" stroke-width="2"/></pattern></defs>
-      <rect x="-2000" width="4400" height="700" fill="url(#dS)"/>
-      <rect x="-2000" width="4400" height="420" fill="url(#dSp)" opacity=".45"/>
-      <g class="anim-pulse"><rect x="148" y="278" width="104" height="36" rx="7" fill="#3a0a10" stroke="#ff4b57" stroke-width="2"/><text x="200" y="303" text-anchor="middle" font-size="19" font-weight="900" fill="#ff6a75" font-family="Arial, sans-serif">ON AIR</text></g>
-      <rect x="26" y="96" width="348" height="156" rx="10" fill="#0a2432" stroke="#1d7396" stroke-width="3" opacity=".75"/>
-      <path d="M60 252 L120 96 M150 252 L210 96" stroke="#3aa6d3" stroke-width="6" opacity=".12"/>
-      <g fill="#0c1a24" stroke="#1d7396" stroke-width="2"><rect x="60" y="150" width="46" height="70" rx="8"/><rect x="294" y="150" width="46" height="70" rx="8"/></g>
-      <circle cx="83" cy="168" r="10" fill="#1d7396" opacity=".5"/><circle cx="317" cy="168" r="10" fill="#1d7396" opacity=".5"/>
-      <rect x="-2000" y="470" width="4400" height="230" fill="#070d13"/>
-      <rect x="-2000" y="470" width="4400" height="30" fill="#101c26"/>
-      <g fill="#1b2c3a">${Array.from({ length: 14 }, (_, i) => `<rect x="${14 + i * 27}" y="${512 + (i % 3) * 3}" width="12" height="40" rx="3"/>`).join('')}</g>
-      <g class="anim-pulse" fill="#4FB4FF">${Array.from({ length: 14 }, (_, i) => `<circle cx="${20 + i * 27}" cy="${526 + (i % 5) * 4}" r="3"/>`).join('')}</g>
-      <g fill="#ffb347" opacity=".8">${Array.from({ length: 7 }, (_, i) => `<circle cx="${36 + i * 54}" cy="580" r="6"/>`).join('')}</g>
-    </svg>`,
-    concert: `<svg viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs><linearGradient id="dC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a0f4a"/><stop offset=".6" stop-color="#14062a"/><stop offset="1" stop-color="#05020c"/></linearGradient>
-        <linearGradient id="dCb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".5"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient></defs>
-      <rect x="-2000" width="4400" height="700" fill="url(#dC)"/>
-      <g class="anim-sweep" style="transform-origin:90px 0"><path d="M90 0 L20 480 L160 480Z" fill="#ff4fb0" opacity=".28"/></g>
-      <g class="anim-sweep2" style="transform-origin:200px 0"><path d="M200 0 L120 520 L280 520Z" fill="#4FB4FF" opacity=".25"/></g>
-      <g class="anim-sweep" style="transform-origin:310px 0"><path d="M310 0 L240 480 L380 480Z" fill="#ffd76b" opacity=".24"/></g>
-      <g fill="#0b0618" stroke="#3a2268" stroke-width="2"><rect x="-6" y="250" width="64" height="230" rx="6"/><rect x="342" y="250" width="64" height="230" rx="6"/></g>
-      <g fill="#241442"><circle cx="26" cy="300" r="20"/><circle cx="26" cy="370" r="20"/><circle cx="374" cy="300" r="20"/><circle cx="374" cy="370" r="20"/></g>
-      <rect x="-2000" y="470" width="4400" height="26" fill="#1a0c33"/>
-      <g class="anim-foule" fill="#05020c">${Array.from({ length: 36 }, (_, j) => { const i = j - 12; return `<circle cx="${12 + i * 38}" cy="${596 + (j % 3) * 6}" r="${15 + (j % 2) * 3}"/><rect x="${-4 + i * 38}" y="${608 + (j % 3) * 6}" width="34" height="120"/>`; }).join('')}</g>
-      <g class="anim-foule2" fill="#0b0618">${Array.from({ length: 30 }, (_, j) => { const i = j - 10; return `<circle cx="${28 + i * 44}" cy="${640 + (j % 2) * 8}" r="18"/><rect x="${8 + i * 44}" y="${654 + (j % 2) * 8}" width="40" height="90"/>`; }).join('')}</g>
-      <g class="anim-pulse" fill="#fff" opacity=".7">${Array.from({ length: 6 }, (_, i) => `<circle cx="${40 + i * 64}" cy="${600 - (i % 3) * 16}" r="2.5"/>`).join('')}</g>
-    </svg>`,
-    plateau: `<svg viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs><linearGradient id="dP" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0c2a5e"/><stop offset="1" stop-color="#3a0f55"/></linearGradient>
-        <linearGradient id="dPe" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#2ec4ff"/><stop offset=".5" stop-color="#7a5cff"/><stop offset="1" stop-color="#ff5cc8"/></linearGradient></defs>
-      <rect x="-2000" width="4400" height="700" fill="url(#dP)"/>
-      <rect x="20" y="70" width="360" height="190" rx="14" fill="#06101f" stroke="url(#dPe)" stroke-width="4"/>
-      <rect x="32" y="82" width="336" height="166" rx="8" fill="url(#dPe)" opacity=".28"/>
-      <g class="anim-derive" opacity=".55" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M40 130h140M40 160h210M40 190h110M240 130h100M270 190h80"/></g>
-      <g class="anim-pulse"><rect x="300" y="28" width="70" height="26" rx="6" fill="#7a0d18"/><circle cx="314" cy="41" r="5" fill="#ff4b57"/><text x="346" y="46" text-anchor="middle" font-size="13" font-weight="900" fill="#fff" font-family="Arial, sans-serif">LIVE</text></g>
-      <g fill="#0a1830" stroke="#2f5fae" stroke-width="2"><rect x="24" y="300" width="70" height="170" rx="6"/><rect x="306" y="300" width="70" height="170" rx="6"/></g>
-      <g class="anim-pulse" fill="#ffd76b"><circle cx="59" cy="330" r="7"/><circle cx="341" cy="330" r="7"/></g>
-      <rect x="-2000" y="480" width="4400" height="220" fill="#050b16"/>
-      <path d="M-2000 480 H2400" stroke="url(#dPe)" stroke-width="3"/>
-      <ellipse cx="200" cy="610" rx="170" ry="26" fill="#2ec4ff" opacity=".12"/>
-      <g fill="#02060d"><rect x="150" y="520" width="100" height="14" rx="3"/><rect x="186" y="534" width="28" height="60"/><rect x="126" y="590" width="148" height="12" rx="4"/></g>
-    </svg>`,
-    ruelle: `<svg viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs><linearGradient id="dR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#101a2e"/><stop offset="1" stop-color="#06090f"/></linearGradient>
-        <pattern id="dRb" width="48" height="24" patternUnits="userSpaceOnUse"><rect width="48" height="24" fill="#1a2336"/><path d="M0 0h48M0 12h48M0 24h48M24 0v12M0 12v12M48 12v12" stroke="#0b111d" stroke-width="2"/></pattern>
-        <radialGradient id="dRl" cx=".5" cy="0" r="1"><stop offset="0" stop-color="#ffd98a" stop-opacity=".65"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient></defs>
-      <rect x="-2000" width="4400" height="700" fill="url(#dR)"/>
-      <rect x="-2000" y="0" width="4400" height="500" fill="url(#dRb)" opacity=".75"/>
-      <g class="anim-flick"><rect x="236" y="92" width="130" height="50" rx="8" fill="#1a0820" stroke="#ff4fd8" stroke-width="3"/><text x="301" y="127" text-anchor="middle" font-size="28" font-weight="900" fill="#ff7be5" font-family="Arial, sans-serif">RAP</text></g>
-      <g stroke="#2b3550" stroke-width="3" fill="none"><path d="M70 0 V190"/><path d="M70 190 h40"/></g>
-      <path d="M110 190 L40 520 L180 520Z" fill="url(#dRl)"/>
-      <circle cx="110" cy="190" r="9" fill="#ffd98a"/>
-      <g fill="#0a0f19"><rect x="296" y="420" width="64" height="80" rx="6"/><rect x="304" y="410" width="48" height="12" rx="4"/><rect x="20" y="440" width="46" height="60" rx="5"/></g>
-      <rect x="-2000" y="500" width="4400" height="200" fill="#080c14"/>
-      <ellipse cx="110" cy="560" rx="80" ry="12" fill="#ffd98a" opacity=".18"/><ellipse cx="300" cy="620" rx="90" ry="10" fill="#ff7be5" opacity=".13"/>
-      <g class="anim-derive" fill="#fff" opacity=".07"><ellipse cx="100" cy="470" rx="90" ry="14"/><ellipse cx="330" cy="500" rx="110" ry="12"/><ellipse cx="520" cy="470" rx="90" ry="14"/></g>
-    </svg>`,
-    toit: `<svg viewBox="0 0 400 700" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs><linearGradient id="dT" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b1646"/><stop offset=".45" stop-color="#8a3a6e"/><stop offset=".72" stop-color="#ff9a5c"/><stop offset="1" stop-color="#2a1830"/></linearGradient></defs>
-      <rect x="-2000" width="4400" height="700" fill="url(#dT)"/>
-      <g fill="#fff" class="anim-pulse" opacity=".8">${[[30, 40], [90, 90], [160, 30], [230, 70], [300, 36], [350, 100], [60, 150], [260, 140], [190, 110]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.6"/>`).join('')}</g>
-      <circle cx="320" cy="150" r="30" fill="#ffe9b8" opacity=".9"/><circle cx="332" cy="142" r="26" fill="#8a3a6e" opacity=".85"/>
-      <g fill="#150f2c">
-        <rect x="-10" y="330" width="70" height="250"/><rect x="50" y="270" width="60" height="310"/><rect x="104" y="350" width="80" height="230"/><rect x="178" y="300" width="56" height="280"/>
-        <rect x="228" y="360" width="76" height="220"/><rect x="298" y="290" width="62" height="290"/><rect x="354" y="340" width="70" height="240"/>
-        ${Array.from({ length: 14 }, (_, j) => `<rect x="${(j < 7 ? -80 - j * 64 : 424 + (j - 7) * 64)}" y="${290 + ((j * 47) % 80)}" width="58" height="${290 - ((j * 47) % 80)}"/>`).join('')}
-      </g>
-      <g class="anim-pulse" fill="#ffd98a" opacity=".85">${Array.from({ length: 34 }, (_, i) => `<rect x="${(i * 53) % 380 + 8}" y="${300 + ((i * 37) % 240)}" width="5" height="7"/>`).join('')}</g>
-      <g fill="#0b0818"><path d="M300 520 h60 v-60 l-10 -14 h-40 l-10 14z"/><rect x="310" y="520" width="6" height="60"/><rect x="344" y="520" width="6" height="60"/></g>
-      <rect x="-2000" y="560" width="4400" height="140" fill="#0a0714"/><rect x="-2000" y="548" width="4400" height="16" fill="#1d1530"/>
-      <path d="M-2000 548 H2400" stroke="#ff9a5c" stroke-width="2" opacity=".5"/>
-    </svg>`
+    concert: { img: 'concert', lum: ['#ff3fa4', '#35e0ff'] },
+    studio: { img: 'studio', lum: ['#ffb347', '#ff3fa4'] },
+    plateau: { img: 'plateau', lum: ['#9be8ff', '#ffffff'] },
+    ruelle: { img: 'ruelle', lum: ['#ffb347', '#7be0a6'] },
+    toit: { img: 'toit', lum: ['#ffd36b', '#ff7a9c'] }
   };
 
-  const aspectDecor = () => (window.innerWidth / Math.max(window.innerHeight, 1) > 0.9 ? 'xMidYMid meet' : 'xMidYMid slice');
-  const decorHtml = (id) => (DECORS[id] || DECORS.studio).replace('preserveAspectRatio="xMidYMid slice"', 'preserveAspectRatio="' + aspectDecor() + '"');
+  const decorHtml = (id) => {
+    const d = DECORS[id] || DECORS.concert;
+    return `<img class="cb-fond" src="img/combat/${d.img}.png" alt="" draggable="false" decoding="async">
+      <span class="cb-lum a" style="--lc:${d.lum[0]}"></span><span class="cb-lum b" style="--lc:${d.lum[1]}"></span>`;
+  };
 
   // ---------------------------------------------------------------------
   // L'écran de combat
@@ -1177,7 +1137,6 @@
     S.scene = null;
     sc.fin = true;
     document.removeEventListener('keydown', sc.touche);
-    window.removeEventListener('resize', sc.redim);
     clearTimeout(sc.appui);
     sc.ov.remove();
     if(!document.querySelector('.ct-voile, .ct-scene')) document.documentElement.style.overflow = sc.avant;
@@ -1239,8 +1198,7 @@
     const vite = ov.querySelector('[data-vite]');
     vite.addEventListener('click', () => { sc.rapide = !sc.rapide; vite.setAttribute('aria-pressed', String(sc.rapide)); });
 
-    sc.redim = () => { const g = ov.querySelector('.cb-decor svg'); if(g) g.setAttribute('preserveAspectRatio', aspectDecor()); };
-    window.addEventListener('resize', sc.redim);
+    sc.redim = () => {};
     [2, 3].forEach((i) => ov.querySelector('[data-rang="1"]').appendChild(tuile(sc, i)));
     [0, 1].forEach((i) => ov.querySelector('[data-rang="0"]').appendChild(tuile(sc, i)));
     majTout(sc);
@@ -1269,7 +1227,7 @@
     d.setAttribute('aria-label', u.nom + ', ' + (u.role_nom || '') + '. Appui long ou touche I : fiche.');
     d.style.setProperty('--tc', couleur(u.couleur));
     d.innerHTML = `
-      <div class="cb-u-vis"><img src="${esc(A.safeUrl(u.photo))}" alt=""><span class="cb-u-role">${esc(u.role_nom || '')}</span><span class="cb-ko">K.O.</span></div>
+      <div class="cb-u-vis"><div class="cb-u-cadre"><img src="${esc(A.safeUrl(u.photo))}" alt=""></div><span class="cb-u-role">${esc(u.role_nom || '')}</span><span class="cb-ko">K.O.</span></div>
       <div class="cb-u-nom"><span>${esc(u.nom)}</span></div>
       <div class="cb-pv" data-pv><i></i><b></b></div>
       <div class="cb-jauge" data-jauge><i></i></div>
