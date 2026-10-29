@@ -1955,12 +1955,7 @@
       plonger();
 
       // ---- 2. les cartes surgissent en pile
-      // « Aux belles cartes » saute d'un coup toutes les communes et les rares qui restent (Épique et au-dessus).
-      const indice = (texte) => {
-        const belle = cartes.findIndex((c) => (Number(c.rarete) || 1) >= 3);
-        const saut = n > 1 && belle > courante;
-        return `<p>${texte}</p>${n > 1 ? `<div class="boutons">${saut ? '<button type="button" class="ct-btn" data-belles>Aux belles cartes</button>' : ''}<button type="button" class="ct-btn" data-passer>Tout voir</button></div>` : ''}`;
-      };
+      const indice = (texte) => `<p>${texte}</p>${n > 1 ? '<div class="boutons"><button type="button" class="ct-btn" data-passer>Tout voir</button></div>' : ''}`;
 
       function distribuer(){
         phase = 'pile';
@@ -1981,23 +1976,7 @@
         pied.innerHTML = indice(n === 1 ? 'Touche la carte pour la révéler' : 'Touche la carte du dessus pour la révéler');
       }
 
-      pied.addEventListener('click', (ev) => {
-        if(ev.target.closest('[data-belles]')) versBelles();
-        else if(ev.target.closest('[data-passer]')) passer();
-      });
-
-      function versBelles(){
-        if(fini || occupe || (phase !== 'pile' && phase !== 'revelee')) return;
-        const k = cartes.findIndex((c) => (Number(c.rarete) || 1) >= 3);
-        if(k < 0 || k <= courante) return;
-        if(phase === 'revelee'){ const et = places[courante].querySelector('.ct-etiq'); if(et) et.remove(); }
-        for(let j = courante; j < k; j++) places[j].classList.add('sort', 'rapide');
-        courante = k;
-        for(let j = k; j < n; j++) places[j].style.setProperty('--k', Math.min(j - k, 4));
-        phase = 'pile';
-        Son.jouer('donne');
-        pied.innerHTML = indice('Touche la carte pour la révéler');
-      }
+      pied.addEventListener('click', (ev) => { if(ev.target.closest('[data-passer]')) passer(); });
 
       // Un toucher donné pendant l'animation d'une commune ou d'une rare n'est pas perdu : il est repris dès que la scène est prête.
       let tapEnAttente = false;
