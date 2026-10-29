@@ -996,6 +996,25 @@
     grain(debut, duree, vol){
       this.crep(debut, duree, 1500, 2100, [[.15, 1], [.85, 1], [1, 0]], vol, false);
     },
+    // Du froissement qui sonne vrai : du bruit filtré dont le volume est haché en petites « ruptures » au hasard (un coup, un
+    // creux, un coup plus fort), comme le plastique d'un disque neuf ou le carton d'une pochette qu'on plie. `fort` fait
+    // monter l'ensemble de l'ouverture à la fin (1) ou le garde égal (0).
+    froisser(debut, duree, f0, f1, vol, fort, pas){
+      const a = this.ctx, src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(), t = a.currentTime + debut;
+      src.buffer = this.bruitBuf(); src.loop = true; f.type = 'bandpass'; f.Q.value = .7;
+      f.frequency.setValueAtTime(f0, t); f.frequency.exponentialRampToValueAtTime(f1, t + duree);
+      g.gain.setValueAtTime(0.0001, t);
+      let x = 0;
+      while(x < duree){
+        const k = x / duree, niveau = vol * (1 - fort + fort * (.25 + .75 * k)) * Math.pow(Math.random(), 1.4) * (Math.random() < .18 ? 1.6 : 1);
+        const long = .006 + Math.random() * .03;
+        g.gain.setValueAtTime(.0001, t + x);
+        g.gain.linearRampToValueAtTime(Math.max(.0001, niveau), t + x + .002);
+        g.gain.exponentialRampToValueAtTime(.0001, t + x + long);
+        x += long + Math.random() * (pas || .02);
+      }
+      src.connect(f); f.connect(g); this.vers(g, .15); src.start(t, Math.random() * .5); src.stop(t + duree + .05);
+    },
     souffle(debut, duree, f0, f1, vol, q){
       const a = this.ctx, src = a.createBufferSource(), f = a.createBiquadFilter(), g = a.createGain(), t = a.currentTime + debut;
       src.buffer = this.bruitBuf(); src.loop = true; f.type = 'bandpass'; f.Q.value = q || 1;
@@ -1074,18 +1093,19 @@
         else if(quoi === 'donne'){ this.souffle(0, .12, 1000, 450, .3, .6); }
         else if(quoi === 'volte'){ this.boom(100, 0, .16, .18, 72); this.souffle(0, .08, 1400, 600, .08, .8); }
         else if(quoi === 'gain'){ this.piano(392, 0, .4, .14); this.piano(587, .1, .5, .12); }
-        // L'ouverture du pack : le carton qui se froisse, le rabat qu'on déchire, la pochette qui glisse hors de son étui.
+        // L'ouverture du pack, au disque neuf : le film plastique se froisse pendant l'attente, puis on le déchire, la pochette en
+        // carton glisse hors de son étui, la pointe se pose sur le sillon (un « tump » rond, le grain qui s'installe) et un
+        // accord doux de piano électrique accueille la musique.
         else if(quoi === 'froisse'){
-          this.crep(0, .9, 450, 900, [[.5, .2], [1, .7]], .32, false); this.crep(.1, .8, 600, 1100, [[.6, .15], [1, .55]], .22, true);
-          this.nappe([131, 196], 0, .95, .05, 700); this.grain(0, .95, .03);
+          this.froisser(0, .95, 1100, 2200, .3, 1, .045);
+          this.nappe([131, 196], 0, .95, .045, 700);
         }
         else if(quoi === 'dechire'){
-          this.crep(0, .5, 380, 1300, [[.25, .4], [.8, .85], [1, .15]], .42, true);
-          this.crep(0, .5, 200, 600, [[.5, .7], [1, .1]], .22, false);
-          this.souffle(.48, .06, 1000, 420, .16, 1); this.boom(80, .48, .16, .22, 60);
-          this.souffle(.55, .6, 900, 320, .1, .45);
-          this.grain(.2, 1.3, .035);
-          this.arpege([262, 330, 392], 1.0, .13, .9, .07, .5);
+          this.froisser(0, .38, 900, 2400, .55, 1, .012);
+          this.froisser(0, .42, 300, 800, .35, 1, .02);
+          this.souffle(.4, .5, 1000, 340, .1, .45);
+          this.boom(70, .86, .35, .26, 52); this.grain(.88, 1.6, .05);
+          this.arpege([262, 330, 392, 494], 1.0, .13, 1, .09, .5);
         }
         else if(quoi === 'charge'){ this.nappe([196, 247, 330], 0, .9, .09, 1100); this.ton(165, 0, .85, .06, 'sine', 900, 262); this.grain(0, .9, .025); }
         // La montée de la Mythique : une nappe qui gonfle, un cœur qui accélère, le vinyle qui grésille de plus en plus (1,9 s).
@@ -1114,186 +1134,6 @@
       }catch(e){ /* un navigateur sans audio : on joue en silence */ }
       this.sortie = this.base;
       this.vol = 1;
-    }
-  };
-
-  // ---------------------------------------------------------------------
-  // L'extrait d'un artiste (carte Mythique) : l'aperçu de 30 s de son morceau le plus écouté sur Deezer.
-  // L'API de Deezer n'autorise pas fetch depuis un autre site, mais répond en JSONP : un <script> suffit.
-  // L'adresse de l'aperçu expire au bout de quelques heures, donc on la demande à chaque ouverture (une seule
-  // fois par carte Mythique, pendant l'attente) au lieu de la garder en base.
-  // ---------------------------------------------------------------------
-
-  const Extrait = {
-    audio: null,
-    minuterie: 0,
-    jsonp(url, delai){
-      return new Promise((ok) => {
-        const nom = '__lwDz' + Date.now().toString(36) + Math.floor(Math.random() * 1e6);
-        const s = document.createElement('script');
-        let termine = false;
-        const fin = (v) => {
-          if(termine) return;
-          termine = true;
-          clearTimeout(t);
-          try{ delete window[nom]; }catch(e){ window[nom] = undefined; }
-          s.remove();
-          ok(v);
-        };
-        const t = setTimeout(() => fin(null), delai || 4500);
-        window[nom] = (d) => fin(d);
-        s.onerror = () => fin(null);
-        s.src = url + (url.includes('?') ? '&' : '?') + 'output=jsonp&callback=' + nom;
-        document.head.appendChild(s);
-      });
-    },
-    // L'identifiant Deezer de l'artiste : déjà en mémoire avec les profils du site, sinon on le demande.
-    async idDeezer(c){
-      try{
-        if(typeof artistsByHandle !== 'undefined' && c.handle && artistsByHandle[c.handle] && artistsByHandle[c.handle].deezer_artist_id){
-          return artistsByHandle[c.handle].deezer_artist_id;
-        }
-        if(typeof supabaseClient !== 'undefined' && c.id){
-          const { data } = await supabaseClient.from('artists').select('deezer_artist_id').eq('id', c.id).maybeSingle();
-          if(data && data.deezer_artist_id) return data.deezer_artist_id;
-        }
-      }catch(e){ /* pas d'identifiant : pas d'extrait */ }
-      return null;
-    },
-    // Prépare l'audio (sans le jouer) ; rend { audio, titre } ou null si l'artiste n'a pas d'aperçu.
-    async preparer(c){
-      if(!Son.actif()) return null;
-      try{
-        const id = await this.idDeezer(c);
-        if(!id) return null;
-        const rep = await this.jsonp('https://api.deezer.com/artist/' + encodeURIComponent(id) + '/top?limit=10');
-        const titre = rep && Array.isArray(rep.data) ? rep.data.find((t) => t && t.preview) : null;
-        if(!titre) return null;
-        const audio = new Audio();
-        audio.preload = 'auto';
-        audio.volume = 0;
-        audio.src = titre.preview;
-        return { audio, titre: titre.title_short || titre.title || '' };
-      }catch(e){ return null; }
-    },
-    // Un morceau choisi par l'équipe pour une carte : l'adresse de l'aperçu expire, on la redemande à Deezer.
-    async titre(perso){
-      try{
-        const rep = await this.jsonp('https://api.deezer.com/track/' + encodeURIComponent(perso.titre));
-        if(!rep || !rep.preview) return null;
-        const audio = new Audio();
-        audio.preload = 'auto';
-        audio.volume = 0;
-        audio.src = rep.preview;
-        return { audio, titre: rep.title_short || rep.title || perso.nom || '', debut: Math.max(0, Math.min(29, Number(perso.debut) || 0)) };
-      }catch(e){ return null; }
-    },
-    // Les titres les plus écoutés d'un artiste, avec leur extrait de 30 s (pour que l'équipe en choisisse un).
-    async titresArtiste(idDeezer){
-      const rep = await this.jsonp('https://api.deezer.com/artist/' + encodeURIComponent(idDeezer) + '/top?limit=25');
-      return (rep && Array.isArray(rep.data) ? rep.data : []).filter((t) => t && t.preview).map((t) => ({
-        id: t.id, titre: t.title_short || t.title || '', album: (t.album && t.album.title) || '',
-        cover: (t.album && (t.album.cover_small || t.album.cover)) || '', preview: t.preview
-      }));
-    },
-    // Lance l'extrait en fondu. Il dure 30 s : il reprend à son point de départ tant que la carte n'est pas passée
-    // (arreter le coupe en fondu).
-    // Un fichier audio envoyé par l'équipe (console Wave Cards → Sons).
-    fichier(url){
-      try{
-        const audio = new Audio();
-        audio.preload = 'auto';
-        audio.volume = 0;
-        audio.src = url;
-        return { audio, titre: '' };
-      }catch(e){ return null; }
-    },
-    lancer(pret, volume){
-      this.arreter(true);
-      if(!pret || !Son.actif()) return;
-      const a = pret.audio, depart = pret.debut || 0;
-      this.audio = a;
-      a.onended = () => { if(this.audio !== a) return; try{ a.currentTime = depart; a.play(); }catch(e){} };
-      const place = () => { try{ a.currentTime = depart; }catch(e){} };
-      if(depart > 0 && a.readyState < 1) a.addEventListener('loadedmetadata', place, { once: true });
-      else place();
-      const p = a.play();
-      if(p && p.catch) p.catch(() => { if(this.audio === a) this.audio = null; });
-      this.fondu(a, volume === undefined ? 0.85 : volume, 600);
-    },
-    fondu(a, vers, ms, apres){
-      const debut = a.volume, t0 = performance.now();
-      const pas = () => {
-        if(this.audio !== a && vers > 0) return;
-        const k = Math.min(1, (performance.now() - t0) / ms);
-        try{ a.volume = Math.max(0, Math.min(1, debut + (vers - debut) * k)); }catch(e){}
-        if(k < 1) requestAnimationFrame(pas); else if(apres) apres();
-      };
-      pas();
-    },
-    arreter(sec){
-      clearTimeout(this.minuterie);
-      const a = this.audio;
-      if(!a) return;
-      this.audio = null;
-      if(sec){ try{ a.pause(); }catch(e){} return; }
-      this.fondu(a, 0, 350, () => { try{ a.pause(); a.removeAttribute('src'); a.load(); }catch(e){} });
-    }
-  };
-
-  // ---------------------------------------------------------------------
-  // Le son de la carte Mythique, réglé par l'équipe (console Wave Cards → Sons ; sql/cartes-son-mythique.sql) :
-  // quel son, à quel instant par rapport au retournement de la carte, à quel volume, avec ou sans la montée.
-  // ---------------------------------------------------------------------
-
-  const SON_MYTHIQUE_DEFAUT = { son: 'fanfare', delai_ms: 0, volume: 80, montee: true, url: null };
-  const SONS_MYTHIQUE = ['fanfare', 'impact', 'cristal', 'artiste', 'fichier', 'aucun'];
-
-  const SonMythique = {
-    cfg: null,
-    attente: null,
-    valider(c){
-      const d = Object.assign({}, SON_MYTHIQUE_DEFAUT, c && typeof c === 'object' ? c : {});
-      if(SONS_MYTHIQUE.indexOf(d.son) < 0) d.son = 'fanfare';
-      d.delai_ms = Math.max(-2000, Math.min(4000, Math.round(Number(d.delai_ms) || 0)));
-      d.volume = Math.max(0, Math.min(100, Math.round(Number.isFinite(Number(d.volume)) ? Number(d.volume) : 80)));
-      d.montee = d.montee !== false;
-      d.url = safeUrl(d.url || '') || null;
-      if(d.son === 'fichier' && !d.url) d.son = 'fanfare';
-      return d;
-    },
-    // Lu une fois par session (et relu après un enregistrement de l'équipe) ; sans réponse, le réglage d'origine.
-    charger(){
-      if(!this.attente){
-        this.attente = appel('jeu_reglage_son_mythique')
-          .then((v) => (this.cfg = this.valider(v)))
-          .catch(() => (this.cfg = this.valider(null)));
-      }
-      return this.attente;
-    },
-    invalider(){ this.cfg = null; this.attente = null; },
-    // Prépare ce qui se télécharge (l'extrait de l'artiste, le fichier de l'équipe) ; rend une promesse.
-    preparer(cfg, c){
-      if(cfg.son === 'artiste' && c) return Extrait.preparer(c);
-      if(cfg.son === 'fichier' && cfg.url) return Promise.resolve(Extrait.fichier(cfg.url));
-      return Promise.resolve(null);
-    },
-    jouer(cfg, pret){
-      const vol = cfg.volume / 100;
-      if(vol <= 0) return;
-      if(cfg.son === 'fanfare') Son.jouer('r5', vol);
-      else if(cfg.son === 'impact') Son.jouer('impact', vol);
-      else if(cfg.son === 'cristal') Son.jouer('cristal', vol);
-      else if((cfg.son === 'artiste' || cfg.son === 'fichier' || cfg.son === 'titre') && pret) Extrait.lancer(pret, vol);
-    },
-    // Écoute depuis la console : la montée, puis le son à son instant (l'extrait d'un artiste n'a pas de carte ici).
-    apercu(c){
-      const d = this.valider(c);
-      Extrait.arreter(true);
-      const pret = d.son === 'fichier' ? Extrait.fichier(d.url) : null;
-      if(d.montee) Son.jouer('montee', d.volume / 100);
-      setTimeout(() => this.jouer(d, pret), Math.max(0, 1900 + 150 + d.delai_ms));
-      return d.son !== 'artiste';
     }
   };
 
@@ -2032,7 +1872,6 @@
       function fermer(rouvrir){
         if(fini) return;
         fini = true;
-        Extrait.arreter();
         retirerClip(true);
         fx.fin();
         document.removeEventListener('keydown', touche);
@@ -2152,32 +1991,19 @@
         const pos = centreDe(p);
         pied.innerHTML = '';
 
-        // Mythique : le son, son instant et son volume viennent des réglages de l'équipe (console Wave Cards → Sons).
-        let cfg = null, extrait = null, clip = null;
+        // Mythique : le clip YouTube de la carte (console → Cartes) joue derrière elle, avec son son ; sans clip, la fanfare.
+        let clip = null;
         if(r >= 5){
-          // Le morceau et le clip propres à cette carte (console → Cartes) passent avant le réglage général.
           const propre = c.classeur ? appel('jeu_son_carte', { p_booster: c.classeur, p_artiste: c.id }).catch(() => null) : Promise.resolve(null);
-          const [lu, perso] = await Promise.all([
-            SonMythique.cfg || Promise.race([SonMythique.charger(), attendre(350).then(() => SonMythique.valider(null))]),
-            Promise.race([propre, attendre(450).then(() => null)])
-          ]);
-          cfg = lu;
+          const perso = await Promise.race([propre, attendre(450).then(() => null)]);
           if(perso && perso.clip) clip = poserClip(perso);
-          // Le son du clip (le morceau en entier) remplace l'extrait de 30 s de Deezer.
-          if(clip && perso.clip_son){ cfg = Object.assign({}, cfg, { son: 'clip' }); extrait = Promise.resolve(null); }
-          else if(perso && perso.titre){ cfg = Object.assign({}, cfg, { son: 'titre' }); extrait = Extrait.titre(perso); }
-          else extrait = SonMythique.preparer(cfg, c);
           if(fini){ occupe = false; return; }
-          // Le retournement a lieu à 2,05 s (1,9 s de montée + 0,15 s de soulèvement) : le son part à cet instant + le délai.
-          const tFlip = calme() ? 10 : 2050;
+          // Le retournement a lieu à 2,05 s (1,9 s de montée + 0,15 s de soulèvement) : le son part à cet instant.
           setTimeout(() => {
             if(fini || courante !== i) return;
-            extrait.then((pret) => {
-              if(fini || courante !== i) return;
-              if(cfg.son === 'clip'){ if(clip && clip.parler && cfg.volume > 0) clip.parler(cfg.volume / 100); }
-              else SonMythique.jouer(cfg, pret);
-            });
-          }, Math.max(0, tFlip + cfg.delai_ms));
+            if(clip && clip.parler) clip.parler(.85);
+            else Son.jouer('r5');
+          }, calme() ? 10 : 2050);
         }
 
         if(r >= 5){
@@ -2190,7 +2016,7 @@
           // L'attente : la carte vibre, la lumière se rassemble.
           p.classList.add('charge');
           if(r < 5) Son.jouer('charge');
-          else if(cfg.montee) Son.jouer('montee', cfg.volume / 100);
+          else Son.jouer('montee');
           vibre(r >= 5 ? [15, 40, 15, 40, 15, 40, 30, 60, 60] : (r >= 4 ? [15, 40, 15, 40, 15] : 20));
           fx.aspire(pos.x, pos.y, RAR[r].c, r >= 5 ? 60 : (r >= 4 ? 42 : 24));
           if(r >= 5){
@@ -2261,7 +2087,6 @@
         phase = 'sort';
         const p = places[courante];
         const et = p.querySelector('.ct-etiq'); if(et) et.remove();
-        Extrait.arreter();
         retirerClip();
         ov.classList.remove('sombre');
         if(pile) pile.classList.remove('mythe');
@@ -2833,7 +2658,7 @@
 
   // L'interface que le jeu prête à ses modules (combat.js, marche.js, cartes-equipe.js).
   const api = {
-    appel, toast, fenetre, vibre, Son, SonMythique, SONS_MYTHIQUE, Extrait, ico, esc, nf, court, pluriel, numero, RAR, rar, couleurOk, safeUrl, theme, EMBLEMES,
+    appel, toast, fenetre, vibre, Son, ico, esc, nf, court, pluriel, numero, RAR, rar, couleurOk, safeUrl, theme, EMBLEMES,
     visuelOk, carteHtml, inclinable, fiche, poserEtat, majEntete, rafraichirEtat, duree, vin, gainsHtml, gainsTexte, changerVue, prendreCadeau,
     etat: () => S.etat,
     boosters: () => S.boosters || [],
