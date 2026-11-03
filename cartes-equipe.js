@@ -26,7 +26,8 @@
     boosters: [],
     col: null, form: null, orig: null,             // Collections : id en cours de modification (« + » = nouvelle)
     cid: null, cartes: [], filtre: '', rareteFiltre: null, sel: new Set(),   // Cartes
-    joueurQ: '', joueur: null, cacheCartes: {}     // Joueurs
+    joueurQ: '', joueur: null, cacheCartes: {},    // Joueurs
+    albums: [], albumQ: '', albumType: '', typesAlb: null   // Albums
   };
 
   // ---------------------------------------------------------------------
@@ -143,7 +144,7 @@
   // ---------------------------------------------------------------------
 
   const SECTIONS = [
-    ['ensemble', 'Vue d\'ensemble', 'ensemble'], ['collections', 'Collections', 'pack'], ['cartes', 'Cartes', 'cartes'],
+    ['ensemble', 'Vue d\'ensemble', 'ensemble'], ['collections', 'Collections', 'pack'], ['cartes', 'Cartes', 'cartes'], ['albums', 'Albums', 'image'],
     ['joueurs', 'Joueurs', 'joueurs'], ['combat', 'Combat', null], ['marche', 'Marché', null], ['quotidien', 'Quotidien', null]
   ];
 
@@ -173,6 +174,7 @@
       if(E.section === 'ensemble') await sEnsemble();
       else if(E.section === 'collections') await sCollections();
       else if(E.section === 'cartes') await sCartes();
+      else if(E.section === 'albums') await sAlbums();
       else if(E.section === 'joueurs') await sJoueurs();
       else if(E.section === 'combat') await sModule('combat', 'WaveCombat', 'Combat', 'Types, statistiques et attaques des cartes.');
       else if(E.section === 'quotidien') await sModule('accueil', 'WaveAccueil', 'Quotidien', 'Événements à durée limitée et nouveautés du jeu.');
@@ -246,6 +248,9 @@
     'carte-sel-rarete': (el) => changerRarete([...E.sel], Number(el.dataset.r)),
     'carte-sel-retirer': () => retirerCartes([...E.sel]),
     'carte-sel-vider': () => { E.sel.clear(); dessinerCartes(); },
+    // Albums
+    'album-ajouter': () => ajouterAlbum(),
+    'album-ouvrir': (el) => editerAlbum(E.albums.find((a) => a.id === el.dataset.id)),
     // Joueurs
     'joueur-ouvrir': (el) => ouvrirJoueur(el.dataset.id),
     'joueur-retour': () => { E.joueur = null; return sJoueurs(); },
@@ -264,6 +269,8 @@
     'carte-filtre': (el) => { E.filtre = el.value; dessinerListe(); },
     'carte-tri': (el) => { const v = el.value; el.value = ''; if(v) trierCartes(v); },
     'carte-cible': (el) => { E.cid = el.value; E.sel.clear(); E.filtre = ''; E.rareteFiltre = null; return sCartes(); },
+    'album-q': debounce((el) => { E.albumQ = el.value; listerAlbums(); }, 250),
+    'album-filtre-type': (el) => { E.albumType = el.value; listerAlbums(); },
     'joueur-q': debounce((el) => { E.joueurQ = el.value; listerJoueurs(); }, 250),
     'joueur-col': (el) => chargerArtistesOffre(el.value)
   };
@@ -1165,6 +1172,263 @@
     });
   }
 
+  // ---------------------------------------------------------------------
+  // Albums : une carte = un artiste + un de ses projets (type, titres, attaques)
+  // ---------------------------------------------------------------------
+
+  const coul = (c) => api.couleurOk(c || '#9aa4b2');
+  const pastille = (t) => t && t.type_nom
+    ? `<span class="ee-type" style="--tc:${coul(t.couleur)}">${esc(t.type_nom)}</span>`
+    : '<span class="ee-type sans">Sans type</span>';
+  const duree = (n) => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+  const moisAnnee = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '';
+
+  async function typesAlbums(force){
+    if(!E.typesAlb || force) E.typesAlb = (await api.appel('combat_types_tableau')).types;
+    return E.typesAlb;
+  }
+
+  async function sAlbums(){
+    const types = await typesAlbums(true);
+    E.main.innerHTML = `
+      ${tete('Albums', 'Une carte = un artiste + un de ses projets. Son type vient de sa cover, ses attaques sont des titres du projet.', '<button type="button" class="ct-btn principal" data-act="album-ajouter">Ajouter un album</button>')}
+      <div class="ee-barre-outils">
+        <label class="ee-recherche">${api.ico('loupe', 16)}<input type="search" data-in="album-q" value="${esc(E.albumQ)}" placeholder="Artiste ou album" aria-label="Chercher une carte d'album" autocomplete="off"></label>
+        <label class="ee-champ ee-cible"><span class="sr">Type</span><select data-in="album-filtre-type" aria-label="Filtrer par type"><option value="">Tous les types</option><option value="-"${E.albumType === '-' ? ' selected' : ''}>Sans type</option>${types.map((t) => `<option value="${esc(t.id)}"${E.albumType === t.id ? ' selected' : ''}>${esc(t.nom)}</option>`).join('')}</select></label>
+      </div>
+      <p class="ee-aide" data-album-info></p>
+      <div data-albums-liste></div>`;
+    await listerAlbums();
+  }
+
+  async function listerAlbums(){
+    const zone = $('[data-albums-liste]');
+    if(!zone) return;
+    const r = await rpc('jeu_equipe_albums_lire', { p_q: E.albumQ.trim() || null, p_type: E.albumType || null });
+    E.albums = r.cartes;
+    const info = $('[data-album-info]');
+    if(info) info.textContent = r.total + ' carte' + (r.total > 1 ? 's' : '') + ' d\'album' + (r.sans_type ? ' · ' + r.sans_type + ' sans type' : '');
+    zone.innerHTML = r.cartes.length
+      ? `<div class="ee-alb-grille">${r.cartes.map((c) => {
+          const noms = (c.attaques || []).map((id) => (c.titres.find((t) => t.id === id) || {}).titre).filter(Boolean);
+          return `<button type="button" class="ee-alb${c.actif ? '' : ' off'}" data-act="album-ouvrir" data-id="${esc(c.id)}">
+            <span class="ee-alb-cover"><img src="${esc(api.safeUrl(c.cover))}" alt="" loading="lazy"><img class="ee-alb-art" src="${esc(api.safeUrl(c.photo))}" alt="" loading="lazy"></span>
+            <span class="ee-alb-txt"><b>${esc(c.album)}</b><small>${esc(c.artiste)} · ${esc(moisAnnee(c.date))}</small>${pastille(c)}
+              <small class="ee-alb-att">${noms.length ? esc(noms.join(' · ')) : 'Aucune attaque'}</small></span>
+          </button>`;
+        }).join('')}</div>`
+      : vide(E.albumQ || E.albumType ? 'Aucune carte' : 'Pas encore de carte d\'album', E.albumQ || E.albumType ? 'Change ta recherche.' : 'Clique sur « Ajouter un album » pour créer la première.');
+  }
+
+  // La couleur dominante d'une cover, puis les types classés du plus proche au plus éloigné (couleur du type).
+  const versLab = (r, g, b) => {
+    const f = (v) => { v /= 255; return v > .04045 ? Math.pow((v + .055) / 1.055, 2.4) : v / 12.92; };
+    const R = f(r), G = f(g), B = f(b);
+    const X = (R * .4124 + G * .3576 + B * .1805) / .95047, Y = R * .2126 + G * .7152 + B * .0722, Z = (R * .0193 + G * .1192 + B * .9505) / 1.08883;
+    const h = (t) => t > .008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+    return [116 * h(Y) - 16, 500 * (h(X) - h(Y)), 200 * (h(Y) - h(Z))];
+  };
+  const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : [150, 160, 175]; };
+
+  function couleurDominante(url){
+    return new Promise((fin) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try{
+          const N = 48, c = document.createElement('canvas');
+          c.width = c.height = N;
+          const g = c.getContext('2d', { willReadFrequently: true });
+          g.drawImage(img, 0, 0, N, N);
+          const d = g.getImageData(0, 0, N, N).data;
+          const bacs = Array.from({ length: 12 }, () => ({ w: 0, r: 0, g: 0, b: 0 }));
+          let tr = 0, tg = 0, tb = 0, colore = 0;
+          for(let i = 0; i < d.length; i += 4){
+            const r = d[i], gg = d[i + 1], b = d[i + 2];
+            tr += r; tg += gg; tb += b;
+            const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), sat = mx ? (mx - mn) / mx : 0;
+            if(sat < .28 || mx < 60) continue;
+            colore++;
+            let h = mx === r ? ((gg - b) / (mx - mn)) % 6 : mx === gg ? (b - r) / (mx - mn) + 2 : (r - gg) / (mx - mn) + 4;
+            h = (h * 60 + 360) % 360;
+            const k = Math.floor(h / 30), w = sat * mx / 255;
+            bacs[k].w += w; bacs[k].r += r * w; bacs[k].g += gg * w; bacs[k].b += b * w;
+          }
+          const n = d.length / 4;
+          if(colore < n * .22){ fin([tr / n, tg / n, tb / n, true]); return; }
+          const top = bacs.reduce((a, x) => x.w > a.w ? x : a, bacs[0]);
+          fin([top.r / top.w, top.g / top.w, top.b / top.w]);
+        }catch(e){ fin(null); }
+      };
+      img.onerror = () => fin(null);
+      img.src = url;
+    });
+  }
+
+  async function typesSuggeres(cover){
+    const types = await typesAlbums();
+    const rgb = await couleurDominante(cover);
+    if(!rgb) return { types, suggere: null };
+    const lab = versLab(...rgb);
+    const dist = (t) => { const l = versLab(...hexRgb(t.couleur)); return Math.hypot(l[0] - lab[0], l[1] - lab[1], l[2] - lab[2]); };
+    const classes = types.slice().sort((a, b) => dist(a) - dist(b));
+    // Une cover sombre et sans couleur : le type « Ténèbres » d'abord s'il existe.
+    const sombre = types.find((t) => t.id === 'tenebres');
+    if(rgb[3] && lab[0] < 35 && sombre) classes.splice(0, 0, ...classes.splice(classes.indexOf(sombre), 1));
+    return { types: classes, suggere: classes[0].id };
+  }
+
+  const chipsTypes = (types, choisi, suggere) => `<div class="ee-types" role="radiogroup" aria-label="Type de la carte">
+    ${types.map((t) => `<button type="button" role="radio" aria-checked="${t.id === choisi}" class="ee-type-choix${t.id === choisi ? ' actif' : ''}" data-t="${esc(t.id)}" style="--tc:${coul(t.couleur)}">${esc(t.nom)}${t.id === suggere ? '<i>suggéré</i>' : ''}</button>`).join('')}
+    <button type="button" role="radio" aria-checked="${!choisi}" class="ee-type-choix aucun${!choisi ? ' actif' : ''}" data-t="">Aucun</button></div>`;
+
+  // Ajouter un album : l'artiste, puis son projet, puis le type (suggéré d'après la cover) ; la carte est créée avec ses titres.
+  function ajouterAlbum(){
+    const etat = { etape: 'artiste', q: '', artistes: [], artiste: null, projets: [], singles: false, projet: null, types: [], suggere: null, type: '' };
+    const f = api.fenetre('<div data-zone></div>', true);
+    const zone = $('[data-zone]', f.corps);
+
+    async function chercher(){
+      etat.artistes = await rpc('jeu_equipe_albums_artistes', { p_q: etat.q.trim() || null });
+      dessiner();
+    }
+    async function ouvrirArtiste(a){
+      etat.artiste = a;
+      etat.projets = await rpc('jeu_equipe_albums_projets', { p_artist: a.artist_id, p_singles: etat.singles });
+      etat.etape = 'projets';
+      dessiner();
+    }
+    async function choisirProjet(p){
+      etat.projet = p;
+      etat.etape = 'type';
+      zone.innerHTML = '<p class="sous">Lecture de la cover…</p>';
+      const r = await typesSuggeres(p.cover);
+      etat.types = r.types; etat.suggere = r.suggere; etat.type = r.suggere || '';
+      dessiner();
+    }
+
+    function dessiner(){
+      if(etat.etape === 'artiste'){
+        zone.innerHTML = `
+          <h2>Ajouter un album</h2>
+          <p class="sous">Cherche l'artiste, puis choisis son projet.</p>
+          <label class="ee-recherche">${api.ico('loupe', 16)}<input type="search" data-q value="${esc(etat.q)}" placeholder="Nom d'un artiste" aria-label="Nom d'un artiste" autocomplete="off"></label>
+          <div class="ee-resultats">${etat.artistes.length ? etat.artistes.map((a, i) => `
+            <div class="ee-res"><img class="ee-photo" src="${esc(api.safeUrl(a.photo))}" alt="" loading="lazy">
+              <div class="ee-nom"><b>${esc(a.nom)}</b><small>${a.projets} projet${a.projets > 1 ? 's' : ''} · ${a.cartes} carte${a.cartes > 1 ? 's' : ''} d'album</small></div>
+              <button type="button" class="ct-btn petit principal" data-art="${i}">Choisir</button></div>`).join('') : '<p class="ee-aide">Aucun artiste.</p>'}</div>`;
+        const q = $('[data-q]', zone);
+        q.focus(); q.setSelectionRange(q.value.length, q.value.length);
+        q.addEventListener('input', debounce(() => { etat.q = q.value; chercher(); }, 250));
+        $$('[data-art]', zone).forEach((b) => b.addEventListener('click', () => ouvrirArtiste(etat.artistes[Number(b.dataset.art)])));
+      }else if(etat.etape === 'projets'){
+        zone.innerHTML = `
+          <h2>${esc(etat.artiste.nom)}</h2>
+          <p class="sous">Choisis le projet de la carte.</p>
+          <div class="ee-barre-outils"><button type="button" class="ct-btn petit" data-retour>Changer d'artiste</button>
+            <label class="ee-case"><input type="checkbox" data-singles${etat.singles ? ' checked' : ''}> Montrer aussi les singles</label></div>
+          ${etat.projets.length ? `<div class="ee-alb-grille compact">${etat.projets.map((p, i) => `
+            <button type="button" class="ee-alb" data-proj="${i}"${p.carte ? ' disabled' : ''}>
+              <span class="ee-alb-cover"><img src="${esc(api.safeUrl(p.cover))}" alt="" loading="lazy"></span>
+              <span class="ee-alb-txt"><b>${esc(p.titre)}</b><small>${esc(p.sortie)} · ${esc(moisAnnee(p.date))}</small>${p.carte ? '<span class="ee-puce">Déjà une carte</span>' : ''}</span></button>`).join('')}</div>`
+            : '<p class="ee-aide">Aucun projet avec des titres sur Deezer pour cet artiste.</p>'}`;
+        $('[data-retour]', zone).addEventListener('click', () => { etat.etape = 'artiste'; dessiner(); });
+        $('[data-singles]', zone).addEventListener('change', (ev) => { etat.singles = ev.target.checked; ouvrirArtiste(etat.artiste); });
+        $$('[data-proj]', zone).forEach((b) => b.addEventListener('click', () => choisirProjet(etat.projets[Number(b.dataset.proj)])));
+      }else{
+        const p = etat.projet;
+        zone.innerHTML = `
+          <h2>Quel type pour cette carte ?</h2>
+          <div class="ee-alb-choix">
+            <img src="${esc(api.safeUrl(p.cover))}" alt="">
+            <div><b>${esc(p.titre)}</b><small>${esc(etat.artiste.nom)} · ${esc(moisAnnee(p.date))}</small>
+              <p class="ee-aide">${etat.suggere ? 'Le type proposé est celui dont la couleur est la plus proche de la cover. Change-le si besoin.' : 'La cover n\'a pas pu être lue : choisis le type à la main.'}</p></div></div>
+          ${chipsTypes(etat.types, etat.type, etat.suggere)}
+          <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-retour>Retour</button><button type="button" class="ct-btn principal" data-creer>Créer la carte</button></div>`;
+        $$('.ee-type-choix', zone).forEach((b) => b.addEventListener('click', () => { etat.type = b.dataset.t; $$('.ee-type-choix', zone).forEach((x) => { x.classList.toggle('actif', x === b); x.setAttribute('aria-checked', String(x === b)); }); }));
+        $('[data-retour]', zone).addEventListener('click', () => { etat.etape = 'projets'; dessiner(); });
+        const creer = $('[data-creer]', zone);
+        creer.addEventListener('click', async () => {
+          creer.disabled = true; creer.textContent = 'Lecture des titres…';
+          try{
+            const c = await rpc('jeu_equipe_album_ajouter', { p_release: p.release, p_type: etat.type || null });
+            etat.cree = true;
+            api.toast('Carte créée avec ' + c.nb_titres + ' titres.');
+            f.fermer();
+            await sAlbums();
+            editerAlbum(c);
+          }catch(e){ creer.disabled = false; creer.textContent = 'Créer la carte'; }
+        });
+      }
+    }
+    chercher();
+  }
+
+  // Régler une carte d'album : son type et ses attaques (de 1 à 3 titres du projet, dans l'ordre choisi).
+  async function editerAlbum(c){
+    if(!c) return;
+    const types = await typesAlbums();
+    const etat = { type: c.type || '', att: (c.attaques || []).slice(), titres: c.titres, actif: c.actif };
+    const rangMax = Math.max(1, ...c.titres.map((t) => t.rang || 0));
+    const f = api.fenetre('<div data-ed></div>', true);
+    const ed = $('[data-ed]', f.corps);
+
+    function dessiner(){
+      ed.innerHTML = `
+        <div class="ee-alb-choix">
+          <img src="${esc(api.safeUrl(c.cover))}" alt="">
+          <div><h2 style="margin:0">${esc(c.album)}</h2><small>${esc(c.artiste)} · ${esc(moisAnnee(c.date))} · ${etat.titres.length} titres</small>
+            <div style="margin-top:8px"><button type="button" class="ct-btn petit" data-relire>Relire les titres sur Deezer</button></div></div></div>
+        <h3 class="ee-alb-h">Type</h3>
+        ${chipsTypes(types, etat.type, null)}
+        <h3 class="ee-alb-h">Attaques <small>${etat.att.length}/3 · les titres choisis, dans l'ordre : le 1er est l'attaque de base</small></h3>
+        <div class="ee-titres">${etat.titres.map((t) => {
+          const k = etat.att.indexOf(t.id);
+          return `<button type="button" class="ee-titre${k >= 0 ? ' actif' : ''}" data-tid="${t.id}" aria-pressed="${k >= 0}">
+            <span class="ee-titre-n">${k >= 0 ? k + 1 : ''}</span><span class="ee-titre-nom">${esc(t.titre)}</span>
+            <span class="ee-titre-barre" title="Popularité sur Deezer"><i style="width:${Math.round((t.rang || 0) / rangMax * 100)}%"></i></span><small>${duree(t.duree || 0)}</small></button>`;
+        }).join('')}</div>
+        <div class="ee-barre-save" style="margin-top:18px; justify-content:space-between">
+          <button type="button" class="ct-btn petit" data-retirer>Retirer la carte</button>
+          <span style="display:flex; gap:10px"><label class="ee-case"><input type="checkbox" data-actif${etat.actif ? ' checked' : ''}> Active</label>
+            <button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-ok${etat.att.length ? '' : ' disabled'}>Enregistrer</button></span></div>`;
+      $$('.ee-type-choix', ed).forEach((b) => b.addEventListener('click', () => { etat.type = b.dataset.t; dessiner(); }));
+      $$('.ee-titre', ed).forEach((b) => b.addEventListener('click', () => {
+        const id = Number(b.dataset.tid), k = etat.att.indexOf(id);
+        if(k >= 0) etat.att.splice(k, 1);
+        else if(etat.att.length < 3) etat.att.push(id);
+        else{ api.toast('3 attaques au maximum : retire-en une d\'abord.', 'err'); return; }
+        dessiner();
+      }));
+      $('[data-actif]', ed).addEventListener('change', (ev) => { etat.actif = ev.target.checked; });
+      $('[data-non]', ed).addEventListener('click', f.fermer);
+      $('[data-relire]', ed).addEventListener('click', async (ev) => {
+        ev.target.disabled = true; ev.target.textContent = 'Lecture…';
+        try{
+          const r = await rpc('jeu_equipe_album_titres', { p_id: c.id });
+          Object.assign(c, r); etat.titres = r.titres; etat.att = (r.attaques || []).slice();
+          api.toast('Titres relus : ' + r.nb_titres + '.');
+        }catch(e){ /* déjà affichée */ }
+        dessiner();
+      });
+      $('[data-retirer]', ed).addEventListener('click', async () => {
+        if(!(await confirmer('Retirer cette carte ?', `La carte « ${esc(c.album)} » de ${esc(c.artiste)} sera supprimée.`, 'Retirer'))) return;
+        await rpc('jeu_equipe_album_retirer', { p_id: c.id });
+        api.toast('Carte retirée.');
+        f.fermer(); listerAlbums();
+      });
+      $('[data-ok]', ed).addEventListener('click', async (ev) => {
+        ev.target.disabled = true;
+        try{
+          await rpc('jeu_equipe_album_regler', { p_id: c.id, p_champs: { type: etat.type || null, attaques: etat.att, actif: etat.actif } });
+          api.toast('Carte enregistrée.');
+          f.fermer(); listerAlbums();
+        }catch(e){ ev.target.disabled = false; }
+      });
+    }
+    dessiner();
+  }
+
   async function sModule(nom, global, titre, texte){
     E.main.innerHTML = tete(titre, texte) + '<div data-module><div class="ct-vide">Chargement…</div></div>';
     const z = $('[data-module]');
@@ -1456,6 +1720,46 @@
   .ee-son-legende{display:flex; justify-content:space-between; gap:8px; font-size:12px; color:var(--muted);}
   .ee-son-barre{display:flex; flex-wrap:wrap; align-items:center; gap:10px; justify-content:flex-end;}
   .ee-son-barre .ee-etat{margin-right:auto;}
+  .ee-alb-grille{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px; margin-top:6px;}
+  .ee-alb-grille.compact{grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));}
+  .ee-alb{appearance:none; font:inherit; color:inherit; text-align:left; cursor:pointer; display:flex; gap:12px; padding:10px; border-radius:16px; border:1px solid var(--ct-trait); background:var(--ct-surface);}
+  .ee-alb:hover:not(:disabled){border-color:var(--ct-trait-fort); background:rgba(255,255,255,.05);}
+  .ee-alb:disabled{opacity:.5; cursor:default;}
+  .ee-alb.off{opacity:.55;}
+  .ee-alb-cover{position:relative; flex:none; width:84px; height:84px;}
+  .ee-alb-cover > img:first-child{width:100%; height:100%; border-radius:10px; object-fit:cover; display:block; background:#0a1018;}
+  .ee-alb-art{position:absolute; right:-6px; bottom:-6px; width:34px; height:34px; border-radius:50%; object-fit:cover; object-position:50% 22%; border:2px solid #0b0f16; background:#0a1018;}
+  .ee-alb-grille.compact .ee-alb{flex-direction:column;}
+  .ee-alb-grille.compact .ee-alb-cover{width:100%; height:auto; aspect-ratio:1;}
+  .ee-alb-txt{display:grid; gap:4px; align-content:start; min-width:0;}
+  .ee-alb-txt b{font-size:14px; line-height:1.25; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+  .ee-alb-txt small{font-size:12px; color:var(--muted);}
+  .ee-alb-att{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .ee-type{display:inline-flex; align-items:center; width:fit-content; height:20px; padding:0 9px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#06090e; background:var(--tc, #9aa4b2);}
+  .ee-type.sans{color:#ffb86b; background:rgba(255,184,107,.14);}
+  .ee-alb-choix{display:flex; gap:16px; align-items:center; margin:8px 0 14px;}
+  .ee-alb-choix img{width:104px; height:104px; border-radius:14px; object-fit:cover; flex:none; background:#0a1018;}
+  .ee-alb-choix small{display:block; color:var(--muted); margin-top:3px;}
+  .ee-alb-h{margin:18px 0 8px; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft);}
+  .ee-alb-h small{text-transform:none; letter-spacing:0; font-weight:500; color:var(--muted); margin-left:6px;}
+  .ee-types{display:flex; flex-wrap:wrap; gap:8px;}
+  .ee-type-choix{appearance:none; font:inherit; cursor:pointer; display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 14px; border-radius:99px; font-size:13px; font-weight:700; color:var(--ink); border:2px solid transparent; background:rgba(255,255,255,.06);}
+  .ee-type-choix::before{content:''; width:10px; height:10px; border-radius:50%; background:var(--tc, #9aa4b2);}
+  .ee-type-choix.aucun::before{display:none;}
+  .ee-type-choix.actif{border-color:var(--tc, #F4F5F6); background:rgba(255,255,255,.1);}
+  .ee-type-choix i{font-style:normal; font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:#06090e; background:var(--tc, #9aa4b2); padding:2px 6px; border-radius:6px;}
+  .ee-titres{display:grid; gap:6px; align-content:start; grid-auto-rows:min-content; max-height:46vh; overflow-y:auto; padding-right:4px;}
+  .ee-titre{appearance:none; font:inherit; text-transform:none; letter-spacing:0; color:inherit; text-align:left; cursor:pointer; display:grid; grid-template-columns:26px minmax(0, 1fr) 90px 38px; gap:12px; align-items:center; padding:9px 12px; border-radius:12px; border:1px solid var(--ct-trait); background:var(--ct-surface);}
+  .ee-titre:hover{border-color:var(--ct-trait-fort);}
+  .ee-titre.actif{border-color:#4FB4FF; background:rgba(79,180,255,.1);}
+  .ee-titre-n{display:grid; place-items:center; width:24px; height:24px; border-radius:50%; font-size:12px; font-weight:800; color:#05070a; background:transparent; box-shadow:inset 0 0 0 1.5px var(--ct-trait-fort);}
+  .ee-titre.actif .ee-titre-n{background:#4FB4FF; box-shadow:none;}
+  .ee-titre-nom{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px;}
+  .ee-titre-barre{height:6px; border-radius:4px; background:rgba(255,255,255,.08); overflow:hidden;}
+  .ee-titre-barre i{display:block; height:100%; background:linear-gradient(90deg, #4FB4FF, #FF5C8A);}
+  .ee-titre small{font-size:12px; color:var(--muted); text-align:right; font-variant-numeric:tabular-nums;}
+  .ee-case{display:inline-flex; align-items:center; gap:8px; font-size:13.5px; color:var(--ink-soft); cursor:pointer;}
+  @media (max-width:520px){ .ee-titre{grid-template-columns:26px minmax(0, 1fr) 38px;} .ee-titre-barre{display:none;} .ee-alb-choix img{width:80px; height:80px;} }
   @media (max-width:860px){
     .ee{grid-template-columns:1fr; gap:16px; padding-bottom:110px;}
     .ee-nav{position:static; flex-direction:row; flex-wrap:wrap; gap:6px; padding-bottom:4px;}
