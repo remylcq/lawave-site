@@ -604,7 +604,7 @@
     const aff = (liste) => liste && liste.length ? liste.map((t) => `<span class="cb-type" style="--tc:${couleur(t.couleur)}">${esc(t.nom)} ${mu(t.mult)}</span>`).join('') : '<span>aucun</span>';
     const techs = c.techniques || c.techs || [];
     return `<div class="cb-fiche" style="--tc:${couleur(c.couleur)}">
-      <div class="cb-fiche-t"><div class="cb-roles">${chip(c.type_nom, c.couleur)}${roleChip(c.role_nom)}</div><div class="cb-pvgros"><small>PV</small>${nf(c.pv_max || c.pv)}</div></div>
+      <div class="cb-fiche-t"><div class="cb-roles">${chip(c.type_nom, c.couleur)}${roleChip(c.role_nom)}${c.iv_pct != null ? `<span class="cb-type neutre" title="Les IV de ton meilleur exemplaire">IV ${esc(String(c.iv_pct).replace('.', ','))} %</span>` : ''}</div><div class="cb-pvgros"><small>PV</small>${nf(c.pv_max || c.pv)}</div></div>
       ${c.role_resume ? `<p class="cb-cit" style="font-style:normal">${esc(c.role_resume)}</p>` : ''}
       <div class="cb-stats">${['pui', 'def', 'vit'].map((k) => `<div class="cb-st"><span>${LIB[k]}</span><b>${nf(c[k])}</b><i style="--w:${pct(c[k], mx[k])}%"></i></div>`).join('')}</div>
       <div class="cb-atts">${techs.map(techHtml).join('')}</div>
@@ -2173,6 +2173,6 @@
   }
 
 
-  window.WaveCombat = { monter, quitter, fiche, equipe, equipeCarte, lancerCombat, equipeModal, modes: { enregistrer, liste: () => S.modes.slice() }, equipeVues: { enregistrer: enregistrerVueEquipe } };
+  window.WaveCombat = { monter, quitter, fiche, types: (api, choix) => { init(api); return expliquerType(choix); }, equipe, equipeCarte, lancerCombat, equipeModal, modes: { enregistrer, liste: () => S.modes.slice() }, equipeVues: { enregistrer: enregistrerVueEquipe } };
 
 })();
