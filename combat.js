@@ -8,14 +8,14 @@
    LE COMBAT EN BREF
      2 cartes contre 2 cartes. Chaque carte remplit une jauge selon sa Vitesse et joue quand elle est pleine. Elle a un RÔLE
      (Lyriciste, Pilier, Beatmaker, Hype man, Clasheur, Briseur), 3 TECHNIQUES (la 1re toujours prête, les 2 autres avec un temps
-     de recharge) et, en Légendaire / Mythique, un PASSIF. Styles : ▲ super efficace (×1,5), ▼ peu efficace (×0,67).
+     de recharge) et, en Légendaire / Mythique, un PASSIF. Types : ▲ super efficace (×1,5), ▼ peu efficace (×0,67).
      Statuts avec durée : Puissance / Défense / Vitesse ±, étourdi, gel, brûlure, poison, régénération, marque, provocation, bouclier.
 
    L'API PUBLIQUE (window.WaveCombat)
      monter(hote, api)             l'onglet : mon rang, le HUB EN TUILES des modes, le classement, l'historique
      quitter()                     ferme l'écran de combat (le combat reste en cours côté serveur)
      fiche(el, api, opts)          la fiche de combat d'une carte (collection)
-     equipe(hote, api)             la console de l'équipe (réglages : cartes, styles, techniques, passifs, Arène, test)
+     equipe(hote, api)             la console de l'équipe (réglages : cartes, types, techniques, passifs, Arène, test)
      equipeCarte(hote, api, id)    l'éditeur compact des réglages d'UNE carte
 
    POUR AJOUTER UN MODE DE COMBAT (autres modules)
@@ -715,10 +715,10 @@
 
     // --- Le défi du jour ---
     enregistrer({ id: 'defi', titre: 'Défi du jour', groupe: 'jeu', icone: 'cible',
-      resume: (a) => a.defi.fait ? 'Relevé aujourd\'hui · reviens demain' : `Style ${a.defi.type_nom} · +${a.defi.recompense} vinyles`,
+      resume: (a) => a.defi.fait ? 'Relevé aujourd\'hui · reviens demain' : `Type ${a.defi.type_nom} · +${a.defi.recompense} vinyles`,
       ouvrir(hote, api){
         const d = api.acc().defi;
-        hote.innerHTML = `${entete('Défi du jour', `Aujourd'hui, le style <b>${esc(d.type_nom)}</b> est à l'honneur : ${d.crew.map((c) => esc(c.nom)).join(' &amp; ')}.`)}
+        hote.innerHTML = `${entete('Défi du jour', `Aujourd'hui, le type <b>${esc(d.type_nom)}</b> est à l'honneur : ${d.crew.map((c) => esc(c.nom)).join(' &amp; ')}.`)}
           <section class="ct-panneau" style="--tc:${couleur(d.couleur)}">
             <div class="cb-bloc-duo"><div class="cb-duo">${d.crew.map(slotHtml).join('')}</div>
               <div class="cb-actions">${chip(d.type_nom, d.couleur)}
@@ -882,7 +882,7 @@
         <input type="search" placeholder="Chercher un artiste" data-q aria-label="Chercher un artiste">
         <select data-tri aria-label="Trier"><option value="rarete">Rareté</option>${advTypes.length ? '<option value="efficacite">Avantage de style</option>' : ''}<option value="pv">PV</option><option value="pui">Puissance</option><option value="def">Défense</option><option value="vit">Vitesse</option><option value="nom">Nom (A–Z)</option></select>
       </div>
-      <div class="cb-filtres" role="group" aria-label="Style">${types.map((t) => `<button type="button" data-t="${esc(t.id)}" style="--tc:${couleur(t.c)}" aria-pressed="false">${esc(t.nom)}</button>`).join('')}</div>
+      <div class="cb-filtres" role="group" aria-label="Type">${types.map((t) => `<button type="button" data-t="${esc(t.id)}" style="--tc:${couleur(t.c)}" aria-pressed="false">${esc(t.nom)}</button>`).join('')}</div>
       <div class="cb-filtres" role="group" aria-label="Rôle">${roles.map((t) => `<button type="button" data-r="${esc(t.id)}" aria-pressed="false">${esc(t.nom)}</button>`).join('')}</div>
       <div class="cb-grille" data-grille></div>
       ${o.sansOptions ? '' : `<div class="cb-eq-options">
@@ -1629,7 +1629,7 @@
   const TUTO = [
     ['La jauge de tour', 'Chaque carte remplit sa jauge selon sa Vitesse. Quand elle est pleine, elle joue. La frise « À venir » en haut montre qui joue ensuite.', 'JAUGE ▮▮▮▮▯'],
     ['Trois techniques', 'La première est toujours prête. Les deux autres demandent quelques tours de recharge après usage. Touche une technique, puis un adversaire ; ou touche un adversaire avant pour présélectionner ta cible.', '1 · 2 · 3'],
-    ['Styles et rôles', '▲ super efficace (×1,5) ou ▼ peu efficace (×0,67) selon les styles. Chaque carte a un rôle : Lyriciste, Pilier, Beatmaker, Hype man, Clasheur ou Briseur.', '▲ ×1,5   ▼ ×0,67'],
+    ['Types et rôles', '▲ super efficace (×1,5) ou ▼ peu efficace (×0,67) selon les types. Chaque carte a un rôle : Lyriciste, Pilier, Beatmaker, Hype man, Clasheur ou Briseur.', '▲ ×1,5   ▼ ×0,67'],
     ['Auto, ×2, Passer', 'AUTO joue à ta place, ×2 accélère les animations, « Passer » saute ton tour. Appui long sur une carte (ou touche I) : sa fiche complète.', 'AUTO · ×2']
   ];
 
@@ -1786,7 +1786,7 @@
         <div><h2 style="margin:0">${esc(c.nom)}</h2><p class="sous" style="margin:2px 0 0">${nf(c.fans)} fans · ${c.boosters.map((b) => esc(b.nom) + ' (' + esc(A.rar(b.rarete).nom) + ')').join(', ') || 'dans aucun booster'}</p></div></div>
       <p class="sous" style="margin-top:10px">Laisse un champ vide pour la valeur par défaut. Les stats saisies sont des <b>stats de base</b> (le rôle n'y ajoute rien) : le multiplicateur de rareté du booster et le bonus holo s'y ajoutent. Le passif n'est donné par défaut qu'aux Légendaires et Mythiques.</p>
       <div class="cb-form">
-        <label>Style<select class="cb-champ-eq" data-k="type"><option value="">Par défaut (${esc(d.type_nom)})</option>${cat.types.map((t) => OPT(t.id, t.nom, sur.type)).join('')}</select></label>
+        <label>Type<select class="cb-champ-eq" data-k="type"><option value="">Par défaut (${esc(d.type_nom)})</option>${cat.types.map((t) => OPT(t.id, t.nom, sur.type)).join('')}</select></label>
         <label>Rôle<select class="cb-champ-eq" data-k="role"><option value="">Par défaut (${esc(d.role_nom)})</option>${cat.roles.map((r) => OPT(r.id, r.nom, sur.role)).join('')}</select></label>
         ${['pv', 'pui', 'def', 'vit'].map((k) => `<label>${LIB[k]} de base<input class="cb-champ-eq" type="number" min="${k === 'pv' ? 20 : 10}" max="${k === 'pv' ? 400 : 300}" data-k="${k}" value="${sur[k] !== undefined ? sur[k] : ''}" placeholder="${d.base[k]}"><small>Par défaut : ${d.base[k]}</small></label>`).join('')}
         <label>Technique 1 (base)<select class="cb-champ-eq" data-k="tech1">${optsTech(1, 'tech1', d.techniques[0].id)}</select></label>
@@ -1844,7 +1844,7 @@
         <label>Nom<input class="cb-champ-eq" data-k="nom" value="${esc(a.nom)}"></label>
         <label>Rôle<select class="cb-champ-eq" data-k="role">${cat.roles.map((r) => OPT(r.id, r.nom, a.role)).join('')}</select></label>
         <label>Emplacement<select class="cb-champ-eq" data-k="slot">${OPT(1, '1 · base (toujours prête)', a.slot)}${OPT(2, '2 · spéciale', a.slot)}${OPT(3, '3 · ultime', a.slot)}</select></label>
-        <label>Style<select class="cb-champ-eq" data-k="type"><option value="">Celui de la carte</option>${cat.types.map((t) => OPT(t.id, t.nom, a.type)).join('')}</select><small>Vide : suit le style de la carte (bonus de même style).</small></label>
+        <label>Type<select class="cb-champ-eq" data-k="type"><option value="">Celui de la carte</option>${cat.types.map((t) => OPT(t.id, t.nom, a.type)).join('')}</select><small>Vide : suit le type de la carte (bonus de même type).</small></label>
         <label>Puissance (0 = soutien)<input class="cb-champ-eq" type="number" min="0" max="250" data-k="puissance" value="${a.puissance}"></label>
         <label>Coups<input class="cb-champ-eq" type="number" min="1" max="4" data-k="hits" value="${a.hits}"></label>
         <label>Précision (%)<input class="cb-champ-eq" type="number" min="1" max="100" data-k="justesse" value="${a.justesse}"></label>
@@ -1897,13 +1897,13 @@
     cat.affinites.forEach((a) => { aff[a.att + '>' + a.def] = Number(a.mult); });
     const cases = [1, 1.5, 0.67, 2, 0.5];
     corps.innerHTML = `
-      <div class="ct-titre-sec" style="margin-top:4px"><h3>Les styles</h3></div>
+      <div class="cb-sel-tete" style="margin-top:4px; justify-content:space-between; align-items:center"><div class="ct-titre-sec" style="margin:0"><h3>Les types</h3></div><button type="button" class="ct-btn principal" data-nouveau-type>Nouveau type</button></div>
       <div class="cb-liste">${T.map((t) => `
         <div class="cb-ligne" style="--tc:${couleur(t.couleur)}">
           <span class="cb-type" style="--tc:${couleur(t.couleur)}">${esc(t.nom)}</span>
           <div style="display:grid; gap:8px"><div style="display:flex; flex-wrap:wrap; gap:8px"><input class="cb-champ-eq" style="flex:1 1 140px" data-nom="${esc(t.id)}" value="${esc(t.nom)}" aria-label="Nom"><input class="cb-champ-eq" type="color" style="width:56px; padding:3px" data-col="${esc(t.id)}" value="${esc(t.couleur)}" aria-label="Couleur"></div>
             <input class="cb-champ-eq" data-cit="${esc(t.id)}" value="${esc(t.citation)}" maxlength="160" aria-label="Citation"></div>
-          <button type="button" class="ct-btn petit" data-sauver="${esc(t.id)}">Enregistrer</button></div>`).join('')}</div>
+          <div style="display:grid; gap:8px"><button type="button" class="ct-btn petit" data-sauver="${esc(t.id)}">Enregistrer</button><button type="button" class="ct-btn petit" data-suppr-type="${esc(t.id)}" title="Supprimer ce type">Supprimer</button></div></div>`).join('')}</div>
       <div class="ct-titre-sec"><h3>Affinités (attaquant en ligne, défenseur en colonne)</h3></div>
       <p class="sous" style="margin:0 0 10px; font-size:13px; color:var(--muted)">Touche une case pour changer le multiplicateur de dégâts : ·, ×1,5, ×0,67, ×2, ×0,5. Une case neutre vaut ×1.</p>
       <div style="overflow-x:auto"><table class="cb-eq-t"><thead><tr><th></th>${T.map((t) => `<th>${chipCourt(t)}</th>`).join('')}</tr></thead>
@@ -1916,11 +1916,46 @@
       b.disabled = true;
       try{
         await A.appel('combat_equipe_type_sauver', { p: { id, nom: corps.querySelector(`[data-nom="${id}"]`).value, couleur: corps.querySelector(`[data-col="${id}"]`).value, citation: corps.querySelector(`[data-cit="${id}"]`).value } });
-        A.toast('Style enregistré.');
+        A.toast('Type enregistré.');
         await catalogue(true);
         eqTypes(corps, S.cat);
       }catch(e){ A.toast(e.message, 'err'); b.disabled = false; }
     }));
+    corps.querySelectorAll('[data-suppr-type]').forEach((b) => b.addEventListener('click', () => {
+      const id = b.dataset.supprType;
+      const t = T.find((x) => x.id === id);
+      const f = A.fenetre(`
+        <h3 style="margin:0 0 8px">Supprimer le type ${esc(t.nom)} ?</h3>
+        <p class="sous" style="margin:0 0 16px; color:var(--muted); line-height:1.5">Ses lignes du tableau d'efficacité disparaissent ; les cartes, techniques et attaques qui l'utilisent n'auront plus de type.</p>
+        <div class="ct-actions" style="justify-content:flex-end"><button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-oui>Supprimer</button></div>`, true);
+      f.corps.querySelector('[data-non]').addEventListener('click', f.fermer);
+      const oui = f.corps.querySelector('[data-oui]');
+      oui.addEventListener('click', async () => {
+        oui.disabled = true;
+        try{ await A.appel('combat_equipe_type_supprimer', { p_id: id }); A.toast('Type supprimé.'); f.fermer(); await catalogue(true); eqTypes(corps, S.cat); }
+        catch(e){ A.toast(e.message, 'err'); oui.disabled = false; }
+      });
+    }));
+    corps.querySelector('[data-nouveau-type]').addEventListener('click', () => {
+      const f = A.fenetre(`
+        <h3 style="margin:0 0 12px">Nouveau type</h3>
+        <div style="display:grid; gap:10px">
+          <label style="display:grid; gap:4px">Nom<input class="cb-champ-eq" data-k="nom" maxlength="20" placeholder="Foudre, Cosmos…"></label>
+          <label style="display:grid; gap:4px">Couleur<input class="cb-champ-eq" type="color" data-k="couleur" value="#4FB4FF" style="width:72px; padding:3px"></label>
+          <label style="display:grid; gap:4px">Citation<input class="cb-champ-eq" data-k="citation" maxlength="160" placeholder="Une phrase qui résume le type"></label>
+        </div>
+        <p class="sous" style="margin:12px 0 0; font-size:13px; color:var(--muted); line-height:1.5">Le nouveau type est neutre contre tous les autres : règle ensuite le tableau d'efficacité.</p>
+        <div class="ct-actions" style="justify-content:flex-end; margin-top:16px"><button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-ok>Créer</button></div>`, true);
+      f.corps.querySelector('[data-non]').addEventListener('click', f.fermer);
+      const ok = f.corps.querySelector('[data-ok]');
+      ok.addEventListener('click', async () => {
+        const p = {};
+        f.corps.querySelectorAll('[data-k]').forEach((x) => { p[x.dataset.k] = x.value; });
+        ok.disabled = true;
+        try{ await A.appel('combat_equipe_type_creer', { p }); A.toast('Type créé.'); f.fermer(); await catalogue(true); eqTypes(corps, S.cat); }
+        catch(e){ A.toast(e.message, 'err'); ok.disabled = false; }
+      });
+    });
     corps.querySelectorAll('.cb-case').forEach((b) => b.addEventListener('click', async () => {
       const m = Number(b.dataset.m);
       const suivant = cases[(cases.findIndex((x) => Math.abs(x - m) < .001) + 1) % cases.length];
