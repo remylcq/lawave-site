@@ -90,6 +90,24 @@
   .cb *{box-sizing:border-box;}
   .cb-type{display:inline-flex; align-items:center; height:20px; padding:0 8px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; color:#06090e; background:var(--tc, #9aa4b2);}
   .cb-type.neutre{color:var(--ink-soft); background:rgba(255,255,255,.12);}
+  .cb-type:not(.neutre):not(button .cb-type):not(a .cb-type){cursor:pointer;}
+  /* Le visuel des forces et faiblesses : une colonne par type, ses forces au-dessus (anneau vert), ses faiblesses dessous (anneau rouge) */
+  .cb-ic{display:inline-grid; place-items:center; flex:0 0 auto; width:38px; height:38px; border-radius:50%; background:var(--tc, #9aa4b2); color:#06090e; box-shadow:0 0 0 3px var(--ring, transparent);}
+  .cb-ic svg{width:60%; height:60%; display:block;}
+  .cb-ic.f{--ring:#34d399;} .cb-ic.w{--ring:#fb7185;}
+  .cb-ic.g{width:44px; height:44px;} .cb-ic.p{width:26px; height:26px;}
+  .cb-tt{display:flex; gap:6px; overflow-x:auto; padding:6px 2px 12px; margin:14px 0 4px; scroll-snap-type:x proximity;}
+  .cb-tcol{all:unset; box-sizing:border-box; cursor:pointer; flex:0 0 auto; display:flex; flex-direction:column; align-items:center; gap:7px; padding:10px 8px; border-radius:18px; scroll-snap-align:center;}
+  .cb-tcol:hover{background:rgba(255,255,255,.04);}
+  .cb-tcol.sel{background:rgba(255,255,255,.08); box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);}
+  .cb-tcol:focus-visible{outline:2px solid var(--ct-accent);}
+  .cb-tf, .cb-tw{display:flex; flex-direction:column; gap:7px; min-height:calc(var(--nmax, 3) * 45px + (var(--nmax, 3) - 1) * 7px);}
+  .cb-tf{justify-content:flex-end;} .cb-tw{justify-content:flex-start;}
+  .cb-tcol svg.ch{width:16px; height:16px; color:var(--ink-soft); display:block;}
+  .cb-tleg{display:grid; gap:8px; margin-top:6px; font-size:13px; line-height:1.5; color:var(--ink-soft);}
+  .cb-tleg .l{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
+  .cb-tleg .l > b{min-width:104px; font-size:11px; letter-spacing:.08em; text-transform:uppercase;}
+  .cb-tleg .l > b.f{color:#34d399;} .cb-tleg .l > b.w{color:#fb7185;}
   .cb-seg{display:flex; gap:4px; padding:4px; border-radius:14px; border:1px solid var(--ct-trait); background:rgba(255,255,255,.025); overflow-x:auto; scrollbar-width:none;}
   .cb-seg::-webkit-scrollbar{display:none;}
   .cb-seg button{all:unset; box-sizing:border-box; cursor:pointer; flex:1 0 auto; height:38px; padding:0 16px; border-radius:10px; font-size:14px; font-weight:600; color:var(--muted); display:inline-flex; align-items:center; justify-content:center; white-space:nowrap;}
@@ -473,6 +491,7 @@
     }
     if(!S.init){
       S.init = true;
+      document.addEventListener('click', clicType);
       modesIntegres();
     }
   }
@@ -484,6 +503,76 @@
   const couleur = (c) => A.couleurOk(c || '#9aa4b2');
   const pct = (a, b) => Math.max(0, Math.min(100, b ? a / b * 100 : 0));
   const mu = (m) => '×' + String(Number(m)).replace('.', ',');
+
+  // Les icônes des types (réglées dans la console) : des pastilles comme sur les tableaux de forces et faiblesses.
+  const ICONES = {
+    flamme:   ['Flamme',   '<path d="M12 2.5c.6 3.4 4.8 5.6 4.8 10.4a4.8 4.8 0 0 1-9.6 0c0-2 .9-3.3 2-4.4.1 1.6.8 2.5 1.7 3 .4-3.2-.1-6.2 1.1-9z"/>'],
+    goutte:   ['Goutte',   '<path d="M12 2.5S5.8 9.2 5.8 14.2a6.2 6.2 0 0 0 12.4 0C18.2 9.2 12 2.5 12 2.5z"/>'],
+    feuille:  ['Feuille',  '<path d="M4 20C3.5 10 9 4 20.5 3.5 20 15 14 20.5 4 20z"/>'],
+    eclair:   ['Éclair',   '<path d="M13.5 2 5 13.5h5.5L9.5 22 19 9.5h-5.8z"/>'],
+    flocon:   ['Flocon',   '<g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/></g>'],
+    lune:     ['Lune',     '<path d="M20 14.6A8.6 8.6 0 1 1 9.4 4a7 7 0 0 0 10.6 10.6z"/>'],
+    soleil:   ['Soleil',   '<circle cx="12" cy="12" r="4.2"/><g stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></g>'],
+    montagne: ['Montagne', '<path d="M2.5 19.5 9.5 6.5l4.2 7 2.8-4.2 5 10.2z"/>'],
+    vent:     ['Vent',     '<g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 8.5h10.5a2.7 2.7 0 1 0-2.7-2.7"/><path d="M3 12.5h15a2.7 2.7 0 1 1-2.7 2.7"/><path d="M3 16.5h7"/></g>'],
+    fiole:    ['Fiole',    '<path d="M9 2.5h6v2l-1 1v3.8l5.2 8.7a2 2 0 0 1-1.7 3H6.5a2 2 0 0 1-1.7-3L10 9.3V5.5L9 4.5z"/>'],
+    hexagone: ['Hexagone', '<path fill-rule="evenodd" d="M12 2.2 20.5 7v10L12 21.8 3.5 17V7zM12 8.2l3.4 1.9v3.8L12 15.8l-3.4-1.9v-3.8z"/>'],
+    oeil:     ['Œil',      '<path fill-rule="evenodd" d="M1.8 12S5.7 5.2 12 5.2 22.2 12 22.2 12 18.3 18.8 12 18.8 1.8 12 1.8 12zM12 8.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4z"/>'],
+    etoile:   ['Étoile',   '<path d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.2 1.2-6.5L2.5 9.5l6.6-.9z"/>'],
+    note:     ['Note',     '<path d="M19 2.5v12.2a3.2 3.2 0 1 1-1.8-2.9V6.3L10.8 7.6v9.1a3.2 3.2 0 1 1-1.8-2.9V4.4z"/>'],
+    nuage:    ['Nuage',    '<path d="M7 19a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.4 1.4A3.8 3.8 0 0 1 17.5 19z"/>'],
+    coeur:    ['Cœur',     '<path d="M12 21S3 14.8 3 8.9A4.9 4.9 0 0 1 12 6.4a4.9 4.9 0 0 1 9 2.5C21 14.8 12 21 12 21z"/>']
+  };
+  const iconeType = (t, cl) => `<span class="cb-ic ${cl || ''}" style="--tc:${couleur(t.couleur)}" title="${esc(t.nom)}"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${(ICONES[t.icone] || ICONES.etoile)[1]}</svg></span>`;
+  const CHEV = (haut) => `<svg class="ch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${haut ? 'M5 15l7-7 7 7' : 'M5 9l7 7 7-7'}"/></svg>`;
+
+  // Touche un type : le tableau des forces (au-dessus) et des faiblesses (dessous) de tous les types, le sien surligné.
+  async function expliquerType(choix){
+    if(!S.tableau){
+      try{ S.tableau = await A.appel('combat_types_tableau'); }
+      catch(e){ A.toast(e.message, 'err'); return; }
+    }
+    const T = S.tableau.types;
+    const forces = {}, faibles = {};
+    T.forEach((t) => { forces[t.id] = []; faibles[t.id] = []; });
+    S.tableau.affinites.forEach((a) => {
+      const m = Number(a.mult);
+      if(m > 1 && forces[a.att] && faibles[a.def]){ forces[a.att].push({ id: a.def, m }); faibles[a.def].push({ id: a.att, m }); }
+    });
+    const par = (id) => T.find((t) => t.id === id);
+    const nmax = Math.max(1, ...T.map((t) => Math.max(forces[t.id].length, faibles[t.id].length)));
+    let sel = (T.find((t) => t.id === choix || t.nom.toLowerCase() === String(choix).toLowerCase()) || T[0]).id;
+    const f = A.fenetre(`
+      <h3 style="margin:0 0 2px">Forces et faiblesses des types</h3>
+      <p class="sous" style="margin:0; font-size:13px; color:var(--muted)">Au-dessus d'un type, ceux qu'il bat ; en dessous, ceux qui le battent. Touche une colonne pour changer de type.</p>
+      <div class="cb-tt" style="--nmax:${nmax}">${T.map((t) => `
+        <button type="button" class="cb-tcol" data-t="${esc(t.id)}" aria-label="${esc(t.nom)}">
+          <div class="cb-tf">${forces[t.id].map((x) => iconeType(par(x.id), 'f')).join('')}</div>${CHEV(true)}
+          ${iconeType(t, 'g')}
+          ${CHEV(false)}<div class="cb-tw">${faibles[t.id].map((x) => iconeType(par(x.id), 'w')).join('')}</div>
+        </button>`).join('')}</div>
+      <div class="cb-tleg" data-leg></div>`, true);
+    const leg = f.corps.querySelector('[data-leg]');
+    const chips = (liste) => liste.length ? liste.map((x) => { const t = par(x.id); return `<span class="cb-type" style="--tc:${couleur(t.couleur)}">${esc(t.nom)} ${mu(x.m)}</span>`; }).join('') : '<span>aucun</span>';
+    const dessiner = () => {
+      const t = par(sel);
+      f.corps.querySelectorAll('.cb-tcol').forEach((c) => c.classList.toggle('sel', c.dataset.t === sel));
+      leg.innerHTML = `<div class="l">${iconeType(t, 'p')}<b style="min-width:0; font-size:15px; letter-spacing:0; text-transform:none; color:var(--ink)">${esc(t.nom)}</b><span>${esc(t.citation || '')}</span></div>
+        <div class="l"><b class="f">▲ Bat</b>${chips(forces[sel])}</div>
+        <div class="l"><b class="w">▼ Faible face à</b>${chips(faibles[sel])}</div>`;
+    };
+    f.corps.querySelectorAll('.cb-tcol').forEach((c) => c.addEventListener('click', () => { sel = c.dataset.t; dessiner(); }));
+    dessiner();
+    const col = f.corps.querySelector('.cb-tcol.sel');
+    if(col && col.scrollIntoView) col.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }
+
+  function clicType(e){
+    const el = e.target && e.target.closest ? e.target.closest('.cb-type') : null;
+    if(!el || el.classList.contains('neutre') || el.closest('button, a, [role="button"], summary, label, .cb-tleg')) return;
+    const titre = String(el.getAttribute('title') || '').trim();
+    expliquerType(titre || String(el.textContent || '').replace(/\s*×.*$/, '').trim());
+  }
   const chip = (nom, c) => nom ? `<span class="cb-type" style="--tc:${couleur(c)}">${esc(nom)}</span>` : '<span class="cb-type neutre">Neutre</span>';
   const roleChip = (nom) => nom ? `<span class="cb-role">${esc(nom)}</span>` : '';
   const signe = (n) => (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n);
@@ -1900,8 +1989,8 @@
       <div class="cb-sel-tete" style="margin-top:4px; justify-content:space-between; align-items:center"><div class="ct-titre-sec" style="margin:0"><h3>Les types</h3></div><button type="button" class="ct-btn principal" data-nouveau-type>Nouveau type</button></div>
       <div class="cb-liste">${T.map((t) => `
         <div class="cb-ligne" style="--tc:${couleur(t.couleur)}">
-          <span class="cb-type" style="--tc:${couleur(t.couleur)}">${esc(t.nom)}</span>
-          <div style="display:grid; gap:8px"><div style="display:flex; flex-wrap:wrap; gap:8px"><input class="cb-champ-eq" style="flex:1 1 140px" data-nom="${esc(t.id)}" value="${esc(t.nom)}" aria-label="Nom"><input class="cb-champ-eq" type="color" style="width:56px; padding:3px" data-col="${esc(t.id)}" value="${esc(t.couleur)}" aria-label="Couleur"></div>
+          <span style="display:grid; gap:6px; justify-items:center">${iconeType(t, 'g')}<span class="cb-type" style="--tc:${couleur(t.couleur)}">${esc(t.nom)}</span></span>
+          <div style="display:grid; gap:8px"><div style="display:flex; flex-wrap:wrap; gap:8px"><input class="cb-champ-eq" style="flex:1 1 140px" data-nom="${esc(t.id)}" value="${esc(t.nom)}" aria-label="Nom"><input class="cb-champ-eq" type="color" style="width:56px; padding:3px" data-col="${esc(t.id)}" value="${esc(t.couleur)}" aria-label="Couleur"><select class="cb-champ-eq" data-ico="${esc(t.id)}" aria-label="Icône">${Object.keys(ICONES).map((k) => OPT(k, ICONES[k][0], t.icone || 'etoile')).join('')}</select></div>
             <input class="cb-champ-eq" data-cit="${esc(t.id)}" value="${esc(t.citation)}" maxlength="160" aria-label="Citation"></div>
           <div style="display:grid; gap:8px"><button type="button" class="ct-btn petit" data-sauver="${esc(t.id)}">Enregistrer</button><button type="button" class="ct-btn petit" data-suppr-type="${esc(t.id)}" title="Supprimer ce type">Supprimer</button></div></div>`).join('')}</div>
       <div class="ct-titre-sec"><h3>Affinités (attaquant en ligne, défenseur en colonne)</h3></div>
@@ -1915,7 +2004,7 @@
       const id = b.dataset.sauver;
       b.disabled = true;
       try{
-        await A.appel('combat_equipe_type_sauver', { p: { id, nom: corps.querySelector(`[data-nom="${id}"]`).value, couleur: corps.querySelector(`[data-col="${id}"]`).value, citation: corps.querySelector(`[data-cit="${id}"]`).value } });
+        await A.appel('combat_equipe_type_sauver', { p: { id, nom: corps.querySelector(`[data-nom="${id}"]`).value, couleur: corps.querySelector(`[data-col="${id}"]`).value, icone: corps.querySelector(`[data-ico="${id}"]`).value, citation: corps.querySelector(`[data-cit="${id}"]`).value } });
         A.toast('Type enregistré.');
         await catalogue(true);
         eqTypes(corps, S.cat);
@@ -1942,6 +2031,7 @@
         <div style="display:grid; gap:10px">
           <label style="display:grid; gap:4px">Nom<input class="cb-champ-eq" data-k="nom" maxlength="20" placeholder="Foudre, Cosmos…"></label>
           <label style="display:grid; gap:4px">Couleur<input class="cb-champ-eq" type="color" data-k="couleur" value="#4FB4FF" style="width:72px; padding:3px"></label>
+          <label style="display:grid; gap:4px">Icône<select class="cb-champ-eq" data-k="icone">${Object.keys(ICONES).map((k) => OPT(k, ICONES[k][0], 'etoile')).join('')}</select></label>
           <label style="display:grid; gap:4px">Citation<input class="cb-champ-eq" data-k="citation" maxlength="160" placeholder="Une phrase qui résume le type"></label>
         </div>
         <p class="sous" style="margin:12px 0 0; font-size:13px; color:var(--muted); line-height:1.5">Le nouveau type est neutre contre tous les autres : règle ensuite le tableau d'efficacité.</p>
