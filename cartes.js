@@ -428,6 +428,25 @@
   }
   .ct-c-cadenas{position:absolute; left:50%; top:40%; transform:translate(-50%, -50%); width:16cqw; height:16cqw; color:rgba(255,255,255,.5); z-index:2;}
   .ct-c-cadenas svg{width:100%; height:100%;}
+  .ct-c-type{position:absolute; top:13.4cqw; left:6.2cqw; width:9cqw; height:9cqw; border-radius:50%; display:grid; place-items:center; color:#06090e; background:var(--tc, #9aa4b2); box-shadow:0 2px 8px rgba(0,0,0,.5); cursor:default;}
+  .ct-c-type svg{width:58%; height:58%; display:block;}
+  .ct-c-iv{position:absolute; top:14.4cqw; right:6cqw; height:6.8cqw; padding:0 2.4cqw; border-radius:99px; display:inline-flex; align-items:center; font-size:max(6px, 3.5cqw); font-weight:800; letter-spacing:.03em; font-variant-numeric:tabular-nums; color:#fff; background:rgba(0,0,0,.6); border:1px solid rgba(255,255,255,.22); white-space:nowrap;}
+  .ct-c-iv.parfaite{color:#1a1200; background:linear-gradient(90deg, #ffd76a, #ffb547); border-color:transparent; box-shadow:0 0 10px rgba(255,200,80,.6);}
+  .ct-iv{position:absolute; left:50%; top:calc(100% + 52px); transform:translateX(-50%); z-index:4; white-space:nowrap; pointer-events:none; padding:6px 16px; border-radius:99px; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#1a1200; background:linear-gradient(90deg, #ffd76a, #ffb547); box-shadow:0 0 26px rgba(255,200,80,.65); animation:ctEtiq .5s .2s cubic-bezier(.2,1.4,.4,1) both;}
+  .ct-donne:not(.seule) .ct-iv{top:calc(100% + 34px); font-size:10px; padding:4px 9px; letter-spacing:.08em;}
+  .ct-album{display:flex; align-items:center; gap:12px; margin-top:14px; padding:10px 12px; border-radius:14px; background:var(--ct-surface-2);}
+  .ct-album img{width:52px; height:52px; border-radius:9px; object-fit:cover; flex:none; background:#0a1018;}
+  .ct-album small{display:block; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  .ct-album b{display:block; font-size:15px; margin:1px 0 4px;}
+  .ct-type-puce{display:inline-flex; align-items:center; height:20px; padding:0 9px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:#06090e; background:var(--tc, #9aa4b2); cursor:pointer;}
+  .ct-exemp{display:grid; gap:6px;}
+  .ct-ex{position:relative; display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:12px; font-size:13px; background:var(--ct-surface-2); overflow:hidden;}
+  .ct-ex::before{content:''; position:absolute; inset:0 auto 0 0; width:var(--p, 0%); background:linear-gradient(90deg, rgba(79,180,255,.28), rgba(255,92,138,.18)); pointer-events:none;}
+  .ct-ex > *{position:relative;}
+  .ct-ex b{min-width:52px; font-variant-numeric:tabular-nums;}
+  .ct-ex .iv{flex:1; color:var(--ink-soft); font-variant-numeric:tabular-nums; font-size:12px;}
+  .ct-ex i{font-style:normal; font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:2px 7px; border-radius:6px; color:#05070a; background:#F4F5F6;}
+  .ct-ex.parfaite i.pf{background:linear-gradient(90deg, #ffd76a, #ffb547);}
   .ct-c-badge{position:absolute; z-index:3; top:-7px; right:-7px; min-width:26px; height:24px; padding:0 7px; border-radius:99px; display:grid; place-items:center; font-size:12px; font-weight:800; color:#05070a; background:#F4F5F6; box-shadow:0 4px 12px rgba(0,0,0,.45); font-variant-numeric:tabular-nums;}
   .ct-c-nouveau{position:absolute; z-index:3; left:50%; top:-9px; transform:translateX(-50%); height:22px; padding:0 10px; border-radius:99px; display:grid; place-items:center; font-size:10.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#04131f; background:var(--ct-accent); box-shadow:0 4px 14px rgba(79,180,255,.5); white-space:nowrap;}
 
@@ -1306,6 +1325,27 @@
   // La carte d'artiste
   // ---------------------------------------------------------------------
 
+  // Les icônes des types (réglées dans la console de combat) : un rond de la couleur du type avec son glyphe.
+  const GLYPHES_TYPE = {
+    flamme: '<path d="M12 2.5c.6 3.4 4.8 5.6 4.8 10.4a4.8 4.8 0 0 1-9.6 0c0-2 .9-3.3 2-4.4.1 1.6.8 2.5 1.7 3 .4-3.2-.1-6.2 1.1-9z"/>',
+    goutte: '<path d="M12 2.5S5.8 9.2 5.8 14.2a6.2 6.2 0 0 0 12.4 0C18.2 9.2 12 2.5 12 2.5z"/>',
+    feuille: '<path d="M4 20C3.5 10 9 4 20.5 3.5 20 15 14 20.5 4 20z"/>',
+    eclair: '<path d="M13.5 2 5 13.5h5.5L9.5 22 19 9.5h-5.8z"/>',
+    flocon: '<g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9"/></g>',
+    lune: '<path d="M20 14.6A8.6 8.6 0 1 1 9.4 4a7 7 0 0 0 10.6 10.6z"/>',
+    soleil: '<circle cx="12" cy="12" r="4.2"/><g stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/></g>',
+    montagne: '<path d="M2.5 19.5 9.5 6.5l4.2 7 2.8-4.2 5 10.2z"/>',
+    vent: '<g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 8.5h10.5a2.7 2.7 0 1 0-2.7-2.7"/><path d="M3 12.5h15a2.7 2.7 0 1 1-2.7 2.7"/><path d="M3 16.5h7"/></g>',
+    fiole: '<path d="M9 2.5h6v2l-1 1v3.8l5.2 8.7a2 2 0 0 1-1.7 3H6.5a2 2 0 0 1-1.7-3L10 9.3V5.5L9 4.5z"/>',
+    hexagone: '<path fill-rule="evenodd" d="M12 2.2 20.5 7v10L12 21.8 3.5 17V7zM12 8.2l3.4 1.9v3.8L12 15.8l-3.4-1.9v-3.8z"/>',
+    oeil: '<path fill-rule="evenodd" d="M1.8 12S5.7 5.2 12 5.2 22.2 12 22.2 12 18.3 18.8 12 18.8 1.8 12 1.8 12zM12 8.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4z"/>',
+    etoile: '<path d="M12 2.6l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.2 1.2-6.5L2.5 9.5l6.6-.9z"/>',
+    note: '<path d="M19 2.5v12.2a3.2 3.2 0 1 1-1.8-2.9V6.3L10.8 7.6v9.1a3.2 3.2 0 1 1-1.8-2.9V4.4z"/>',
+    nuage: '<path d="M7 19a4.5 4.5 0 0 1-.6-9 6 6 0 0 1 11.4 1.4A3.8 3.8 0 0 1 17.5 19z"/>',
+    coeur: '<path d="M12 21S3 14.8 3 8.9A4.9 4.9 0 0 1 12 6.4a4.9 4.9 0 0 1 9 2.5C21 14.8 12 21 12 21z"/>'
+  };
+  const glypheType = (c) => `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${GLYPHES_TYPE[c.icone] || GLYPHES_TYPE.etoile}</svg>`;
+
   function carteHtml(c, o){
     o = o || {};
     const r = Math.min(Math.max(Number(c.rarete) || 1, 1), 6);
@@ -1321,6 +1361,8 @@
           <div class="ct-c-voile"></div>
           
           <span class="ct-c-num">${numero(c.numero)}</span>
+          ${c.type_nom && !verrou ? `<span class="ct-c-type" style="--tc:${couleurOk(c.couleur)}" data-type="${esc(c.type_nom)}" title="${esc(c.type_nom)}">${glypheType(c)}</span>` : ''}
+          ${!verrou && (c.iv_max != null || c.iv_pct != null) ? `<span class="ct-c-iv${Number(c.iv_max != null ? c.iv_max : c.iv_pct) >= 100 ? ' parfaite' : ''}">IV ${Math.round(Number(c.iv_max != null ? c.iv_max : c.iv_pct))} %</span>` : ''}
           <img class="ct-c-logo" src="img/logo-wave.png" alt="La Wave" width="380" height="204" decoding="async">
           ${verrou ? `<span class="ct-c-cadenas">${ico('cadenas', 24)}</span>` : ''}
           <div class="ct-c-plaque">
@@ -2119,6 +2161,14 @@
           else if(c.nouveau_holo){ classe = 'nouveau'; texte = 'Nouveau holo'; }
           if(r >= 3){ classe = ''; texte = RAR[r].nom + (c.nouvelle ? ' · Nouveau' : ''); }
           p.insertAdjacentHTML('beforeend', `<div class="ct-etiq ${classe}">${esc(texte)}</div>`);
+          if(c.parfaite){
+            p.insertAdjacentHTML('beforeend', '<div class="ct-iv">IV parfaits !</div>');
+            if(!calme()){
+              fx.gerbe(pos.x, pos.y, ['#ffd76a', '#fff3c4', '#ffffff', '#ffb547'], 100, { vitesse: 10, vie: 65 });
+              Son.jouer('holo');
+              vibre([20, 30, 40]);
+            }
+          }
 
           if(r >= 2) fx.gerbe(pos.x, pos.y, [RAR[r].c, '#ffffff'], r >= 5 ? 110 : (r >= 4 ? 80 : (r >= 3 ? 48 : 18)), { vitesse: r >= 4 ? 11 : 7, vie: r >= 4 ? 70 : 45 });
           if(c.holo) fx.gerbe(pos.x, pos.y, ['#ff9ad5', '#9af7ff', '#fff59a', '#c4a3ff'], 50, { vitesse: 8, vie: 60 });
@@ -2284,6 +2334,10 @@
             <div class="ct-stat"><b>${nf(c.sorties)}</b><span>${c.sorties > 1 ? 'sorties' : 'sortie'} sur La Wave</span></div>
             <div class="ct-stat"><b>${possede ? '×' + c.quantite : '—'}</b><span>${possede ? 'en ta possession' : 'pas encore obtenue'}</span></div>
           </div>
+          ${c.album ? `<div class="ct-album"><img src="${esc(safeUrl(c.cover))}" alt=""><div><small>Album</small><b>${esc(c.album)}</b>${c.type_nom ? `<span class="ct-type-puce" style="--tc:${couleurOk(c.couleur)}" data-type="${esc(c.type_nom)}" title="Forces et faiblesses">${esc(c.type_nom)}</span>` : ''}</div></div>` : ''}
+          ${(c.exemplaires || []).length ? `
+            <div class="ct-titre-sec" style="margin:18px 0 8px"><h3>Tes exemplaires</h3></div>
+            <div class="ct-exemp">${c.exemplaires.map((e) => `<div class="ct-ex${e.parfaite ? ' parfaite' : ''}" style="--p:${Number(e.pct)}%"><b>${Number(e.pct)} %</b><span class="iv">PV ${e.iv[0]} · PUI ${e.iv[1]} · DÉF ${e.iv[2]} · VIT ${e.iv[3]}</span>${e.holo ? '<i>Holo</i>' : ''}${e.parfaite ? '<i class="pf">Parfait</i>' : ''}</div>`).join('')}</div>` : ''}
           ${classeur ? '<div data-combat></div>' : ''}
           ${c.ville ? `<p class="sous" style="margin-top:12px">${esc(c.ville)}</p>` : ''}${classeur && possede ? `<div class="ct-actions" style="margin-top:12px"><button type="button" class="ct-btn petit" data-vendre>${ico('marche', 15)}Vendre sur le marché</button></div>` : ''}
           ${(c.sorties_liste || []).length ? `
@@ -2307,6 +2361,10 @@
         </div>
       </div>`, true);
 
+    f.corps.addEventListener('click', (ev) => {
+      const t = ev.target.closest ? ev.target.closest('[data-type]') : null;
+      if(t && typeof window.chargerWaveModule === 'function') window.chargerWaveModule('combat').then(() => window.WaveCombat.types(api, t.dataset.type)).catch(() => {});
+    });
     inclinable(f.corps.querySelector('.ct-fiche-carte')); const vd = f.corps.querySelector('[data-vendre]'); if(vd) vd.addEventListener('click', async () => { try{ await window.chargerWaveModule('marche'); await window.WaveMarche.vendre(c, api); }catch(e){ toast(e.message, 'err'); } });
 
     // La fiche de combat (type, stats, attaques, capacité) vient du module combat.js.

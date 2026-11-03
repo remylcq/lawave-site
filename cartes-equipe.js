@@ -241,6 +241,8 @@
     'carte-apercu': (el) => apercu(el.dataset.a),
     'carte-son': (el) => sonCarte(el.dataset.a),
     'carte-photo': (el) => photoCarte(el.dataset.a),
+    'carte-album': (el) => albumCarte(el.dataset.a),
+    'iv-regler': () => reglerIv(),
     'carte-ajouter': () => ajouterArtistes(),
     'carte-auto': () => raretesAuto(),
     'carte-filtre-rarete': (el) => { const r = Number(el.dataset.r); E.rareteFiltre = E.rareteFiltre === r ? null : r; dessinerCartes(); },
@@ -353,7 +355,7 @@
     }
     E.form = null;
     E.main.innerHTML = `
-      ${tete('Collections', 'Les boosters du jeu. Touche une collection pour la régler.')}
+      ${tete('Collections', 'Les boosters du jeu. Touche une collection pour la régler.', '<button type="button" class="ct-btn" data-act="iv-regler">Réglages des IV</button>')}
       <div class="ee-tuiles">
         ${E.boosters.map((b, i) => `
           <article class="ee-tuile">
@@ -622,13 +624,15 @@
         <div class="ee-cg-grille" role="list">${vis.map((c, i) => `
         <div class="ee-cg${E.sel.has(c.artist_id) ? ' sel' : ''}" role="listitem" data-a="${esc(c.artist_id)}" style="--rc:${rar(c.rarete).c}" ${filtre ? '' : 'draggable="true"'}>
           <label class="ee-cg-sel" title="Sélectionner"><input type="checkbox" class="ee-coche" data-act="carte-sel" data-a="${esc(c.artist_id)}" ${E.sel.has(c.artist_id) ? 'checked' : ''} aria-label="Sélectionner ${esc(c.nom || '')}"></label>
-          <div class="ee-cg-carte">${api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, fans: c.fans, classeur: E.cid }, {})}</div>
+          <div class="ee-cg-carte">${api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, fans: c.fans, classeur: E.cid, type_nom: (c.carte_album || {}).type_nom, couleur: (c.carte_album || {}).couleur, icone: (c.carte_album || {}).icone }, {})}</div>
           <div class="ee-cg-pied">
-            <div class="ee-nom"><b>${esc(c.nom || 'Artiste')}</b><small>${c.fans ? esc(api.court(c.fans)) + ' fans' : 'fans inconnus'}${c.joueurs ? ' · ' + c.joueurs + ' joueur' + (c.joueurs > 1 ? 's' : '') : ''}</small></div>
+            <div class="ee-nom"><b>${esc(c.nom || 'Artiste')}</b><small>${c.fans ? esc(api.court(c.fans)) + ' fans' : 'fans inconnus'}${c.joueurs ? ' · ' + c.joueurs + ' joueur' + (c.joueurs > 1 ? 's' : '') : ''}</small>
+              <small class="ee-cg-album">${(c.carte_album || {}).album ? esc(c.carte_album.album) : 'Pas d\'album lié'}</small></div>
             <div class="ee-cg-ligne">
               <select class="ee-rar" data-in="carte-rar" data-a="${esc(c.artist_id)}" style="--rc:${rar(c.rarete).c}" aria-label="Rareté de ${esc(c.nom || '')}">${listeRar(E.cid).map((r) => `<option value="${r}"${Number(c.rarete) === r ? ' selected' : ''}>${esc(rar(r).nom)}</option>`).join('')}</select>
               <details class="ee-plus"><summary aria-label="Options de ${esc(c.nom || '')}" title="Options">${ic('points', 16)}</summary>
                 <div class="ee-menu">
+                  <button type="button" data-act="carte-album" data-a="${esc(c.artist_id)}">${ic('cartes', 16)}Choisir l'album${(c.carte_album || {}).album ? '<small>liée</small>' : ''}</button>
                   <button type="button" data-act="carte-photo" data-a="${esc(c.artist_id)}">${ic('image', 16)}Changer la photo${c.photo_perso ? '<small>choisie</small>' : ''}</button>
                   ${Number(c.rarete) >= 5 ? `<button type="button" data-act="carte-son" data-a="${esc(c.artist_id)}">${api.ico('son', 16)}Clip YouTube${c.clip_id ? '<small>réglé</small>' : ''}</button>` : ''}
                   <button type="button" data-act="carte-apercu" data-a="${esc(c.artist_id)}">${ic('oeil', 16)}Aperçu</button>
@@ -1429,6 +1433,78 @@
     dessiner();
   }
 
+  // La carte d'album d'une carte de la collection : son type et ses attaques (les titres du projet) viennent d'elle.
+  async function albumCarte(artistId){
+    const c = E.cartes.find((x) => x.artist_id === artistId);
+    if(!c) return;
+    const albums = await rpc('jeu_equipe_albums_de', { p_artist: artistId });
+    const etat = { choix: c.album_id || '' };
+    const f = api.fenetre('<div data-ed></div>', true);
+    const ed = $('[data-ed]', f.corps);
+    const dessiner = () => {
+      ed.innerHTML = `
+        <h2>Album de la carte</h2>
+        <p class="sous">${esc(c.nom || '')} dans « ${esc(nomCol(E.cid))} » : choisis la carte d'album qui donne son type et ses attaques.</p>
+        <div class="ee-alb-grille compact">
+          <button type="button" class="ee-alb${etat.choix === '' ? ' choisi' : ''}" data-alb="">
+            <span class="ee-alb-cover vide">${ic('croix', 26)}</span>
+            <span class="ee-alb-txt"><b>Aucun</b><small>Type et attaques automatiques</small></span></button>
+          ${albums.map((a) => `
+          <button type="button" class="ee-alb${etat.choix === a.id ? ' choisi' : ''}" data-alb="${esc(a.id)}">
+            <span class="ee-alb-cover"><img src="${esc(api.safeUrl(a.cover))}" alt="" loading="lazy"></span>
+            <span class="ee-alb-txt"><b>${esc(a.album)}</b><small>${esc(a.sortie)}</small>${a.type_nom ? `<span class="ee-type" style="--tc:${api.couleurOk(a.couleur)}">${esc(a.type_nom)}</span>` : '<span class="ee-type sans">Sans type</span>'}</span></button>`).join('')}
+        </div>
+        ${albums.length ? '' : '<p class="ee-aide">Cet artiste n\'a pas encore de carte d\'album : crée-en une dans la section « Albums ».</p>'}
+        <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-ok>Enregistrer</button></div>`;
+      $$('[data-alb]', ed).forEach((b) => b.addEventListener('click', () => { etat.choix = b.dataset.alb; dessiner(); }));
+      $('[data-non]', ed).addEventListener('click', f.fermer);
+      $('[data-ok]', ed).addEventListener('click', async (ev) => {
+        ev.target.disabled = true;
+        try{
+          await rpc('jeu_equipe_carte_album', { p_booster: E.cid, p_artist: artistId, p_album: etat.choix || null });
+          api.toast('Album enregistré.');
+          f.fermer();
+          await chargerCartes(); dessinerListe();
+        }catch(e){ ev.target.disabled = false; }
+      });
+    };
+    dessiner();
+  }
+
+  // Les IV : effet sur les statistiques, minimum selon la rareté, chance d'une carte parfaite (par défaut et par collection).
+  async function reglerIv(){
+    const r = await rpc('jeu_equipe_iv_lire');
+    const f = api.fenetre('<div data-ed></div>', true);
+    const ed = $('[data-ed]', f.corps);
+    const num = (cle, v, min, max, pas) => `<input type="number" class="ee-champ-num" data-iv="${cle}" value="${v == null ? '' : v}" min="${min}" max="${max}" step="${pas}">`;
+    ed.innerHTML = `
+      <h2>Réglages des IV</h2>
+      <p class="sous">Chaque carte tirée a ses propres IV : quatre valeurs de 0 à 31 (PV, Puissance, Défense, Vitesse).</p>
+      <div class="ee-iv-grille">
+        <label class="ee-champ"><span>Effet sur les statistiques (± %)</span>${num('effet', r.effet_pct, 0, 50, 1)}<small>À 15 %, un IV de 31 donne +15 % et un IV de 0 donne −15 %.</small></label>
+        <label class="ee-champ"><span>Carte parfaite (% par défaut)</span>${num('parfait', r.parfait_defaut, 0, 100, 0.1)}<small>Chance que les 4 IV soient à 31 d'un coup.</small></label>
+      </div>
+      <h3 class="ee-alb-h">IV minimum selon la rareté <small>plus la rareté est haute, plus le minimum l'est</small></h3>
+      <div class="ee-iv-grille six">${r.min.map((m, k) => `<label class="ee-champ"><span>${esc(rar(k + 1).nom)}</span>${num('min' + k, m, 0, 30, 1)}</label>`).join('')}</div>
+      <h3 class="ee-alb-h">Carte parfaite par collection <small>vide = la valeur par défaut</small></h3>
+      <div class="ee-iv-grille">${r.boosters.map((b, k) => `<label class="ee-champ"><span>${esc(b.nom)}</span>${num('b' + k, b.parfait, 0, 100, 0.1)}</label>`).join('')}</div>
+      <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-ok>Enregistrer</button></div>`;
+    $('[data-non]', ed).addEventListener('click', f.fermer);
+    $('[data-ok]', ed).addEventListener('click', async (ev) => {
+      const v = (cle) => $(`[data-iv="${cle}"]`, ed).value;
+      ev.target.disabled = true;
+      try{
+        await rpc('jeu_equipe_iv_ecrire', { p: {
+          effet_pct: Number(v('effet')), parfait_defaut: Number(v('parfait')),
+          min: r.min.map((_, k) => Number(v('min' + k))),
+          boosters: r.boosters.map((b, k) => ({ id: b.id, parfait: v('b' + k) === '' ? null : Number(v('b' + k)) }))
+        } });
+        api.toast('Réglages des IV enregistrés.');
+        f.fermer();
+      }catch(e){ ev.target.disabled = false; }
+    });
+  }
+
   async function sModule(nom, global, titre, texte){
     E.main.innerHTML = tete(titre, texte) + '<div data-module><div class="ct-vide">Chargement…</div></div>';
     const z = $('[data-module]');
@@ -1720,6 +1796,12 @@
   .ee-son-legende{display:flex; justify-content:space-between; gap:8px; font-size:12px; color:var(--muted);}
   .ee-son-barre{display:flex; flex-wrap:wrap; align-items:center; gap:10px; justify-content:flex-end;}
   .ee-son-barre .ee-etat{margin-right:auto;}
+  .ee-cg-album{display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted);}
+  .ee-alb.choisi{border-color:#4FB4FF; background:rgba(79,180,255,.1);}
+  .ee-alb-cover.vide{display:grid; place-items:center; background:rgba(255,255,255,.05); border-radius:10px; color:var(--muted);}
+  .ee-iv-grille{display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:12px; margin-top:6px;}
+  .ee-iv-grille.six{grid-template-columns:repeat(3, 1fr);}
+  .ee-champ-num{width:100%; height:42px; padding:0 12px; border-radius:10px; border:1px solid var(--ct-trait-fort); background:rgba(0,0,0,.28); color:var(--ink); font:inherit;}
   .ee-alb-grille{display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px; margin-top:6px;}
   .ee-alb-grille.compact{grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));}
   .ee-alb{appearance:none; font:inherit; color:inherit; text-align:left; cursor:pointer; display:flex; gap:12px; padding:10px; border-radius:16px; border:1px solid var(--ct-trait); background:var(--ct-surface);}
