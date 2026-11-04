@@ -70,7 +70,7 @@
 
   /* La scène du combat */
   .tr-scene{position:fixed; inset:0; z-index:9000; display:grid; grid-template-rows:auto 1fr auto; color:#fff; background:#05070a;}
-  .tr-fond{position:absolute; inset:0; background-size:cover; background-position:center; image-rendering:pixelated; opacity:.9;}
+  .tr-fond{position:absolute; inset:0; background-size:cover; background-position:50% 30%; image-rendering:pixelated; opacity:1;}
   .tr-fond::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,7,10,.55), rgba(5,7,10,.1) 45%, rgba(5,7,10,.65));}
   .tr-scene > *{position:relative;}
   .tr-haut{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px;}
@@ -367,12 +367,11 @@
 
   function creerActeur2d(r, sc, corps){
     const n = r.a.length;
-    const fond = ['concert', 'studio', 'plateau', 'ruelle', 'toit'].includes(r.decor) ? r.decor : 'studio';
     const unite = (u, c, i) => `
       <div class="tr-uc" data-u="${c}-${i + 1}">${carte(u)}
         <div class="tr-pv"><i></i></div><div class="tr-pvn">${nf(u.pv_max)} / ${nf(u.pv_max)}</div><div class="tr-nomu">${esc(u.nom)}</div>${u.role_nom ? `<div class="tr-rolu">${esc(u.role_nom)}</div>` : ''}</div>`;
     corps.innerHTML = `
-      <div class="tr-fond" style="background-image:url(img/combat/${fond}.png)"></div>
+      <div class="tr-fond" style="background-image:url(img/combat/olympia.png)"></div>
       <div class="tr-terrain" style="--n:${n}">
         <div class="tr-ligne" style="--n:${n}">${r.b.map((u, i) => unite(u, 1, i)).join('')}</div>
         <div class="tr-ligne" style="--n:${n}">${r.a.map((u, i) => unite(u, 0, i)).join('')}</div>
@@ -542,8 +541,8 @@
     corps.appendChild(hudLayer);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x04060c);
-    scene.fog = new THREE.Fog(0x04060c, 16, 44);
+    scene.background = new THREE.Color(0x0b1230);
+    scene.fog = new THREE.Fog(0x161a3a, 22, 52);
     const camera = new THREE.PerspectiveCamera(40, 1, .1, 90);
     const look = new THREE.Vector3(0, 1.1, 0);
     const accueil = { pos: new THREE.Vector3(0, 4.3, 9.6), look: new THREE.Vector3(0, 1.1, 0) };
@@ -582,44 +581,28 @@
     const flash = new THREE.PointLight(0xffffff, 0, 18, 2);
     scene.add(flash);
 
-    // --- le sol réfléchissant et sa grille néon
-    const sol = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: pal.sol, roughness: .2, metalness: .85 }));
+    // --- les textures en pixel art (même style que les fonds de combat) : la façade de l'Olympia, le pavé, le tapis rouge
+    const pixel = (url, repete) => new Promise((ok) => new THREE.TextureLoader().load(url, (t) => {
+      t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+      if(repete){ t.wrapS = t.wrapT = THREE.RepeatWrapping; }
+      ok(t);
+    }, undefined, () => ok(null)));
+    const [texOlympia, texPave, texTapis] = await Promise.all([pixel('img/combat/olympia.png'), pixel('img/combat/pave.png', true), pixel('img/combat/tapis.png', true)]);
+    // le sol : du pavé parisien
+    if(texPave) texPave.repeat.set(46, 46);
+    const sol = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: texPave ? 0x9aa0bc : pal.sol, map: texPave, roughness: .85, metalness: .05 }));
     sol.rotation.x = -Math.PI / 2; sol.receiveShadow = true; scene.add(sol);
-    {
-      const pts = [];
-      for(let k = -14; k <= 14; k += 2){ pts.push(-14, .01, k, 14, .01, k, k, .01, -14, k, .01, 14); }
-      const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-      scene.add(new THREE.LineSegments(gg, new THREE.LineBasicMaterial({ color: pal.neon, transparent: true, opacity: .16 })));
+    // le tapis rouge qui mène aux portes de la salle
+    if(texTapis){
+      texTapis.repeat.set(1, 3.4);
+      const tapis = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 22), new THREE.MeshStandardMaterial({ map: texTapis, roughness: .9, metalness: 0 }));
+      tapis.rotation.x = -Math.PI / 2; tapis.position.set(0, .012, -1.5); tapis.receiveShadow = true; scene.add(tapis);
     }
-    // --- le mur d'écrans (égaliseur animé) et les poutres de la scène
-    const mc = document.createElement('canvas'); mc.width = 512; mc.height = 192;
-    const mg = mc.getContext('2d');
-    const mt = new THREE.CanvasTexture(mc); mt.colorSpace = THREE.SRGBColorSpace;
-    const mur = new THREE.Mesh(new THREE.PlaneGeometry(30, 11), new THREE.MeshBasicMaterial({ map: mt, fog: false }));
-    mur.position.set(0, 5.2, -13); mur.scale.set(1.25, 1.1, 1); scene.add(mur);
-    const barres = Array.from({ length: 32 }, () => ({ h: Math.random(), c: Math.random() }));
+    // la façade de l'Olympia, tout au fond : le sol de l'image (ligne 215 sur 270) est posé sur le sol de la scène
+    const HM = 18, LM = HM * 480 / 270;
+    const mur = new THREE.Mesh(new THREE.PlaneGeometry(LM, HM), new THREE.MeshBasicMaterial({ map: texOlympia, color: texOlympia ? 0xffffff : 0x1a1f3a, fog: false, toneMapped: false }));
+    mur.position.set(0, HM * (215 / 270 - .5), -13); scene.add(mur);
     let impact = 0;
-    const dessinerMur = (t) => {
-      const gr = mg.createLinearGradient(0, 0, 0, 192); gr.addColorStop(0, pal.mur[0]); gr.addColorStop(1, '#04060c');
-      mg.fillStyle = gr; mg.fillRect(0, 0, 512, 192);
-      const col = pal.mur[1];
-      barres.forEach((b, i) => {
-        b.c += (Math.random() - .5) * .25; b.c = Math.max(.1, Math.min(1, b.c));
-        const cible = .15 + .45 * Math.abs(Math.sin(t * 1.4 + i * .5)) * b.c + impact * .5;
-        b.h += (cible - b.h) * .25;
-        const h = Math.min(1, b.h) * 105;
-        mg.fillStyle = col; mg.globalAlpha = .5; mg.fillRect(i * 16 + 2, 192 - h, 12, h);
-        mg.globalAlpha = .2; mg.fillRect(i * 16 + 2, 192 - h - 8, 12, 4);
-      });
-      mg.globalAlpha = 1;
-      mt.needsUpdate = true;
-    };
-    for(const x of [-9, 9]){
-      const poutre = new THREE.Mesh(new THREE.BoxGeometry(.5, 12, .5), new THREE.MeshStandardMaterial({ color: 0x141824, metalness: .9, roughness: .35 }));
-      poutre.position.set(x, 6, -9); scene.add(poutre);
-    }
-    const trav = new THREE.Mesh(new THREE.BoxGeometry(20, .4, .4), new THREE.MeshStandardMaterial({ color: 0x141824, metalness: .9, roughness: .35, emissive: pal.neon, emissiveIntensity: .35 }));
-    trav.position.set(0, 11.2, -9); scene.add(trav);
 
     // --- la poussière lumineuse qui flotte
     const poussiere = (() => {
@@ -687,7 +670,15 @@
     const geoAnneau = new THREE.TorusGeometry(.99, .03, 10, 64);
     const geoHalo = new THREE.CircleGeometry(1.5, 48);
     const aniso = renderer.capabilities.getMaxAnisotropy();
-    const matSocle = new THREE.MeshStandardMaterial({ color: 0x10141f, metalness: .9, roughness: .3 });
+    // les socles : de la pierre en pixel art
+    const texPierre = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d');
+      g.fillStyle = '#2a2d3d'; g.fillRect(0, 0, 16, 16);
+      for(let y = 0; y < 16; y += 4){ for(let x = (y / 4) % 2 ? -4 : 0; x < 16; x += 8){ g.fillStyle = ((x + y) / 4 & 1) ? '#4a4f66' : '#434860'; g.fillRect(x + 1, y + 1, 6, 2); g.fillStyle = '#6c7390'; g.fillRect(x + 1, y + 1, 6, 1); } }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(8, 1);
+      return t;
+    })();
+    const matSocle = new THREE.MeshStandardMaterial({ color: 0xffffff, map: texPierre, metalness: .1, roughness: .85 });
     const matTranche = new THREE.MeshStandardMaterial({ color: 0x07080c, metalness: .5, roughness: .45 });
     if(dos){ dos.repeat.set(1 / CW, 1 / CH); dos.offset.set(.5, .5); dos.wrapS = dos.wrapT = THREE.RepeatWrapping; }
     const sp = n <= 3 ? 2.2 : (n === 4 ? 1.95 : 1.75);
@@ -853,7 +844,7 @@
       spots.forEach((o) => { o.s.target.position.x = o.base + Math.sin(t * .8 + o.ph) * 2.2; o.cone.rotation.z = Math.sin(t * .8 + o.ph) * .14; });
       flash.intensity *= Math.pow(.0009, brut);
       impact *= Math.pow(.05, brut);
-      if(nFrames % 2 === 0) dessinerMur(t);
+      mur.material.color.setScalar(.9 + .06 * Math.sin(t * 2.2) + impact * .3);   // l'enseigne vit et s'allume aux impacts
       for(let i = 0; i < poussiere.N; i++){ let y = poussiere.pos[i * 3 + 1] + poussiere.vit[i] * brut; if(y > 9) y = 0; poussiere.pos[i * 3 + 1] = y; poussiere.pos[i * 3] += Math.sin(t + i) * .1 * brut; }
       poussiere.pts.geometry.attributes.position.needsUpdate = true;
       tous.forEach((f) => {
@@ -888,7 +879,6 @@
         if(tFrames / nFrames > .03){ renderer.setPixelRatio(1); renderer.shadowMap.enabled = false; scene.traverse((o) => { if(o.material) o.material.needsUpdate = true; }); cadrer(); }
       }
     };
-    dessinerMur(0);
     tous.forEach(majHud);
     boucle();
 
@@ -987,7 +977,7 @@
           if(o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if(m.map && m.map !== dos) m.map.dispose(); m.dispose(); });
         });
         if(scene.environment) scene.environment.dispose();
-        sprite.dispose(); mt.dispose(); if(dos) dos.dispose();
+        sprite.dispose(); texPierre.dispose(); [texOlympia, texPave, texTapis].forEach((t) => { if(t) t.dispose(); }); if(dos) dos.dispose();
         renderer.dispose();
         if(renderer.forceContextLoss) renderer.forceContextLoss();
       }
