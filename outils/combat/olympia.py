@@ -346,7 +346,9 @@ def asphalte():
 
 if __name__ == '__main__':
     os.makedirs(SORTIE, exist_ok=True)
-    fond().save(os.path.join(SORTIE, 'olympia.png'), optimize=True)
+    import sys
+    if '--facade' in sys.argv:   # la façade dessinée à la main ; la façade actuelle vient des photos (olympia_photo.py)
+        fond().save(os.path.join(SORTIE, 'olympia.png'), optimize=True)
     trottoir().save(os.path.join(SORTIE, 'trottoir.png'), optimize=True)
     asphalte().save(os.path.join(SORTIE, 'asphalte.png'), optimize=True)
     print('ok')

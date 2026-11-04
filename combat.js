@@ -543,7 +543,7 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xbcd6ea);
     scene.fog = new THREE.Fog(0xd4e4ee, 30, 70);
-    const camera = new THREE.PerspectiveCamera(40, 1, .1, 90);
+    const camera = new THREE.PerspectiveCamera(46, 1, .1, 90);
     const look = new THREE.Vector3(0, 1.1, 0);
     const accueil = { pos: new THREE.Vector3(0, 4.3, 9.6), look: new THREE.Vector3(0, 1.1, 0) };
 
@@ -594,7 +594,8 @@
       trait.position.set(k * 3.4, .012, -6.6); scene.add(trait);
     }
     // la façade, tout au fond : le sol de l'image (ligne 215 sur 270) est posé sur le sol de la scène
-    const HM = 18, LM = HM * 480 / 270;
+    const HM = 12, LM = HM * 480 / 270 * 1.9;   // plus large que la photo : les bords reprennent l'image en miroir (la rue continue)
+    if(texOlympia){ texOlympia.wrapS = THREE.MirroredRepeatWrapping; texOlympia.repeat.x = 1.9; texOlympia.offset.x = -.45; }
     const mur = new THREE.Mesh(new THREE.PlaneGeometry(LM, HM), new THREE.MeshBasicMaterial({ map: texOlympia, color: texOlympia ? 0xffffff : 0xb4c8d8, fog: false, toneMapped: false }));
     mur.position.set(0, HM * (215 / 270 - .5), -13); scene.add(mur);
     let impact = 0;
@@ -723,8 +724,8 @@
       const largeur = (n - 1) * sp + CW + 1.2;
       const hfov = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect);
       const dist = Math.max(11, (largeur / 2) / Math.tan(hfov / 2) + 4.2);
-      accueil.pos.set(0, 4.6 + dist * .05, dist);
-      accueil.look.set(0, 1.25, -.4);
+      accueil.pos.set(0, 4.3 + dist * .04, dist);
+      accueil.look.set(0, 3.9, -.4);
       camera.updateProjectionMatrix();
     };
     cadrer();
