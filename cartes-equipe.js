@@ -176,7 +176,7 @@
       else if(E.section === 'cartes') await sCartes();
       else if(E.section === 'albums') await sAlbums();
       else if(E.section === 'joueurs') await sJoueurs();
-      else if(E.section === 'combat') await sModule('combat', 'WaveCombat', 'Combat', 'Types, statistiques et attaques des cartes.');
+      else if(E.section === 'combat') await sModule('combat', 'WaveCombat', 'Combat', 'La Tour : difficultés, récompenses et taille des équipes.');
       else if(E.section === 'quotidien') await sModule('accueil', 'WaveAccueil', 'Quotidien', 'Événements à durée limitée et nouveautés du jeu.');
       else await sModule('marche', 'WaveMarche', 'Marché', 'Annonces, prix et ventes entre joueurs.');
     }catch(e){
@@ -272,7 +272,6 @@
     'carte-tri': (el) => { const v = el.value; el.value = ''; if(v) trierCartes(v); },
     'carte-cible': (el) => { E.cid = el.value; E.sel.clear(); E.filtre = ''; E.rareteFiltre = null; return sCartes(); },
     'album-q': debounce((el) => { E.albumQ = el.value; listerAlbums(); }, 250),
-    'album-filtre-type': (el) => { E.albumType = el.value; listerAlbums(); },
     'joueur-q': debounce((el) => { E.joueurQ = el.value; listerJoueurs(); }, 250),
     'joueur-col': (el) => chargerArtistesOffre(el.value)
   };
@@ -1187,18 +1186,11 @@
   const duree = (n) => Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
   const moisAnnee = (d) => d ? new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' }) : '';
 
-  async function typesAlbums(force){
-    if(!E.typesAlb || force) E.typesAlb = (await api.appel('combat_types_tableau')).types;
-    return E.typesAlb;
-  }
-
   async function sAlbums(){
-    const types = await typesAlbums(true);
     E.main.innerHTML = `
-      ${tete('Albums', 'Une carte = un artiste + un de ses projets. Son type vient de sa cover, ses attaques sont des titres du projet.', '<button type="button" class="ct-btn principal" data-act="album-ajouter">Ajouter un album</button>')}
+      ${tete('Albums', 'Une carte = un artiste + un de ses projets. Ses attaques sont des titres du projet.', '<button type="button" class="ct-btn principal" data-act="album-ajouter">Ajouter un album</button>')}
       <div class="ee-barre-outils">
         <label class="ee-recherche">${api.ico('loupe', 16)}<input type="search" data-in="album-q" value="${esc(E.albumQ)}" placeholder="Artiste ou album" aria-label="Chercher une carte d'album" autocomplete="off"></label>
-        <label class="ee-champ ee-cible"><span class="sr">Type</span><select data-in="album-filtre-type" aria-label="Filtrer par type"><option value="">Tous les types</option><option value="-"${E.albumType === '-' ? ' selected' : ''}>Sans type</option>${types.map((t) => `<option value="${esc(t.id)}"${E.albumType === t.id ? ' selected' : ''}>${esc(t.nom)}</option>`).join('')}</select></label>
       </div>
       <p class="ee-aide" data-album-info></p>
       <div data-albums-liste></div>`;
@@ -1208,7 +1200,7 @@
   async function listerAlbums(){
     const zone = $('[data-albums-liste]');
     if(!zone) return;
-    const r = await rpc('jeu_equipe_albums_lire', { p_q: E.albumQ.trim() || null, p_type: E.albumType || null });
+    const r = await rpc('jeu_equipe_albums_lire', { p_q: E.albumQ.trim() || null, p_type: null });
     E.albums = r.cartes;
     const info = $('[data-album-info]');
     if(info) info.textContent = r.total + ' carte' + (r.total > 1 ? 's' : '') + ' d\'album' + (r.sans_type ? ' · ' + r.sans_type + ' sans type' : '');
@@ -1217,76 +1209,14 @@
           const noms = (c.attaques || []).map((id) => (c.titres.find((t) => t.id === id) || {}).titre).filter(Boolean);
           return `<button type="button" class="ee-alb${c.actif ? '' : ' off'}" data-act="album-ouvrir" data-id="${esc(c.id)}">
             <span class="ee-alb-cover"><img src="${esc(api.safeUrl(c.cover))}" alt="" loading="lazy"><img class="ee-alb-art" src="${esc(api.safeUrl(c.photo))}" alt="" loading="lazy"></span>
-            <span class="ee-alb-txt"><b>${esc(c.album)}</b><small>${esc(c.artiste)} · ${esc(moisAnnee(c.date))}</small>${pastille(c)}
+            <span class="ee-alb-txt"><b>${esc(c.album)}</b><small>${esc(c.artiste)} · ${esc(moisAnnee(c.date))}</small>
               <small class="ee-alb-att">${noms.length ? esc(noms.join(' · ')) : 'Aucune attaque'}</small></span>
           </button>`;
         }).join('')}</div>`
-      : vide(E.albumQ || E.albumType ? 'Aucune carte' : 'Pas encore de carte d\'album', E.albumQ || E.albumType ? 'Change ta recherche.' : 'Clique sur « Ajouter un album » pour créer la première.');
+      : vide(E.albumQ ? 'Aucune carte' : 'Pas encore de carte d\'album', E.albumQ ? 'Change ta recherche.' : 'Clique sur « Ajouter un album » pour créer la première.');
   }
 
-  // La couleur dominante d'une cover, puis les types classés du plus proche au plus éloigné (couleur du type).
-  const versLab = (r, g, b) => {
-    const f = (v) => { v /= 255; return v > .04045 ? Math.pow((v + .055) / 1.055, 2.4) : v / 12.92; };
-    const R = f(r), G = f(g), B = f(b);
-    const X = (R * .4124 + G * .3576 + B * .1805) / .95047, Y = R * .2126 + G * .7152 + B * .0722, Z = (R * .0193 + G * .1192 + B * .9505) / 1.08883;
-    const h = (t) => t > .008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
-    return [116 * h(Y) - 16, 500 * (h(X) - h(Y)), 200 * (h(Y) - h(Z))];
-  };
-  const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); return m ? [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)) : [150, 160, 175]; };
-
-  function couleurDominante(url){
-    return new Promise((fin) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        try{
-          const N = 48, c = document.createElement('canvas');
-          c.width = c.height = N;
-          const g = c.getContext('2d', { willReadFrequently: true });
-          g.drawImage(img, 0, 0, N, N);
-          const d = g.getImageData(0, 0, N, N).data;
-          const bacs = Array.from({ length: 12 }, () => ({ w: 0, r: 0, g: 0, b: 0 }));
-          let tr = 0, tg = 0, tb = 0, colore = 0;
-          for(let i = 0; i < d.length; i += 4){
-            const r = d[i], gg = d[i + 1], b = d[i + 2];
-            tr += r; tg += gg; tb += b;
-            const mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), sat = mx ? (mx - mn) / mx : 0;
-            if(sat < .28 || mx < 60) continue;
-            colore++;
-            let h = mx === r ? ((gg - b) / (mx - mn)) % 6 : mx === gg ? (b - r) / (mx - mn) + 2 : (r - gg) / (mx - mn) + 4;
-            h = (h * 60 + 360) % 360;
-            const k = Math.floor(h / 30), w = sat * mx / 255;
-            bacs[k].w += w; bacs[k].r += r * w; bacs[k].g += gg * w; bacs[k].b += b * w;
-          }
-          const n = d.length / 4;
-          if(colore < n * .22){ fin([tr / n, tg / n, tb / n, true]); return; }
-          const top = bacs.reduce((a, x) => x.w > a.w ? x : a, bacs[0]);
-          fin([top.r / top.w, top.g / top.w, top.b / top.w]);
-        }catch(e){ fin(null); }
-      };
-      img.onerror = () => fin(null);
-      img.src = url;
-    });
-  }
-
-  async function typesSuggeres(cover){
-    const types = await typesAlbums();
-    const rgb = await couleurDominante(cover);
-    if(!rgb) return { types, suggere: null };
-    const lab = versLab(...rgb);
-    const dist = (t) => { const l = versLab(...hexRgb(t.couleur)); return Math.hypot(l[0] - lab[0], l[1] - lab[1], l[2] - lab[2]); };
-    const classes = types.slice().sort((a, b) => dist(a) - dist(b));
-    // Une cover sombre et sans couleur : le type « Ténèbres » d'abord s'il existe.
-    const sombre = types.find((t) => t.id === 'tenebres');
-    if(rgb[3] && lab[0] < 35 && sombre) classes.splice(0, 0, ...classes.splice(classes.indexOf(sombre), 1));
-    return { types: classes, suggere: classes[0].id };
-  }
-
-  const chipsTypes = (types, choisi, suggere) => `<div class="ee-types" role="radiogroup" aria-label="Type de la carte">
-    ${types.map((t) => `<button type="button" role="radio" aria-checked="${t.id === choisi}" class="ee-type-choix${t.id === choisi ? ' actif' : ''}" data-t="${esc(t.id)}" style="--tc:${coul(t.couleur)}">${esc(t.nom)}${t.id === suggere ? '<i>suggéré</i>' : ''}</button>`).join('')}
-    <button type="button" role="radio" aria-checked="${!choisi}" class="ee-type-choix aucun${!choisi ? ' actif' : ''}" data-t="">Aucun</button></div>`;
-
-  // Ajouter un album : l'artiste, puis son projet, puis le type (suggéré d'après la cover) ; la carte est créée avec ses titres.
+  // Ajouter un album : l'artiste, puis son projet ; la carte est créée avec ses titres (les 3 plus écoutés deviennent ses attaques).
   function ajouterAlbum(){
     const etat = { etape: 'artiste', q: '', artistes: [], artiste: null, projets: [], singles: false, projet: null, types: [], suggere: null, type: '' };
     const f = api.fenetre('<div data-zone></div>', true);
@@ -1304,11 +1234,14 @@
     }
     async function choisirProjet(p){
       etat.projet = p;
-      etat.etape = 'type';
-      zone.innerHTML = '<p class="sous">Lecture de la cover…</p>';
-      const r = await typesSuggeres(p.cover);
-      etat.types = r.types; etat.suggere = r.suggere; etat.type = r.suggere || '';
-      dessiner();
+      zone.innerHTML = '<p class="sous">Lecture des titres sur Deezer…</p>';
+      try{
+        const c = await rpc('jeu_equipe_album_ajouter', { p_release: p.release, p_type: null });
+        api.toast('Carte créée avec ' + c.nb_titres + ' titres.');
+        f.fermer();
+        await sAlbums();
+        editerAlbum(c);
+      }catch(e){ etat.etape = 'projets'; dessiner(); }
     }
 
     function dessiner(){
@@ -1339,40 +1272,15 @@
         $('[data-retour]', zone).addEventListener('click', () => { etat.etape = 'artiste'; dessiner(); });
         $('[data-singles]', zone).addEventListener('change', (ev) => { etat.singles = ev.target.checked; ouvrirArtiste(etat.artiste); });
         $$('[data-proj]', zone).forEach((b) => b.addEventListener('click', () => choisirProjet(etat.projets[Number(b.dataset.proj)])));
-      }else{
-        const p = etat.projet;
-        zone.innerHTML = `
-          <h2>Quel type pour cette carte ?</h2>
-          <div class="ee-alb-choix">
-            <img src="${esc(api.safeUrl(p.cover))}" alt="">
-            <div><b>${esc(p.titre)}</b><small>${esc(etat.artiste.nom)} · ${esc(moisAnnee(p.date))}</small>
-              <p class="ee-aide">${etat.suggere ? 'Le type proposé est celui dont la couleur est la plus proche de la cover. Change-le si besoin.' : 'La cover n\'a pas pu être lue : choisis le type à la main.'}</p></div></div>
-          ${chipsTypes(etat.types, etat.type, etat.suggere)}
-          <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-retour>Retour</button><button type="button" class="ct-btn principal" data-creer>Créer la carte</button></div>`;
-        $$('.ee-type-choix', zone).forEach((b) => b.addEventListener('click', () => { etat.type = b.dataset.t; $$('.ee-type-choix', zone).forEach((x) => { x.classList.toggle('actif', x === b); x.setAttribute('aria-checked', String(x === b)); }); }));
-        $('[data-retour]', zone).addEventListener('click', () => { etat.etape = 'projets'; dessiner(); });
-        const creer = $('[data-creer]', zone);
-        creer.addEventListener('click', async () => {
-          creer.disabled = true; creer.textContent = 'Lecture des titres…';
-          try{
-            const c = await rpc('jeu_equipe_album_ajouter', { p_release: p.release, p_type: etat.type || null });
-            etat.cree = true;
-            api.toast('Carte créée avec ' + c.nb_titres + ' titres.');
-            f.fermer();
-            await sAlbums();
-            editerAlbum(c);
-          }catch(e){ creer.disabled = false; creer.textContent = 'Créer la carte'; }
-        });
       }
     }
     chercher();
   }
 
-  // Régler une carte d'album : son type et ses attaques (de 1 à 3 titres du projet, dans l'ordre choisi).
+  // Régler une carte d'album : ses attaques (de 1 à 3 titres du projet, dans l'ordre choisi).
   async function editerAlbum(c){
     if(!c) return;
-    const types = await typesAlbums();
-    const etat = { type: c.type || '', att: (c.attaques || []).slice(), titres: c.titres, actif: c.actif };
+    const etat = { att: (c.attaques || []).slice(), titres: c.titres, actif: c.actif };
     const rangMax = Math.max(1, ...c.titres.map((t) => t.rang || 0));
     const f = api.fenetre('<div data-ed></div>', true);
     const ed = $('[data-ed]', f.corps);
@@ -1383,8 +1291,6 @@
           <img src="${esc(api.safeUrl(c.cover))}" alt="">
           <div><h2 style="margin:0">${esc(c.album)}</h2><small>${esc(c.artiste)} · ${esc(moisAnnee(c.date))} · ${etat.titres.length} titres</small>
             <div style="margin-top:8px"><button type="button" class="ct-btn petit" data-relire>Relire les titres sur Deezer</button></div></div></div>
-        <h3 class="ee-alb-h">Type</h3>
-        ${chipsTypes(types, etat.type, null)}
         <h3 class="ee-alb-h">Attaques <small>${etat.att.length}/3 · les titres choisis, dans l'ordre : le 1er est l'attaque de base</small></h3>
         <div class="ee-titres">${etat.titres.map((t) => {
           const k = etat.att.indexOf(t.id);
@@ -1396,7 +1302,6 @@
           <button type="button" class="ct-btn petit" data-retirer>Retirer la carte</button>
           <span style="display:flex; gap:10px"><label class="ee-case"><input type="checkbox" data-actif${etat.actif ? ' checked' : ''}> Active</label>
             <button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-ok${etat.att.length ? '' : ' disabled'}>Enregistrer</button></span></div>`;
-      $$('.ee-type-choix', ed).forEach((b) => b.addEventListener('click', () => { etat.type = b.dataset.t; dessiner(); }));
       $$('.ee-titre', ed).forEach((b) => b.addEventListener('click', () => {
         const id = Number(b.dataset.tid), k = etat.att.indexOf(id);
         if(k >= 0) etat.att.splice(k, 1);
@@ -1424,7 +1329,7 @@
       $('[data-ok]', ed).addEventListener('click', async (ev) => {
         ev.target.disabled = true;
         try{
-          await rpc('jeu_equipe_album_regler', { p_id: c.id, p_champs: { type: etat.type || null, attaques: etat.att, actif: etat.actif } });
+          await rpc('jeu_equipe_album_regler', { p_id: c.id, p_champs: { attaques: etat.att, actif: etat.actif } });
           api.toast('Carte enregistrée.');
           f.fermer(); listerAlbums();
         }catch(e){ ev.target.disabled = false; }
@@ -1452,7 +1357,7 @@
           ${albums.map((a) => `
           <button type="button" class="ee-alb${etat.choix === a.id ? ' choisi' : ''}" data-alb="${esc(a.id)}">
             <span class="ee-alb-cover"><img src="${esc(api.safeUrl(a.cover))}" alt="" loading="lazy"></span>
-            <span class="ee-alb-txt"><b>${esc(a.album)}</b><small>${esc(a.sortie)}</small>${a.type_nom ? `<span class="ee-type" style="--tc:${api.couleurOk(a.couleur)}">${esc(a.type_nom)}</span>` : '<span class="ee-type sans">Sans type</span>'}</span></button>`).join('')}
+            <span class="ee-alb-txt"><b>${esc(a.album)}</b><small>${esc(a.sortie)}</small></span></button>`).join('')}
         </div>
         ${albums.length ? '' : '<p class="ee-aide">Cet artiste n\'a pas encore de carte d\'album : crée-en une dans la section « Albums ».</p>'}
         <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-ok>Enregistrer</button></div>`;

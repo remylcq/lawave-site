@@ -2361,10 +2361,6 @@
         </div>
       </div>`, true);
 
-    f.corps.addEventListener('click', (ev) => {
-      const t = ev.target.closest ? ev.target.closest('[data-type]') : null;
-      if(t && typeof window.chargerWaveModule === 'function') window.chargerWaveModule('combat').then(() => window.WaveCombat.types(api, t.dataset.type)).catch(() => {});
-    });
     inclinable(f.corps.querySelector('.ct-fiche-carte')); const vd = f.corps.querySelector('[data-vendre]'); if(vd) vd.addEventListener('click', async () => { try{ await window.chargerWaveModule('marche'); await window.WaveMarche.vendre(c, api); }catch(e){ toast(e.message, 'err'); } });
 
     // La fiche de combat (type, stats, attaques, capacité) vient du module combat.js.
