@@ -8,7 +8,8 @@
 #  - le mot de passe passe par l'environnement (sshpass -e), jamais par une ligne de commande ni un fichier ;
 #  - le script n'affiche jamais l'identifiant, le mot de passe ni le serveur : le dépôt est public, ses
 #    journaux aussi, et GitHub ne masque une valeur secrète que si elle apparaît en entier.
-# Rien n'est supprimé sur le serveur : .htaccess, musique/, etc. ne sont pas touchés.
+# Rien n'est supprimé sur le serveur, sauf les fichiers de la liste « retires » plus bas (des modules retirés du site) :
+# .htaccess, musique/, etc. ne sont pas touchés.
 #
 # Entrées (variables d'environnement) : FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, FTP_DOSSIER (www/ par
 # défaut), ESSAI=true pour vérifier la connexion et lister sans rien envoyer.
@@ -118,4 +119,11 @@ for l in "$travail"/lot_*; do
   } > "$travail/commandes"
   envoyer_lot "$travail/commandes" || { echo "Envoi interrompu : la connexion ne tient pas." >&2; exit 1; }
 done
+# Les fichiers d'anciens modules, retirés du site (2026-11-04 : les modes de combat autres que la Tour) : supprimés du serveur s'ils y sont encore.
+retires="combat-pve.js combat-pvp.js combat-quete.js combat-rivaux.js"
+{
+  echo "cd $dossier"
+  for f in $retires; do echo "-rm $f"; done
+} > "$travail/retires"
+envoyer_lot "$travail/retires" || echo "Les anciens fichiers n'ont pas pu être supprimés (sans gravité)." >&2
 echo "Terminé."
