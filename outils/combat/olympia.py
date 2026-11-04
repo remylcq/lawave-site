@@ -1,10 +1,12 @@
-"""La façade de l'Olympia de Paris en pixel art, le décor des combats de Wave Cards, et ses textures (pavé, tapis rouge).
+"""L'Olympia de Paris en pixel art, de jour, décor des combats de Wave Cards : la façade (calquée sur des photos du boulevard des Capucines),
+les immeubles haussmanniens voisins, la colonne Morris, l'abribus, les platanes ; et ses textures (trottoir, asphalte).
 
     python outils/combat/olympia.py
 
-Écrit img/combat/olympia.png (480 × 270, le sol est à la ligne 215), img/combat/pave.png et img/combat/tapis.png.
-Tout est dessiné pixel par pixel (aucune image externe) : palette limitée, dégradés tramés, lumières en demi-teintes.
+Écrit img/combat/olympia.png (480 × 270, le sol est à la ligne 215), img/combat/trottoir.png et img/combat/asphalte.png.
+Tout est dessiné pixel par pixel (aucune image externe) : palette limitée, dégradés tramés.
 Affichés agrandis sans lissage (NearestFilter dans la scène 3D, image-rendering: pixelated en 2D).
+Sous l'enseigne, la devanture de l'Olympia affiche « LA WAVE » à la place des spectacles.
 """
 import os
 import random
@@ -28,7 +30,6 @@ def mix(a, b, t):
 
 
 def tramer(img, x, y, a, b, t):
-    """Pose un pixel entre a et b, tramé selon t (0 → a, 1 → b)."""
     if 0 <= x < img.width and 0 <= y < img.height:
         img.putpixel((x, y), b if (BAYER[y % 4][x % 4] + .5) / 16 < t else a)
 
@@ -37,16 +38,19 @@ def rect(d, x0, y0, x1, y1, c):
     d.rectangle([x0, y0, x1, y1], fill=c)
 
 
-def halo(img, cx, cy, r, couleur, force=1.0):
-    """Une lumière en demi-teintes autour d'un point."""
-    for y in range(cy - r, cy + r + 1):
-        for x in range(cx - r, cx + r + 1):
-            d = ((x - cx) ** 2 + (y - cy) ** 2) ** .5
-            if d <= r and 0 <= x < img.width and 0 <= y < img.height:
-                t = (1 - d / r) ** 1.6 * force
-                if (BAYER[y % 4][x % 4] + .5) / 16 < t:
-                    img.putpixel((x, y), mix(img.getpixel((x, y)), couleur, min(1, t * 1.1)))
+def px(img, x, y, c):
+    if 0 <= x < img.width and 0 <= y < img.height:
+        img.putpixel((x, y), c)
 
+
+C = {k: hexa(v) for k, v in {
+    'pierre': '#dccfb4', 'pierre_cl': '#efe6d2', 'pierre_om': '#b9ab91', 'pierre_fo': '#8f836d',
+    'fer': '#23252b', 'verre': '#9cb6b0', 'verre_cl': '#c9dfd8', 'verre_fo': '#5f7a78',
+    'ardoise': '#474d5b', 'ardoise2': '#5a6272', 'rouge': '#c4262e', 'rouge_cl': '#e24b4b', 'rouge_fo': '#8f1a22',
+    'bois': '#bb7a2c', 'bois_fo': '#7d4d18', 'bois_cl': '#d9954a',
+    'vert': '#5f8f35', 'vert_cl': '#92bd4f', 'vert_fo': '#3f6a28', 'jaune': '#c9d86a',
+    'tronc': '#8a7f6e', 'tronc_cl': '#bdb59f', 'blanc': '#f3eee0',
+}.items()}
 
 POLICE = {
     'O': ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
@@ -56,228 +60,293 @@ POLICE = {
     'P': ['11110', '10001', '10001', '11110', '10000', '10000', '10000'],
     'I': ['11111', '00100', '00100', '00100', '00100', '00100', '11111'],
     'A': ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
+    'W': ['10001', '10001', '10001', '10101', '10101', '11011', '10001'],
+    'V': ['10001', '10001', '10001', '10001', '01010', '01010', '00100'],
+    'E': ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
 }
 
 
-def lettre(d, x, y, car, k, c):
-    for j, ligne in enumerate(POLICE[car]):
-        for i, v in enumerate(ligne):
-            if v == '1':
-                d.rectangle([x + i * k, y + j * k, x + i * k + k - 1, y + j * k + k - 1], fill=c)
+def texte(d, x, y, mot, k, c, espace=2):
+    for car in mot:
+        if car == ' ':
+            x += 3 * k + espace
+            continue
+        for j, ligne in enumerate(POLICE[car]):
+            for i, v in enumerate(ligne):
+                if v == '1':
+                    d.rectangle([x + i * k, y + j * k, x + i * k + k - 1, y + j * k + k - 1], fill=c)
+        x += 5 * k + espace
+    return x
 
 
-def immeuble_haussmann(img, d, x0, x1, haut, rnd):
-    """Un immeuble haussmannien de nuit : pierre claire, balcons, fenêtres allumées, toit de zinc à lucarnes."""
-    pierre = hexa('#7a7188'); clair = hexa('#968da6'); sombre = hexa('#554e66'); zinc = hexa('#3b4560'); zinc2 = hexa('#4c5878')
-    vitre = hexa('#161c3a'); lumiere = hexa('#f2c46b'); lumiere2 = hexa('#ffe3a0'); fer = hexa('#25222f')
-    rect(d, x0, haut + 24, x1, SOL, pierre)
-    for y in range(haut, haut + 24):
-        marge = int((haut + 24 - y) * .5)
-        rect(d, x0 + marge // 2, y, x1 - marge // 2, y, zinc if (y // 3) % 2 == 0 else zinc2)
-    for cx in range(x0 + 16, x1 - 10, 30):
-        rect(d, cx, haut + 8, cx + 9, haut + 20, sombre); rect(d, cx + 2, haut + 11, cx + 7, haut + 19, vitre if rnd.random() > .35 else lumiere)
-        rect(d, cx - 1, haut + 5, cx + 10, haut + 7, zinc2)
-    for cx in (x0 + 12, x1 - 22):
-        rect(d, cx, haut - 10, cx + 5, haut + 8, hexa('#2a2f45')); rect(d, cx - 1, haut - 12, cx + 6, haut - 10, hexa('#3b4360'))
-    rect(d, x0, haut + 24, x1, haut + 27, clair)
-    for etage in range(4):
-        y = haut + 32 + etage * 33
-        if y + 26 > SOL - 4:
-            break
-        for cx in range(x0 + 8, x1 - 12, 20):
-            rect(d, cx - 1, y - 1, cx + 10, y + 21, sombre)
-            allumee = rnd.random() > .55
-            rect(d, cx, y, cx + 9, y + 20, lumiere if allumee else vitre)
-            if allumee:
-                rect(d, cx + 1, y + 1, cx + 8, y + 6, lumiere2)
-            rect(d, cx + 4, y, cx + 5, y + 20, sombre); rect(d, cx, y + 9, cx + 9, y + 9, sombre)
-        rect(d, x0, y + 21, x1, y + 23, fer if etage % 2 == 0 else sombre)
-        if etage % 2 == 0:
-            for bx in range(x0 + 2, x1, 5):
-                rect(d, bx, y + 24, bx, y + 26, fer)
-        rect(d, x0, y + 27, x1, y + 28, clair)
-    rect(d, x0, SOL - 26, x1, SOL, hexa('#2c2838'))
-    for cx in range(x0 + 6, x1 - 14, 26):
-        rect(d, cx, SOL - 22, cx + 17, SOL - 2, hexa('#10131f')); rect(d, cx + 2, SOL - 20, cx + 15, SOL - 4, hexa('#2a3050') if rnd.random() > .4 else lumiere)
+def largeur(mot, k, espace=2):
+    return sum((3 * k + espace) if car == ' ' else (5 * k + espace) for car in mot) - espace
+
+
+def fenetre(d, x, y, w=9, h=22, allumee=False):
+    rect(d, x - 1, y - 1, x + w, y + h, C['pierre_om'])
+    rect(d, x, y, x + w - 1, y + h - 1, C['verre'])
+    rect(d, x, y, x + w - 1, y + h // 3, C['verre_cl'])
+    rect(d, x + w // 2, y, x + w // 2, y + h - 1, C['pierre_om'])
+    rect(d, x, y + h // 3, x + w - 1, y + h // 3, C['pierre_om'])
+    rect(d, x, y + h - 3, x + w - 1, y + h - 1, C['verre_fo'])
+    rect(d, x - 2, y - 2, x + w + 1, y - 2, C['pierre_cl'])
+
+
+def balcon(d, x0, x1, y):
+    """Un balcon filant en fer forgé."""
+    rect(d, x0, y, x1, y + 1, C['fer'])
+    rect(d, x0, y + 8, x1, y + 9, C['fer'])
+    for x in range(x0 + 1, x1, 3):
+        rect(d, x, y + 2, x, y + 7, C['fer'])
+    for x in range(x0 + 6, x1, 12):
+        rect(d, x, y - 1, x + 1, y + 9, C['fer'])
+    for x in range(x0 + 3, x1 - 2, 6):
+        rect(d, x, y + 4, x + 1, y + 5, C['pierre_om'])
+
+
+def toit(d, x0, x1, haut, rnd, hauteur=22, lucarnes=True):
+    """Un toit en zinc mansardé avec ses lucarnes et ses cheminées."""
+    for y in range(haut, haut + hauteur):
+        marge = int((haut + hauteur - y) * .45)
+        rect(d, x0 + marge // 2, y, x1 - marge // 2, y, C['ardoise'] if (y // 3) % 2 == 0 else C['ardoise2'])
+    if lucarnes:
+        for cx in range(x0 + 14, x1 - 14, 26):
+            rect(d, cx, haut + 7, cx + 10, haut + hauteur - 2, C['pierre_om'])
+            rect(d, cx + 2, haut + 10, cx + 8, haut + hauteur - 3, C['verre_fo'])
+            rect(d, cx - 1, haut + 4, cx + 11, haut + 6, C['ardoise2'])
+    for cx in (x0 + 10, x1 - 18):
+        rect(d, cx, haut - 11, cx + 5, haut + 6, C['pierre_om']); rect(d, cx - 1, haut - 13, cx + 6, haut - 11, C['pierre_fo'])
+    rect(d, x0, haut + hauteur, x1, haut + hauteur + 3, C['pierre_cl'])
+    rect(d, x0, haut + hauteur + 3, x1, haut + hauteur + 3, C['pierre_om'])
+
+
+def immeuble(d, x0, x1, haut, etages, balcons, rnd):
+    toit(d, x0, x1, haut, rnd)
+    top = haut + 26
+    rect(d, x0, top, x1, SOL, C['pierre'])
+    for k in range(etages):
+        y = top + 4 + k * 26
+        for cx in range(x0 + 8, x1 - 12, 19):
+            fenetre(d, cx, y)
+        rect(d, x0, y + 21, x1, y + 22, C['pierre_om'])
+        if k in balcons:
+            balcon(d, x0, x1, y + 17)
+        else:
+            rect(d, x0, y + 22, x1, y + 23, C['pierre_cl'])
+    # les chaînages d'angle en pierre claire et les pilastres
+    for cx in range(x0 + 2, x1, 38):
+        rect(d, cx, top, cx + 1, SOL, C['pierre_cl'])
+        rect(d, cx + 2, top, cx + 2, SOL, C['pierre_om'])
+    rect(d, x0, top, x0 + 3, SOL, C['pierre_cl']); rect(d, x1 - 3, top, x1, SOL, C['pierre_om'])
+
+
+def arbre(img, d, xc, haut_couronne, rnd, rayon=24, tronc_x=None):
+    """Un platane : tronc moucheté, couronne de feuilles en amas."""
+    tx = tronc_x if tronc_x is not None else xc
+    for y in range(haut_couronne + 20, SOL + 4):
+        for x in range(tx - 3, tx + 3):
+            px(img, x, y, C['tronc'] if (x + y // 3) % 3 else C['tronc_cl'])
+    for _ in range(40):
+        bx = xc + rnd.randint(-rayon, rayon); by = haut_couronne + rnd.randint(0, 40)
+        r = rnd.randint(5, 10)
+        for y in range(by - r, by + r + 1):
+            for x in range(bx - r, bx + r + 1):
+                dd = ((x - bx) ** 2 + (y - by) ** 2) ** .5
+                if dd <= r and ((x + y) % 3 or rnd.random() > .5):
+                    haut_t = (y - haut_couronne) / 46
+                    pal = [C['vert_cl'], C['vert'], C['vert_fo']]
+                    c = pal[min(2, max(0, int(haut_t * 2.2 + rnd.random() * .9 - .2)))]
+                    if rnd.random() > .93:
+                        c = C['jaune']
+                    px(img, x, y, c)
+    for _ in range(40):  # des trouées de ciel dans le feuillage
+        px(img, xc + rnd.randint(-rayon, rayon), haut_couronne + rnd.randint(8, 38), C['verre_cl'])
+
+
+def devanture_olympia(img, d):
+    x0, x1 = 180, 302
+    # l'immeuble de l'Olympia derrière l'enseigne : pierre, étage, toit mansardé
+    toit(d, 172, 310, 48, random.Random(2), 20, lucarnes=False)
+    for cx in (200, 240, 276):
+        rect(d, cx, 54, cx + 10, 64, C['pierre_om']); rect(d, cx + 2, 56, cx + 8, 63, C['verre_fo'])
+    rect(d, 172, 71, 310, 100, C['pierre'])
+    for cx in range(182, 300, 22):
+        fenetre(d, cx, 76, 9, 17)
+    rect(d, 172, 71, 175, 215, C['pierre_cl']); rect(d, 307, 71, 310, 215, C['pierre_om'])
+    # l'enseigne rouge en saillie : bandeau, logo hexagonal, OLYMPIA en blanc, dessous en bois sombre
+    rect(d, x0, 99, x1, 125, C['rouge'])
+    rect(d, x0, 99, x1, 100, C['rouge_cl']); rect(d, x0, 123, x1, 125, C['rouge_fo'])
+    rect(d, x0, 99, x0 + 1, 125, C['rouge_fo']); rect(d, x1 - 1, 99, x1, 125, C['rouge_fo'])
+    cx, cy = 198, 112   # le logo : un hexagone blanc ouvert
+    for (ax, ay, bx, by) in [(-7, 0, -3, -7), (-3, -7, 4, -7), (4, -7, 8, 0), (8, 0, 4, 7), (4, 7, -3, 7), (-3, 7, -7, 0)]:
+        n = max(abs(bx - ax), abs(by - ay))
+        for i in range(n + 1):
+            xx = cx + ax + (bx - ax) * i // max(n, 1); yy = cy + ay + (by - ay) * i // max(n, 1)
+            px(img, xx, yy, C['blanc']); px(img, xx, yy + 1, C['blanc'])
+    rect(d, cx - 1, cy - 1, cx + 2, cy + 2, C['rouge'])
+    texte(d, 212, 104, 'OLYMPIA', 2, C['blanc'], 2)
+    texte(d, 213, 104, 'OLYMPIA', 2, C['blanc'], 2)   # des lettres épaisses comme sur l'enseigne
+    for y in range(126, 136):
+        rect(d, x0 + 4, y, x1 - 4, y, mix(hexa('#6b5750'), hexa('#3c2f2c'), (y - 126) / 9))
+    for x in range(x0 + 6, x1 - 4, 6):
+        rect(d, x, 126, x, 135, hexa('#8a746c'))
+    # la devanture-fronton : un grillage de barres blanches sur fond sombre, « LA WAVE » en lettres rouges
+    fx0, fx1 = 188, 294
+    rect(d, fx0 - 3, 136, fx1 + 3, 196, C['pierre_om'])
+    rect(d, fx0, 138, fx1, 194, hexa('#3b2c2e'))
+    for x in range(fx0, fx1 + 1, 4):
+        rect(d, x, 138, x + 1, 194, C['blanc'])
+    for y in (138, 156, 177, 193):
+        rect(d, fx0 - 2, y, fx1 + 2, y + 1, C['blanc'])
+    for (y, h) in ((141, 12), (160, 14), (180, 10)):
+        rect(d, fx0 + 3, y, fx1 - 3, y + h, hexa('#3b2c2e'))
+    mot = 'LA WAVE'
+    k = 2
+    xx = (fx0 + fx1) // 2 - largeur(mot, k, 3) // 2
+    texte(d, xx + 1, 164, mot, k, C['rouge_fo'], 3)
+    texte(d, xx, 163, mot, k, hexa('#e8433f'), 3)
+    # le rez-de-chaussée : le rideau de fer, un petit panneau rouge
+    rect(d, 186, 196, 296, SOL, hexa('#1e2024'))
+    for x in range(188, 296, 3):
+        rect(d, x, 198, x, SOL - 1, hexa('#34383e'))
+    for y in range(199, SOL, 3):
+        rect(d, 187, y, 295, y, hexa('#2a2d33'))
+    rect(d, 186, 194, 296, 196, hexa('#2b2224'))
+    rect(d, 290, 199, 295, 211, C['rouge_fo']); rect(d, 291, 200, 294, 203, C['rouge_cl'])
+    rect(d, 176, 190, 185, SOL, hexa('#2d3034'))
+
+
+def abribus(d):
+    rect(d, 52, 174, 126, 178, hexa('#2f3a37'))
+    rect(d, 56, 171, 122, 174, hexa('#3d4a45'))
+    rect(d, 54, 178, 124, SOL, hexa('#2b3033'))
+    for i, (x, c1, c2) in enumerate(((62, '#4f93d6', '#e9f2fa'), (92, '#7ab4e6', '#f1d27a'))):
+        rect(d, x, 182, x + 24, 208, hexa('#1c2023'))
+        rect(d, x + 1, 183, x + 23, 207, hexa(c1))
+        rect(d, x + 5, 188, x + 18, 197, hexa(c2))
+        rect(d, x + 7, 200, x + 16, 203, hexa('#ffffff'))
+    rect(d, 120, 182, 124, SOL - 2, hexa('#1c2023'))
+
+
+def colonne_morris(d):
+    x0, x1 = 394, 414
+    rect(d, x0 + 2, 134, x1 - 2, 138, hexa('#2c4637'))
+    rect(d, x0 + 5, 130, x1 - 5, 134, hexa('#2c4637'))
+    rect(d, x0 + 8, 126, x1 - 8, 130, hexa('#2c4637'))
+    rect(d, x0, 138, x1, 150, hexa('#34523f'))
+    rect(d, x0, 150, x1, SOL - 4, hexa('#23382c'))
+    for j, (y, h, c) in enumerate(((152, 20, '#efe7d3'), (174, 16, '#d8c9a6'), (192, 16, '#e4d7b8'))):
+        rect(d, x0 + 2, y, x1 - 2, y + h, hexa(c))
+        rect(d, x0 + 4, y + 2, x1 - 5, y + 4 + j, hexa('#4a4a52'))
+        rect(d, x0 + 4, y + 7, x1 - 8, y + 12, hexa('#a43b3b') if j != 1 else hexa('#3b6aa4'))
+    rect(d, x0 + 1, SOL - 4, x1 - 1, SOL, hexa('#1a2a21'))
+
+
+def porte_bois(d):
+    rect(d, 344, 146, 384, SOL, C['pierre_om'])
+    rect(d, 346, 148, 382, SOL, C['bois'])
+    rect(d, 346, 148, 382, 152, C['bois_fo'])
+    rect(d, 347, 154, 363, 165, C['verre_fo']); rect(d, 365, 154, 381, 165, C['verre_fo'])
+    for (xa, xb) in ((348, 363), (365, 380)):
+        for (ya, yb) in ((168, 188), (191, SOL - 3)):
+            rect(d, xa, ya, xb, yb, C['bois_cl']); rect(d, xa + 1, ya + 1, xb - 1, yb - 1, C['bois'])
+    rect(d, 363, 148, 364, SOL, C['bois_fo'])
+    rect(d, 318, 168, 340, SOL, hexa('#2e3a3d')); rect(d, 320, 170, 338, SOL - 1, hexa('#4a5d62'))
+    rect(d, 328, 170, 329, SOL - 1, hexa('#2e3a3d'))
+
+
+def boutique_droite(d):
+    rect(d, 428, 170, 480, SOL, hexa('#2c2a2e'))
+    rect(d, 428, 172, 480, 182, hexa('#1d1d21'))
+    for x in range(432, 478, 6):
+        rect(d, x, 175, x + 3, 179, hexa('#d8d4c4'))
+    rect(d, 430, 184, 452, SOL - 2, hexa('#8fb0b5')); rect(d, 455, 184, 478, SOL - 2, hexa('#8fb0b5'))
+    for (x, c) in ((434, '#c9a07a'), (459, '#d9b08c')):
+        rect(d, x, 188, x + 14, 208, hexa(c)); rect(d, x + 4, 192, x + 10, 200, hexa('#7a5236'))
 
 
 def lampadaire(img, d, x):
-    fer = hexa('#10131c'); verre = hexa('#ffe9a8')
-    rect(d, x, SOL - 78, x + 2, SOL + 6, fer)
-    rect(d, x - 1, SOL + 2, x + 3, SOL + 6, fer)
-    rect(d, x - 4, SOL - 82, x + 6, SOL - 79, fer)
-    rect(d, x - 3, SOL - 92, x + 5, SOL - 83, verre)
-    rect(d, x - 1, SOL - 96, x + 3, SOL - 93, fer)
-    halo(img, x + 1, SOL - 87, 26, hexa('#ffd98a'), .9)
-
-
-def foule(d, rnd):
-    """Des silhouettes devant les portes, quelques téléphones levés."""
-    for _ in range(26):
-        x = rnd.randint(150, 330)
-        h = rnd.randint(12, 18)
-        y = SOL + rnd.randint(-4, 8)
-        c = hexa(rnd.choice(['#0a0c16', '#0e1120', '#121528', '#080a12']))
-        rect(d, x, y - h + 6, x + 4, y, c)
-        rect(d, x + 1, y - h, x + 3, y - h + 3, c)
-        if rnd.random() > .8:
-            rect(d, x - 2, y - h + 1, x - 1, y - h + 4, c); rect(d, x - 2, y - h - 1, x - 1, y - h, hexa('#fff3b0'))
-
-
-def facade(img, d, rnd):
-    rouge = hexa('#b3202f'); rouge2 = hexa('#8f1a28'); rouge3 = hexa('#5e1019'); pierre = hexa('#8a7580'); pierre2 = hexa('#a48f96'); pierre3 = hexa('#5d4c58')
-    vitre = hexa('#161c3a'); lumiere = hexa('#f2c46b'); ampoule = hexa('#fff0b8'); ampoule2 = hexa('#ffc65a')
-    x0, x1 = 128, 352
-    for y in range(52, 82):
-        marge = int((82 - y) * .6)
-        rect(d, x0 + 4 + marge // 2, y, x1 - 4 - marge // 2, y, hexa('#34405c') if (y // 3) % 2 == 0 else hexa('#46527a'))
-    for cx in range(x0 + 22, x1 - 18, 34):
-        rect(d, cx, 62, cx + 11, 78, pierre3); rect(d, cx + 2, 65, cx + 9, 77, lumiere if rnd.random() > .4 else vitre)
-        rect(d, cx - 1, 59, cx + 12, 61, hexa('#46527a'))
-    rect(d, x0, 82, x1, 86, pierre2)
-    rect(d, x0, 87, x1, 120, pierre)
-    for cx in range(x0 + 10, x1 - 14, 21):
-        rect(d, cx - 1, 91, cx + 12, 117, pierre3)
-        allumee = rnd.random() > .3
-        rect(d, cx, 92, cx + 11, 116, lumiere if allumee else vitre)
-        if allumee:
-            rect(d, cx + 1, 93, cx + 10, 100, hexa('#ffe3a0'))
-        rect(d, cx + 5, 92, cx + 6, 116, pierre3); rect(d, cx, 104, cx + 11, 104, pierre3)
-        rect(d, cx - 2, 90, cx + 13, 91, pierre2)
-    for px in (x0, x0 + 64, x1 - 64, x1):
-        rect(d, px - 2, 87, px + 2, SOL - 20, pierre2)
-    # l'enseigne : le bandeau rouge, ses ampoules, « OLYMPIA » en lettres blanches
-    rect(d, x0 - 4, 121, x1 + 4, 158, rouge3)
-    for y in range(124, 156):
-        t = (y - 124) / 32
-        rect(d, x0 - 1, y, x1 + 1, y, mix(hexa('#c72a3a'), rouge2, t))
-    for x in range(x0 - 1, x1 + 2, 6):
-        for y in (122, 157):
-            rect(d, x, y, x + 1, y + 1, ampoule if (x // 6) % 2 == 0 else ampoule2)
-    for y in range(125, 156, 6):
-        for x in (x0 - 3, x1 + 2):
-            rect(d, x, y, x + 1, y + 1, ampoule if (y // 6) % 2 == 0 else ampoule2)
-    k = 4
-    total = 7 * 5 * k + 6 * 5
-    xs = (x0 + x1) // 2 - total // 2
-    for i, car in enumerate('OLYMPIA'):
-        x = xs + i * (5 * k + 5)
-        lettre(d, x + 1, 130, car, k, rouge3)
-        lettre(d, x, 128, car, k, hexa('#fff7e0'))
-    halo(img, (x0 + x1) // 2, 140, 70, hexa('#ff7a6a'), .35)
-    # la corniche sous l'enseigne puis l'auvent rouge et blanc et ses ampoules
-    rect(d, x0 - 4, 159, x1 + 4, 163, pierre2)
-    rect(d, x0 - 10, 164, x1 + 10, 181, rouge2)
-    for x in range(x0 - 10, x1 + 11, 8):
-        rect(d, x, 164, x + 3, 181, rouge if (x // 8) % 2 == 0 else hexa('#f0e4d0'))
-    rect(d, x0 - 10, 164, x1 + 10, 165, rouge3); rect(d, x0 - 10, 181, x1 + 10, 183, rouge3)
-    for x in range(x0 - 8, x1 + 10, 6):
-        rect(d, x, 184, x + 1, 185, ampoule)
-    halo(img, (x0 + x1) // 2, 188, 90, hexa('#ffc65a'), .22)
-    # les portes vitrées éclairées, les vitrines d'affiches
-    rect(d, x0, 184, x1, SOL, hexa('#3a2f3c'))
-    for cx in range(x0 + 46, x1 - 40, 44):
-        rect(d, cx, 188, cx + 36, SOL, hexa('#10101a'))
-        for y in range(190, SOL):
-            t = (y - 190) / 25
-            c = mix(hexa('#ffe8a0'), hexa('#f6b94a'), t)
-            rect(d, cx + 2, y, cx + 17, y, c); rect(d, cx + 19, y, cx + 34, y, c)
-        rect(d, cx + 17, 190, cx + 18, SOL, hexa('#10101a'))
-    for vx in (x0 + 8, x1 - 30):
-        rect(d, vx - 1, 188, vx + 21, 214, hexa('#10101a'))
-        rect(d, vx, 189, vx + 20, 213, hexa('#241a2c'))
-        for j, c in enumerate(['#d93a55', '#3aa0d9', '#f2c46b']):
-            rect(d, vx + 2 + j * 6, 191, vx + 6 + j * 6, 211, hexa(c))
-            rect(d, vx + 3 + j * 6, 197, vx + 5 + j * 6, 203, hexa('#fff3d0'))
-    halo(img, 240, SOL, 70, hexa('#ffc65a'), .3)
+    rect(d, x, SOL - 95, x + 1, SOL + 2, C['fer'])
+    rect(d, x - 1, SOL - 4, x + 2, SOL + 2, C['fer'])
+    for i in range(7):
+        px(img, x + 2 + i, SOL - 99 + i // 3, C['fer'])
+    rect(d, x + 7, SOL - 97, x + 15, SOL - 93, hexa('#3a3d44')); rect(d, x + 8, SOL - 93, x + 14, SOL - 92, hexa('#e8e2c8'))
 
 
 def fond():
-    rnd = random.Random(7)
+    rnd = random.Random(11)
     img = Image.new('RGB', (W, H))
     d = ImageDraw.Draw(img)
-    # le ciel de nuit parisien, tramé
-    ciel = [hexa(c) for c in ['#060a1c', '#0b1230', '#141c44', '#212a5a', '#3a3566', '#5a416b', '#7a4f6c', '#9a5a68']]
+    # le ciel : bleu clair qui pâlit vers l'horizon, tramé, avec des nuages
+    ciel = [hexa(c) for c in ['#86b6df', '#9bc4e6', '#b4d3ea', '#cbe1ee', '#dfecf1', '#ebf2f3']]
     for y in range(0, SOL):
-        t = y / (SOL - 1) * (len(ciel) - 1)
-        i = int(t)
+        t = y / 150 * (len(ciel) - 1)
+        i = min(int(t), len(ciel) - 2)
         for x in range(W):
-            tramer(img, x, y, ciel[i], ciel[min(i + 1, len(ciel) - 1)], t - i)
-    for _ in range(70):
-        x, y = rnd.randint(0, W - 1), rnd.randint(0, 110)
-        img.putpixel((x, y), hexa(rnd.choice(['#ffffff', '#cfd8ff', '#9aa6e0'])))
-    # la lune
-    for dy in range(-7, 8):
-        for dx in range(-7, 8):
-            if dx * dx + dy * dy <= 49 and not ((dx + 3) ** 2 + (dy - 1) ** 2 <= 36):
-                img.putpixel((410 + dx, 38 + dy), hexa('#fdf4d2'))
-    halo(img, 410, 38, 26, hexa('#fdf4d2'), .5)
-    # les toits lointains
-    ciel_loin = hexa('#171c3a')
-    x = 0
-    while x < W:
-        w = rnd.randint(14, 34); h = rnd.randint(95, 150)
-        rect(d, x, h, x + w, SOL, ciel_loin)
-        for _ in range(rnd.randint(0, 3)):
-            wx, wy = rnd.randint(x + 2, x + w - 3), rnd.randint(h + 8, SOL - 30)
-            rect(d, wx, wy, wx + 1, wy + 2, hexa('#d9b45a'))
-        x += w
-    immeuble_haussmann(img, d, 0, 118, 64, rnd)
-    immeuble_haussmann(img, d, 362, W - 1, 70, rnd)
-    facade(img, d, rnd)
-    # le trottoir, la chaussée, le tapis rouge
-    rect(d, 0, SOL + 1, W, SOL + 26, hexa('#3d3a4c'))
-    for x in range(0, W, 16):
-        rect(d, x, SOL + 1, x, SOL + 26, hexa('#312f3f'))
-    rect(d, 0, SOL + 1, W, SOL + 2, hexa('#6a6680'))
-    for y in range(SOL + 27, H):
+            tramer(img, x, y, ciel[i], ciel[i + 1], min(1, t - i))
+    for (cx, cy, rx, ry) in [(70, 28, 38, 8), (110, 34, 28, 6), (340, 22, 46, 9), (400, 30, 30, 6), (230, 14, 26, 5)]:
+        for y in range(cy - ry, cy + ry + 1):
+            for x in range(cx - rx, cx + rx + 1):
+                dd = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2
+                if dd <= 1 and ((x + y) % 2 == 0 or dd < .55):
+                    px(img, x, y, C['blanc'] if dd < .6 else hexa('#e3edf3'))
+    # les immeubles : à gauche (crème, 3 étages), au centre l'Olympia, à droite le grand immeuble à balcons
+    immeuble(d, 0, 172, 66, 3, (0, 2), rnd)
+    immeuble(d, 310, 480, 30, 5, (0, 3), rnd)
+    devanture_olympia(img, d)
+    abribus(d)
+    porte_bois(d)
+    colonne_morris(d)
+    boutique_droite(d)
+    # les platanes du boulevard, devant les façades
+    arbre(img, d, 150, 98, rnd, 22)
+    arbre(img, d, 326, 116, rnd, 20)
+    arbre(img, d, 20, 70, rnd, 24)
+    arbre(img, d, 456, 84, rnd, 24)
+    lampadaire(img, d, 306)
+    # le trottoir, le caniveau, la chaussée
+    rect(d, 0, SOL + 1, W, SOL + 22, hexa('#b9b3a6'))
+    for x in range(0, W, 14):
+        rect(d, x, SOL + 1, x, SOL + 22, hexa('#a29c90'))
+    rect(d, 0, SOL + 12, W, SOL + 12, hexa('#a29c90'))
+    rect(d, 0, SOL + 23, W, SOL + 25, hexa('#8d887c'))
+    for y in range(SOL + 26, H):
         for x in range(W):
-            tramer(img, x, y, hexa('#161722'), hexa('#222333'), .25 + (y - SOL - 27) / 90)
-    for y in range(SOL + 1, SOL + 14):
-        marge = (y - SOL) * 2
-        rect(d, 205 - marge, y, 275 + marge, y, hexa('#a3182a') if y % 4 else hexa('#7d1220'))
-    foule(d, rnd)
-    lampadaire(img, d, 118)
-    lampadaire(img, d, 362)
+            tramer(img, x, y, hexa('#62656c'), hexa('#74777e'), .3)
+    for x in range(10, W, 70):
+        rect(d, x, 258, x + 28, 259, hexa('#e9e6dc'))
     return img
 
 
-def pave():
-    """Un pavé de Paris 32 × 32 qui se répète : pierres grises aux joints sombres, un peu de bleu de nuit."""
-    rnd = random.Random(3)
-    img = Image.new('RGB', (32, 32), hexa('#1a1c28'))
+def trottoir():
+    """Dalles de trottoir parisien 32 × 32 : gris chaud, joints sombres."""
+    rnd = random.Random(5)
+    img = Image.new('RGB', (32, 32), hexa('#9a9488'))
     d = ImageDraw.Draw(img)
-    for ry in range(0, 32, 8):
-        decal = 8 if (ry // 8) % 2 else 0
-        for rx in range(-8, 32, 16):
-            x = rx + decal
-            base = mix(hexa('#555a6e'), hexa('#3e4256'), rnd.random())
-            rect(d, x + 1, ry + 1, x + 14, ry + 6, base)
-            rect(d, x + 1, ry + 1, x + 14, ry + 1, mix(base, hexa('#8a90a8'), .35))
-            for _ in range(5):
-                px, py = rnd.randint(x + 2, x + 13), rnd.randint(ry + 2, ry + 6)
-                if 0 <= px < 32:
-                    img.putpixel((px, py), mix(base, hexa('#2a2d3c'), .5))
+    for ry in (0, 16):
+        for rx in (0, 16):
+            base = mix(hexa('#bdb7aa'), hexa('#aaa498'), rnd.random())
+            rect(d, rx + 1, ry + 1, rx + 15, ry + 15, base)
+            rect(d, rx + 1, ry + 1, rx + 15, ry + 1, mix(base, hexa('#dcd7cb'), .5))
+            for _ in range(9):
+                img.putpixel((rnd.randint(rx + 2, rx + 14), rnd.randint(ry + 2, ry + 14)), mix(base, hexa('#8a857a'), .5))
     return img
 
 
-def tapis():
-    """Un tapis rouge 32 × 32 (répété en longueur) : bordure dorée, velours sombre."""
-    img = Image.new('RGB', (32, 32), hexa('#a3182a'))
-    d = ImageDraw.Draw(img)
-    for y in range(32):
-        rect(d, 4, y, 27, y, hexa('#a3182a') if y % 4 else hexa('#8a1424'))
-    rect(d, 0, 0, 3, 31, hexa('#2a0a10')); rect(d, 28, 0, 31, 31, hexa('#2a0a10'))
-    rect(d, 3, 0, 3, 31, hexa('#d9a441')); rect(d, 28, 0, 28, 31, hexa('#d9a441'))
-    rect(d, 5, 0, 5, 31, hexa('#d9a441')); rect(d, 26, 0, 26, 31, hexa('#d9a441'))
-    for y in range(0, 32, 8):
-        rect(d, 15, y + 2, 16, y + 3, hexa('#d9a441'))
+def asphalte():
+    """Asphalte 32 × 32 : gris moyen, gravillons clairs et sombres."""
+    rnd = random.Random(9)
+    img = Image.new('RGB', (32, 32), hexa('#62656c'))
+    for _ in range(150):
+        x, y = rnd.randint(0, 31), rnd.randint(0, 31)
+        img.putpixel((x, y), hexa(rnd.choice(['#74777e', '#575a61', '#80838a', '#4e5157'])))
     return img
 
 
 if __name__ == '__main__':
     os.makedirs(SORTIE, exist_ok=True)
     fond().save(os.path.join(SORTIE, 'olympia.png'), optimize=True)
-    pave().save(os.path.join(SORTIE, 'pave.png'), optimize=True)
-    tapis().save(os.path.join(SORTIE, 'tapis.png'), optimize=True)
+    trottoir().save(os.path.join(SORTIE, 'trottoir.png'), optimize=True)
+    asphalte().save(os.path.join(SORTIE, 'asphalte.png'), optimize=True)
     print('ok')

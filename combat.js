@@ -71,7 +71,7 @@
   /* La scène du combat */
   .tr-scene{position:fixed; inset:0; z-index:9000; display:grid; grid-template-rows:auto 1fr auto; color:#fff; background:#05070a;}
   .tr-fond{position:absolute; inset:0; background-size:cover; background-position:50% 30%; image-rendering:pixelated; opacity:1;}
-  .tr-fond::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,7,10,.55), rgba(5,7,10,.1) 45%, rgba(5,7,10,.65));}
+  .tr-fond::after{content:''; position:absolute; inset:0; background:linear-gradient(180deg, rgba(5,7,10,.25), rgba(5,7,10,0) 45%, rgba(5,7,10,.45));}
   .tr-scene > *{position:relative;}
   .tr-haut{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px;}
   .tr-haut h3{margin:0; font-size:17px;} .tr-haut small{display:block; color:rgba(255,255,255,.7); font-size:12px;}
@@ -109,14 +109,14 @@
   .tr3-canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
   .tr3-hud-layer{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
   .tr3-hud{position:absolute; left:0; top:0; width:150px; margin:-62px 0 0 -75px; text-align:center; transition:opacity .4s; will-change:transform;}
-  .tr3-hud .n{font-size:13px; font-weight:800; text-shadow:0 1px 6px #000, 0 0 2px #000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .tr3-hud .n{display:inline-block; max-width:100%; padding:1px 9px; border-radius:99px; font-size:13px; font-weight:800; background:rgba(5,7,10,.62); text-shadow:0 1px 3px #000; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .tr3-hud .ro{display:inline-block; margin:2px 0 4px; padding:1px 8px; border-radius:99px; font-size:9.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; background:rgba(0,0,0,.6); border:1px solid rgba(255,255,255,.25);}
   .tr3-hud.ami .ro{border-color:rgba(79,180,255,.7);} .tr3-hud.ennemi .ro{border-color:rgba(255,92,138,.7);}
   .tr3-hud .pv{position:relative; height:9px; border-radius:99px; background:rgba(0,0,0,.7); border:1px solid rgba(255,255,255,.3); overflow:hidden;}
   .tr3-hud .pv i{position:absolute; inset:0 auto 0 0; width:100%; background:linear-gradient(90deg, #3DD68C, #8BE05A); transition:width .3s;}
   .tr3-hud .pv.bas i{background:linear-gradient(90deg, #FF5C5C, #FF9F43);}
   .tr3-hud .pv b{position:absolute; inset:0 auto 0 0; width:0; background:rgba(92,200,255,.75); transition:width .3s;}
-  .tr3-hud .pvn{margin-top:2px; font-size:10.5px; font-variant-numeric:tabular-nums; text-shadow:0 1px 4px #000;}
+  .tr3-hud .pvn{display:inline-block; margin-top:2px; padding:0 7px; border-radius:99px; font-size:10.5px; font-variant-numeric:tabular-nums; background:rgba(5,7,10,.55); text-shadow:0 1px 3px #000;}
   .tr3-pop{position:absolute; z-index:6; transform:translateX(-50%); font-size:32px; font-weight:900; pointer-events:none; text-shadow:0 2px 0 #000, 0 0 14px #000; animation:trDeg3 1s ease-out forwards;}
   .tr3-pop.soin{color:#5BE0A6;} .tr3-pop.sig{color:#ffd76a; font-size:42px;} .tr3-pop.ref{color:#ff9f43;} .tr3-pop.bou{color:#5cc8ff;}
   .tr3-ban{position:absolute; z-index:7; transform:translateX(-50%); white-space:nowrap; max-width:220px; overflow:hidden; text-overflow:ellipsis; padding:5px 14px; border-radius:99px; font-size:13px; font-weight:800; color:#05070a; background:#F4F5F6; box-shadow:0 4px 16px rgba(0,0,0,.55); pointer-events:none; animation:trTitre 0.9s ease-out forwards;}
@@ -531,7 +531,7 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.15;
+    renderer.toneMappingExposure = 1.0;
     const canvas = renderer.domElement;
     canvas.className = 'tr3-canvas';
     corps.innerHTML = '';
@@ -541,66 +541,61 @@
     corps.appendChild(hudLayer);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0b1230);
-    scene.fog = new THREE.Fog(0x161a3a, 22, 52);
+    scene.background = new THREE.Color(0xbcd6ea);
+    scene.fog = new THREE.Fog(0xd4e4ee, 30, 70);
     const camera = new THREE.PerspectiveCamera(40, 1, .1, 90);
     const look = new THREE.Vector3(0, 1.1, 0);
     const accueil = { pos: new THREE.Vector3(0, 4.3, 9.6), look: new THREE.Vector3(0, 1.1, 0) };
 
-    // --- l'environnement (reflets) : une petite pièce dégradée avec des spots
+    // --- l'environnement (reflets) : un ciel de jour
     {
       const ec = document.createElement('canvas'); ec.width = 256; ec.height = 128;
       const g = ec.getContext('2d');
-      const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, '#26325a'); gr.addColorStop(.5, '#0b1020'); gr.addColorStop(1, '#05070d');
+      const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, '#86b6e6'); gr.addColorStop(.5, '#e4eef2'); gr.addColorStop(1, '#8c8a80');
       g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
-      pal.spots.forEach((col, i) => { const x = 40 + i * 90; const rg = g.createRadialGradient(x, 24, 0, x, 24, 34); const h = '#' + col.toString(16).padStart(6, '0'); rg.addColorStop(0, h); rg.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = rg; g.fillRect(x - 40, 0, 80, 70); });
+      const rg = g.createRadialGradient(190, 30, 0, 190, 30, 40); rg.addColorStop(0, '#fff6d8'); rg.addColorStop(1, 'rgba(255,246,216,0)');
+      g.fillStyle = rg; g.fillRect(140, 0, 100, 80);
       const et = new THREE.CanvasTexture(ec); et.mapping = THREE.EquirectangularReflectionMapping; et.colorSpace = THREE.SRGBColorSpace;
       const pm = new THREE.PMREMGenerator(renderer);
       scene.environment = pm.fromEquirectangular(et).texture;
       et.dispose(); pm.dispose();
     }
 
-    // --- les lumières
-    scene.add(new THREE.HemisphereLight(0x8fa4ff, 0x0a0a14, .55));
-    const clef = new THREE.DirectionalLight(0xffffff, 1.6);
-    clef.position.set(2, 10, 8); clef.target.position.set(0, 0, 0);
+    // --- les lumières : un après-midi sur le boulevard
+    scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x9a968a, 1.1));
+    const clef = new THREE.DirectionalLight(0xfff1d6, 2.6);
+    clef.position.set(-4, 11, 7); clef.target.position.set(0, 0, 0);
     clef.castShadow = true; clef.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
     clef.shadow.camera.left = -9; clef.shadow.camera.right = 9; clef.shadow.camera.top = 9; clef.shadow.camera.bottom = -9; clef.shadow.camera.far = 30; clef.shadow.bias = -.0004;
     scene.add(clef, clef.target);
-    const spots = pal.spots.map((col, i) => {
-      const s = new THREE.SpotLight(col, 700, 40, .42, .7, 2);
-      s.position.set((i - 1) * 6.5, 10.5, -3 + (i === 1 ? 2 : 0));
-      s.target.position.set((i - 1) * 2.2, 0, 0);
-      scene.add(s, s.target);
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(2.6, 11, 28, 1, true), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: .06, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-      cone.position.copy(s.position).lerp(s.target.position, .5);
-      cone.lookAt(s.target.position); cone.rotateX(Math.PI / 2);
-      scene.add(cone);
-      return { s, cone, base: s.target.position.x, ph: i * 1.7 };
-    });
+    const spots = [];
     const flash = new THREE.PointLight(0xffffff, 0, 18, 2);
     scene.add(flash);
 
-    // --- les textures en pixel art (même style que les fonds de combat) : la façade de l'Olympia, le pavé, le tapis rouge
+    // --- les textures en pixel art : la façade de l'Olympia (de jour, d'après des photos du boulevard des Capucines), le trottoir, l'asphalte
     const pixel = (url, repete) => new Promise((ok) => new THREE.TextureLoader().load(url, (t) => {
       t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
       if(repete){ t.wrapS = t.wrapT = THREE.RepeatWrapping; }
       ok(t);
     }, undefined, () => ok(null)));
-    const [texOlympia, texPave, texTapis] = await Promise.all([pixel('img/combat/olympia.png'), pixel('img/combat/pave.png', true), pixel('img/combat/tapis.png', true)]);
-    // le sol : du pavé parisien
-    if(texPave) texPave.repeat.set(46, 46);
-    const sol = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: texPave ? 0x9aa0bc : pal.sol, map: texPave, roughness: .85, metalness: .05 }));
+    const [texOlympia, texTrottoir, texAsphalte] = await Promise.all([pixel('img/combat/olympia.png'), pixel('img/combat/trottoir.png', true), pixel('img/combat/asphalte.png', true)]);
+    // la chaussée
+    if(texAsphalte) texAsphalte.repeat.set(32, 32);
+    const sol = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: texAsphalte ? 0xffffff : 0x62656c, map: texAsphalte, roughness: .9, metalness: 0 }));
     sol.rotation.x = -Math.PI / 2; sol.receiveShadow = true; scene.add(sol);
-    // le tapis rouge qui mène aux portes de la salle
-    if(texTapis){
-      texTapis.repeat.set(1, 3.4);
-      const tapis = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 22), new THREE.MeshStandardMaterial({ map: texTapis, roughness: .9, metalness: 0 }));
-      tapis.rotation.x = -Math.PI / 2; tapis.position.set(0, .012, -1.5); tapis.receiveShadow = true; scene.add(tapis);
+    // le trottoir au pied de la façade, son bord, les traits blancs de la chaussée
+    if(texTrottoir) texTrottoir.repeat.set(27, 2.5);
+    const trottoir = new THREE.Mesh(new THREE.PlaneGeometry(40, 3.8), new THREE.MeshStandardMaterial({ color: texTrottoir ? 0xffffff : 0xb9b3a6, map: texTrottoir, roughness: .85, metalness: 0 }));
+    trottoir.rotation.x = -Math.PI / 2; trottoir.position.set(0, .02, -11.1); trottoir.receiveShadow = true; scene.add(trottoir);
+    const bord = new THREE.Mesh(new THREE.BoxGeometry(40, .14, .3), new THREE.MeshStandardMaterial({ color: 0xa8a398, roughness: .9 }));
+    bord.position.set(0, .07, -9.15); bord.receiveShadow = true; scene.add(bord);
+    for(let k = -6; k <= 6; k++){
+      const trait = new THREE.Mesh(new THREE.BoxGeometry(1.7, .012, .13), new THREE.MeshStandardMaterial({ color: 0xe9e6dc, roughness: .8 }));
+      trait.position.set(k * 3.4, .012, -6.6); scene.add(trait);
     }
-    // la façade de l'Olympia, tout au fond : le sol de l'image (ligne 215 sur 270) est posé sur le sol de la scène
+    // la façade, tout au fond : le sol de l'image (ligne 215 sur 270) est posé sur le sol de la scène
     const HM = 18, LM = HM * 480 / 270;
-    const mur = new THREE.Mesh(new THREE.PlaneGeometry(LM, HM), new THREE.MeshBasicMaterial({ map: texOlympia, color: texOlympia ? 0xffffff : 0x1a1f3a, fog: false, toneMapped: false }));
+    const mur = new THREE.Mesh(new THREE.PlaneGeometry(LM, HM), new THREE.MeshBasicMaterial({ map: texOlympia, color: texOlympia ? 0xffffff : 0xb4c8d8, fog: false, toneMapped: false }));
     mur.position.set(0, HM * (215 / 270 - .5), -13); scene.add(mur);
     let impact = 0;
 
@@ -609,7 +604,7 @@
       const N = 260, pos = new Float32Array(N * 3), vit = new Float32Array(N);
       for(let i = 0; i < N; i++){ pos[i * 3] = (Math.random() - .5) * 26; pos[i * 3 + 1] = Math.random() * 9; pos[i * 3 + 2] = (Math.random() - .7) * 22; vit[i] = .1 + Math.random() * .25; }
       const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: pal.neon, size: .07, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false }));
+      const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xfff3d0, size: .06, transparent: true, opacity: .45, blending: THREE.AdditiveBlending, depthWrite: false }));
       scene.add(pts);
       return { pts, pos, vit, N };
     })();
@@ -699,7 +694,7 @@
       g.position.set((i - (n - 1) / 2) * sp, 0, c === 0 ? 2.5 : -2.5);
       const socle = new THREE.Mesh(geoSocle, matSocle); socle.position.y = .15; socle.castShadow = socle.receiveShadow = true; g.add(socle);
       const anneau = new THREE.Mesh(geoAnneau, new THREE.MeshBasicMaterial({ color: c === 0 ? 0x4fb4ff : 0xff5c8a })); anneau.rotation.x = Math.PI / 2; anneau.position.y = .31; g.add(anneau);
-      const halo = new THREE.Mesh(geoHalo, new THREE.MeshBasicMaterial({ color: rc, map: sprite, transparent: true, opacity: .55, blending: THREE.AdditiveBlending, depthWrite: false })); halo.rotation.x = -Math.PI / 2; halo.position.y = .02; g.add(halo);
+      const halo = new THREE.Mesh(geoHalo, new THREE.MeshBasicMaterial({ color: rc, map: sprite, transparent: true, opacity: .35, blending: THREE.AdditiveBlending, depthWrite: false })); halo.rotation.x = -Math.PI / 2; halo.position.y = .02; g.add(halo);
       const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = aniso;
       tex.repeat.set(1 / CW, 1 / CH); tex.offset.set(.5, .5);
       const matF = u.holo
@@ -803,7 +798,7 @@
       f.vivant = false;
       burst(centre(f), 0x666c80, 50, 3.5, 1.1, 2); burst(centre(f), 0xffffff, 20, 4, .6);
       f.hud.style.opacity = '.25';
-      tw(.65, (k) => { f.carteG.rotation.x = -1.4 * k; f.carteG.position.y = YC - .55 * k; f.carteG.rotation.z = .12 * k; f.matF.color.setScalar(1 - .6 * k); f.halo.material.opacity = .55 * (1 - k); }, ease.out);
+      tw(.65, (k) => { f.carteG.rotation.x = -1.4 * k; f.carteG.position.y = YC - .55 * k; f.carteG.rotation.z = .12 * k; f.matF.color.setScalar(1 - .6 * k); f.halo.material.opacity = .35 * (1 - k); }, ease.out);
       return att(500);
     };
 
@@ -844,11 +839,11 @@
       spots.forEach((o) => { o.s.target.position.x = o.base + Math.sin(t * .8 + o.ph) * 2.2; o.cone.rotation.z = Math.sin(t * .8 + o.ph) * .14; });
       flash.intensity *= Math.pow(.0009, brut);
       impact *= Math.pow(.05, brut);
-      mur.material.color.setScalar(.9 + .06 * Math.sin(t * 2.2) + impact * .3);   // l'enseigne vit et s'allume aux impacts
+      mur.material.color.setScalar(1 + impact * .1);   // la façade s'éclaire un peu à chaque impact
       for(let i = 0; i < poussiere.N; i++){ let y = poussiere.pos[i * 3 + 1] + poussiere.vit[i] * brut; if(y > 9) y = 0; poussiere.pos[i * 3 + 1] = y; poussiere.pos[i * 3] += Math.sin(t + i) * .1 * brut; }
       poussiere.pts.geometry.attributes.position.needsUpdate = true;
       tous.forEach((f) => {
-        if(f.vivant && !f.saut) f.halo.material.opacity = .45 + Math.sin(t * 2 + f.ph) * .12;
+        if(f.vivant && !f.saut) f.halo.material.opacity = .3 + Math.sin(t * 2 + f.ph) * .08;
         if(f.vivant) f.bouclier.rotation.y = t * .5;
         if(f.saut) f.carteG.position.y = YC + Math.abs(Math.sin(t * 4 + f.ph)) * .55;
       });
@@ -977,7 +972,7 @@
           if(o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => { if(m.map && m.map !== dos) m.map.dispose(); m.dispose(); });
         });
         if(scene.environment) scene.environment.dispose();
-        sprite.dispose(); texPierre.dispose(); [texOlympia, texPave, texTapis].forEach((t) => { if(t) t.dispose(); }); if(dos) dos.dispose();
+        sprite.dispose(); texPierre.dispose(); [texOlympia, texTrottoir, texAsphalte].forEach((t) => { if(t) t.dispose(); }); if(dos) dos.dispose();
         renderer.dispose();
         if(renderer.forceContextLoss) renderer.forceContextLoss();
       }
