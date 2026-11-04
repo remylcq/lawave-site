@@ -371,7 +371,7 @@
       <div class="tr-uc" data-u="${c}-${i + 1}">${carte(u)}
         <div class="tr-pv"><i></i></div><div class="tr-pvn">${nf(u.pv_max)} / ${nf(u.pv_max)}</div><div class="tr-nomu">${esc(u.nom)}</div>${u.role_nom ? `<div class="tr-rolu">${esc(u.role_nom)}</div>` : ''}</div>`;
     corps.innerHTML = `
-      <div class="tr-fond" style="background-image:url(img/combat/olympia.png)"></div>
+      <div class="tr-fond" style="background-image:url(img/combat/olympia.png?v=3)"></div>
       <div class="tr-terrain" style="--n:${n}">
         <div class="tr-ligne" style="--n:${n}">${r.b.map((u, i) => unite(u, 1, i)).join('')}</div>
         <div class="tr-ligne" style="--n:${n}">${r.a.map((u, i) => unite(u, 0, i)).join('')}</div>
@@ -543,7 +543,7 @@
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0xbcd6ea);
     scene.fog = new THREE.Fog(0xd4e4ee, 30, 70);
-    const camera = new THREE.PerspectiveCamera(46, 1, .1, 90);
+    const camera = new THREE.PerspectiveCamera(50, 1, .1, 90);
     const look = new THREE.Vector3(0, 1.1, 0);
     const accueil = { pos: new THREE.Vector3(0, 4.3, 9.6), look: new THREE.Vector3(0, 1.1, 0) };
 
@@ -578,7 +578,7 @@
       if(repete){ t.wrapS = t.wrapT = THREE.RepeatWrapping; }
       ok(t);
     }, undefined, () => ok(null)));
-    const [texOlympia, texTrottoir, texAsphalte] = await Promise.all([pixel('img/combat/olympia.png'), pixel('img/combat/trottoir.png', true), pixel('img/combat/asphalte.png', true)]);
+    const [texOlympia, texTrottoir, texAsphalte] = await Promise.all([pixel('img/combat/olympia.png?v=3'), pixel('img/combat/trottoir.png?v=3', true), pixel('img/combat/asphalte.png?v=3', true)]);
     // la chaussée
     if(texAsphalte) texAsphalte.repeat.set(32, 32);
     const sol = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: texAsphalte ? 0xffffff : 0x62656c, map: texAsphalte, roughness: .9, metalness: 0 }));
@@ -594,10 +594,113 @@
       trait.position.set(k * 3.4, .012, -6.6); scene.add(trait);
     }
     // la façade, tout au fond : le sol de l'image (ligne 215 sur 270) est posé sur le sol de la scène
-    const HM = 12, LM = HM * 480 / 270 * 1.9;   // plus large que la photo : les bords reprennent l'image en miroir (la rue continue)
-    if(texOlympia){ texOlympia.wrapS = THREE.MirroredRepeatWrapping; texOlympia.repeat.x = 1.9; texOlympia.offset.x = -.45; }
+    const HM = 12, LM = HM * 480 / 270;
     const mur = new THREE.Mesh(new THREE.PlaneGeometry(LM, HM), new THREE.MeshBasicMaterial({ map: texOlympia, color: texOlympia ? 0xffffff : 0xb4c8d8, fog: false, toneMapped: false }));
-    mur.position.set(0, HM * (215 / 270 - .5), -13); scene.add(mur);
+    mur.position.set(0, HM * (215 / 270 - .5), -13);
+    // --- le relief : le décor est recentré sur l'enseigne, les immeubles voisins sont en V, les enseignes sortent du mur, des arbres et des lampadaires sont en vrai 3D
+    const s = HM / 270;                                  // un pixel de l'image, en unités de la scène
+    const decor = new THREE.Group(); decor.position.x = -(281 - 240) * s; scene.add(decor);
+    decor.add(mur);
+    const coupe = (x0, y0, x1, y1) => {
+      if(!texOlympia) return null;
+      const t = texOlympia.clone(); t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+      t.repeat.set((x1 - x0) / 480, (y1 - y0) / 270); t.offset.set(x0 / 480, 1 - y1 / 270); t.needsUpdate = true;
+      return t;
+    };
+    const toile = (x0, y0, x1, y1, teinte) => new THREE.Mesh(new THREE.PlaneGeometry((x1 - x0) * s, (y1 - y0) * s), new THREE.MeshBasicMaterial({ map: coupe(x0, y0, x1, y1), color: teinte || 0xffffff, fog: false, toneMapped: false, side: THREE.DoubleSide }));
+    if(texOlympia){
+      // le bloc central, un peu en avant du fond
+      const centre = toile(215, 0, 345, 215); centre.position.set((280 - 240) * s, 215 * s / 2, -12.7); decor.add(centre);
+      // les toits : corniche en pierre, mansarde en zinc, cheminée en brique (la photo s'arrête en plein milieu de l'immeuble)
+      const ardoise = new THREE.MeshStandardMaterial({ color: 0x66707f, roughness: .8 });
+      const pierre = new THREE.MeshStandardMaterial({ color: 0xd9d2c0, roughness: .9 });
+      const brique = new THREE.MeshStandardMaterial({ color: 0x9a6a55, roughness: .9 });
+      const toit = (parent, cx, w, z) => {
+        const h0 = 215 * s;
+        const pieces = [
+          [new THREE.BoxGeometry(w, .3, 1.4), pierre, cx, h0 + .1, z + .05],
+          [new THREE.BoxGeometry(w * .98, 1.6, 1.1), ardoise, cx, h0 + 1, z - .35],
+          [new THREE.BoxGeometry(w * .9, .7, .6), ardoise, cx, h0 + 2.15, z - .6],
+          [new THREE.BoxGeometry(.5, 1.2, .5), brique, cx + w * .3, h0 + 2.9, z - .65]
+        ];
+        pieces.forEach(([geo, mat, x, y, zz]) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, zz); m.castShadow = true; parent.add(m); });
+      };
+      const gc = new THREE.Group(); gc.position.z = -12.7; decor.add(gc); toit(gc, (280 - 240) * s, 130 * s, 0);
+      // les immeubles voisins, tournés vers la rue : on dirait une vraie perspective de boulevard
+      const flanc = (x0, x1, cote, angle, teinte) => {
+        const g = new THREE.Group(), w = (x1 - x0) * s;
+        for(let k = 0; k < 3; k++){                       // la rue continue : la deuxième tranche est le reflet de la première
+          const p = toile(x0, 0, x1, 215, teinte);
+          p.position.set(cote * (k + .5) * w, 215 * s / 2, 0); if(k % 2) p.scale.x = -1;
+          g.add(p); toit(g, cote * (k + .5) * w, w, 0);
+        }
+        g.position.set(((cote < 0 ? x1 : x0) - 240) * s, 0, -12.7); g.rotation.y = -cote * angle;
+        decor.add(g);
+      };
+      flanc(0, 215, -1, .36, 0xe6e6e6);
+      flanc(345, 480, 1, .42, 0xdcdcdc);
+      // les enseignes sortent du mur : l'OLYMPIA et la devanture LA WAVE
+      const saillie = (x0, y0, x1, y1, prof) => {
+        const g = new THREE.Group();
+        const corps = new THREE.Mesh(new THREE.BoxGeometry((x1 - x0) * s, (y1 - y0) * s, prof), new THREE.MeshStandardMaterial({ color: 0x5a3a32, roughness: .8 }));
+        corps.castShadow = true; g.add(corps);
+        const face = toile(x0, y0, x1, y1); face.position.z = prof / 2 + .01; g.add(face);
+        g.position.set(((x0 + x1) / 2 - 240) * s, (215 - (y0 + y1) / 2) * s, -12.7 + prof / 2);
+        decor.add(g);
+      };
+      saillie(220, 19, 342, 50, .55);
+      saillie(225, 70, 317, 158, .32);
+    }
+    // les arbres : un tronc, des touffes de feuillage en facettes
+    const alea = (i) => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+    const vertsArbre = [0x4f7d3a, 0x5f9142, 0x3f6b32, 0x6ea34c, 0x567f3c];
+    // le feuillage est tacheté de gros pixels : même grain que la façade
+    const texFeuille = (() => {
+      const c = document.createElement('canvas'); c.width = c.height = 12; const g = c.getContext('2d');
+      for(let y = 0; y < 12; y++) for(let x = 0; x < 12; x++){ g.fillStyle = vertsArbre.map((v) => '#' + v.toString(16))[Math.floor(alea(x * 12 + y + 5) * vertsArbre.length)]; g.fillRect(x, y, 1, 1); }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      return t;
+    })();
+    const arbre = (x, z, haut, graine) => {
+      const g = new THREE.Group();
+      const tronc = new THREE.Mesh(new THREE.CylinderGeometry(.14, .22, haut * .6, 6), new THREE.MeshStandardMaterial({ color: 0x4a3b2e, roughness: 1, flatShading: true }));
+      tronc.position.y = haut * .3; tronc.castShadow = true; g.add(tronc);
+      for(let i = 0; i < 9; i++){
+        const r = .75 + alea(graine + i) * .55;
+        const b = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), new THREE.MeshStandardMaterial({ color: 0xffffff, map: texFeuille, roughness: .95, flatShading: true }));
+        b.position.set((alea(graine + i * 3) - .5) * 2.6, haut * (.62 + alea(graine + i * 5) * .38), (alea(graine + i * 7) - .5) * 1.6);
+        b.castShadow = true; g.add(b);
+      }
+      const grille = new THREE.Mesh(new THREE.BoxGeometry(.9, .06, .9), new THREE.MeshStandardMaterial({ color: 0x2b2b2e, roughness: .6, metalness: .5 }));
+      grille.position.y = .03; g.add(grille);
+      g.position.set(x, 0, z); scene.add(g);
+    };
+    arbre(-6.9, -10.4, 7.2, 3); arbre(7.4, -10.6, 6.6, 17); arbre(-12.5, -10.2, 6.4, 29); arbre(13, -10.5, 6.8, 41);
+    // les lampadaires du boulevard
+    const lampadaire = (x, z) => {
+      const g = new THREE.Group();
+      const fer = new THREE.MeshStandardMaterial({ color: 0x26332d, roughness: .5, metalness: .6 });
+      const mat = new THREE.Mesh(new THREE.CylinderGeometry(.06, .1, 4.6, 8), fer); mat.position.y = 2.3; mat.castShadow = true;
+      const socle = new THREE.Mesh(new THREE.CylinderGeometry(.16, .2, .5, 8), fer); socle.position.y = .25;
+      const lanterne = new THREE.Mesh(new THREE.BoxGeometry(.36, .5, .36), new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffe2a0, emissiveIntensity: .5, roughness: .4 })); lanterne.position.y = 4.85;
+      const toit = new THREE.Mesh(new THREE.ConeGeometry(.3, .22, 4), fer); toit.position.y = 5.2; toit.rotation.y = Math.PI / 4;
+      g.add(mat, socle, lanterne, toit); g.position.set(x, 0, z); scene.add(g);
+    };
+    lampadaire(-3.4, -9.5); lampadaire(4.6, -9.5); lampadaire(-9.4, -9.5); lampadaire(10.6, -9.5);
+    // le ciel : un dégradé et des nuages en gros pixels, loin derrière les toits
+    {
+      const c = document.createElement('canvas'); c.width = 160; c.height = 60; const g = c.getContext('2d');
+      const gr = g.createLinearGradient(0, 0, 0, 60); gr.addColorStop(0, '#6fa6dc'); gr.addColorStop(1, '#cfe3f1');
+      g.fillStyle = gr; g.fillRect(0, 0, 160, 60);
+      g.fillStyle = '#f4f9fc';
+      for(let i = 0; i < 7; i++){
+        const cx = 10 + alea(i * 3 + 1) * 140, cy = 8 + alea(i * 5 + 2) * 34, L = 14 + Math.floor(alea(i * 7 + 3) * 16);
+        g.fillRect(cx, cy, L, 3); g.fillRect(cx + 3, cy - 3, L - 8, 3); g.fillRect(cx - 4, cy + 3, L + 6, 2);
+      }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
+      const ciel = new THREE.Mesh(new THREE.PlaneGeometry(150, 56), new THREE.MeshBasicMaterial({ map: t, fog: false, toneMapped: false }));
+      ciel.position.set(0, 24, -40); scene.add(ciel);
+    }
     let impact = 0;
 
     // --- la poussière lumineuse qui flotte
@@ -879,7 +982,7 @@
     boucle();
 
     // --- les événements du combat, en images
-    const posCamAmi = (a) => new THREE.Vector3(a.home.x * .5, 3.6, a.home.z + 8.4);
+    const posCamAmi = (a) => new THREE.Vector3(a.home.x * .5, 4.6, a.home.z + 8.4);
     const evenement = async (ev) => {
       if(ev.t === 'tour'){
         if(!sc.passer){ const b = document.createElement('div'); b.className = 'tr3-tour'; b.textContent = 'Tour ' + ev.n; hudLayer.appendChild(b); setTimeout(() => b.remove(), 1100); }
@@ -893,7 +996,7 @@
         banniere(a, ev.n, ev.s ? 'sig' : '');
         const mid = new THREE.Vector3((a.home.x + t.g.position.x) / 2, 1.5, (a.home.z + t.g.position.z) / 2);
         if(ev.s) echelle = .35;
-        camVers(new THREE.Vector3(mid.x * .6 + (a.c === 0 ? 1.2 : -1.2), 3.5, mid.z + 8.6), mid, .38);
+        camVers(new THREE.Vector3(mid.x * .6 + (a.c === 0 ? 1.2 : -1.2), 4.6, mid.z + 8.6), new THREE.Vector3(mid.x, 2.8, mid.z), .38);
         await elan(a, t.g.position, ev.s ? .26 : .2);
         touche(t, ev.d, ev.s, ev.s ? 0xffd76a : (a.c === 0 ? 0x7fd0ff : 0xff8fb0));
         popup(t, '−' + nf(ev.d), ev.s ? 'sig' : '');
@@ -905,7 +1008,7 @@
         const a = fz(ev.a[0], ev.a[1]);
         banniere(a, ev.n, ev.s ? 'sig' : '');
         if(ev.s) echelle = .35;
-        camVers(new THREE.Vector3(0, 5, accueil.pos.z - .5), new THREE.Vector3(0, 1.4, a.c === 0 ? -1 : 1), .4);
+        camVers(new THREE.Vector3(0, 5, accueil.pos.z - .5), new THREE.Vector3(0, 2.8, a.c === 0 ? -1 : 1), .4);
         await tw(.32, (k) => { a.carteG.position.y = YC + Math.sin(k * Math.PI) * .9; a.carteG.rotation.y = k * Math.PI * 2; }, ease.io);
         a.carteG.rotation.y = 0;
         onde(a.g.position, ev.s ? 0xffd76a : 0xffffff, 5, .8);
@@ -918,7 +1021,7 @@
         const a = fz(ev.a[0], ev.a[1]);
         banniere(a, ev.n, 'soin');
         eclat(a, 0x5be0a6, .5);
-        camVers(posCamAmi(a), new THREE.Vector3(a.home.x * .5, 1.4, a.home.z), .35);
+        camVers(posCamAmi(a), new THREE.Vector3(a.home.x * .5, 2.8, a.home.z), .35);
         await att(260);
         ev.x.forEach((h) => { const t = fz(h.c[0], h.c[1]); jaillir(t.g.position.clone().setY(2.2), 0x5be0a6, 36, 3.2); onde(t.g.position, 0x5be0a6, 2, .6); eclat(t, 0x5be0a6, .55); popup(t, '+' + nf(h.d), 'soin'); t.pv = h.pv; majHud(t); });
         await att(520);
@@ -926,7 +1029,7 @@
         const a = fz(ev.a[0], ev.a[1]);
         banniere(a, ev.n, 'bou');
         eclat(a, 0x5cc8ff, .5);
-        camVers(posCamAmi(a), new THREE.Vector3(a.home.x * .5, 1.4, a.home.z), .35);
+        camVers(posCamAmi(a), new THREE.Vector3(a.home.x * .5, 2.8, a.home.z), .35);
         await att(260);
         ev.x.forEach((h) => { const t = fz(h.c[0], h.c[1]); jaillir(t.g.position.clone().setY(2.2), 0x5cc8ff, 30, 2.4); onde(t.g.position, 0x5cc8ff, 2.2, .6); eclat(t, 0x5cc8ff, .55); popup(t, '🛡 +' + nf(h.d), 'bou'); t.bouc = h.b; majHud(t); });
         await att(520);
