@@ -371,7 +371,7 @@
       <div class="tr-uc" data-u="${c}-${i + 1}">${carte(u)}
         <div class="tr-pv"><i></i></div><div class="tr-pvn">${nf(u.pv_max)} / ${nf(u.pv_max)}</div><div class="tr-nomu">${esc(u.nom)}</div>${u.role_nom ? `<div class="tr-rolu">${esc(u.role_nom)}</div>` : ''}</div>`;
     corps.innerHTML = `
-      <div class="tr-fond" style="background-image:url(img/combat/olympia-fond.png?v=4)"></div>
+      <div class="tr-fond" style="background-image:url(img/combat/olympia-fond.png?v=5)"></div>
       <div class="tr-terrain" style="--n:${n}">
         <div class="tr-ligne" style="--n:${n}">${r.b.map((u, i) => unite(u, 1, i)).join('')}</div>
         <div class="tr-ligne" style="--n:${n}">${r.a.map((u, i) => unite(u, 0, i)).join('')}</div>
@@ -578,49 +578,75 @@
       if(repete){ t.wrapS = t.wrapT = THREE.RepeatWrapping; }
       ok(t);
     }, undefined, () => ok(null)));
-    const [texOlympia, texTrottoir, texAsphalte] = await Promise.all([pixel('img/combat/olympia.png?v=4'), pixel('img/combat/trottoir.png?v=4', true), pixel('img/combat/asphalte.png?v=4', true)]);
+    const [texOlympia, texTrottoir, texAsphalte, texHorizon, texAcc] = await Promise.all([pixel('img/combat/olympia.png?v=5'), pixel('img/combat/trottoir.png?v=5', true), pixel('img/combat/asphalte.png?v=5', true), pixel('img/combat/horizon.png?v=5'), pixel('img/combat/accessoires.png?v=5')]);
     // la chaussée
-    if(texAsphalte) texAsphalte.repeat.set(32, 32);
-    const sol = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: texAsphalte ? 0xffffff : 0x62656c, map: texAsphalte, roughness: .9, metalness: 0 }));
+    if(texAsphalte) texAsphalte.repeat.set(117, 117);
+    const sol = new THREE.Mesh(new THREE.PlaneGeometry(220, 220), new THREE.MeshStandardMaterial({ color: texAsphalte ? 0xffffff : 0x62656c, map: texAsphalte, roughness: .9, metalness: 0 }));
     sol.rotation.x = -Math.PI / 2; sol.receiveShadow = true; scene.add(sol);
     // le trottoir au pied de la façade, son bord, les traits blancs de la chaussée
-    if(texTrottoir) texTrottoir.repeat.set(27, 2.5);
-    const trottoir = new THREE.Mesh(new THREE.PlaneGeometry(40, 3.8), new THREE.MeshStandardMaterial({ color: texTrottoir ? 0xffffff : 0xb9b3a6, map: texTrottoir, roughness: .85, metalness: 0 }));
+    if(texTrottoir) texTrottoir.repeat.set(61, 2.5);
+    const trottoir = new THREE.Mesh(new THREE.PlaneGeometry(90, 3.8), new THREE.MeshStandardMaterial({ color: texTrottoir ? 0xffffff : 0xb9b3a6, map: texTrottoir, roughness: .85, metalness: 0 }));
     trottoir.rotation.x = -Math.PI / 2; trottoir.position.set(0, .02, -11.1); trottoir.receiveShadow = true; scene.add(trottoir);
-    const bord = new THREE.Mesh(new THREE.BoxGeometry(40, .14, .3), new THREE.MeshStandardMaterial({ color: 0xa8a398, roughness: .9 }));
+    const bord = new THREE.Mesh(new THREE.BoxGeometry(90, .14, .3), new THREE.MeshStandardMaterial({ color: 0xa8a398, roughness: .9 }));
     bord.position.set(0, .07, -9.15); bord.receiveShadow = true; scene.add(bord);
-    for(let k = -6; k <= 6; k++){
+    for(let k = -13; k <= 13; k++){
       const trait = new THREE.Mesh(new THREE.BoxGeometry(1.7, .012, .13), new THREE.MeshStandardMaterial({ color: 0xe9e6dc, roughness: .8 }));
       trait.position.set(k * 3.4, .012, -6.6); scene.add(trait);
     }
-    // --- la rue de l'Olympia : une bande de 326 x 115 pixels (outils/combat/olympia_sprites.py), le sol est en bas de l'image.
-    // Le bloc central (x 124 à 200) fait face à la caméra, les immeubles voisins sont tournés vers la rue en V, les enseignes et les piliers sortent du mur.
+    // --- la rue de l'Olympia : une bande de 447 x 115 pixels (outils/combat/olympia_sprites.py), le sol est en bas de l'image.
+    // Le bloc central (x 187 à 263) fait face à la caméra, les immeubles se prolongent de chaque côté en s'arrondissant jusqu'à faire face à la rue :
+    // on est dans une vraie rue fermée. Derrière, un horizon de toits dans la brume ; autour, un ciel. Les enseignes et les piliers sortent du mur.
     const alea = (i) => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
-    const IW = 326, IH = 115, s = .12;                 // s : un pixel de l'image, en unités de la scène
+    const IW = 447, IH = 115, s = .12, CX0 = 187, CX1 = 263;   // s : un pixel de l'image, en unités de la scène
     const facades = [];                                // [matériau, luminosité de base] : la façade s'éclaire un peu à chaque impact
-    const coupe = (x0, y0, x1, y1) => {
-      if(!texOlympia) return null;
-      const t = texOlympia.clone();
-      t.repeat.set((x1 - x0) / IW, (y1 - y0) / IH); t.offset.set(x0 / IW, 1 - y1 / IH); t.needsUpdate = true;
+    const decoupe = (tex, w, h, x0, y0, x1, y1) => {
+      const t = tex.clone();
+      t.repeat.set((x1 - x0) / w, (y1 - y0) / h); t.offset.set(x0 / w, 1 - y1 / h); t.needsUpdate = true;
       return t;
     };
+    const matPixel = (tex, rect, base) => new THREE.MeshBasicMaterial({ map: rect ? decoupe(tex, ...rect) : tex, color: new THREE.Color().setScalar(base || 1), transparent: true, alphaTest: .5, side: THREE.DoubleSide, fog: false, toneMapped: false });
     const toile = (x0, y0, x1, y1, base) => {
-      const m = new THREE.MeshBasicMaterial({ map: coupe(x0, y0, x1, y1), transparent: true, alphaTest: .5, side: THREE.DoubleSide, fog: false, toneMapped: false });
-      m.color.setScalar(base || 1); facades.push([m, base || 1]);
+      const m = matPixel(texOlympia, [IW, IH, x0, y0, x1, y1], base);
+      facades.push([m, base || 1]);
       return new THREE.Mesh(new THREE.PlaneGeometry((x1 - x0) * s, (y1 - y0) * s), m);
     };
     const decor = new THREE.Group(); scene.add(decor);
-    const px = (x) => (x - 162) * s;                   // le milieu du bloc central est au milieu de la scène
+    const px = (x) => (x - (CX0 + CX1) / 2) * s;       // le milieu du bloc central est au milieu de la scène
+    // les accessoires dessinés (arbres, colonne Morris, lampadaire) : des cartes tournées vers la caméra, avec leur ombre au sol
+    const ACC = { arbre: [[0, 0, 48, 72], [48, 0, 96, 72], [96, 0, 144, 72]], colonne: [144, 24, 164, 72], lampe: [164, 16, 176, 72] };
+    const accessoire = (r, x, z, ech) => {
+      if(!texAcc) return;
+      const w = (r[2] - r[0]) * s * ech, h = (r[3] - r[1]) * s * ech;
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), matPixel(texAcc, [176, 72, ...r]));
+      m.position.set(x, h / 2, z); m.rotation.y = Math.atan2(-x, 12 - z);
+      const o = new THREE.Mesh(new THREE.CircleGeometry(w * .38, 14), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: .22, depthWrite: false, fog: false }));
+      o.rotation.x = -Math.PI / 2; o.position.set(x + w * .12, .03, z + .1); o.scale.y = .5;
+      scene.add(m, o);
+    };
     if(texOlympia){
-      const centre = toile(124, 0, 200, IH); centre.position.set(px(162), IH * s / 2, -12.7); decor.add(centre);
-      const flanc = (x0, x1, cote, angle, base) => {
-        const g = new THREE.Group(), p = toile(x0, 0, x1, IH, base);
-        p.position.set(cote * (x1 - x0) * s / 2, IH * s / 2, 0); g.add(p);
-        g.position.set(px(cote < 0 ? x1 : x0), 0, -12.7); g.rotation.y = -cote * angle;
-        decor.add(g);
+      const centre = toile(CX0, 0, CX1, IH); centre.position.set(0, IH * s / 2, -12.7); decor.add(centre);
+      // une chaîne de tranches d'immeubles : chacune est tournée un peu plus vers la rue que la précédente
+      const chaine = (cote, tranches) => {
+        let X = px(cote < 0 ? CX0 : CX1), Z = -12.7;
+        tranches.forEach(([x0, x1, a], i) => {
+          const w = (x1 - x0) * s, g = new THREE.Group(), r = -cote * a;
+          const p = toile(x0, 0, x1, IH, .94 - i * .02); p.position.set(cote * w / 2, IH * s / 2, 0); g.add(p);
+          if(texTrottoir){                                  // le trottoir au pied de la tranche
+            const tt = texTrottoir.clone(); tt.repeat.set(w / 1.5, 2.1); tt.needsUpdate = true;
+            const t = new THREE.Mesh(new THREE.PlaneGeometry(w, 3.2), new THREE.MeshStandardMaterial({ map: tt, roughness: .85, metalness: 0 }));
+            t.rotation.x = -Math.PI / 2; t.position.set(cote * w / 2, .02, 1.6); t.receiveShadow = true; g.add(t);
+          }
+          g.position.set(X, 0, Z); g.rotation.y = r; decor.add(g);
+          const nx = Math.sin(r), nz = Math.cos(r);         // la normale de la tranche, vers la rue
+          if(i > 0){
+            accessoire(ACC.arbre[(i + (cote > 0 ? 1 : 0)) % 3], X + nx * 2.2, Z + nz * 2.2, .85);
+            accessoire(ACC.lampe, X + cote * w * .5 * Math.cos(r) + nx * 3, Z - cote * w * .5 * Math.sin(r) + nz * 3, .65);
+          }
+          X += cote * w * Math.cos(r); Z -= cote * w * Math.sin(r);
+        });
       };
-      flanc(0, 124, -1, .30, .93);
-      flanc(200, 326, 1, .36, .9);
+      chaine(-1, [[117, 187, .28], [54, 117, .7], [0, 54, 1.15], [117, 187, 1.5], [54, 117, 1.57]]);
+      chaine(1, [[263, 333, .34], [333, 391, .75], [391, 447, 1.2], [263, 333, 1.5], [333, 391, 1.57]]);
       const saillie = (x0, y0, x1, y1, prof, couleur) => {
         const g = new THREE.Group();
         const corps = new THREE.Mesh(new THREE.BoxGeometry((x1 - x0) * s, (y1 - y0) * s, prof), new THREE.MeshStandardMaterial({ color: couleur, roughness: .85 }));
@@ -629,35 +655,37 @@
         g.position.set(px((x0 + x1) / 2), (IH - (y0 + y1) / 2) * s, -12.7 + prof / 2);
         decor.add(g);
       };
-      saillie(138, 57, 188, 70, .6, 0x8a1c1c);           // l'enseigne OLYMPIA
-      saillie(147, 81, 179, 96, .35, 0xb9b2a2);          // la marquise LA WAVE
-      saillie(139, 71, 146, 115, .5, 0xd0c4a8);          // les deux piliers
-      saillie(180, 71, 187, 115, .5, 0xd0c4a8);
+      saillie(201, 57, 251, 70, .6, 0x8a1c1c);           // l'enseigne OLYMPIA
+      saillie(210, 81, 242, 96, .35, 0xb9b2a2);          // la marquise LA WAVE
+      saillie(202, 71, 209, 115, .5, 0xd0c4a8);          // les deux piliers
+      saillie(243, 71, 250, 115, .5, 0xd0c4a8);
     }
-    // les lampadaires du boulevard
-    const lampadaire = (x, z) => {
-      const g = new THREE.Group();
-      const fer = new THREE.MeshStandardMaterial({ color: 0x26332d, roughness: .5, metalness: .6 });
-      const mat = new THREE.Mesh(new THREE.CylinderGeometry(.06, .1, 4.6, 8), fer); mat.position.y = 2.3; mat.castShadow = true;
-      const socle = new THREE.Mesh(new THREE.CylinderGeometry(.16, .2, .5, 8), fer); socle.position.y = .25;
-      const lanterne = new THREE.Mesh(new THREE.BoxGeometry(.36, .5, .36), new THREE.MeshStandardMaterial({ color: 0xfff1c9, emissive: 0xffe2a0, emissiveIntensity: .5, roughness: .4 })); lanterne.position.y = 4.85;
-      const toit = new THREE.Mesh(new THREE.ConeGeometry(.3, .22, 4), fer); toit.position.y = 5.2; toit.rotation.y = Math.PI / 4;
-      g.add(mat, socle, lanterne, toit); g.position.set(x, 0, z); scene.add(g);
-    };
-    lampadaire(-3.4, -9.5); lampadaire(4.6, -9.5); lampadaire(-9.4, -9.5); lampadaire(10.6, -9.5);
-    // le ciel : un dégradé et des nuages en gros pixels, loin derrière les toits
+    // sur le trottoir du fond : des arbres, des lampadaires, une colonne Morris
+    [[-7.5, 0], [7.5, 1], [-15, 2], [15, 0]].forEach(([x, k]) => accessoire(ACC.arbre[k], x, -10.6, .85));
+    [-3.6, 3.6, -11.3, 11.3].forEach((x) => accessoire(ACC.lampe, x, -9.7, .65));
+    accessoire(ACC.colonne, 9.6, -9.9, .45);
+    // l'horizon : les toits d'une ville plus loin dans la brume, derrière et sur les côtés, pour que le ciel ne soit jamais vide
+    if(texHorizon){
+      const HZ = .2, L = 447 * HZ, H = 48 * HZ;
+      const hz = (x, z, ry) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(L, H), matPixel(texHorizon, null, 1)); m.position.set(x, 8.5 + H / 2, z); m.rotation.y = ry; scene.add(m); };
+      hz(0, -26, 0); hz(-L, -26, 0); hz(L, -26, 0);
+      hz(-34, -6, Math.PI / 2); hz(-34, -6 - L, Math.PI / 2); hz(-34, -6 + L, Math.PI / 2);
+      hz(34, -6, -Math.PI / 2); hz(34, -6 - L, -Math.PI / 2); hz(34, -6 + L, -Math.PI / 2);
+    }
+    // le ciel : un dégradé et des nuages en gros pixels, tout autour
     {
       const c = document.createElement('canvas'); c.width = 160; c.height = 60; const g = c.getContext('2d');
-      const gr = g.createLinearGradient(0, 0, 0, 60); gr.addColorStop(0, '#6fa6dc'); gr.addColorStop(1, '#cfe3f1');
+      const gr = g.createLinearGradient(0, 0, 0, 60); gr.addColorStop(0, '#5f98d4'); gr.addColorStop(1, '#cfe3f1');
       g.fillStyle = gr; g.fillRect(0, 0, 160, 60);
       g.fillStyle = '#f4f9fc';
-      for(let i = 0; i < 7; i++){
-        const cx = 10 + alea(i * 3 + 1) * 140, cy = 8 + alea(i * 5 + 2) * 34, L = 14 + Math.floor(alea(i * 7 + 3) * 16);
+      for(let i = 0; i < 9; i++){
+        const cx = 6 + alea(i * 3 + 1) * 140, cy = 6 + alea(i * 5 + 2) * 30, L = 14 + Math.floor(alea(i * 7 + 3) * 16);
         g.fillRect(cx, cy, L, 3); g.fillRect(cx + 3, cy - 3, L - 8, 3); g.fillRect(cx - 4, cy + 3, L + 6, 2);
       }
-      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false;
-      const ciel = new THREE.Mesh(new THREE.PlaneGeometry(150, 56), new THREE.MeshBasicMaterial({ map: t, fog: false, toneMapped: false }));
-      ciel.position.set(0, 24, -40); scene.add(ciel);
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; t.wrapS = THREE.RepeatWrapping; t.repeat.x = 2;
+      const ciel = new THREE.Mesh(new THREE.CylinderGeometry(80, 80, 70, 32, 1, true), new THREE.MeshBasicMaterial({ map: t, side: THREE.BackSide, fog: false, toneMapped: false }));
+      ciel.position.y = 26; scene.add(ciel);
+      scene.background = new THREE.Color(0x5f98d4);
     }
     let impact = 0;
 
