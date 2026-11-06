@@ -716,10 +716,10 @@
 
   // ===================================================================
   // L'ONGLET « SONDAGE » DE L'ESPACE ÉQUIPE
-  // Sobre : un résumé, trois vues. Chaque question tient sur une ligne ; le détail s'ouvre au clic.
+  // Un résumé chiffré, trois vues (synthèse en cartes, réponses libres, détail par testeur), recherche et filtres par section.
   // ===================================================================
 
-  const equipe = { lignes: [], vue: 'synthese', filtre: 'toutes' };
+  const equipe = { lignes: [], vue: 'synthese', filtre: 'toutes', recherche: '', statut: 'tous' };
 
   function moyenne(valeurs){
     return valeurs.length ? valeurs.reduce((a, b) => a + b, 0) / valeurs.length : 0;
@@ -737,8 +737,20 @@
     return total ? Math.round(n / total * 100) : 0;
   }
 
-  function barre(libelle, n, total){
-    return '<li style="--p:' + pc(n, total) + '%"><span>' + esc(libelle) + '</span><b>' + n + '</b></li>';
+  function pluriel(n, mot, plur){
+    return n + ' ' + (n > 1 ? (plur || mot + 's') : mot);
+  }
+
+  function initiales(l){
+    const base = nomTesteur(l).split('@')[0].replace(/[._-]+/g, ' ').trim();
+    const mots = base.split(/\s+/).filter(Boolean);
+    return ((mots[0] || '?')[0] + (mots.length > 1 ? mots[1][0] : '')).toUpperCase();
+  }
+
+  function etoiles(n){
+    let h = '';
+    for(let i = 1; i <= 5; i++) h += '<span class="' + (i <= Math.round(n) ? 'on' : '') + '">' + ETOILE + '</span>';
+    return '<span class="sdge-stars" role="img" aria-label="' + virgule(n) + ' sur 5">' + h + '</span>';
   }
 
   // Comptage des options d'une question à choix, de la plus citée à la moins citée.
@@ -749,73 +761,115 @@
       .sort((a, b) => b.n - a.n);
   }
 
-  function ligneQuestion(s, q, lignes){
+  function valeurs(s, q, lignes){
+    return lignes.map(l => l.reponses[cle(s, q)]).filter(repondu);
+  }
 
-    const vals = lignes.map(l => l.reponses[cle(s, q)]).filter(repondu);
+  function sectionsVisibles(){
+    return SECTIONS.filter(s => equipe.filtre === 'toutes' || s.id === equipe.filtre);
+  }
+
+  function ligneBarre(libelle, n, total, classe){
+    const p = pc(n, total);
+    return '<li class="' + (classe || '') + '"><span class="sdge-b-l">' + esc(libelle) + '</span>' +
+      '<span class="sdge-b-t"><i style="width:' + p + '%"></i></span>' +
+      '<span class="sdge-b-v"><b>' + p + ' %</b><em>' + n + '</em></span></li>';
+  }
+
+  function citation(texteBrut, l){
+    return '<blockquote><p>' + esc(texteBrut).replace(/\n/g, '<br>') + '</p>' +
+      '<footer><span class="sdge-av">' + esc(initiales(l)) + '</span><cite>' + esc(nomTesteur(l)) + '</cite>' +
+      '<time>' + esc(heure(l.maj_le)) + '</time></footer></blockquote>';
+  }
+
+  function reponsesTexte(s, q, lignes){
+    return lignes
+      .map(l => ({ l, v: l.reponses[cle(s, q)] }))
+      .filter(x => typeof x.v === 'string' && x.v.trim())
+      .sort((a, b) => String(b.l.maj_le).localeCompare(String(a.l.maj_le)));
+  }
+
+  // ---------- Synthèse : une carte par question, avec ses chiffres ----------
+
+  function carteQuestion(s, q, lignes){
+
+    const vals = valeurs(s, q, lignes);
     const n = vals.length;
-
     if(!n) return '';
 
-    let resume = '';
-    let detail = '';
+    const total = lignes.length;
+    let corps = '';
+    let aide = '';
 
     if(q.t === 'note'){
       const notes = vals.filter(v => typeof v === 'number');
       const pas = vals.filter(v => v === 'na').length;
-      resume = notes.length ? '<b>' + virgule(moyenne(notes)) + '</b> / 5' : 'Pas testé';
-      detail = [5, 4, 3, 2, 1].map(i => barre(i + ' ★', notes.filter(v => v === i).length, notes.length)).join('') +
-        (pas ? barre('Pas testé', pas, n) : '');
+      if(notes.length){
+        const moy = moyenne(notes);
+        corps = '<div class="sdge-note"><div class="sdge-note-moy"><strong>' + virgule(moy) + '</strong><span>/ 5</span>' + etoiles(moy) +
+          '<small>' + pluriel(notes.length, 'note') + '</small></div><ul class="sdge-barres">' +
+          [5, 4, 3, 2, 1].map(i => ligneBarre(i + ' ★', notes.filter(v => v === i).length, notes.length, 'n' + i)).join('') +
+          '</ul></div>';
+      }
+      if(pas) corps += '<p class="sdge-pas">' + pluriel(pas, 'testeur a', 'testeurs ont') + ' répondu « pas testé ».</p>';
     }
 
     else if(q.t === 'texte'){
-      resume = n + (n > 1 ? ' réponses' : ' réponse');
+      const liste = reponsesTexte(s, q, lignes);
+      corps = liste.slice(0, 3).map(x => citation(x.v, x.l)).join('');
+      if(liste.length > 3) corps += '<button type="button" class="sdge-lien" data-voir="' + esc(s.id) + '">Voir les ' + liste.length + ' réponses</button>';
     }
 
     else{
-      const compte = compter(q, vals);
-      resume = compte.slice(0, 2).map(x => esc(x.o) + ' <b>' + pc(x.n, n) + ' %</b>').join(' · ');
-      detail = compte.map(x => barre(x.o, x.n, n)).join('');
+      aide = q.t === 'multi' ? ' · plusieurs choix possibles' : '';
+      corps = '<ul class="sdge-barres">' + compter(q, vals).map(x => ligneBarre(x.o, x.n, n)).join('') + '</ul>';
     }
 
-    const tete = '<span class="sdg-l-q">' + esc(q.q) + '</span><span class="sdg-l-r">' + resume + '</span><span class="sdg-l-n">' + n + '</span>';
-
-    return detail
-      ? '<details class="sdg-l"><summary>' + tete + '</summary><ul class="sdg-liste">' + detail + '</ul></details>'
-      : '<div class="sdg-l sdg-l-fixe"><div class="sdg-l-sum">' + tete + '</div></div>';
+    return '<article class="sdge-q"><header><h4>' + esc(q.q) + '</h4>' +
+      '<p>' + pluriel(n, 'réponse') + ' sur ' + total + ' · ' + pc(n, total) + ' %' + aide + '</p></header>' + corps + '</article>';
   }
 
   function synthese(lignes){
 
-    const html = SECTIONS.map(s => {
-      const rows = s.q.map(q => ligneQuestion(s, q, lignes)).join('');
-      return rows ? '<details class="sdg-s"><summary>' + esc(s.titre) + '</summary>' + rows + '</details>' : '';
+    const html = sectionsVisibles().map(s => {
+
+      const cartes = s.q.map(q => carteQuestion(s, q, lignes)).join('');
+      if(!cartes) return '';
+
+      const notes = [];
+      s.q.filter(q => q.t === 'note').forEach(q => valeurs(s, q, lignes).forEach(v => { if(typeof v === 'number') notes.push(v); }));
+
+      return '<section class="sdge-sec"><div class="sdge-sec-tete"><h3>' + esc(s.titre) + '</h3>' +
+        (notes.length ? '<span class="sdge-sec-note">' + etoiles(moyenne(notes)) + '<b>' + virgule(moyenne(notes)) + '</b> / 5 en moyenne</span>' : '') +
+        '</div><div class="sdge-grille">' + cartes + '</div></section>';
     }).join('');
 
-    return html || '<p class="sdg-vide">Aucune réponse pour l\'instant.</p>';
+    return html || '<p class="sdge-vide">Aucune réponse dans cette section pour l\'instant.</p>';
   }
+
+  // ---------- Réponses libres ----------
 
   function reponsesLibres(lignes){
 
-    const html = SECTIONS.filter(s => equipe.filtre === 'toutes' || s.id === equipe.filtre).map(s => {
+    const mot = equipe.recherche.trim().toLowerCase();
+
+    const html = sectionsVisibles().map(s => {
 
       const blocs = s.q.filter(q => q.t === 'texte').map(q => {
 
-        const id = cle(s, q);
-        const liste = lignes
-          .map(l => ({ l, v: l.reponses[id] }))
-          .filter(x => typeof x.v === 'string' && x.v.trim());
+        const liste = reponsesTexte(s, q, lignes)
+          .filter(x => !mot || x.v.toLowerCase().includes(mot) || nomTesteur(x.l).toLowerCase().includes(mot));
 
         if(!liste.length) return '';
 
-        return '<div class="sdg-libre"><h5>' + esc(q.q) + '</h5>' +
-          liste.map(x => '<blockquote><p>' + esc(x.v).replace(/\n/g, '<br>') + '</p><cite>' + esc(nomTesteur(x.l)) + '</cite></blockquote>').join('') +
-          '</div>';
+        return '<article class="sdge-q sdge-libre"><header><h4>' + esc(q.q) + '</h4><p>' + pluriel(liste.length, 'réponse') + '</p></header>' +
+          liste.map(x => citation(x.v, x.l)).join('') + '</article>';
       }).join('');
 
-      return blocs ? '<h4 class="sdg-sous-titre">' + esc(s.titre) + '</h4>' + blocs : '';
+      return blocs ? '<section class="sdge-sec"><div class="sdge-sec-tete"><h3>' + esc(s.titre) + '</h3></div><div class="sdge-grille">' + blocs + '</div></section>' : '';
     }).join('');
 
-    return html || '<p class="sdg-vide">Aucune réponse écrite pour l\'instant.</p>';
+    return html || '<p class="sdge-vide">' + (mot ? 'Aucune réponse écrite ne contient « ' + esc(equipe.recherche.trim()) + ' ».' : 'Aucune réponse écrite pour l\'instant.') + '</p>';
   }
 
   function valeurLisible(q, v){
@@ -825,24 +879,47 @@
     return String(v);
   }
 
+  // ---------- Par testeur ----------
+
+  function valeurDetail(q, v){
+    if(Array.isArray(v)) return '<span class="sdge-chips">' + v.map(x => '<span>' + esc(x) + '</span>').join('') + '</span>';
+    if(v === 'na') return '<span class="sdge-pas-teste">Pas testé</span>';
+    if(q.t === 'note' && typeof v === 'number') return etoiles(v) + ' <b class="sdge-nv">' + v + ' / 5</b>';
+    return esc(String(v)).replace(/\n/g, '<br>');
+  }
+
   function parTesteur(lignes){
 
-    return lignes.map(l => {
+    const mot = equipe.recherche.trim().toLowerCase();
+
+    const liste = lignes.filter(l =>
+      (equipe.statut === 'tous' || (equipe.statut === 'envoyes' ? l.termine : !l.termine)) &&
+      (!mot || (l.email + ' ' + (l.nom || '')).toLowerCase().includes(mot)));
+
+    if(!liste.length) return '<p class="sdge-vide">Aucun testeur ne correspond.</p>';
+
+    return '<div class="sdge-testeurs">' + liste.map(l => {
+
+      const nbRep = SECTIONS.reduce((t, s) => t + s.q.filter(q => repondu(l.reponses[cle(s, q)])).length, 0);
+      const noteG = l.reponses.global_note_globale;
 
       const detail = SECTIONS.map(s => {
         const rep = s.q.filter(q => repondu(l.reponses[cle(s, q)]));
         if(!rep.length) return '';
-        return '<h5>' + esc(s.titre) + '</h5><dl>' + rep.map(q =>
-          '<dt>' + esc(q.q) + '</dt><dd>' + esc(valeurLisible(q, l.reponses[cle(s, q)])).replace(/\n/g, '<br>') + '</dd>').join('') + '</dl>';
+        return '<section class="sdge-t-sec"><h5>' + esc(s.titre) + '</h5><dl>' + rep.map(q =>
+          '<div><dt>' + esc(q.q) + '</dt><dd>' + valeurDetail(q, l.reponses[cle(s, q)]) + '</dd></div>').join('') + '</dl></section>';
       }).join('');
 
-      return '<details class="sdg-testeur"><summary>' +
-        '<span class="sdg-testeur-nom">' + esc(nomTesteur(l)) + '</span>' +
-        '<span class="sdg-testeur-meta">' + (l.termine ? 'Envoyé' : l.progression + ' %') + ' · ' + esc(heure(l.maj_le)) + '</span></summary>' +
-        '<div class="sdg-testeur-corps">' + (l.nom ? '<p class="sdg-mail">' + esc(l.email) + (l.appareil ? ' · ' + esc(l.appareil) : '') + '</p>' : '') +
-        (detail || '<p>Aucune réponse.</p>') +
-        '<button type="button" class="sdg-lien sdg-suppr" data-suppr="' + esc(l.email) + '">Supprimer cette réponse</button></div></details>';
-    }).join('');
+      return '<details class="sdge-testeur"><summary>' +
+        '<span class="sdge-av sdge-av-g">' + esc(initiales(l)) + '</span>' +
+        '<span class="sdge-t-id"><strong>' + esc(nomTesteur(l)) + '</strong>' +
+        '<small>' + (l.nom ? esc(l.email) + ' · ' : '') + esc(l.appareil || 'appareil inconnu') + ' · ' + esc(heure(l.maj_le)) + '</small></span>' +
+        '<span class="sdge-t-prog"><span class="sdge-t-barre"><i style="width:' + (l.termine ? 100 : l.progression) + '%"></i></span><small>' + pluriel(nbRep, 'réponse') + '</small></span>' +
+        (typeof noteG === 'number' ? '<span class="sdge-t-note">' + etoiles(noteG) + '</span>' : '<span class="sdge-t-note"></span>') +
+        '<span class="sdge-badge ' + (l.termine ? 'ok' : 'cours') + '">' + (l.termine ? 'Envoyé' : l.progression + ' %') + '</span>' +
+        '</summary><div class="sdge-t-corps">' + (detail || '<p class="sdge-vide">Aucune réponse.</p>') +
+        '<button type="button" class="sdge-lien sdge-suppr" data-suppr="' + esc(l.email) + '">Supprimer cette réponse</button></div></details>';
+    }).join('') + '</div>';
   }
 
   function exporterCsv(){
@@ -871,6 +948,16 @@
     setTimeout(() => { URL.revokeObjectURL(lien.href); lien.remove(); }, 500);
   }
 
+  function corpsEquipe(){
+    const l = equipe.lignes;
+    return equipe.vue === 'synthese' ? synthese(l) : equipe.vue === 'libres' ? reponsesLibres(l) : parTesteur(l);
+  }
+
+  function majCorps(){
+    const zone = document.getElementById('sdgeCorps');
+    if(zone) zone.innerHTML = corpsEquipe();
+  }
+
   function rendreEquipe(){
 
     const zone = document.getElementById('sondageEquipe');
@@ -879,26 +966,38 @@
     const lignes = equipe.lignes;
     const envoyes = lignes.filter(l => l.termine).length;
     const notesG = lignes.map(l => l.reponses.global_note_globale).filter(v => typeof v === 'number');
+    const progMoy = lignes.length ? Math.round(moyenne(lignes.map(l => l.termine ? 100 : l.progression))) : 0;
+    const derniere = lignes.map(l => String(l.maj_le)).sort().pop();
+    const nbQuestions = SECTIONS.reduce((t, s) => t + s.q.length, 0);
+    const nbTextes = SECTIONS.reduce((t, s) => t + s.q.filter(q => q.t === 'texte').reduce((u, q) => u + reponsesTexte(s, q, lignes).length, 0), 0);
 
-    const morceaux = [
-      '<b>' + lignes.length + '</b> testeur' + (lignes.length > 1 ? 's' : ''),
-      '<b>' + envoyes + '</b> envoyé' + (envoyes > 1 ? 's' : '')
+    const kpis = [
+      ['Testeurs', String(lignes.length), pluriel(envoyes, 'questionnaire envoyé', 'questionnaires envoyés') + ' · ' + (lignes.length - envoyes) + ' en cours', pc(envoyes, lignes.length)],
+      ['Avancement moyen', progMoy + '<small> %</small>', 'sur ' + nbQuestions + ' questions possibles', progMoy],
+      ['Note globale', notesG.length ? virgule(moyenne(notesG)) + '<small> / 5</small>' : '—', notesG.length ? etoiles(moyenne(notesG)) + ' ' + pluriel(notesG.length, 'avis') : 'pas encore de note', notesG.length ? pc(moyenne(notesG), 5) : 0],
+      ['Réponses écrites', String(nbTextes), derniere ? 'dernière activité : ' + heure(derniere) : '', null]
     ];
-    if(notesG.length) morceaux.push('note globale <b>' + virgule(moyenne(notesG)) + '</b> / 5');
 
     const vues = [['synthese', 'Synthèse'], ['libres', 'Réponses libres'], ['testeurs', 'Par testeur']];
 
+    const puces = vue => vue === 'testeurs'
+      ? [['tous', 'Tous'], ['envoyes', 'Envoyés'], ['cours', 'En cours']].map(x => '<button type="button" class="' + (equipe.statut === x[0] ? 'on' : '') + '" data-statut="' + x[0] + '">' + x[1] + '</button>').join('')
+      : [['toutes', 'Toutes les sections']].concat(SECTIONS.map(s => [s.id, s.court || s.titre])).map(x => '<button type="button" class="' + (equipe.filtre === x[0] ? 'on' : '') + '" data-sec="' + esc(x[0]) + '">' + esc(x[1]) + '</button>').join('');
+
     zone.innerHTML =
-      '<div class="sdg-eq-tete"><p class="sdg-resume">' + morceaux.join(' · ') + '</p>' +
-      '<div class="sdg-eq-actions"><button type="button" class="sdg-lien" data-recharger>Actualiser</button>' +
-      '<button type="button" class="sdg-lien" data-csv' + (lignes.length ? '' : ' disabled') + '>Exporter en CSV</button></div></div>' +
-      '<div class="sdg-vues" role="tablist">' + vues.map(v => '<button type="button" role="tab" class="' + (equipe.vue === v[0] ? 'on' : '') + '" data-vue="' + v[0] + '">' + v[1] + '</button>').join('') + '</div>' +
-      (equipe.vue === 'libres' && lignes.length
-        ? '<label class="sdg-filtre"><span>Section</span><select data-filtre><option value="toutes">Toutes</option>' + SECTIONS.map(s => '<option value="' + s.id + '"' + (equipe.filtre === s.id ? ' selected' : '') + '>' + esc(s.titre) + '</option>').join('') + '</select></label>'
-        : '') +
-      (!lignes.length
-        ? '<p class="sdg-vide">Aucune réponse pour l\'instant. Elles apparaîtront ici dès que les testeurs commenceront le sondage.</p>'
-        : equipe.vue === 'synthese' ? synthese(lignes) : equipe.vue === 'libres' ? reponsesLibres(lignes) : parTesteur(lignes));
+      '<div class="sdge-tete"><div class="sdge-actions">' +
+      '<button type="button" class="sdge-lien" data-recharger>Actualiser</button>' +
+      '<button type="button" class="sdge-lien sdge-lien-fort" data-csv' + (lignes.length ? '' : ' disabled') + '>Exporter en CSV</button></div></div>' +
+      '<div class="sdge-kpis">' + kpis.map(k =>
+        '<div class="sdge-kpi"><p class="sdge-kpi-l">' + k[0] + '</p><p class="sdge-kpi-v">' + k[1] + '</p><p class="sdge-kpi-s">' + k[2] + '</p>' +
+        (k[3] === null ? '' : '<span class="sdge-kpi-barre"><i style="width:' + Math.min(100, k[3]) + '%"></i></span>') + '</div>').join('') + '</div>' +
+      (lignes.length
+        ? '<div class="sdge-vues" role="tablist">' + vues.map(v => '<button type="button" role="tab" class="' + (equipe.vue === v[0] ? 'on' : '') + '" data-vue="' + v[0] + '">' + v[1] + '</button>').join('') + '</div>' +
+          '<div class="sdge-outils">' +
+          (equipe.vue === 'synthese' ? '' : '<input type="search" class="sdge-recherche" data-recherche placeholder="' + (equipe.vue === 'libres' ? 'Chercher un mot dans les réponses…' : 'Chercher un testeur…') + '" value="' + esc(equipe.recherche) + '" autocomplete="off">') +
+          '<div class="sdge-puces">' + puces(equipe.vue) + '</div></div>' +
+          '<div id="sdgeCorps">' + corpsEquipe() + '</div>'
+        : '<p class="sdge-vide">Aucune réponse pour l\'instant. Elles apparaîtront ici dès que les testeurs commenceront le sondage.</p>');
   }
 
   function chargerEquipe(){
@@ -912,7 +1011,10 @@
       zone.addEventListener('click', (e) => {
         const b = e.target.closest('button');
         if(!b) return;
-        if(b.dataset.vue){ equipe.vue = b.dataset.vue; rendreEquipe(); }
+        if(b.dataset.vue){ equipe.vue = b.dataset.vue; equipe.recherche = ''; rendreEquipe(); }
+        else if(b.dataset.sec){ equipe.filtre = b.dataset.sec; rendreEquipe(); }
+        else if(b.dataset.statut){ equipe.statut = b.dataset.statut; rendreEquipe(); }
+        else if(b.dataset.voir){ equipe.vue = 'libres'; equipe.filtre = b.dataset.voir; equipe.recherche = ''; rendreEquipe(); zone.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
         else if(b.hasAttribute('data-recharger')) chargerEquipe();
         else if(b.hasAttribute('data-csv')) exporterCsv();
         else if(b.dataset.suppr){
@@ -926,12 +1028,12 @@
         }
       });
 
-      zone.addEventListener('change', (e) => {
-        if(e.target.matches('[data-filtre]')){ equipe.filtre = e.target.value; rendreEquipe(); }
+      zone.addEventListener('input', (e) => {
+        if(e.target.matches('[data-recherche]')){ equipe.recherche = e.target.value; majCorps(); }
       });
     }
 
-    zone.innerHTML = '<p class="sdg-vide">Chargement…</p>';
+    zone.innerHTML = '<p class="sdge-vide">Chargement…</p>';
 
     return appeler('sondage_equipe_lire').then(data => {
       equipe.lignes = Array.isArray(data) ? data : [];
@@ -1024,60 +1126,119 @@ body:has(#page-admin.active) .sdg-flottant{display:none;}
   .sdg-etat{order:3; flex-basis:100%;}
 }
 
-/* Espace équipe : sobre, sans cartes */
-#sondageEquipe .sdg-eq-tete{display:flex; align-items:center; justify-content:space-between; gap:12px 20px; flex-wrap:wrap; margin:0 0 20px;}
-#sondageEquipe .sdg-resume{margin:0; font-size:14px; color:var(--muted);}
-#sondageEquipe .sdg-resume b{color:var(--ink); font-weight:600;}
-#sondageEquipe .sdg-eq-actions{display:flex; align-items:center; gap:8px;}
-#sondageEquipe .sdg-lien{display:inline-flex; align-items:center; margin:0; padding:7px 14px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--ink-soft); font:inherit; font-size:13px; line-height:1.2; cursor:pointer; transition:border-color .15s, color .15s;}
-#sondageEquipe .sdg-lien:hover:not([disabled]){border-color:rgba(255,255,255,0.3); color:var(--ink);}
-#sondageEquipe .sdg-lien[disabled]{opacity:.4; cursor:default;}
-#sondageEquipe .sdg-vues{display:flex; gap:24px; margin:0 0 8px; border-bottom:1px solid var(--line);}
-#sondageEquipe .sdg-vues button{margin:0 0 -1px; padding:10px 0; border:0; border-bottom:2px solid transparent; background:none; color:var(--muted); font:inherit; font-size:14px; cursor:pointer;}
-#sondageEquipe .sdg-vues button.on{color:var(--ink); border-bottom-color:var(--blue-bright);}
-#sondageEquipe .sdg-filtre{display:flex; align-items:center; gap:10px; margin:14px 0 4px; font-size:13px; color:var(--muted);}
-#sondageEquipe .sdg-filtre select{color-scheme:dark; padding:7px 12px; border:1px solid var(--line); border-radius:10px; background:#0d1117; color:var(--ink); font:inherit; font-size:13px;}
-#sondageEquipe .sdg-filtre option{background:#0d1117; color:#F4F5F6;}
-#sondageEquipe .sdg-vide{margin:22px 0; font-size:14px; color:var(--muted);}
-#sondageEquipe summary{list-style:none; cursor:pointer;}
-#sondageEquipe summary::-webkit-details-marker{display:none;}
-#sondageEquipe .sdg-s{border-bottom:1px solid var(--line);}
-#sondageEquipe .sdg-s > summary{display:flex; align-items:center; justify-content:space-between; padding:16px 2px; font-weight:600; color:var(--ink);}
-#sondageEquipe .sdg-s > summary::after{content:''; width:8px; height:8px; border-right:2px solid var(--muted); border-bottom:2px solid var(--muted); transform:rotate(45deg); transition:transform .2s;}
-#sondageEquipe .sdg-s[open] > summary::after{transform:rotate(-135deg);}
-#sondageEquipe .sdg-s[open]{padding-bottom:10px;}
-#sondageEquipe .sdg-l{border-top:1px solid rgba(255,255,255,0.06);}
-#sondageEquipe .sdg-l > summary, #sondageEquipe .sdg-l-sum{display:grid; grid-template-columns:minmax(0,1fr) auto 28px; align-items:baseline; gap:14px; padding:10px 2px;}
-#sondageEquipe .sdg-l-q{font-size:13.5px; color:var(--ink-soft); line-height:1.4;}
-#sondageEquipe .sdg-l-r{font-size:13px; color:var(--muted); text-align:right;}
-#sondageEquipe .sdg-l-r b{color:var(--ink); font-weight:600;}
-#sondageEquipe .sdg-l-n{font-size:12px; color:var(--muted); text-align:right; font-variant-numeric:tabular-nums;}
-#sondageEquipe .sdg-liste{list-style:none; margin:0 0 10px; padding:0 2px; display:grid; gap:4px;}
-#sondageEquipe .sdg-liste li{position:relative; display:flex; justify-content:space-between; gap:10px; padding:5px 10px; border-radius:7px; font-size:12.5px; color:var(--ink-soft);}
-#sondageEquipe .sdg-liste li::before{content:''; position:absolute; inset:0; width:var(--p); background:rgba(79,180,255,0.14); border-radius:7px;}
-#sondageEquipe .sdg-liste li > *{position:relative;}
-#sondageEquipe .sdg-liste b{color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums;}
-#sondageEquipe .sdg-sous-titre{margin:24px 0 8px; font-size:14px; font-weight:600; color:var(--ink);}
-#sondageEquipe .sdg-libre{margin:0 0 14px;}
-#sondageEquipe .sdg-libre h5{margin:0 0 8px; font-size:13px; font-weight:500; color:var(--muted);}
-#sondageEquipe blockquote{margin:0 0 8px; padding:2px 0 2px 14px; border-left:2px solid var(--line);}
-#sondageEquipe blockquote p{margin:0 0 3px; color:var(--ink); font-size:14px; line-height:1.55;}
-#sondageEquipe blockquote cite{font-size:12px; color:var(--muted); font-style:normal;}
-#sondageEquipe .sdg-testeur{border-bottom:1px solid var(--line);}
-#sondageEquipe .sdg-testeur > summary{display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:14px 2px;}
-#sondageEquipe .sdg-testeur-nom{font-weight:600; color:var(--ink);}
-#sondageEquipe .sdg-testeur-meta{font-size:12.5px; color:var(--muted);}
-#sondageEquipe .sdg-testeur-corps{padding:0 2px 18px;}
-#sondageEquipe .sdg-mail{margin:0 0 4px; font-size:12.5px; color:var(--muted);}
-#sondageEquipe .sdg-testeur-corps h5{margin:16px 0 4px; font-size:12.5px; font-weight:600; color:var(--blue-bright);}
-#sondageEquipe .sdg-testeur-corps dl{margin:0;}
-#sondageEquipe .sdg-testeur-corps dt{margin-top:8px; font-size:12.5px; color:var(--muted);}
-#sondageEquipe .sdg-testeur-corps dd{margin:2px 0 0; font-size:14px; color:var(--ink); line-height:1.5;}
-#sondageEquipe .sdg-suppr{margin-top:18px; color:var(--danger); border-color:rgba(229,105,92,0.45);}
+/* Espace équipe : interface de lecture des réponses (texte généreux, cartes, barres) */
+#sondageEquipe{font-size:16px; color:var(--ink-soft); line-height:1.5;}
+#sondageEquipe .sdge-tete{display:flex; justify-content:flex-end; margin:0 0 16px;}
+#sondageEquipe .sdge-actions{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+#sondageEquipe .sdge-lien{display:inline-flex; align-items:center; margin:0; padding:10px 18px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--ink-soft); font:inherit; font-size:15px; font-weight:500; line-height:1.2; cursor:pointer; transition:border-color .15s, color .15s, background .15s;}
+#sondageEquipe .sdge-lien:hover:not([disabled]){border-color:rgba(255,255,255,0.35); color:var(--ink);}
+#sondageEquipe .sdge-lien[disabled]{opacity:.4; cursor:default;}
+#sondageEquipe .sdge-lien-fort{background:rgba(79,180,255,0.14); border-color:rgba(79,180,255,0.5); color:var(--ink);}
+#sondageEquipe .sdge-kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px; margin:0 0 30px;}
+#sondageEquipe .sdge-kpi{padding:20px 22px; border:1px solid var(--line); border-radius:18px; background:var(--bg-alt);}
+#sondageEquipe .sdge-kpi p{margin:0;}
+#sondageEquipe .sdge-kpi-l{font-size:13px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+#sondageEquipe .sdge-kpi-v{margin:8px 0 4px !important; font-size:40px; font-weight:700; line-height:1.1; color:var(--ink);}
+#sondageEquipe .sdge-kpi-v small{font-size:20px; font-weight:500; color:var(--muted);}
+#sondageEquipe .sdge-kpi-s{font-size:15px; color:var(--muted);}
+#sondageEquipe .sdge-kpi-barre{display:block; height:6px; margin-top:14px; border-radius:999px; background:rgba(255,255,255,0.08); overflow:hidden;}
+#sondageEquipe .sdge-kpi-barre i{display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#0f78c4,var(--blue-bright));}
+#sondageEquipe .sdge-stars{display:inline-flex; gap:2px; vertical-align:middle; color:rgba(255,255,255,0.2);}
+#sondageEquipe .sdge-stars span.on{color:#ffc850;}
+#sondageEquipe .sdge-stars svg{width:18px; height:18px; fill:currentColor; display:block;}
+#sondageEquipe .sdge-vues{display:flex; gap:6px; margin:0 0 18px; padding:5px; width:fit-content; max-width:100%; border:1px solid var(--line); border-radius:999px; background:var(--bg-alt);}
+#sondageEquipe .sdge-vues button{margin:0; padding:11px 22px; border:0; border-radius:999px; background:none; color:var(--muted); font:inherit; font-size:16px; font-weight:600; cursor:pointer; white-space:nowrap; transition:background .15s, color .15s;}
+#sondageEquipe .sdge-vues button:hover{color:var(--ink);}
+#sondageEquipe .sdge-vues button.on{background:var(--blue-bright); color:#04121f;}
+#sondageEquipe .sdge-outils{display:flex; flex-direction:column; gap:12px; margin:0 0 26px;}
+#sondageEquipe .sdge-recherche{width:100%; max-width:480px; padding:13px 16px; border:1px solid var(--line); border-radius:12px; background:rgba(0,0,0,0.25); color:var(--ink); font:inherit; font-size:16px;}
+#sondageEquipe .sdge-recherche:focus{outline:none; border-color:var(--blue-bright);}
+#sondageEquipe .sdge-puces{display:flex; flex-wrap:wrap; gap:8px;}
+#sondageEquipe .sdge-puces button{margin:0; padding:9px 16px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--ink-soft); font:inherit; font-size:15px; cursor:pointer; transition:border-color .15s, background .15s, color .15s;}
+#sondageEquipe .sdge-puces button:hover{border-color:rgba(255,255,255,0.35); color:var(--ink);}
+#sondageEquipe .sdge-puces button.on{border-color:var(--blue-bright); background:rgba(79,180,255,0.16); color:var(--ink);}
+#sondageEquipe .sdge-vide{margin:26px 0; font-size:17px; color:var(--muted);}
+#sondageEquipe .sdge-sec{margin:0 0 38px;}
+#sondageEquipe .sdge-sec-tete{display:flex; align-items:center; justify-content:space-between; gap:10px 20px; flex-wrap:wrap; margin:0 0 16px; padding:0 0 12px; border-bottom:1px solid var(--line);}
+#sondageEquipe .sdge-sec-tete h3{margin:0; font-size:24px; font-weight:700; color:var(--ink);}
+#sondageEquipe .sdge-sec-note{display:inline-flex; align-items:center; gap:10px; font-size:15px; color:var(--muted);}
+#sondageEquipe .sdge-sec-note b{color:var(--ink); font-size:18px;}
+#sondageEquipe .sdge-grille{display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr)); gap:16px; align-items:start;}
+#sondageEquipe .sdge-q{padding:22px 24px; border:1px solid var(--line); border-radius:18px; background:var(--bg-alt);}
+#sondageEquipe .sdge-q header{margin:0 0 16px;}
+#sondageEquipe .sdge-q h4{margin:0 0 4px; font-size:18px; font-weight:600; line-height:1.4; color:var(--ink);}
+#sondageEquipe .sdge-q header p{margin:0; font-size:14px; color:var(--muted);}
+#sondageEquipe .sdge-note{display:grid; grid-template-columns:auto minmax(0,1fr); gap:22px; align-items:center;}
+#sondageEquipe .sdge-note-moy{display:flex; flex-direction:column; align-items:center; gap:4px; min-width:104px;}
+#sondageEquipe .sdge-note-moy strong{font-size:46px; font-weight:700; line-height:1; color:var(--ink);}
+#sondageEquipe .sdge-note-moy > span:not(.sdge-stars){font-size:15px; color:var(--muted);}
+#sondageEquipe .sdge-note-moy small{font-size:13px; color:var(--muted);}
+#sondageEquipe .sdge-barres{list-style:none; margin:0; padding:0; display:grid; gap:9px;}
+#sondageEquipe .sdge-barres li{display:grid; grid-template-columns:minmax(80px,38%) minmax(0,1fr) auto; align-items:center; gap:12px; font-size:15px;}
+#sondageEquipe .sdge-note .sdge-barres li{grid-template-columns:34px minmax(0,1fr) auto;}
+#sondageEquipe .sdge-b-l{color:var(--ink-soft); line-height:1.3;}
+#sondageEquipe .sdge-b-t{display:block; height:12px; border-radius:999px; background:rgba(255,255,255,0.07); overflow:hidden;}
+#sondageEquipe .sdge-b-t i{display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#0f78c4,var(--blue-bright)); min-width:2px;}
+#sondageEquipe .sdge-barres .n5 .sdge-b-t i,#sondageEquipe .sdge-barres .n4 .sdge-b-t i{background:linear-gradient(90deg,#3aa56d,#7be0a8);}
+#sondageEquipe .sdge-barres .n2 .sdge-b-t i,#sondageEquipe .sdge-barres .n1 .sdge-b-t i{background:linear-gradient(90deg,#c9503f,#E5695C);}
+#sondageEquipe .sdge-barres .n3 .sdge-b-t i{background:linear-gradient(90deg,#c9962a,#ffc850);}
+#sondageEquipe .sdge-b-v{display:inline-flex; align-items:baseline; gap:7px; min-width:74px; justify-content:flex-end; font-variant-numeric:tabular-nums;}
+#sondageEquipe .sdge-b-v b{color:var(--ink); font-weight:600;}
+#sondageEquipe .sdge-b-v em{font-style:normal; font-size:13px; color:var(--muted); min-width:18px; text-align:right;}
+#sondageEquipe .sdge-pas{margin:14px 0 0; font-size:14px; color:var(--muted);}
+#sondageEquipe blockquote{margin:0 0 12px; padding:14px 16px; border-left:3px solid var(--blue-bright); border-radius:4px 12px 12px 4px; background:rgba(255,255,255,0.04);}
+#sondageEquipe blockquote:last-child{margin-bottom:0;}
+#sondageEquipe blockquote p{margin:0 0 10px; color:var(--ink); font-size:17px; line-height:1.6;}
+#sondageEquipe blockquote footer{display:flex; align-items:center; gap:9px; font-size:14px; color:var(--muted);}
+#sondageEquipe blockquote cite{font-style:normal; color:var(--ink-soft); font-weight:500;}
+#sondageEquipe blockquote time{margin-left:auto; font-size:13px;}
+#sondageEquipe .sdge-q .sdge-lien{margin-top:14px;}
+#sondageEquipe .sdge-av{flex:none; display:inline-grid; place-items:center; width:28px; height:28px; border-radius:50%; background:rgba(79,180,255,0.2); color:var(--blue-bright); font-size:11px; font-weight:700;}
+#sondageEquipe .sdge-av-g{width:46px; height:46px; font-size:16px;}
+#sondageEquipe .sdge-testeurs{display:grid; gap:12px;}
+#sondageEquipe .sdge-testeur{border:1px solid var(--line); border-radius:18px; background:var(--bg-alt);}
+#sondageEquipe .sdge-testeur[open]{border-color:rgba(79,180,255,0.4);}
+#sondageEquipe .sdge-testeur > summary{display:grid; grid-template-columns:46px minmax(0,1.4fr) minmax(120px,1fr) auto auto; align-items:center; gap:16px; padding:16px 20px; list-style:none; cursor:pointer;}
+#sondageEquipe .sdge-testeur > summary::-webkit-details-marker{display:none;}
+#sondageEquipe .sdge-t-id{min-width:0; display:flex; flex-direction:column; gap:2px;}
+#sondageEquipe .sdge-t-id strong{font-size:17px; font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+#sondageEquipe .sdge-t-id small, #sondageEquipe .sdge-t-prog small{font-size:13.5px; color:var(--muted);}
+#sondageEquipe .sdge-t-prog{display:flex; flex-direction:column; gap:6px;}
+#sondageEquipe .sdge-t-barre{display:block; height:8px; border-radius:999px; background:rgba(255,255,255,0.08); overflow:hidden;}
+#sondageEquipe .sdge-t-barre i{display:block; height:100%; border-radius:999px; background:linear-gradient(90deg,#0f78c4,var(--blue-bright));}
+#sondageEquipe .sdge-t-note{min-width:96px;}
+#sondageEquipe .sdge-badge{padding:6px 14px; border-radius:999px; font-size:14px; font-weight:600; white-space:nowrap;}
+#sondageEquipe .sdge-badge.ok{background:rgba(94,201,140,0.18); color:#7be0a8;}
+#sondageEquipe .sdge-badge.cours{background:rgba(255,200,80,0.16); color:#ffc850;}
+#sondageEquipe .sdge-t-corps{padding:4px 22px 24px; border-top:1px solid var(--line);}
+#sondageEquipe .sdge-t-sec h5{margin:24px 0 8px; font-size:15px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--blue-bright);}
+#sondageEquipe .sdge-t-sec dl{margin:0; display:grid; gap:2px;}
+#sondageEquipe .sdge-t-sec dl > div{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.3fr); gap:6px 24px; padding:11px 0; border-bottom:1px solid rgba(255,255,255,0.06);}
+#sondageEquipe .sdge-t-sec dt{font-size:15px; color:var(--muted); line-height:1.45;}
+#sondageEquipe .sdge-t-sec dd{margin:0; font-size:16px; color:var(--ink); line-height:1.55;}
+#sondageEquipe .sdge-nv{margin-left:6px; font-size:15px;}
+#sondageEquipe .sdge-pas-teste{color:var(--muted); font-style:italic;}
+#sondageEquipe .sdge-chips{display:flex; flex-wrap:wrap; gap:6px;}
+#sondageEquipe .sdge-chips span{padding:4px 12px; border-radius:999px; background:rgba(79,180,255,0.14); color:var(--ink); font-size:14.5px;}
+#sondageEquipe .sdge-suppr{margin-top:24px; color:var(--danger); border-color:rgba(229,105,92,0.45);}
+@media (max-width:900px){
+  #sondageEquipe .sdge-testeur > summary{grid-template-columns:46px minmax(0,1fr) auto; row-gap:10px;}
+  #sondageEquipe .sdge-t-prog{grid-column:2 / 4; grid-row:2;}
+  #sondageEquipe .sdge-t-note{display:none;}
+}
 @media (max-width:700px){
-  #sondageEquipe .sdg-l > summary, #sondageEquipe .sdg-l-sum{grid-template-columns:minmax(0,1fr) auto;}
-  #sondageEquipe .sdg-l-n{display:none;}
-  #sondageEquipe .sdg-vues{gap:16px; overflow-x:auto;}
+  #sondageEquipe .sdge-vues{width:100%; overflow-x:auto; border-radius:18px;}
+  #sondageEquipe .sdge-vues button{padding:10px 16px; flex:1;}
+  #sondageEquipe .sdge-puces{flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; scrollbar-width:none;}
+  #sondageEquipe .sdge-puces button{flex:none;}
+  #sondageEquipe .sdge-note{grid-template-columns:1fr; gap:16px;}
+  #sondageEquipe .sdge-q{padding:18px;}
+  #sondageEquipe .sdge-barres li{grid-template-columns:minmax(70px,34%) minmax(0,1fr) auto; gap:8px;}
+  #sondageEquipe .sdge-t-sec dl > div{grid-template-columns:1fr;}
+  #sondageEquipe .sdge-kpis{grid-template-columns:1fr 1fr; gap:10px;}
+  #sondageEquipe .sdge-kpi{padding:14px;}
+  #sondageEquipe .sdge-kpi-v{font-size:30px;}
+  #sondageEquipe .sdge-kpi-s{font-size:13px;}
 }
 `;
 
