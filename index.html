@@ -513,6 +513,17 @@
     transition:transform .55s var(--ease);
   }
   .cat-tile:hover .cat-cover img{transform:scale(1.07);}
+  /* Le nom du projet et de l'artiste se lisent en passant la souris (ou au clavier), sans ouvrir la fiche. */
+  .cat-info{
+    position:absolute; left:0; right:0; bottom:0; z-index:1; padding:34px 12px 11px; pointer-events:none;
+    display:flex; flex-direction:column; gap:2px;
+    background:linear-gradient(to top, rgba(5,7,10,.94) 12%, rgba(5,7,10,.72) 55%, rgba(5,7,10,0));
+    opacity:0; transform:translateY(8px); transition:opacity .25s var(--ease), transform .3s var(--ease);
+  }
+  .cat-info strong{font-size:14.5px; font-weight:700; line-height:1.25; color:#fff; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .cat-info span{font-size:12.5px; color:var(--ink-soft); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .cat-tile:hover .cat-info, .cat-tile:focus-within .cat-info{opacity:1; transform:none;}
+  @media (hover:none){ .cat-info{display:none;} }
   .cat-tile:focus-within{outline:2px solid var(--blue-bright); outline-offset:3px;}
   /* Le bouton d'ouverture recouvre la pochette ; le « + » reste au-dessus (un bouton dans un bouton n'est pas valide). */
   .cat-ouvrir{position:absolute; inset:0; z-index:1; width:100%; height:100%; padding:0; margin:0; border:0; border-radius:inherit; background:transparent; cursor:pointer; -webkit-appearance:none; appearance:none;}
@@ -2840,6 +2851,26 @@
     color:var(--ink-soft); text-decoration:underline; cursor:pointer;
   }
   .modal-feat button:hover{color:var(--blue-bright);}
+  /* Les titres de la sortie, un extrait de 30 s par titre. */
+  .pistes{margin:20px 0 0;}
+  .pistes-titre{margin:0 0 8px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  .pistes-liste{list-style:none; margin:0; padding:0; border-top:1px solid var(--line);}
+  .piste{display:grid; grid-template-columns:28px minmax(0,1fr) auto auto; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--line);}
+  .piste-n{font-size:13px; color:var(--muted); text-align:right; font-variant-numeric:tabular-nums;}
+  .piste-nom{min-width:0; font-size:14.5px; color:var(--ink); line-height:1.35;}
+  .piste-nom small{display:block; font-size:12px; color:var(--muted);}
+  .piste-duree{font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums;}
+  .piste-play{width:34px; height:34px; border-radius:50%; border:1px solid var(--line-strong); background:var(--glass); color:var(--ink); display:inline-flex; align-items:center; justify-content:center; padding:0; cursor:pointer; transition:background .2s, border-color .2s, transform .2s;}
+  .piste-play:hover{background:var(--glass-hi); border-color:rgba(255,255,255,0.35); transform:scale(1.06);}
+  .piste-play svg{width:14px; height:14px; fill:currentColor;}
+  .piste-play .i-pause{display:none;}
+  .piste.joue .piste-play{background:var(--blue-bright); border-color:var(--blue-bright); color:#04121f;}
+  .piste.joue .piste-play .i-play{display:none;}
+  .piste.joue .piste-play .i-pause{display:block;}
+  .piste.joue .piste-nom{color:var(--blue-bright);}
+  .piste-vide{width:34px;}
+  .pistes-seul .piste{grid-template-columns:minmax(0,1fr) auto auto;}
+  .pistes-seul .piste-n{display:none;}
 
   /* Bascule afficher/masquer d'une vidéo, dans l'onglet Contenu. */
   .pick-bascule{
@@ -6818,6 +6849,9 @@
 
   <!-- Clip, quand la sortie en a un. Rempli par openCatalogueModal. -->
   <div id="modalClip"></div>
+
+  <!-- Titres de la sortie (tracklist) et extraits de 30 secondes. Rempli par chargerPistes. -->
+  <div id="modalPistes"></div>
 
   <div class="hairline" style="margin:20px 0 16px;"></div>
 
@@ -14764,6 +14798,10 @@ function tileHtml(item){
         <img src="${escapeAttribute(safeUrl(item.cover))}"
              alt="${escapeAttribute(item.title)}" loading="lazy">
       </div>
+      <div class="cat-info" aria-hidden="true">
+        <strong>${escapeHtml(item.title)}</strong>
+        <span>${escapeHtml(item.artist)}${item.releaseType ? ' · ' + escapeHtml(item.releaseType) : ''}</span>
+      </div>
       <span class="tile-statut-zone">${statutTuileHtml(item.id)}</span>
       <button type="button" class="tile-plus" aria-label="Ajouter à ma collection"
               onclick="event.stopPropagation(); ouvrirAjoutRapide('${item.id}', this)">${iconeCollection('plus')}</button>
@@ -20970,6 +21008,7 @@ document.getElementById(
     listenIconsHtml(item.listenLinks);
 
   renderNoteBloc(item.id);
+  chargerPistes(item);
 
   document.getElementById('catalogueModal').classList.add('open');
 
@@ -20981,6 +21020,94 @@ document.getElementById(
   if(currentUser) xpAction('decouverte_sortie', item.id);
 }
 
+// ---------------- TITRES ET EXTRAITS DE LA FICHE ----------------
+//
+// Les titres de la sortie viennent de catalogue_pistes (lus chez Deezer par la base, gardés trois heures) : le nom de
+// chaque titre contient déjà ses featurings. Chaque titre a un extrait de 30 secondes ; un seul joue à la fois, et
+// l'extrait s'arrête quand la fiche se ferme.
+
+let extraitAudio = null;
+let extraitBouton = null;
+
+function arreterExtrait(){
+
+  if(extraitAudio){ try{ extraitAudio.pause(); }catch(e){} extraitAudio = null; }
+  if(extraitBouton){ const l = extraitBouton.closest('.piste'); if(l) l.classList.remove('joue'); extraitBouton = null; }
+}
+
+function jouerExtrait(bouton){
+
+  const url = bouton.dataset.apercu;
+  if(!url) return;
+
+  const memeBouton = extraitBouton === bouton;
+  arreterExtrait();
+  if(memeBouton) return;
+
+  const audio = new Audio(url);
+  audio.volume = 0.9;
+  extraitAudio = audio;
+  extraitBouton = bouton;
+  bouton.closest('.piste').classList.add('joue');
+  audio.addEventListener('ended', () => { if(extraitAudio === audio) arreterExtrait(); });
+  audio.addEventListener('error', () => { if(extraitAudio === audio) arreterExtrait(); });
+  audio.play().catch(() => { if(extraitAudio === audio) arreterExtrait(); });
+}
+
+function dureePiste(secondes){
+  const m = Math.floor(secondes / 60), s = secondes % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+async function chargerPistes(item){
+
+  const zone = document.getElementById('modalPistes');
+  if(!zone) return;
+
+  zone.innerHTML = '';
+  arreterExtrait();
+
+  if(!item || !item.id || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+  const voulu = item.id;
+  zone.dataset.release = voulu;
+
+  let pistes = [];
+
+  try{
+    const { data, error } = await supabaseClient.rpc('catalogue_pistes', { p_release: voulu });
+    if(error) throw error;
+    pistes = Array.isArray(data) ? data : [];
+  }catch(e){
+    return;
+  }
+
+  // Une autre fiche s'est ouverte entre-temps.
+  if(zone.dataset.release !== voulu || !pistes.length) return;
+
+  const seul = pistes.length === 1;
+  const principal = String(item.artist || '').toLowerCase();
+
+  zone.innerHTML = `
+    <div class="pistes${seul ? ' pistes-seul' : ''}">
+      <p class="pistes-titre">${seul ? 'Extrait' : pistes.length + ' titres'}</p>
+      <ol class="pistes-liste">
+        ${pistes.map((p) => `
+          <li class="piste">
+            <span class="piste-n">${p.n}</span>
+            <span class="piste-nom">${escapeHtml(p.titre)}${p.artiste && principal && !principal.includes(String(p.artiste).toLowerCase()) ? `<small>${escapeHtml(p.artiste)}</small>` : ''}</span>
+            <span class="piste-duree">${p.duree ? dureePiste(p.duree) : ''}</span>
+            ${p.apercu
+              ? `<button type="button" class="piste-play" data-apercu="${escapeAttribute(p.apercu)}" aria-label="Écouter un extrait de ${escapeAttribute(p.titre)}" onclick="jouerExtrait(this)">
+                   <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>
+                   <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1"/><rect x="13.8" y="5" width="4.2" height="14" rx="1"/></svg>
+                 </button>`
+              : '<span class="piste-vide"></span>'}
+          </li>`).join('')}
+      </ol>
+    </div>`;
+}
+
 // Retire la fiche de l'écran et dit si elle y était. Le clip lu sur place
 // part avec elle : seulement masqué, son iframe continuait de jouer en
 // fond, le son ne s'arrêtait qu'à l'ouverture d'une autre fiche.
@@ -20988,6 +21115,8 @@ function masquerFiche(){
 
   const modale = document.getElementById('catalogueModal');
   if(!modale) return false;
+
+  arreterExtrait();
 
   const etaitOuverte = modale.classList.contains('open');
   modale.classList.remove('open');
