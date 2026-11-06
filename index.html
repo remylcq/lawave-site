@@ -409,7 +409,7 @@
 
   /* ---------- SOCIAL ROW ---------- */
   .social-row{
-    display:flex; justify-content:center; gap:16px; margin-bottom:28px;
+    display:flex; justify-content:center; gap:16px; margin-bottom:40px;
   }
   /* Sur l'accueil, la première actu suit directement les réseaux :
      inutile d'y ajouter le dégagement complet d'une section. */
@@ -455,8 +455,7 @@
   @media (min-width:900px){
     #page-home .hero-logo-only{padding-top:4px; padding-bottom:0;}
     #page-home .hero-logo-only img{width:170px;}
-    #page-home .social-row{margin-bottom:14px;}
-    #page-home .hero-cta{margin:0 auto 40px;}
+    #page-home .social-row{margin-bottom:48px;}
     #page-home > section.news-section{padding-top:0; padding-bottom:36px;}
     .news-card{max-width:760px; display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:36px; text-align:left;}
     .news-texte{display:contents;}
@@ -880,8 +879,6 @@
   .doc a.btn-primary{color:#fff; text-decoration:none;}
 
   /* ---------- APPEL À L'ACTION DE L'ACCUEIL ---------- */
-  .hero-cta{display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin:6px auto 30px;}
-  .hero-cta .btn{padding:13px 24px; min-height:46px; display:inline-flex; align-items:center; justify-content:center; text-decoration:none;}
 
   /* ---------- LIEN D'ÉVITEMENT (clavier) ---------- */
   .lien-evitement{
@@ -928,11 +925,10 @@
     }
     .btn-primary:hover::after{transform:translateX(130%);}
 
-    /* La carte de l'actualité se soulève, sa pochette respire. */
-    .news-card{transition:transform .5s var(--ease), box-shadow .5s var(--ease);}
-    .news-card:hover{transform:translateY(-5px);}
+    /* Seule la miniature de l'actualité réagit au survol : elle se soulève et respire, le texte autour reste en place. */
+    .news-cover:hover{transform:translateY(-5px);}
     .news-cover img{transition:transform .9s var(--ease);}
-    .news-card:hover .news-cover img{transform:scale(1.045);}
+    .news-cover:hover img{transform:scale(1.045);}
 
     /* Les liens du menu : un trait glisse sous celui qu'on survole. */
     .navlink{position:relative;}
@@ -2907,15 +2903,25 @@
   }
   .modal-feat button:hover{color:var(--blue-bright);}
   /* La fiche d'une sortie et, collé contre elle, l'encadré des titres d'un projet. */
-  .modal-duo{display:flex; align-items:flex-start; justify-content:center; width:100%; max-width:440px; max-height:100%;}
+  .modal-duo{display:flex; align-items:stretch; justify-content:center; width:100%; max-width:440px; max-height:100%;}
   .modal-duo > .modal-box{flex:0 1 440px; min-width:0;}
   .modal-duo.a-pistes{max-width:760px;}
+  /* L'encadré des titres a exactement la hauteur de la fiche (haut et bas alignés) : `contain:size` l'empêche de l'étirer,
+     la liste défile à l'intérieur, sans barre visible. */
   .modal-pistes{
-    flex:0 0 310px; width:310px; max-height:min(430px, calc(100dvh - 48px)); overflow-y:auto; box-sizing:border-box; overscroll-behavior:contain;
+    flex:0 0 310px; width:310px; contain:size; overflow-y:auto; box-sizing:border-box; overscroll-behavior:contain;
+    scrollbar-width:none; -ms-overflow-style:none;
     padding:20px 18px 18px; margin-left:-1px;
     background:linear-gradient(152deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 42%), rgba(12,15,21,0.95);
     border:1px solid rgba(255,255,255,0.16); border-radius:0 var(--radius-lg) var(--radius-lg) 0;
   }
+  .modal-pistes::-webkit-scrollbar{display:none; width:0; height:0;}
+  /* Un voile en bas dit qu'il y a de la suite (la barre de défilement étant cachée). */
+  .modal-pistes .pistes::after{
+    content:''; position:sticky; bottom:-18px; display:block; height:34px; margin:-34px -18px -18px; pointer-events:none;
+    background:linear-gradient(to bottom, rgba(12,15,21,0), rgba(12,15,21,0.96)); opacity:0; transition:opacity .25s var(--ease);
+  }
+  .modal-pistes.plus-bas .pistes::after{opacity:1;}
   .modal-pistes[hidden]{display:none;}
   .modal-duo.a-pistes > .modal-box{border-top-right-radius:0; border-bottom-right-radius:0;}
   .modal-overlay.open .modal-pistes{animation:pistesEntre .45s var(--ease) .12s backwards;}
@@ -2926,7 +2932,7 @@
     #catalogueModal .modal-duo.a-pistes{max-width:440px;}
     #catalogueModal .modal-duo > .modal-box{flex:none;}
     #catalogueModal .modal-duo.a-pistes > .modal-box{max-height:none; overflow:visible; border-radius:var(--radius-lg) var(--radius-lg) 0 0;}
-    .modal-pistes{flex:none; width:auto; max-height:340px; margin:-1px 0 0; border-radius:0 0 var(--radius-lg) var(--radius-lg);}
+    .modal-pistes{flex:none; width:auto; contain:none; max-height:340px; margin:-1px 0 0; border-radius:0 0 var(--radius-lg) var(--radius-lg);}
   }
   /* Un petit bouton discret, en bas à droite de la pochette, joue (ou arrête) un extrait de 30 secondes ; il apparaît au survol.
      Cliquer sur la pochette elle-même l'agrandit. */
@@ -3322,7 +3328,8 @@
 
   /* ---------- AUTH MODAL ---------- */
   /* Fenêtre de connexion : deux onglets en texte, les champs, un bouton ; les fournisseurs et la note, en discret. */
-  .auth-tabs{display:flex; gap:22px; margin-bottom:22px; border-bottom:1px solid var(--line);}
+  #authModal .modal-body{padding:38px 34px 30px;}
+  .auth-tabs{display:flex; gap:22px; margin-bottom:24px; border-bottom:1px solid var(--line);}
   .auth-tab{
     padding:4px 0 11px; margin-bottom:-1px; font-size:14px; font-weight:600; color:var(--muted);
     background:transparent; border:none; border-bottom:2px solid transparent; border-radius:0;
@@ -4576,12 +4583,6 @@
          class="social-icon" aria-label="YouTube" title="YouTube">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="M10.5 9.5l5 2.5-5 2.5z" fill="currentColor" stroke="none"/></svg>
       </a>
-    </div>
-
-    <!-- Deux appels à l'action : parcourir ce que La Wave a repéré, ou rejoindre ceux qui en parlent. -->
-    <div class="hero-cta">
-      <a class="btn btn-primary" href="#catalogue" onclick="goTo('catalogue'); return false;">Explorer le catalogue</a>
-      <a class="btn btn-ghost" href="#community" onclick="goTo('community'); return false;">Rejoindre la communauté</a>
     </div>
 
     <section class="news-section">
@@ -6875,8 +6876,9 @@
         </button>
 
         <button type="button" class="fournisseur" onclick="connexionFournisseur('spotify')">
-          <svg viewBox="0 0 24 24" fill="#1DB954" aria-hidden="true">
-            <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm4.6 14.4a.8.8 0 01-1.1.3c-3-1.8-6.7-2.2-11.1-1.2a.8.8 0 11-.3-1.5c4.8-1.1 8.9-.6 12.2 1.4.4.2.5.7.3 1zm1.2-2.9a1 1 0 01-1.3.3c-3.4-2.1-8.6-2.7-12.6-1.5a1 1 0 11-.6-1.9c4.6-1.4 10.3-.7 14.2 1.7.5.3.6.9.3 1.4zm.1-3C13.9 8.1 7.2 7.9 3.3 9.1a1.2 1.2 0 11-.7-2.3C7 5.4 14.4 5.6 19 8.4a1.2 1.2 0 01-1.1 2.1z"/>
+          <!-- Le logo officiel de Spotify (pastille verte, trois arcs). -->
+          <svg viewBox="0 0 24 24" fill="#1ED760" aria-hidden="true">
+            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
           </svg>
           Spotify
         </button>
@@ -17859,20 +17861,24 @@ function dessinerCarte(temps, dt){
 
     // Combien d'artistes sous cette pastille, quand il y en a plusieurs.
     if(groupe.total > 1){
-      // Le chiffre doit se lire même sur une petite pastille : un rond d'au moins 11 px de rayon, un texte d'au moins 14 px.
-      const rc = Math.max(rayon * 0.62, 11) * (groupe.total >= 10 ? 1.12 : 1);
+      // Le chiffre doit se lire même sur une petite pastille : un rond d'au moins 11 px de rayon, un texte d'au moins 12 px.
+      const rc = Math.max(rayon * 0.56, 11) * (groupe.total >= 100 ? 1.3 : groupe.total >= 10 ? 1.1 : 1);
       const cxp = tx + rayon * 0.8;
       const cyp = ty - rayon * 0.8;
       ctx.globalAlpha = arrivee;
-      ctx.fillStyle = '#4FB4FF';
+      // Une pastille sombre à fin liseré clair, le chiffre en blanc d'épaisseur moyenne : discret mais lisible.
+      ctx.fillStyle = 'rgba(8,12,19,0.94)';
       ctx.beginPath();
       ctx.arc(cxp, cyp, rc, 0, CARTE_TAU);
       ctx.fill();
-      ctx.fillStyle = '#05070a';
-      ctx.font = '800 ' + Math.max(14, Math.round(rc * 1.2)) + 'px "Public Sans", sans-serif';
+      ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '600 ' + Math.max(12, Math.round(rc * 1.05)) + 'px "Public Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(String(groupe.total), cxp, cyp + rc * 0.06);
+      ctx.fillText(String(groupe.total), cxp, cyp + rc * 0.05);
     }
 
     ctx.globalAlpha = 1;
@@ -21663,6 +21669,13 @@ async function chargerPistes(item){
 
   zone.hidden = false;
   duo.classList.add('a-pistes');
+
+  // Le voile du bas n'apparaît que s'il reste des titres à faire défiler.
+  const majVoile = () => zone.classList.toggle('plus-bas', zone.scrollHeight - zone.scrollTop - zone.clientHeight > 6);
+  zone.scrollTop = 0;
+  zone.onscroll = majVoile;
+  majVoile();
+  requestAnimationFrame(majVoile);
 }
 
 // Retire la fiche de l'écran et dit si elle y était. Le clip lu sur place
@@ -30800,7 +30813,7 @@ proposerBienvenue();
   if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
   const CIBLES = [
-    '.section-head', '.news-header', '.news-card', '.hero-cta', '.about-grid > div', '.cat-recherche',
+    '.section-head', '.news-header', '.news-card', '.about-grid > div', '.cat-recherche',
     '.doc > *', '.aide-carte', '.aud-carte', '.aud-boite', '.eq-groupe'
   ].join(',');
 

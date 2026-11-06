@@ -434,8 +434,8 @@
   .pc-puce .ic{font-size:15px; line-height:1;}
   .pc-aussi-aide{margin:0 0 12px; font-size:13.5px; color:var(--ink-soft); min-height:20px;}
   .pc-role[data-statut="aussi"]{border-style:dashed;}
-  .pc-role[data-statut]:not([data-statut=""])::after{content:"Principal"; position:absolute; bottom:10px; right:11px; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.03em; background:var(--teinte); color:#06121f;}
-  .pc-role[data-statut="aussi"]::after{content:"Aussi"; background:transparent; color:var(--ink); border:1px solid var(--teinte);}
+  /* Le rôle principal ne porte aucune étiquette (la carte allumée suffit) ; seuls les « autres rôles » sont marqués « Aussi ». */
+  .pc-role[data-statut="aussi"]::after{content:"Aussi"; position:absolute; bottom:10px; right:11px; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.03em; background:transparent; color:var(--ink); border:1px solid var(--teinte);}
   .pc-aussi[hidden]{display:none;}
   .pc-aussi-titre{margin:0 0 10px; font-size:14px; font-weight:600;}
   .pc-aussi-titre small{font-weight:400; color:var(--muted);}

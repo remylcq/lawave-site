@@ -3068,6 +3068,19 @@ VUES.accueil = {
     V.el.innerHTML = `
       <div data-hote="onboarding"></div>
       <div data-hote="composer" class="com-hote-composer"></div>
+      <!-- Le contenu de l'ancienne page « Explorer » : à droite du fil sur grand écran, repliable sous le composer sinon. -->
+      <aside class="com-rail" data-incruste data-cle="accueil" aria-label="Trouver des membres">
+        <div class="com-rail-colle">
+          <section class="com-carte com-rail-carte">
+            <button type="button" class="com-rail-tete" data-act="rail-bascule" aria-expanded="false">
+              <span class="com-rail-titre">${icone('utilisateurPlus', 18)} Explorer</span>
+              <span class="com-rail-sous">Trouver des membres</span>
+              ${icone('chevronBas', 16)}
+            </button>
+            <div class="com-rail-corps" data-rail-corps hidden></div>
+          </section>
+        </div>
+      </aside>
       <div class="com-filtres">
         <div class="com-filtres-ligne">
           <div data-hote="onglets"></div>
@@ -3077,6 +3090,17 @@ VUES.accueil = {
       </div>
       <div class="com-liste" data-liste></div>
       <p class="com-regles">Reste bienveillant : pas de spam, pas d'insultes. Un message qui dérape se signale depuis son menu ⋯</p>`;
+
+    // La recherche de membres vit dans ce bloc : c'est la vue « Explorer » d'avant, montée dans l'accueil.
+    V.rail = { cle: 'accueil', nom: 'explorer', el: $('[data-rail-corps]', V.el), route: { nom: 'explorer' }, vueLe: Date.now(), ouvert: false };
+    VUES.explorer.creer(V.rail);
+    VUES.accueil.majRail(V);
+
+    if(window.matchMedia){
+      const large = window.matchMedia('(min-width:1320px)');
+      const suivre = () => VUES.accueil.majRail(V);
+      if(large.addEventListener) large.addEventListener('change', suivre); else if(large.addListener) large.addListener(suivre);
+    }
 
     V.hotes = {
       onboarding: $('[data-hote="onboarding"]', V.el),
@@ -3151,6 +3175,53 @@ VUES.accueil = {
     // La barre sous l'onglet actif se cale quand la vue est à l'écran : cachée,
     // elle n'a pas de largeur à mesurer.
     placerBarreOnglets(V.hotes.onglets, false);
+    VUES.accueil.majRail(V);
+  },
+
+  // Le bloc « Explorer » : toujours ouvert quand il y a la place à droite du fil, repliable en dessous.
+  railLarge(){
+    return !!(window.matchMedia && window.matchMedia('(min-width:1320px)').matches);
+  },
+
+  majRail(V){
+
+    const R = V.rail;
+
+    if(!R) return;
+
+    const visible = VUES.accueil.railLarge() || R.ouvert;
+    const tete = $('.com-rail-tete', V.el);
+
+    R.el.hidden = !visible;
+    if(tete) tete.setAttribute('aria-expanded', String(visible));
+
+    // La recherche ne se charge, et le défilé ne tourne, que lorsque le bloc se voit.
+    if(visible && S.courante === V) VUES.explorer.montrer(R);
+    else VUES.explorer.pause(R);
+  },
+
+  basculerRail(V){
+
+    if(VUES.accueil.railLarge()) return;
+
+    V.rail.ouvert = !V.rail.ouvert;
+    VUES.accueil.majRail(V);
+  },
+
+  // Un lien « Trouver des gens » : le bloc s'ouvre, vient en vue et la recherche prend le focus.
+  montrerRail(V){
+
+    V.rail.ouvert = true;
+    VUES.accueil.majRail(V);
+
+    const bloc = $('.com-rail', V.el);
+    const champ = $('[data-ex="recherche"]', V.rail.el);
+
+    if(bloc && !VUES.accueil.railLarge()){
+      bloc.scrollIntoView({ behavior: mouvementReduit() ? 'auto' : 'smooth', block: 'center' });
+    }
+
+    if(champ) setTimeout(() => champ.focus({ preventScroll: true }), 60);
   },
 
   // Les mots-clics du moment, sous les sujets.
@@ -3253,7 +3324,10 @@ VUES.accueil = {
       </section>`;
   },
 
-  pause(V){ V.liste.arreter(); },
+  pause(V){
+    V.liste.arreter();
+    if(V.rail) VUES.explorer.pause(V.rail);
+  },
 
   // Un message à peine publié : on l'affiche en tête, quel que soit le filtre
   // en cours (s'il le cachait, on revient au fil complet).
@@ -6596,7 +6670,7 @@ VUES.recherche = {
 // ---------------------------------------------------------------------
 
 const ROUTES_AVEC_PARAMETRE = ['post', 'membre', 'tag', 'sujet'];
-const ROUTES_SIMPLES = ['explorer', 'collabs', 'cartes', 'messages', 'notifications', 'favoris', 'recherche'];
+const ROUTES_SIMPLES = ['collabs', 'cartes', 'messages', 'notifications', 'favoris', 'recherche'];
 
 function pageActive(){
   const p = document.getElementById('page-community');
@@ -6619,6 +6693,11 @@ function lireRoute(){
     return { nom, param, cle };
   }
 
+  // L'ancienne page « Explorer » vit maintenant dans l'accueil : l'adresse d'avant y mène et ouvre le bloc.
+  if(nom === 'explorer'){
+    return { nom: 'accueil', param: null, cle: 'accueil', explorer: true };
+  }
+
   if(ROUTES_SIMPLES.includes(nom)){
     return { nom, param: param || null, cle: nom };
   }
@@ -6626,7 +6705,7 @@ function lireRoute(){
   return { nom: 'accueil', param: null, cle: 'accueil' };
 }
 
-const VUES_PERMANENTES = ['accueil', 'explorer', 'collabs', 'cartes', 'messages', 'notifications', 'favoris', 'recherche'];
+const VUES_PERMANENTES = ['accueil', 'collabs', 'cartes', 'messages', 'notifications', 'favoris', 'recherche'];
 const VUES_DETAIL_MAX = 6;
 
 function profondeur(){
@@ -6679,6 +6758,7 @@ function detruireVue(V){
 
   if(def && def.pause) def.pause(V);
   if(V.liste && V.liste.detruire) V.liste.detruire();
+  if(V.rail) VUES.explorer.pause(V.rail);
   if(V.observateur) V.observateur.disconnect();
 
   V.el.remove();
@@ -6715,6 +6795,7 @@ function afficher(){
     if(def.surMemeCle) def.surMemeCle(prec, route);
 
     majCoque();
+    if(route.explorer && prec.rail) VUES.accueil.montrerRail(prec);
     return;
   }
 
@@ -6767,6 +6848,9 @@ function afficher(){
     ouvrirComposer(V.composer, {});
   }
 
+  // Un lien vers « Explorer » arrive sur l'accueil, bloc de recherche ouvert (après le retour en haut de page).
+  if(route.explorer && V.rail) VUES.accueil.montrerRail(V);
+
 }
 
 // Titre de la page affichée, qui peut dépendre de ce que la vue a chargé
@@ -6806,7 +6890,6 @@ function majCoque(){
 
   const actif = {
     accueil: 'accueil', sujet: 'accueil', tag: 'accueil', post: 'accueil',
-    explorer: 'explorer', recherche: 'explorer',
     collabs: 'annonces', cartes: 'cartes', messages: 'messages', notifications: 'notifications'
   }[route.nom] || null;
 
@@ -6857,7 +6940,6 @@ function navItemHtml(cle, ic, libelle, badge, vers, classe){
 
 const ELEMENTS_NAV = [
   ['accueil', 'accueil', 'Accueil', null, ''],
-  ['explorer', 'explorer', 'Explorer', null, 'explorer'],
   ['cartes', 'cartes', 'Wave Cards', 'cartes', 'cartes'],
   ['messages', 'messages', 'Messages', 'messages', 'messages'],
   ['notifications', 'cloche', 'Alertes', 'notifications', 'notifications'],
@@ -7078,6 +7160,15 @@ VUES.messages.surMemeCle = (V, route) => VUES.messages.route(V, route);
 VUES.recherche.surMemeCle = (V, route) => VUES.recherche.montrer(V, route);
 
 function vueDe(element){
+
+  // Le bloc « Explorer » de l'accueil est une vue à part entière, montée dans l'accueil.
+  const incruste = element.closest('[data-incruste]');
+
+  if(incruste){
+    const parent = S.vues.get(incruste.dataset.cle);
+    return parent ? parent.rail : null;
+  }
+
   const el = element.closest('.com-vue');
   return el ? S.vues.get(el.dataset.cle) : null;
 }
@@ -7409,6 +7500,12 @@ function agir(act, cible, e){
       return;
 
     // --- Explorer ---
+
+    case 'rail-bascule': {
+      const accueil = S.vues.get('accueil');
+      if(accueil) VUES.accueil.basculerRail(accueil);
+      return;
+    }
 
     case 'ex-role-menu':
       menuMetiers(cible, V.etat.role, 'Tous les métiers', (cle) => {
@@ -8655,6 +8752,54 @@ const FEUILLE = String.raw`
 .com-fleche.gauche{left:-14px;}
 .com-fleche.droite{right:-14px;}
 @media (hover:none){ .com-fleche{display:none;} }
+
+/* ---------- LE BLOC « EXPLORER » DE L'ACCUEIL ----------
+   Sur grand écran : une colonne à droite du fil, qui reste en vue. En dessous : une carte repliable sous le composer. */
+.com-rail{margin:0 0 14px;}
+.com-rail-carte{padding:0; overflow:hidden;}
+.com-rail-tete{
+  width:100%; display:flex; align-items:center; gap:10px; padding:15px 18px; border:0; background:none; color:var(--ink);
+  font:inherit; text-align:left; cursor:pointer;
+}
+.com-rail-titre{display:inline-flex; align-items:center; gap:8px; font-size:16px; font-weight:700; letter-spacing:-0.01em;}
+.com-rail-sous{flex:1; min-width:0; font-size:13px; color:var(--muted); font-weight:300;}
+.com-rail-tete > .com-ic:last-child{flex:none; color:var(--muted); transition:transform .3s var(--ease);}
+.com-rail-tete[aria-expanded="true"] > .com-ic:last-child{transform:rotate(180deg);}
+.com-rail-corps{padding:2px 16px 16px;}
+.com-rail-corps[hidden]{display:none;}
+.com-rail .com-explorer-tete{margin-bottom:2px; gap:10px;}
+.com-rail .com-ex-barre{flex-wrap:wrap; gap:8px;}
+.com-rail .com-ex-barre .com-recherche-champ{flex:1 1 100%; min-width:0;}
+.com-rail .com-grille-champs{grid-template-columns:1fr;}
+.com-rail .com-resultats-tete{margin:8px 2px 4px;}
+/* Les profils s'empilent en lignes : un visage, un nom, le bouton « Suivre ». */
+.com-rail .com-trio-page{flex-direction:column; justify-content:flex-start; gap:0;}
+.com-rail .com-pf{
+  flex:none; max-width:none; display:grid; grid-template-columns:auto minmax(0, 1fr) auto; grid-template-areas:"photo nom suivre" "photo sous suivre";
+  align-items:center; column-gap:12px; row-gap:1px; padding:9px 8px; text-align:left; border-radius:16px;
+}
+.com-rail .com-pf-photo{grid-area:photo; margin:0;}
+.com-rail .com-pf-photo .com-av-xl{width:46px; height:46px; font-size:18px; box-shadow:none;}
+.com-rail .com-pf-photo::before{inset:-3px;}
+.com-rail .com-pf-nom{grid-area:nom; justify-content:flex-start; font-size:14.5px; align-self:end; min-width:0;}
+.com-rail .com-pf-sous{grid-area:sous; font-size:12px; align-self:start;}
+.com-rail .com-pf-suivre{grid-area:suivre; margin:0; opacity:1; transform:none;}
+.com-rail .com-pf-suivre .com-btn{padding:5px 12px; font-size:12px;}
+.com-rail .com-trio-zone{padding:4px 0 0;}
+.com-rail .com-fleche{top:auto; bottom:-30px; width:28px; height:28px;}
+.com-rail .com-fleche.gauche{left:0;}
+.com-rail .com-fleche.droite{right:0;}
+.com-rail .com-trio-barre{margin:10px auto 6px;}
+@media (min-width:1320px){
+  .com-vue[data-vue="accueil"]{position:relative;}
+  .com-rail{
+    position:absolute; top:0; bottom:0; left:calc(100% + 20px); margin:0;
+    width:clamp(250px, calc((100vw - 760px) / 2 - 48px), 330px);
+  }
+  .com-rail-colle{position:sticky; top:118px;}
+  .com-rail-tete{cursor:default; pointer-events:none;}
+  .com-rail-tete > .com-ic:last-child{display:none;}
+}
 
 .com-ruban{margin:0 0 18px;}
 .com-ruban-liste{display:flex; gap:10px; overflow-x:auto; scrollbar-width:none; padding:2px 2px 6px;}
