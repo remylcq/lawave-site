@@ -145,6 +145,7 @@ const ICONES = {
   accueil:   '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   explorer:  '<circle cx="12" cy="12" r="9"/><path d="m15.6 8.4-2.1 5.1-5.1 2.1 2.1-5.1z"/>',
   collabs:   '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.4 3-5.2 6-5.2s5.4 1.8 6 5.2"/><circle cx="17.5" cy="9" r="2.4"/><path d="M17 14.2c2.4.3 3.9 1.9 4.3 4.3"/>',
+  annonces:  '<path d="M3 10v4a1 1 0 0 0 1 1h3l8 4.5V4.5L7 9H4a1 1 0 0 0-1 1z"/><path d="M18.5 9a4.5 4.5 0 0 1 0 6"/>',
   messages:  '<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/>',
   trophee:   '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>',
   diamant:   '<path d="M6.5 4h11l3.5 5-9 11L3 9z"/><path d="M3 9h18M9.5 4 8 9l4 11 4-11-1.5-5"/>',
@@ -4397,14 +4398,9 @@ async function ecrireA(id){
 // (un beatmaker, un vidéaste...), on affine, on contacte.
 // ---------------------------------------------------------------------
 
-// Explorer rassemble les deux pages : les membres, et les annonces de collaboration.
-function selecteurExplorer(actif){
-
-  return `
-    <div class="com-seg com-seg-texte" role="tablist" aria-label="Explorer">
-      <button type="button" role="tab" class="com-seg-btn${actif === 'membres' ? ' actif' : ''}" data-act="aller" data-vers="explorer" aria-selected="${actif === 'membres'}">Membres</button>
-      <button type="button" role="tab" class="com-seg-btn${actif === 'annonces' ? ' actif' : ''}" data-act="aller" data-vers="collabs" aria-selected="${actif === 'annonces'}">Annonces</button>
-    </div>`;
+// Les annonces ont leur propre entrée dans la navigation : plus de sélecteur ici.
+function selecteurExplorer(){
+  return '';
 }
 
 // Le bouton qui dit le métier choisi (ou « Tous les métiers »), et le menu qu'il ouvre.
@@ -4925,7 +4921,7 @@ VUES.collabs = {
 // ---------------------------------------------------------------------
 
 const RESEAUX = [
-  ['portfolio', 'Portfolio'], ['instagram', 'Instagram'], ['twitter', 'X'], ['tiktok', 'TikTok'],
+  ['portfolio', 'Portfolio'], ['site', 'Site internet'], ['instagram', 'Instagram'], ['twitter', 'X'], ['tiktok', 'TikTok'],
   ['spotify', 'Spotify'], ['appleMusic', 'Apple Music'], ['deezer', 'Deezer']
 ];
 
@@ -5107,15 +5103,18 @@ VUES.membre = {
       args: () => {
         const a = { p_vue: 'recent', p_auteur: V.profil && V.profil.id };
         if(V.etat.onglet === 'annonces') a.p_type = 'collab';
+        if(V.etat.onglet === 'enregistres'){ delete a.p_auteur; a.p_favoris = true; }
         return a;
       },
       squelette: squelettePost(2),
       vide: () => etatVide({
-        icone: 'bulle',
-        titre: V.etat.onglet === 'annonces' ? "Pas d'annonce" : 'Aucun message',
-        texte: V.rel && V.rel.soi
-          ? 'Tes messages apparaîtront ici.'
-          : "Ce membre n'a encore rien écrit."
+        icone: V.etat.onglet === 'enregistres' ? 'signet' : 'bulle',
+        titre: V.etat.onglet === 'annonces' ? "Pas d'annonce" : V.etat.onglet === 'enregistres' ? "Rien d'enregistré" : 'Aucune publication',
+        texte: V.etat.onglet === 'enregistres'
+          ? "Touche le signet d'un message pour le retrouver ici. Toi seul les vois."
+          : V.rel && V.rel.soi
+            ? 'Tes publications apparaîtront ici.'
+            : "Ce membre n'a encore rien publié."
       })
     });
   },
@@ -5124,6 +5123,7 @@ VUES.membre = {
 
     if(V.charge){
       placerBarreOnglets(V.hotes.onglets, false);
+      if(S.ongletVoulu){ const o = S.ongletVoulu; S.ongletVoulu = null; if(V.rel && V.rel.soi) VUES.membre.changerOnglet(V, o); }
       // Revenir sur un profil déjà vu : l'en-tête et les messages se rafraîchissent en douce.
       if(Date.now() - V.chargeLe > 30000){
         VUES.membre.charger(V, true);
@@ -5173,12 +5173,14 @@ VUES.membre = {
 
       if(!silencieux){
 
-        // Ordre : Collection, Journal, À écouter, Messages, Annonces, Succès. Les annonces (cherche / propose)
+        // Ordre : Collection, Journal, À écouter, Publications, Annonces, Enregistrés (chez soi), Succès. Les annonces (cherche / propose)
         // n'existent pas chez l'auditeur simple.
         let avant = [];
         let apres = [];
-        const messages = [{ cle: 'messages', libelle: 'Messages' }];
+        const messages = [{ cle: 'messages', libelle: 'Publications' }];
         if(!seulementAuditeur(V.profil.role, V.profil.roles_supp)) messages.push({ cle: 'annonces', libelle: 'Annonces' });
+        // Les messages gardés pour plus tard : chez soi seulement.
+        if(V.rel.soi) messages.push({ cle: 'enregistres', libelle: 'Enregistrés' });
 
         // La collection est dans un fichier à part : on la charge avant de dessiner les onglets.
         try{
@@ -5194,6 +5196,8 @@ VUES.membre = {
         const onglets = [...avant, ...messages, ...apres];
 
         // On arrive sur la collection, premier onglet, chez soi comme chez les autres.
+        if(S.ongletVoulu && V.rel.soi){ V.etat.onglet = S.ongletVoulu; V.dejaOuvert = true; }
+        S.ongletVoulu = null;
         if(!V.dejaOuvert && V.etat.onglet === 'messages' && avant.length) V.etat.onglet = 'collection';
         V.dejaOuvert = true;
 
@@ -6803,7 +6807,7 @@ function majCoque(){
   const actif = {
     accueil: 'accueil', sujet: 'accueil', tag: 'accueil', post: 'accueil',
     explorer: 'explorer', recherche: 'explorer',
-    collabs: 'explorer', cartes: 'cartes', messages: 'messages', notifications: 'notifications', favoris: 'favoris'
+    collabs: 'annonces', cartes: 'cartes', messages: 'messages', notifications: 'notifications'
   }[route.nom] || null;
 
   const monProfil = route.nom === 'membre' && u && route.param.toLowerCase() === u.pseudo.toLowerCase();
@@ -6857,7 +6861,7 @@ const ELEMENTS_NAV = [
   ['cartes', 'cartes', 'Wave Cards', 'cartes', 'cartes'],
   ['messages', 'messages', 'Messages', 'messages', 'messages'],
   ['notifications', 'cloche', 'Alertes', 'notifications', 'notifications'],
-  ['favoris', 'signet', 'Enregistrés', null, 'favoris']
+  ['annonces', 'annonces', 'Annonces', null, 'collabs']
 ];
 
 function coqueHtml(){
@@ -6939,7 +6943,7 @@ function menuMoi(ancre){
 
   ouvrirMenu(ancre, [
     { libelle: 'Mon profil', icone: 'profil', action: () => aller('membre/' + encodeURIComponent(u.pseudo)) },
-    { libelle: 'Enregistrés', icone: 'signet', action: () => aller('favoris') },
+    { libelle: 'Enregistrés', icone: 'signet', action: () => { S.ongletVoulu = 'enregistres'; aller('membre/' + encodeURIComponent(u.pseudo)); } },
     { libelle: "L'espace des waveurs", icone: 'jeu', action: () => goTo('waveurs') },
     { libelle: 'Réglages du compte', icone: 'rouage', separe: true, action: () => ouvrirReglagesProfil() }
   ]);
@@ -9234,7 +9238,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 /* ---------- LE PROFIL : UNE CARTE QUI RESTE EN VUE ---------- */
 
 .com-profil-grille{display:grid; grid-template-columns:350px minmax(0, 1fr); gap:24px; align-items:start;}
-.com-profil-gauche{position:sticky; top:170px;}
+.com-profil-gauche{position:static;}
 .com-profil-droite{min-width:0;}
 /* Les onglets du profil sont six : sur un écran étroit, la barre défile au lieu de déborder de la page. */
 .com-profil-droite [data-hote="onglets"]{max-width:100%; overflow-x:auto; scrollbar-width:none;}

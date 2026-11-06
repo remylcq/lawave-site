@@ -448,6 +448,23 @@
     width:100%; height:100%; object-fit:cover;
   }
   .news-platforms{display:flex; flex-direction:row; gap:16px;}
+  /* La première actu se voit dès l'arrivée, sans être coupée : sur grand écran, la pochette est à côté du texte
+     et le haut de l'accueil se resserre ; sur téléphone, tout s'empile comme avant. */
+  .news-texte{display:contents;}
+  .news-desc{margin:8px 0 0; font-size:15px; color:var(--ink-soft);}
+  @media (min-width:900px){
+    #page-home .hero-logo-only{padding-top:4px; padding-bottom:0;}
+    #page-home .hero-logo-only img{width:170px;}
+    #page-home .social-row{margin-bottom:14px;}
+    #page-home .hero-cta{margin:0 auto 16px;}
+    #page-home > section.news-section{padding-top:0; padding-bottom:36px;}
+    .news-card{max-width:760px; display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:36px; text-align:left;}
+    .news-texte{display:contents;}
+    .news-cover{grid-column:1; grid-row:1 / span 2; width:min(240px, 26vw);}
+    .news-header{grid-column:2; grid-row:1; margin:0; align-self:end; text-align:left;}
+    .news-header h2{font-size:clamp(30px, 3.4vw, 44px); line-height:1.1;}
+    .news-platforms{grid-column:2; grid-row:2; align-self:start; margin-top:6px;}
+  }
   .platform-icon{
     width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center;
     color:var(--blue); border:1px solid var(--line); transition:border-color .15s, transform .15s;
@@ -4424,13 +4441,15 @@
       <a class="btn btn-ghost" href="#community" onclick="goTo('community'); return false;">Rejoindre la communauté</a>
     </div>
 
-    <section>
-      <div class="news-header">
-        <span class="eyebrow mono">Dernière actu</span>
-        <h2>Summer Wave</h2>
-      </div>
+    <section class="news-section">
       <div class="news-card">
-        <div class="news-cover"><img src="img/actu.jpg" alt="Playlist Summer Wave 2024" loading="lazy" decoding="async"></div>
+        <div class="news-texte">
+        <div class="news-header">
+          <span class="eyebrow mono">Dernière actu</span>
+          <h2>Summer Wave</h2>
+          <p class="news-desc">La playlist de La Wave, à écouter sur Spotify et sur Deezer.</p>
+        </div>
+        <div class="news-cover"><img src="img/actu.jpg" alt="Playlist Summer Wave 2024" fetchpriority="high" decoding="async"></div>
         <div class="news-platforms">
           <a href="https://open.spotify.com/playlist/7I7TkEUsRT18hRlhQ5Gags" target="_blank" rel="noopener" class="platform-icon" aria-label="Écouter sur Spotify" title="Spotify">
             <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path d="M7 9.5c3.2-.8 6.6-.6 9.3 1" stroke="#05070a" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M7.3 12.5c2.6-.6 5.4-.4 7.6.8" stroke="#05070a" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M7.6 15.3c2.1-.5 4.3-.3 6 .6" stroke="#05070a" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg>
@@ -4438,6 +4457,7 @@
           <a href="https://www.deezer.com/fr/playlist/12846754061" target="_blank" rel="noopener" class="platform-icon" aria-label="Écouter sur Deezer" title="Deezer">
             <svg viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="14" width="4" height="4"/><rect x="7.3" y="10.5" width="4" height="7.5"/><rect x="12.6" y="7" width="4" height="11"/><rect x="17.9" y="3.5" width="4" height="14.5"/></svg>
           </a>
+        </div>
         </div>
       </div>
     </section>
@@ -6619,11 +6639,14 @@
          pour ce rôle (majChampPortfolio). -->
     <div class="field" id="champPortfolio" hidden>
       <label for="socialPortfolio">Portfolio</label>
-      <input type="text" id="socialPortfolio" placeholder="Site, Instagram, Behance…">
+      <input type="text" id="socialPortfolio" placeholder="Lien vers tes photos : Instagram, Behance, Pixieset…">
       <p class="aide-champ">
         Il apparaît sur ton profil, et se remplit tout seul quand tu
         t'inscris à un tirage.
       </p>
+      <label for="socialSite" style="margin-top:16px;">Site internet</label>
+      <input type="text" id="socialSite" placeholder="ton-site.fr">
+      <p class="aide-champ">Ton site personnel ou ta boutique, s'ils sont distincts de ton portfolio.</p>
     </div>
     <div class="field">
       <label>Instagram</label>
@@ -12323,6 +12346,7 @@ function remplirReglages(){
   document.getElementById('socialAppleMusic').value = (currentUser.socials || {}).appleMusic || '';
   document.getElementById('socialDeezer').value = (currentUser.socials || {}).deezer || '';
   document.getElementById('socialPortfolio').value = (currentUser.socials || {}).portfolio || '';
+  document.getElementById('socialSite').value = (currentUser.socials || {}).site || '';
   majChampPortfolio();
 
   // Sans cette reprise, enregistrer le profil effacerait la photo :
@@ -12698,7 +12722,7 @@ function majChampPortfolio(){
   if(!champ || !role) return;
 
   const voulu = role.value === 'Photographe' ||
-    !!((currentUser && currentUser.socials || {}).portfolio);
+    !!((currentUser && currentUser.socials || {}).portfolio) || !!((currentUser && currentUser.socials || {}).site);
 
   if(champ.hidden === !voulu) return;
 
@@ -12786,6 +12810,9 @@ async function saveProfile(){
   const portfolio = document.getElementById('champPortfolio').hidden
     ? ((currentUser.socials || {}).portfolio || '')
     : normaliserPortfolio(document.getElementById('socialPortfolio').value);
+  const site = document.getElementById('champPortfolio').hidden
+    ? ((currentUser.socials || {}).site || '')
+    : normaliserPortfolio(document.getElementById('socialSite').value);
 
   const socials = {
     instagram: normaliserReseau('instagram', document.getElementById('socialInstagram').value),
@@ -12794,7 +12821,8 @@ async function saveProfile(){
     spotify: normaliserReseau('spotify', document.getElementById('socialSpotify').value),
     appleMusic: normaliserReseau('appleMusic', document.getElementById('socialAppleMusic').value),
     deezer: normaliserReseau('deezer', document.getElementById('socialDeezer').value),
-    portfolio
+    portfolio,
+    site
   };
 
   try{
@@ -13149,7 +13177,7 @@ async function viewProfileClassique(userId){
     ).length;
 
     const socials = user.socials || {};
-    const socialLinks = Object.entries({portfolio:'Portfolio', instagram:'Instagram', twitter:'X', tiktok:'TikTok', spotify:'Spotify', appleMusic:'Apple Music', deezer:'Deezer'})
+    const socialLinks = Object.entries({portfolio:'Portfolio', site:'Site internet', instagram:'Instagram', twitter:'X', tiktok:'TikTok', spotify:'Spotify', appleMusic:'Apple Music', deezer:'Deezer'})
       .map(([key,label]) => [safeUrl(socials[key]), label])
       .filter(([url]) => url)
       .map(([url,label]) => `<a href="${escapeAttribute(url)}" target="_blank" rel="noopener noreferrer" class="platform-btn-sm">${label}</a>`)
@@ -17674,16 +17702,17 @@ function dessinerCarte(temps, dt){
 
     // Combien d'artistes sous cette pastille, quand il y en a plusieurs.
     if(groupe.total > 1){
-      const rc = rayon * 0.46;
-      const cxp = tx + rayon * 0.78;
-      const cyp = ty - rayon * 0.78;
+      // Le chiffre doit se lire même sur une petite pastille : un rond d'au moins 11 px de rayon, un texte d'au moins 14 px.
+      const rc = Math.max(rayon * 0.62, 11) * (groupe.total >= 10 ? 1.12 : 1);
+      const cxp = tx + rayon * 0.8;
+      const cyp = ty - rayon * 0.8;
       ctx.globalAlpha = arrivee;
       ctx.fillStyle = '#4FB4FF';
       ctx.beginPath();
       ctx.arc(cxp, cyp, rc, 0, CARTE_TAU);
       ctx.fill();
       ctx.fillStyle = '#05070a';
-      ctx.font = '700 ' + Math.round(rc * 1.25) + 'px "Public Sans", sans-serif';
+      ctx.font = '800 ' + Math.max(14, Math.round(rc * 1.2)) + 'px "Public Sans", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(groupe.total), cxp, cyp + rc * 0.06);
@@ -29618,6 +29647,7 @@ function profilLigneHtml(l){
   const liens = [
     ['Instagram', (p.socials || {}).instagram],
     ['Portfolio', (p.socials || {}).portfolio],
+    ['Site internet', (p.socials || {}).site],
     ['Lien joint à la demande', l.lien]
   ]
     .map(([libelle, url]) => [libelle, safeUrl(url)])
