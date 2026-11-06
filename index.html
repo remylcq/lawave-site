@@ -2905,11 +2905,47 @@
     color:var(--ink-soft); text-decoration:underline; cursor:pointer;
   }
   .modal-feat button:hover{color:var(--blue-bright);}
+  /* La fiche d'une sortie et, collé contre elle, l'encadré des titres d'un projet. */
+  .modal-duo{display:flex; align-items:stretch; justify-content:center; width:100%; max-width:440px; max-height:100%;}
+  .modal-duo > .modal-box{flex:0 1 440px; min-width:0;}
+  .modal-duo.a-pistes{max-width:760px;}
+  .modal-pistes{
+    flex:0 0 310px; width:310px; max-height:calc(100dvh - 48px); overflow-y:auto; box-sizing:border-box;
+    padding:20px 18px 18px; margin-left:-1px;
+    background:linear-gradient(152deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 42%), rgba(12,15,21,0.95);
+    border:1px solid rgba(255,255,255,0.16); border-radius:0 var(--radius-lg) var(--radius-lg) 0;
+  }
+  .modal-pistes[hidden]{display:none;}
+  .modal-duo.a-pistes > .modal-box{border-top-right-radius:0; border-bottom-right-radius:0;}
+  .modal-overlay.open .modal-pistes{animation:pistesEntre .45s var(--ease) .12s backwards;}
+  @keyframes pistesEntre{from{opacity:0; transform:translateX(-14px);} to{opacity:1; transform:none;}}
+  @media (max-width:859px){
+    #catalogueModal.open{align-items:flex-start; overflow-y:auto;}
+    #catalogueModal .modal-duo{margin:auto; flex-direction:column; align-items:stretch; max-height:none;}
+    #catalogueModal .modal-duo.a-pistes{max-width:440px;}
+    #catalogueModal .modal-duo > .modal-box{flex:none;}
+    #catalogueModal .modal-duo.a-pistes > .modal-box{max-height:none; overflow:visible; border-radius:var(--radius-lg) var(--radius-lg) 0 0;}
+    .modal-pistes{flex:none; width:auto; max-height:none; margin:-1px 0 0; border-radius:0 0 var(--radius-lg) var(--radius-lg);}
+  }
+  /* Cliquer sur la pochette joue (ou arrête) un extrait de 30 secondes. */
+  .modal-cover.a-extrait{cursor:pointer;}
+  .cover-lecture{
+    position:absolute; right:8px; bottom:8px; width:38px; height:38px; border-radius:50%; display:none; align-items:center; justify-content:center;
+    background:rgba(5,7,10,.72); color:#fff; border:1px solid rgba(255,255,255,0.3); backdrop-filter:blur(4px);
+    transition:transform .2s var(--ease), background .2s;
+  }
+  .modal-cover.a-extrait .cover-lecture{display:flex;}
+  .modal-cover.a-extrait:hover .cover-lecture{transform:scale(1.1); background:rgba(79,180,255,.85); color:#04121f;}
+  .cover-lecture svg{width:16px; height:16px; fill:currentColor;}
+  .cover-lecture .i-pause{display:none;}
+  .modal-cover.joue .cover-lecture{background:var(--blue-bright); color:#04121f; border-color:var(--blue-bright);}
+  .modal-cover.joue .cover-lecture .i-play{display:none;}
+  .modal-cover.joue .cover-lecture .i-pause{display:block;}
   /* Les titres de la sortie, un extrait de 30 s par titre. */
-  .pistes{margin:20px 0 0;}
+  .pistes{margin:0;}
   .pistes-titre{margin:0 0 8px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
   .pistes-liste{list-style:none; margin:0; padding:0; border-top:1px solid var(--line);}
-  .piste{display:grid; grid-template-columns:28px minmax(0,1fr) auto auto; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--line);}
+  .piste{display:grid; grid-template-columns:22px minmax(0,1fr) auto auto; align-items:center; gap:9px; padding:9px 2px; border-bottom:1px solid var(--line);}
   .piste-n{font-size:13px; color:var(--muted); text-align:right; font-variant-numeric:tabular-nums;}
   .piste-nom{min-width:0; font-size:14.5px; color:var(--ink); line-height:1.35;}
   .piste-nom small{display:block; font-size:12px; color:var(--muted);}
@@ -6872,12 +6908,19 @@
 </div>
 
 <div class="modal-overlay" id="catalogueModal" onclick="if(event.target===this) closeCatalogueModal()">
+  <div class="modal-duo" id="modalDuo">
   <div class="modal-box">
     <button class="modal-close" onclick="closeCatalogueModal()">✕</button>
     <!-- En-tete en ligne : la pochette prenait 339 px a elle seule,
          ce qui poussait la notation et l'avis hors de l'ecran. -->
     <div class="modal-entete">
-      <div class="modal-cover"><img id="modalCover" src="" alt=""></div>
+      <div class="modal-cover" id="modalCoverZone" onclick="jouerExtraitCover()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); jouerExtraitCover();}">
+        <img id="modalCover" src="" alt="">
+        <span class="cover-lecture" aria-hidden="true">
+          <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4.2" height="14" rx="1"/><rect x="13.8" y="5" width="4.2" height="14" rx="1"/></svg>
+        </span>
+      </div>
       <div class="modal-entete-texte">
         <span class="release-type-badge" id="modalReleaseType"></span>
         <h3 id="modalTitle"></h3>
@@ -6904,15 +6947,15 @@
   <!-- Clip, quand la sortie en a un. Rempli par openCatalogueModal. -->
   <div id="modalClip"></div>
 
-  <!-- Titres de la sortie (tracklist) et extraits de 30 secondes. Rempli par chargerPistes. -->
-  <div id="modalPistes"></div>
-
   <div class="hairline" style="margin:20px 0 16px;"></div>
 
   <!-- Note moyenne de la communauté, puis la note du visiteur -->
   <div class="note-moyenne" id="modalNoteMoyenne"></div>
   <div id="modalNoteBloc"></div>
 </div>
+  </div>
+  <!-- Les titres d'un projet : un petit encadré rattaché à la fiche. Rempli par chargerPistes. -->
+  <aside class="modal-pistes" id="modalPistes" hidden aria-label="Titres du projet"></aside>
   </div>
 </div>
 
@@ -21391,17 +21434,36 @@ document.getElementById(
 
 // ---------------- TITRES ET EXTRAITS DE LA FICHE ----------------
 //
-// Les titres de la sortie viennent de catalogue_pistes (lus chez Deezer par la base, gardés trois heures) : le nom de
+// Les titres de la sortie viennent de catalogue_pistes (lus chez Deezer par la base, gardés 8 minutes : leurs extraits expirent vite) : le nom de
 // chaque titre contient déjà ses featurings. Chaque titre a un extrait de 30 secondes ; un seul joue à la fois, et
 // l'extrait s'arrête quand la fiche se ferme.
 
 let extraitAudio = null;
 let extraitBouton = null;
 
+var pistesCourantes = [];
+
 function arreterExtrait(){
 
   if(extraitAudio){ try{ extraitAudio.pause(); }catch(e){} extraitAudio = null; }
   if(extraitBouton){ const l = extraitBouton.closest('.piste'); if(l) l.classList.remove('joue'); extraitBouton = null; }
+  const cover = document.getElementById('modalCoverZone');
+  if(cover) cover.classList.remove('joue');
+}
+
+// Joue l'extrait d'une adresse ; « bouton » est le bouton de sa ligne dans l'encadré des titres, s'il y en a un.
+function lancerExtrait(url, bouton){
+
+  const audio = new Audio(url);
+  audio.volume = 0.9;
+  extraitAudio = audio;
+  extraitBouton = bouton || null;
+  if(bouton) bouton.closest('.piste').classList.add('joue');
+  const cover = document.getElementById('modalCoverZone');
+  if(cover) cover.classList.add('joue');
+  audio.addEventListener('ended', () => { if(extraitAudio === audio) arreterExtrait(); });
+  audio.addEventListener('error', () => { if(extraitAudio === audio) arreterExtrait(); });
+  audio.play().catch(() => { if(extraitAudio === audio) arreterExtrait(); });
 }
 
 function jouerExtrait(bouton){
@@ -21413,14 +21475,19 @@ function jouerExtrait(bouton){
   arreterExtrait();
   if(memeBouton) return;
 
-  const audio = new Audio(url);
-  audio.volume = 0.9;
-  extraitAudio = audio;
-  extraitBouton = bouton;
-  bouton.closest('.piste').classList.add('joue');
-  audio.addEventListener('ended', () => { if(extraitAudio === audio) arreterExtrait(); });
-  audio.addEventListener('error', () => { if(extraitAudio === audio) arreterExtrait(); });
-  audio.play().catch(() => { if(extraitAudio === audio) arreterExtrait(); });
+  lancerExtrait(url, bouton);
+}
+
+// Un clic sur la pochette joue le premier extrait de la sortie (le single, ou le premier titre d'un projet) ; un second l'arrête.
+function jouerExtraitCover(){
+
+  if(extraitAudio){ arreterExtrait(); return; }
+
+  const piste = (pistesCourantes || []).find(x => x.apercu);
+  if(!piste) return;
+
+  const bouton = [...document.querySelectorAll('#modalPistes .piste-play')].find(b => b.dataset.apercu === piste.apercu) || null;
+  lancerExtrait(piste.apercu, bouton);
 }
 
 function dureePiste(secondes){
@@ -21431,10 +21498,20 @@ function dureePiste(secondes){
 async function chargerPistes(item){
 
   const zone = document.getElementById('modalPistes');
-  if(!zone) return;
+  const duo = document.getElementById('modalDuo');
+  const cover = document.getElementById('modalCoverZone');
+  if(!zone || !duo) return;
 
   zone.innerHTML = '';
+  zone.hidden = true;
+  duo.classList.remove('a-pistes');
+  pistesCourantes = [];
   arreterExtrait();
+
+  if(cover){
+    cover.classList.remove('a-extrait');
+    cover.removeAttribute('role'); cover.removeAttribute('tabindex'); cover.removeAttribute('aria-label');
+  }
 
   if(!item || !item.id || typeof supabaseClient === 'undefined' || !supabaseClient) return;
 
@@ -21454,12 +21531,25 @@ async function chargerPistes(item){
   // Une autre fiche s'est ouverte entre-temps.
   if(zone.dataset.release !== voulu || !pistes.length) return;
 
-  const seul = pistes.length === 1;
+  pistesCourantes = pistes;
+
+  // La pochette joue un extrait, pour un single comme pour un projet.
+  if(cover && pistes.some(x => x.apercu)){
+    cover.classList.add('a-extrait');
+    cover.setAttribute('role', 'button');
+    cover.setAttribute('tabindex', '0');
+    cover.setAttribute('aria-label', 'Écouter un extrait de ' + (item.title || 'cette sortie'));
+  }
+
+  // Un single n'a qu'un titre : pas d'encadré.
+  const single = /single/i.test(String(item.releaseType || ''));
+  if(single || pistes.length < 2) return;
+
   const principal = String(item.artist || '').toLowerCase();
 
   zone.innerHTML = `
-    <div class="pistes${seul ? ' pistes-seul' : ''}">
-      <p class="pistes-titre">${seul ? 'Extrait' : pistes.length + ' titres'}</p>
+    <div class="pistes">
+      <p class="pistes-titre">${pistes.length} titres</p>
       <ol class="pistes-liste">
         ${pistes.map((p) => `
           <li class="piste">
@@ -21475,6 +21565,9 @@ async function chargerPistes(item){
           </li>`).join('')}
       </ol>
     </div>`;
+
+  zone.hidden = false;
+  duo.classList.add('a-pistes');
 }
 
 // Retire la fiche de l'écran et dit si elle y était. Le clip lu sur place
