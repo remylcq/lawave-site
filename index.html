@@ -2298,9 +2298,10 @@
     padding:20px 22px 14px;
   }
   .modal-entete .modal-cover{
-    width:118px; height:118px; flex-shrink:0;
-    max-height:none; border-radius:var(--radius-sm);
+    width:172px; height:172px; flex-shrink:0;
+    max-height:none; border-radius:var(--radius-sm); cursor:zoom-in;
   }
+  @media (max-width:420px){ .modal-entete .modal-cover{width:132px; height:132px;} }
   .modal-entete-texte{min-width:0; flex:1;}
   .modal-entete-texte h3{font-size:19px; margin:4px 0 2px;}
   .modal-entete .modal-artist{margin:8px 0 0;}
@@ -2906,11 +2907,11 @@
   }
   .modal-feat button:hover{color:var(--blue-bright);}
   /* La fiche d'une sortie et, collé contre elle, l'encadré des titres d'un projet. */
-  .modal-duo{display:flex; align-items:stretch; justify-content:center; width:100%; max-width:440px; max-height:100%;}
+  .modal-duo{display:flex; align-items:flex-start; justify-content:center; width:100%; max-width:440px; max-height:100%;}
   .modal-duo > .modal-box{flex:0 1 440px; min-width:0;}
   .modal-duo.a-pistes{max-width:760px;}
   .modal-pistes{
-    flex:0 0 310px; width:310px; max-height:calc(100dvh - 48px); overflow-y:auto; box-sizing:border-box;
+    flex:0 0 310px; width:310px; max-height:min(430px, calc(100dvh - 48px)); overflow-y:auto; box-sizing:border-box; overscroll-behavior:contain;
     padding:20px 18px 18px; margin-left:-1px;
     background:linear-gradient(152deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0) 42%), rgba(12,15,21,0.95);
     border:1px solid rgba(255,255,255,0.16); border-radius:0 var(--radius-lg) var(--radius-lg) 0;
@@ -2925,22 +2926,43 @@
     #catalogueModal .modal-duo.a-pistes{max-width:440px;}
     #catalogueModal .modal-duo > .modal-box{flex:none;}
     #catalogueModal .modal-duo.a-pistes > .modal-box{max-height:none; overflow:visible; border-radius:var(--radius-lg) var(--radius-lg) 0 0;}
-    .modal-pistes{flex:none; width:auto; max-height:none; margin:-1px 0 0; border-radius:0 0 var(--radius-lg) var(--radius-lg);}
+    .modal-pistes{flex:none; width:auto; max-height:340px; margin:-1px 0 0; border-radius:0 0 var(--radius-lg) var(--radius-lg);}
   }
-  /* Cliquer sur la pochette joue (ou arrête) un extrait de 30 secondes. */
-  .modal-cover.a-extrait{cursor:pointer;}
+  /* Un petit bouton discret, en bas à droite de la pochette, joue (ou arrête) un extrait de 30 secondes ; il apparaît au survol.
+     Cliquer sur la pochette elle-même l'agrandit. */
   .cover-lecture{
-    position:absolute; right:8px; bottom:8px; width:38px; height:38px; border-radius:50%; display:none; align-items:center; justify-content:center;
-    background:rgba(5,7,10,.72); color:#fff; border:1px solid rgba(255,255,255,0.3); backdrop-filter:blur(4px);
-    transition:transform .2s var(--ease), background .2s;
+    position:absolute; right:7px; bottom:7px; width:28px; height:28px; padding:0; border-radius:50%; display:none; align-items:center; justify-content:center;
+    background:rgba(5,7,10,.7); color:#fff; border:1px solid rgba(255,255,255,0.28); cursor:pointer; backdrop-filter:blur(4px);
+    opacity:0; transform:scale(.9); transition:opacity .2s var(--ease), transform .2s var(--ease), background .2s;
   }
   .modal-cover.a-extrait .cover-lecture{display:flex;}
-  .modal-cover.a-extrait:hover .cover-lecture{transform:scale(1.1); background:rgba(79,180,255,.85); color:#04121f;}
-  .cover-lecture svg{width:16px; height:16px; fill:currentColor;}
+  .modal-cover.a-extrait:hover .cover-lecture, .modal-cover.a-extrait:focus-within .cover-lecture, .modal-cover.joue .cover-lecture{opacity:1; transform:none;}
+  @media (hover:none){ .modal-cover.a-extrait .cover-lecture{opacity:.9; transform:none;} }
+  .cover-lecture:hover{background:rgba(79,180,255,.9); color:#04121f;}
+  .cover-lecture svg{width:12px; height:12px; fill:currentColor; display:block;}
   .cover-lecture .i-pause{display:none;}
   .modal-cover.joue .cover-lecture{background:var(--blue-bright); color:#04121f; border-color:var(--blue-bright);}
   .modal-cover.joue .cover-lecture .i-play{display:none;}
   .modal-cover.joue .cover-lecture .i-pause{display:block;}
+  /* La pochette en grand, tenue comme une carte : elle s'incline avec la souris (ou le doigt) et un reflet la suit. */
+  .cover-grand{
+    position:fixed; inset:0; z-index:420; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:24px;
+    background:rgba(3,5,8,.86); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); animation:voileEntre .25s var(--ease);
+    touch-action:none; cursor:grab;
+  }
+  .cover-grand-scene{perspective:1100px; width:min(78vw, 70vh, 620px); aspect-ratio:1/1;}
+  .cover-grand-carte{
+    position:relative; width:100%; height:100%; border-radius:18px; transform-style:preserve-3d; will-change:transform;
+    box-shadow:0 40px 90px -20px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,0.14);
+  }
+  .cover-grand-carte img{width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; user-select:none; -webkit-user-drag:none;}
+  .cover-grand-reflet{
+    position:absolute; inset:0; border-radius:inherit; pointer-events:none; mix-blend-mode:soft-light;
+    background:radial-gradient(circle at var(--gx,30%) var(--gy,20%), rgba(255,255,255,.75), rgba(255,255,255,0) 58%);
+  }
+  .cover-grand-aide{margin:0; font-size:13px; color:var(--muted);}
+  .cover-grand-fermer{position:absolute; top:18px; right:18px; width:44px; height:44px; border-radius:50%; border:0; background:rgba(255,255,255,0.1); color:#fff; font-size:20px; cursor:pointer;}
+  .cover-grand-fermer:hover{background:rgba(255,255,255,0.22);}
   /* Les titres de la sortie, un extrait de 30 s par titre. */
   .pistes{margin:0;}
   .pistes-titre{margin:0 0 8px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
@@ -6914,12 +6936,12 @@
     <!-- En-tete en ligne : la pochette prenait 339 px a elle seule,
          ce qui poussait la notation et l'avis hors de l'ecran. -->
     <div class="modal-entete">
-      <div class="modal-cover" id="modalCoverZone" onclick="jouerExtraitCover()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); jouerExtraitCover();}">
+      <div class="modal-cover" id="modalCoverZone" role="button" tabindex="0" aria-label="Agrandir la pochette" onclick="ouvrirCoverGrand()" onkeydown="if((event.key==='Enter'||event.key===' ') && event.target===this){event.preventDefault(); ouvrirCoverGrand();}">
         <img id="modalCover" src="" alt="">
-        <span class="cover-lecture" aria-hidden="true">
-          <svg class="i-play" viewBox="0 0 24 24"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>
-          <svg class="i-pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4.2" height="14" rx="1"/><rect x="13.8" y="5" width="4.2" height="14" rx="1"/></svg>
-        </span>
+        <button type="button" class="cover-lecture" id="coverLecture" aria-label="Écouter un extrait" onclick="event.stopPropagation(); jouerExtraitCover();">
+          <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>
+          <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1"/><rect x="13.8" y="5" width="4.2" height="14" rx="1"/></svg>
+        </button>
       </div>
       <div class="modal-entete-texte">
         <span class="release-type-badge" id="modalReleaseType"></span>
@@ -21478,7 +21500,7 @@ function jouerExtrait(bouton){
   lancerExtrait(url, bouton);
 }
 
-// Un clic sur la pochette joue le premier extrait de la sortie (le single, ou le premier titre d'un projet) ; un second l'arrête.
+// Le petit bouton de la pochette joue le premier extrait de la sortie (le single, ou le premier titre d'un projet) ; un second l'arrête.
 function jouerExtraitCover(){
 
   if(extraitAudio){ arreterExtrait(); return; }
@@ -21488,6 +21510,83 @@ function jouerExtraitCover(){
 
   const bouton = [...document.querySelectorAll('#modalPistes .piste-play')].find(b => b.dataset.apercu === piste.apercu) || null;
   lancerExtrait(piste.apercu, bouton);
+}
+
+// Un clic sur la pochette l'affiche en grand, comme une carte que l'on tient : elle s'incline vers la souris (ou le doigt) avec un
+// reflet qui la suit ; au repos, elle se balance doucement. Échap, la croix ou un clic à côté la referment.
+function ouvrirCoverGrand(){
+
+  const source = document.getElementById('modalCover');
+  if(!source || !source.src) return;
+
+  const depart = source.getBoundingClientRect();
+  const calme = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  const voile = document.createElement('div');
+  voile.className = 'cover-grand';
+  voile.setAttribute('role', 'dialog');
+  voile.setAttribute('aria-modal', 'true');
+  voile.setAttribute('aria-label', 'Pochette en grand');
+  voile.innerHTML = `
+    <button type="button" class="cover-grand-fermer" aria-label="Fermer">✕</button>
+    <div class="cover-grand-scene"><div class="cover-grand-carte">
+      <img src="${escapeAttribute(source.src)}" alt="${escapeAttribute(source.alt || '')}" draggable="false">
+      <span class="cover-grand-reflet"></span>
+    </div></div>
+    <p class="cover-grand-aide">${calme ? '' : 'Bouge la souris pour incliner la pochette'}</p>`;
+  document.body.appendChild(voile);
+
+  const carte = voile.querySelector('.cover-grand-carte');
+  const arrivee = carte.getBoundingClientRect();
+
+  // Elle part de la pochette de la fiche et grandit jusqu'à sa place.
+  if(!calme && carte.animate && arrivee.width){
+    const k = depart.width / arrivee.width;
+    const dx = (depart.left + depart.width / 2) - (arrivee.left + arrivee.width / 2);
+    const dy = (depart.top + depart.height / 2) - (arrivee.top + arrivee.height / 2);
+    carte.animate(
+      [{ transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + k + ')', opacity: .6 }, { transform: 'none', opacity: 1 }],
+      { duration: 520, easing: 'cubic-bezier(.2,.9,.2,1)' }
+    );
+  }
+
+  let cible = { x: 0, y: 0 }, actuel = { x: 0, y: 0 }, touche = false, raf = 0, debut = performance.now();
+
+  const dessiner = (maintenant) => {
+    raf = requestAnimationFrame(dessiner);
+    if(!touche){
+      const t = (maintenant - debut) / 1000;
+      cible.x = Math.sin(t * 0.9) * 0.28;
+      cible.y = Math.cos(t * 0.7) * 0.22;
+    }
+    actuel.x += (cible.x - actuel.x) * 0.12;
+    actuel.y += (cible.y - actuel.y) * 0.12;
+    carte.style.transform = 'rotateY(' + (actuel.x * 18).toFixed(2) + 'deg) rotateX(' + (-actuel.y * 18).toFixed(2) + 'deg) scale(1.02)';
+    carte.style.setProperty('--gx', (50 + actuel.x * 45).toFixed(1) + '%');
+    carte.style.setProperty('--gy', (35 + actuel.y * 45).toFixed(1) + '%');
+  };
+
+  const viser = (e) => {
+    const r = carte.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    cible.x = Math.max(-1.1, Math.min(1.1, (e.clientX - cx) / (r.width / 2)));
+    cible.y = Math.max(-1.1, Math.min(1.1, (e.clientY - cy) / (r.height / 2)));
+    touche = true;
+  };
+
+  if(!calme){
+    voile.addEventListener('pointermove', viser);
+    voile.addEventListener('pointerdown', viser);
+    raf = requestAnimationFrame(dessiner);
+  }
+
+  const fermer = () => { cancelAnimationFrame(raf); voile.remove(); document.removeEventListener('keydown', touche_, true); };
+  const touche_ = (e) => { if(e.key === 'Escape'){ e.stopImmediatePropagation(); fermer(); } };
+
+  voile.addEventListener('click', (e) => {
+    if(e.target.closest('.cover-grand-fermer') || !e.target.closest('.cover-grand-carte')) fermer();
+  });
+  document.addEventListener('keydown', touche_, true);
 }
 
 function dureePiste(secondes){
@@ -21508,10 +21607,7 @@ async function chargerPistes(item){
   pistesCourantes = [];
   arreterExtrait();
 
-  if(cover){
-    cover.classList.remove('a-extrait');
-    cover.removeAttribute('role'); cover.removeAttribute('tabindex'); cover.removeAttribute('aria-label');
-  }
+  if(cover) cover.classList.remove('a-extrait');
 
   if(!item || !item.id || typeof supabaseClient === 'undefined' || !supabaseClient) return;
 
@@ -21533,12 +21629,11 @@ async function chargerPistes(item){
 
   pistesCourantes = pistes;
 
-  // La pochette joue un extrait, pour un single comme pour un projet.
+  // Le petit bouton de la pochette joue un extrait, pour un single comme pour un projet.
   if(cover && pistes.some(x => x.apercu)){
     cover.classList.add('a-extrait');
-    cover.setAttribute('role', 'button');
-    cover.setAttribute('tabindex', '0');
-    cover.setAttribute('aria-label', 'Écouter un extrait de ' + (item.title || 'cette sortie'));
+    const bouton = document.getElementById('coverLecture');
+    if(bouton) bouton.setAttribute('aria-label', 'Écouter un extrait de ' + (item.title || 'cette sortie'));
   }
 
   // Un single n'a qu'un titre : pas d'encadré.
