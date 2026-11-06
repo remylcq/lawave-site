@@ -8,7 +8,7 @@
 --   [{ n, titre, artiste, duree, apercu }]
 -- où « titre » contient déjà les featurings (« Titre (feat. X) »), « artiste » est l'artiste du titre (il peut différer de
 -- celui de la sortie) et « apercu » l'adresse de l'extrait. Les adresses d'extrait de Deezer expirent : le résultat est
--- gardé 3 heures seulement, pour ne pas appeler Deezer à chaque ouverture de fiche.
+-- gardé 8 minutes seulement (elles durent environ un quart d'heure), pour ne pas appeler Deezer à chaque ouverture de fiche.
 --
 -- Seules les sorties publiées, d'un artiste non banni, sont lues. Ouvert à tous (le catalogue est public).
 -- Peut être rejoué sans risque.
@@ -41,7 +41,7 @@ begin
   end if;
 
   select c.pistes, c.maj_le into v_cache from public.catalogue_pistes_cache c where c.release_id = p_release;
-  if found and v_cache.maj_le > now() - interval '3 hours' then
+  if found and v_cache.maj_le > now() - interval '8 minutes' then
     return v_cache.pistes;
   end if;
 
