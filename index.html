@@ -1264,6 +1264,60 @@
   }
   .artiste-photo img{width:100%; height:100%; object-fit:cover;}
   .artiste-nom{font-size:30px; margin:0 0 8px;}
+  .art-suivre{display:inline-flex; align-items:center; gap:7px; padding:7px 16px; border-radius:999px; border:1px solid var(--blue-bright); background:transparent; color:var(--blue-bright); font:inherit; font-size:13.5px; font-weight:600; cursor:pointer; transition:background .2s, color .2s, border-color .2s;}
+  .art-suivre:hover{background:rgba(79,180,255,0.14);}
+  .art-suivre.suivi{background:var(--blue-bright); color:#04121f;}
+  .art-suivre-ic{font-size:16px; line-height:1;}
+  .art-onglets{display:flex; gap:6px; margin:0 0 18px; padding:4px; width:fit-content; max-width:100%; border:1px solid var(--line); border-radius:999px; background:var(--bg-alt);}
+  .art-onglets button{margin:0; padding:9px 20px; border:0; border-radius:999px; background:none; color:var(--muted); font:inherit; font-size:15px; font-weight:600; cursor:pointer; white-space:nowrap; transition:background .15s, color .15s;}
+  .art-onglets button:hover{color:var(--ink);}
+  .art-onglets button.on{background:var(--blue-bright); color:#04121f;}
+  .art-onglets button[hidden]{display:none;}
+  .art-nb{font-size:12px; opacity:.75;}
+  .art-filtres{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 18px;}
+  .art-filtres[hidden]{display:none;}
+  .art-filtre{padding:8px 15px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--ink-soft); font:inherit; font-size:14px; cursor:pointer; transition:border-color .15s, background .15s, color .15s;}
+  .art-filtre span{margin-left:4px; font-size:12px; color:var(--muted);}
+  .art-filtre:hover{border-color:rgba(255,255,255,0.35); color:var(--ink);}
+  .art-filtre.on{border-color:var(--blue-bright); background:rgba(79,180,255,0.16); color:var(--ink);}
+  .art-galerie{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px;}
+  .art-photo{position:relative; margin:0; border-radius:var(--radius); overflow:hidden; background:var(--bg-alt); border:1px solid var(--line);}
+  .art-photo-ouvrir{display:block; width:100%; padding:0; margin:0; border:0; background:none; cursor:zoom-in; aspect-ratio:4/5; overflow:hidden;}
+  .art-photo-ouvrir img{width:100%; height:100%; object-fit:cover; transition:transform .5s var(--ease);}
+  .art-photo-ouvrir:hover img{transform:scale(1.05);}
+  .art-photo figcaption{padding:9px 12px 11px; font-size:12.5px; color:var(--muted); line-height:1.35;}
+  .art-photo-suppr{position:absolute; top:8px; right:8px; width:28px; height:28px; border-radius:50%; border:0; background:rgba(5,7,10,.75); color:#fff; font-size:13px; cursor:pointer;}
+  .art-photo-suppr:hover{background:var(--danger);}
+  .art-ajout{margin:0 0 22px; padding:16px 18px; border:1px dashed var(--line-strong); border-radius:var(--radius);}
+  .art-ajout-titre{margin:0 0 10px; font-size:14px; font-weight:600;}
+  .art-ajout-champs{display:flex; flex-wrap:wrap; gap:10px; align-items:center;}
+  .art-ajout-champs input[type="text"]{flex:1 1 240px; min-width:0; padding:11px 14px; border:1px solid var(--line); border-radius:10px; background:rgba(0,0,0,0.25); color:var(--ink); font:inherit; font-size:14px;}
+  .art-ajout-champs input[type="text"]:focus{outline:none; border-color:var(--blue-bright);}
+  .art-ajout-champs input[type="file"]{max-width:100%; color:var(--ink-soft); font-size:13.5px;}
+  .art-ajout-aide{margin:8px 0 0; font-size:12px; color:var(--muted);}
+  .art-vide{color:var(--muted); font-size:14px;}
+  .art-visionneuse{position:fixed; inset:0; z-index:400; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(3,5,8,.92); backdrop-filter:blur(6px);}
+  .art-visionneuse figure{margin:0; max-width:min(1100px,100%); max-height:100%; display:flex; flex-direction:column; align-items:center; gap:12px;}
+  .art-visionneuse img{max-width:100%; max-height:calc(100vh - 120px); object-fit:contain; border-radius:10px;}
+  .art-visionneuse figcaption{color:var(--ink-soft); font-size:14px; min-height:20px; text-align:center;}
+  .art-vis-fermer, .art-vis-nav{position:absolute; border:0; background:rgba(255,255,255,0.1); color:#fff; border-radius:50%; width:44px; height:44px; font-size:22px; cursor:pointer;}
+  .art-vis-fermer{top:18px; right:18px;}
+  .art-vis-nav{top:50%; transform:translateY(-50%);}
+  .art-vis-nav.prec{left:16px;}
+  .art-vis-nav.suiv{right:16px;}
+  .art-vis-fermer:hover, .art-vis-nav:hover{background:rgba(255,255,255,0.22);}
+  .art-similaires{margin:44px 0 0; padding-top:22px; border-top:1px solid var(--line);}
+  .art-sim-titre{margin:0 0 12px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  .art-sim-liste{display:flex; flex-wrap:wrap; gap:8px;}
+  .art-sim{display:inline-flex; align-items:center; gap:8px; padding:5px 14px 5px 5px; border:1px solid var(--line); border-radius:999px; background:transparent; color:var(--ink-soft); font:inherit; font-size:13.5px; cursor:pointer; transition:border-color .15s, color .15s;}
+  .art-sim:hover{border-color:rgba(255,255,255,0.35); color:var(--ink);}
+  .art-sim-photo{width:28px; height:28px; border-radius:50%; overflow:hidden; display:inline-flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.08); font-size:12px; flex:none;}
+  .art-sim-photo img{width:100%; height:100%; object-fit:cover;}
+  @media (max-width:560px){
+    .art-galerie{grid-template-columns:repeat(2,1fr); gap:8px;}
+    .art-onglets{width:100%;}
+    .art-onglets button{flex:1; padding:9px 12px;}
+  }
   .artiste-meta{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
   @media (max-width:560px){
     .artiste-entete{gap:16px;}
@@ -19825,6 +19879,10 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
           <span class="mono" style="color:var(--muted); font-size:13px;">
             ${sorties.length} sortie${sorties.length > 1 ? 's' : ''} sur La Wave
           </span>
+          <button type="button" class="art-suivre" id="artSuivre" data-handle="${escapeAttribute(handle)}"
+                  onclick="basculerSuiviArtiste('${handleSain(handle)}')" aria-pressed="false">
+            <span class="art-suivre-ic" aria-hidden="true">+</span><span class="art-suivre-txt">Suivre</span>
+          </button>
           ${
             profil && profil.ville
               ? `<span class="platform-btn-sm" style="cursor:pointer;"
@@ -19860,18 +19918,21 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
 
     ${panneauProprieteHtml(profil)}
 
-    <div class="hairline" style="margin:32px 0;"></div>
+    <div class="hairline" style="margin:32px 0 22px;"></div>
 
-    <span class="eyebrow mono">Discographie</span>
-    <h3 style="font-size:18px; margin:6px 0 18px;">
-      Ses sorties
-    </h3>
-
-    <div class="cat-grid">
-      ${sorties.length
-        ? sorties.map(tileHtml).join('')
-        : `<div class="empty-state">Aucune sortie publiée pour l'instant.</div>`}
+    <div class="art-onglets" id="artOnglets" role="tablist" aria-label="Page de l'artiste">
+      <button type="button" role="tab" class="on" id="artOngletDisco" aria-selected="true" onclick="artisteOnglet('disco')">Discographie</button>
+      <button type="button" role="tab" id="artOngletGalerie" aria-selected="false" hidden onclick="artisteOnglet('galerie')">Galerie <span class="art-nb" id="artNbPhotos"></span></button>
     </div>
+
+    <div id="artPanneauDisco" role="tabpanel">
+      <div class="art-filtres" id="artFiltres" role="group" aria-label="Filtrer les sorties"></div>
+      <div class="cat-grid" id="artGrille"></div>
+    </div>
+
+    <div id="artPanneauGalerie" role="tabpanel" hidden></div>
+
+    <div id="artSimilaires"></div>
 
     <p class="artiste-signaler">
       Un problème avec cette fiche ?
@@ -19879,6 +19940,314 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
     </p>
   `;
 
+  artisteCourant = { handle, nom, sorties, filtre: 'tout', galerie: null };
+  dessinerSortiesArtiste();
+  chargerGalerieArtiste();
+  chargerSimilairesArtiste();
+  majSuiviArtiste();
+}
+
+
+// ---------------- PAGE ARTISTE : FILTRES, GALERIE, SIMILAIRES, SUIVI ----------------
+//
+// La discographie se filtre (tout / projets / singles / feats) ; la galerie n'a son onglet que s'il y a des photos
+// (ou si l'on peut en ajouter : l'artiste dont la page est à son compte, et l'équipe) ; en bas, quelques artistes
+// proches ; et un bouton pour suivre l'artiste (on est prévenu de ses nouvelles sorties).
+
+var artisteCourant = null;
+
+function categorieSortieArtiste(sortie, handle){
+
+  const siennes = (sortie.artistHandle || instagramHandle(sortie.instagram)) === handle;
+  if(!siennes) return 'feats';
+
+  const t = String(sortie.releaseType || '').toLowerCase();
+  return /single/.test(t) ? 'singles' : 'projets';
+}
+
+function dessinerSortiesArtiste(){
+
+  const a = artisteCourant;
+  const grille = document.getElementById('artGrille');
+  const barre = document.getElementById('artFiltres');
+  if(!a || !grille || !barre) return;
+
+  const compte = { tout: a.sorties.length, projets: 0, singles: 0, feats: 0 };
+  a.sorties.forEach(x => { compte[categorieSortieArtiste(x, a.handle)]++; });
+
+  const filtres = [['tout', 'Tout'], ['projets', 'Projets'], ['singles', 'Singles'], ['feats', 'Feats']]
+    .filter(([cle]) => cle === 'tout' || compte[cle] > 0);
+
+  // Un seul genre de sortie : rien à filtrer.
+  barre.hidden = filtres.length <= 2;
+  barre.innerHTML = filtres.map(([cle, libelle]) =>
+    `<button type="button" class="art-filtre${a.filtre === cle ? ' on' : ''}" aria-pressed="${a.filtre === cle}"
+             onclick="artisteFiltrer('${cle}')">${libelle} <span>${compte[cle]}</span></button>`).join('');
+
+  const visibles = a.sorties.filter(x => a.filtre === 'tout' || categorieSortieArtiste(x, a.handle) === a.filtre);
+
+  grille.innerHTML = visibles.length
+    ? visibles.map(tileHtml).join('')
+    : `<div class="empty-state">Aucune sortie publiée pour l'instant.</div>`;
+}
+
+function artisteFiltrer(cle){
+
+  if(!artisteCourant) return;
+  artisteCourant.filtre = cle;
+  dessinerSortiesArtiste();
+}
+
+function artisteOnglet(cle){
+
+  const disco = document.getElementById('artPanneauDisco');
+  const galerie = document.getElementById('artPanneauGalerie');
+  if(!disco || !galerie) return;
+
+  disco.hidden = cle !== 'disco';
+  galerie.hidden = cle !== 'galerie';
+
+  [['artOngletDisco', 'disco'], ['artOngletGalerie', 'galerie']].forEach(([id, c]) => {
+    const b = document.getElementById(id);
+    if(b){ b.classList.toggle('on', c === cle); b.setAttribute('aria-selected', String(c === cle)); }
+  });
+}
+
+async function chargerGalerieArtiste(){
+
+  const a = artisteCourant;
+  const onglet = document.getElementById('artOngletGalerie');
+  if(!a || !onglet || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+  const voulu = a.handle;
+  let data = null;
+
+  try{
+    const rep = await supabaseClient.rpc('artiste_galerie', { p_handle: voulu });
+    if(rep.error) throw rep.error;
+    data = rep.data;
+  }catch(e){
+    return;
+  }
+
+  if(!artisteCourant || artisteCourant.handle !== voulu || !data) return;
+
+  artisteCourant.galerie = data;
+  dessinerGalerieArtiste();
+}
+
+function dessinerGalerieArtiste(){
+
+  const a = artisteCourant;
+  const g = a && a.galerie;
+  const onglet = document.getElementById('artOngletGalerie');
+  const panneau = document.getElementById('artPanneauGalerie');
+  if(!g || !onglet || !panneau) return;
+
+  const photos = g.photos || [];
+
+  // L'onglet n'existe que s'il y a des photos, ou pour ceux qui peuvent en ajouter.
+  onglet.hidden = !photos.length && !g.peut_gerer;
+  document.getElementById('artNbPhotos').textContent = photos.length ? String(photos.length) : '';
+
+  if(onglet.hidden && !panneau.hidden) artisteOnglet('disco');
+
+  panneau.innerHTML = `
+    ${g.peut_gerer ? `
+      <form class="art-ajout" onsubmit="ajouterPhotoGalerie(event)">
+        <p class="art-ajout-titre">Ajouter une photo</p>
+        <div class="art-ajout-champs">
+          <input type="file" id="artPhotoFichier" accept="image/jpeg,image/png,image/webp" required>
+          <input type="text" id="artPhotoCredit" maxlength="120" placeholder="Crédit (photographe, ex. « Photo : Camille Dupont »)">
+          <button type="submit" class="btn btn-primary" id="artPhotoEnvoi">Ajouter</button>
+        </div>
+        <p class="art-ajout-aide">JPG, PNG ou WEBP. Indique toujours qui a pris la photo.</p>
+      </form>` : ''}
+    ${photos.length
+      ? `<div class="art-galerie">${photos.map((f, i) => `
+          <figure class="art-photo">
+            <button type="button" class="art-photo-ouvrir" onclick="ouvrirPhotoGalerie(${i})" aria-label="Agrandir la photo ${i + 1}">
+              <img src="${escapeAttribute(safeUrl(f.url))}" alt="${escapeAttribute(a.nom)}" loading="lazy" decoding="async">
+            </button>
+            ${f.credit ? `<figcaption>${escapeHtml(f.credit)}</figcaption>` : ''}
+            ${f.peut_supprimer ? `<button type="button" class="art-photo-suppr" onclick="retirerPhotoGalerie('${escapeAttribute(f.id)}')" aria-label="Retirer cette photo">✕</button>` : ''}
+          </figure>`).join('')}</div>`
+      : `<p class="art-vide">La galerie est vide pour l'instant.</p>`}`;
+}
+
+async function ajouterPhotoGalerie(ev){
+
+  ev.preventDefault();
+
+  const a = artisteCourant;
+  const fichier = document.getElementById('artPhotoFichier');
+  const credit = document.getElementById('artPhotoCredit');
+  const bouton = document.getElementById('artPhotoEnvoi');
+  if(!a || !fichier || !fichier.files[0]) return;
+
+  const f = fichier.files[0];
+
+  if(!/^image\/(jpeg|png|webp)$/.test(f.type)){
+    notifier('Image refusée', { detail: 'Seules les images JPG, PNG ou WEBP sont acceptées.' });
+    return;
+  }
+
+  bouton.disabled = true;
+  bouton.textContent = 'Envoi…';
+
+  try{
+    const ext = f.type === 'image/png' ? 'png' : f.type === 'image/webp' ? 'webp' : 'jpg';
+    const nom = 'galerie-' + a.handle.replace(/[^a-z0-9._-]/gi, '') + '-' + Date.now() + '.' + ext;
+    const url = await Fichiers.envoyer(f, nom, f.type);
+    const { error } = await supabaseClient.rpc('artiste_photo_ajouter', { p_handle: a.handle, p_url: url, p_credit: credit.value.trim() || null });
+    if(error) throw error;
+    notifier('Photo ajoutée', { detail: 'Elle apparaît dans la galerie.' });
+    await chargerGalerieArtiste();
+    artisteOnglet('galerie');
+  }catch(e){
+    notifier('Photo non ajoutée', { detail: (e && e.message) || 'Réessaie dans un instant.' });
+    bouton.disabled = false;
+    bouton.textContent = 'Ajouter';
+  }
+}
+
+async function retirerPhotoGalerie(id){
+
+  if(!confirm('Retirer cette photo de la galerie ?')) return;
+
+  try{
+    const { error } = await supabaseClient.rpc('artiste_photo_supprimer', { p_id: id });
+    if(error) throw error;
+    await chargerGalerieArtiste();
+  }catch(e){
+    notifier('Photo non retirée', { detail: (e && e.message) || 'Réessaie dans un instant.' });
+  }
+}
+
+// Une photo en grand, avec son crédit ; Échap, un clic ou ← → pour la fermer ou changer de photo.
+function ouvrirPhotoGalerie(i){
+
+  const a = artisteCourant;
+  const photos = a && a.galerie && a.galerie.photos;
+  if(!photos || !photos[i]) return;
+
+  let index = i;
+  const voile = document.createElement('div');
+  voile.className = 'art-visionneuse';
+  voile.setAttribute('role', 'dialog');
+  voile.setAttribute('aria-modal', 'true');
+  voile.setAttribute('aria-label', 'Photo de ' + a.nom);
+
+  const dessiner = () => {
+    const f = photos[index];
+    voile.innerHTML = `
+      <button type="button" class="art-vis-fermer" aria-label="Fermer">✕</button>
+      ${photos.length > 1 ? '<button type="button" class="art-vis-nav prec" aria-label="Photo précédente">‹</button><button type="button" class="art-vis-nav suiv" aria-label="Photo suivante">›</button>' : ''}
+      <figure><img src="${escapeAttribute(safeUrl(f.url))}" alt="${escapeAttribute(a.nom)}">
+        <figcaption>${f.credit ? escapeHtml(f.credit) : ''}</figcaption></figure>`;
+  };
+
+  const fermer = () => { voile.remove(); document.removeEventListener('keydown', touche); };
+  const aller = (d) => { index = (index + d + photos.length) % photos.length; dessiner(); };
+  const touche = (e) => {
+    if(e.key === 'Escape') fermer();
+    else if(e.key === 'ArrowLeft' && photos.length > 1) aller(-1);
+    else if(e.key === 'ArrowRight' && photos.length > 1) aller(1);
+  };
+
+  voile.addEventListener('click', (e) => {
+    if(e.target.closest('.art-vis-fermer') || e.target === voile) fermer();
+    else if(e.target.closest('.prec')) aller(-1);
+    else if(e.target.closest('.suiv')) aller(1);
+  });
+
+  document.addEventListener('keydown', touche);
+  dessiner();
+  document.body.appendChild(voile);
+}
+
+async function chargerSimilairesArtiste(){
+
+  const a = artisteCourant;
+  const zone = document.getElementById('artSimilaires');
+  if(!a || !zone || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+  const voulu = a.handle;
+  let liste = [];
+
+  try{
+    const { data, error } = await supabaseClient.rpc('artistes_similaires', { p_handle: voulu, p_limite: 8 });
+    if(error) throw error;
+    liste = Array.isArray(data) ? data : [];
+  }catch(e){
+    return;
+  }
+
+  if(!artisteCourant || artisteCourant.handle !== voulu || !liste.length) return;
+
+  zone.innerHTML = `
+    <section class="art-similaires" aria-label="Artistes proches">
+      <p class="art-sim-titre">Dans la même veine</p>
+      <div class="art-sim-liste">
+        ${liste.map(x => `
+          <button type="button" class="art-sim" onclick="ouvrirPageArtiste('${handleSain(x.handle)}')">
+            <span class="art-sim-photo">${x.photo ? `<img src="${escapeAttribute(safeUrl(x.photo))}" alt="" loading="lazy">` : escapeHtml(artistInitial(x.nom))}</span>
+            <span class="art-sim-nom">${escapeHtml(x.nom || x.handle)}</span>
+          </button>`).join('')}
+      </div>
+    </section>`;
+}
+
+async function majSuiviArtiste(){
+
+  const a = artisteCourant;
+  const bouton = document.getElementById('artSuivre');
+  if(!a || !bouton || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+  try{
+    const { data, error } = await supabaseClient.rpc('artiste_suivi', { p_handle: a.handle });
+    if(error) throw error;
+    if(artisteCourant && artisteCourant.handle === a.handle) afficherSuiviArtiste(data);
+  }catch(e){}
+}
+
+function afficherSuiviArtiste(etat){
+
+  const bouton = document.getElementById('artSuivre');
+  if(!bouton || !etat) return;
+
+  const suit = !!etat.suit;
+  bouton.classList.toggle('suivi', suit);
+  bouton.setAttribute('aria-pressed', String(suit));
+  bouton.querySelector('.art-suivre-ic').textContent = suit ? '✓' : '+';
+  bouton.querySelector('.art-suivre-txt').textContent = suit ? 'Suivi' : 'Suivre';
+  bouton.title = etat.nb ? etat.nb + (etat.nb > 1 ? ' personnes suivent' : ' personne suit') + ' cet artiste' : '';
+}
+
+async function basculerSuiviArtiste(handle){
+
+  if(!currentUser){
+    notifier('Connecte-toi pour suivre un artiste', { detail: 'Tu seras prévenu de ses nouvelles sorties.' });
+    openAuthModal('login');
+    return;
+  }
+
+  const bouton = document.getElementById('artSuivre');
+  if(!bouton || bouton.dataset.occupe) return;
+
+  const voulu = !bouton.classList.contains('suivi');
+  bouton.dataset.occupe = '1';
+
+  try{
+    const { data, error } = await supabaseClient.rpc('artiste_suivre', { p_handle: handle, p_suivre: voulu });
+    if(error) throw error;
+    afficherSuiviArtiste(data);
+    if(voulu) notifier('Tu suis cet artiste', { detail: 'Tu seras prévenu de ses nouvelles sorties, dans tes alertes.' });
+  }catch(e){
+    notifier('Action impossible', { detail: (e && e.message) || 'Réessaie dans un instant.' });
+  }
+
+  delete bouton.dataset.occupe;
 }
 
 
