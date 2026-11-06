@@ -432,7 +432,10 @@
   .pc-puce[aria-pressed="true"]{color:#fff; border-color:var(--blue); background:rgba(20,137,222,.22); animation:pcPop .35s var(--ease);}
   .pc-puce[aria-disabled="true"]{opacity:.4;}
   .pc-puce .ic{font-size:15px; line-height:1;}
-  .pc-aussi{margin-top:22px;}
+  .pc-aussi-aide{margin:0 0 12px; font-size:13.5px; color:var(--ink-soft); min-height:20px;}
+  .pc-role[data-statut="aussi"]{border-style:dashed;}
+  .pc-role[data-statut]:not([data-statut=""])::after{content:"Principal"; position:absolute; bottom:10px; right:11px; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.03em; background:var(--teinte); color:#06121f;}
+  .pc-role[data-statut="aussi"]::after{content:"Aussi"; background:transparent; color:var(--ink); border:1px solid var(--teinte);}
   .pc-aussi[hidden]{display:none;}
   .pc-aussi-titre{margin:0 0 10px; font-size:14px; font-weight:600;}
   .pc-aussi-titre small{font-weight:400; color:var(--muted);}
@@ -869,19 +872,28 @@
     if(note.texte) zone.classList.add('joue');
   }
 
-  // Les « autres rôles » : tout sauf le principal, à cocher (deux au plus).
-  function dessinerAutres(el){
+  // Le rôle principal et les « autres rôles » (deux au plus) se choisissent sur les mêmes cartes.
+  function majRoles(el){
 
-    const zone = el.querySelector('[data-aussi]');
-    const choisis = etat.autres || [];
+    const autres = etat.autres || [];
 
-    zone.innerHTML = MEMBER_ROLES.filter(r => r.name !== etat.role).map(r => `
-      <button type="button" class="pc-puce" data-autre="${attr(r.name)}" aria-pressed="${choisis.includes(r.name)}"
-              aria-disabled="${choisis.length >= 2 && !choisis.includes(r.name)}">
-        <span class="ic" aria-hidden="true">${esc(r.icon)}</span>${esc(r.name)}
-      </button>`).join('');
+    el.querySelectorAll('.pc-role').forEach(c => {
+      const nom = c.dataset.role;
+      const principal = nom === etat.role;
+      const aussi = autres.includes(nom);
+      c.setAttribute('aria-pressed', String(principal || aussi));
+      c.dataset.statut = principal ? 'principal' : aussi ? 'aussi' : '';
+      c.setAttribute('aria-label', nom + (principal ? ', rôle principal' : aussi ? ', autre rôle' : ''));
+    });
 
-    el.querySelector('.pc-aussi').hidden = !etat.role;
+    const aide = el.querySelector('.pc-aussi-aide');
+    if(aide){
+      aide.textContent = !etat.role
+        ? "Touche d'abord ton rôle principal."
+        : autres.length >= 2
+          ? "Tu as choisi deux autres rôles. Touche-en un pour le retirer."
+          : "Si tu es aussi autre chose, touche jusqu'à " + (2 - autres.length) + ' autre' + (2 - autres.length > 1 ? 's' : '') + ' rôle' + (2 - autres.length > 1 ? 's' : '') + '. Touche une carte choisie pour la retirer.';
+    }
   }
 
   ETAPES.role = {
@@ -903,11 +915,8 @@
         <p class="pc-surtitre">Ton rôle</p>
         <h2 class="pc-titre" tabindex="-1">Qu'est-ce qui te décrit le mieux ?</h2>
         <p class="pc-sous">Ton rôle s'affiche sur ton profil, à côté de ton pseudo. Tu pourras le changer plus tard.</p>
+        <p class="pc-aussi-aide" aria-live="polite"></p>
         <div class="pc-roles" role="group" aria-label="Ton rôle">${cartes}</div>
-        <div class="pc-aussi">
-          <p class="pc-aussi-titre">Tu es aussi… <small>— facultatif, 2 au plus</small></p>
-          <div class="pc-puces" data-aussi role="group" aria-label="Tes autres rôles"></div>
-        </div>
         <div class="pc-note vide" aria-live="polite"></div>
         <div class="form-msg" id="pc-msg" role="alert"></div>
         <div class="pc-actions">
@@ -923,13 +932,25 @@
 
         if(!carte) return;
 
-        etat.role = carte.dataset.role;
+        const nom = carte.dataset.role;
+        const autres = etat.autres || [];
 
-        el.querySelectorAll('.pc-role').forEach(c => c.setAttribute('aria-pressed', String(c === carte)));
+        if(!etat.role){
+          etat.role = nom;
+        }else if(nom === etat.role){
+          // Retirer le principal : le premier « autre rôle » prend sa place.
+          etat.role = autres[0] || null;
+          etat.autres = autres.slice(1);
+        }else if(autres.includes(nom)){
+          etat.autres = autres.filter(r => r !== nom);
+        }else if(autres.length < 2){
+          etat.autres = autres.concat(nom);
+        }else{
+          dire("Deux autres rôles au plus : retire-en un d'abord.");
+          return;
+        }
 
-        // Le rôle principal quitte la liste des autres.
-        etat.autres = (etat.autres || []).filter(r => r !== etat.role);
-        dessinerAutres(el);
+        majRoles(el);
 
         // Le parcours s'allonge d'une étape pour les rôles qui peuvent être vérifiés.
         etat.suite = calculerSuite();
@@ -938,23 +959,7 @@
         dire('');
       });
 
-      el.querySelector('[data-aussi]').addEventListener('click', (ev) => {
-
-        const puce = ev.target.closest('[data-autre]');
-
-        if(!puce) return;
-
-        const nom = puce.dataset.autre;
-        const liste = etat.autres || [];
-
-        if(liste.includes(nom)) etat.autres = liste.filter(r => r !== nom);
-        else if(liste.length < 2) etat.autres = liste.concat(nom);
-        else return;
-
-        dessinerAutres(el);
-      });
-
-      dessinerAutres(el);
+      majRoles(el);
 
       if(etat.role) majNoteRole();
     },
