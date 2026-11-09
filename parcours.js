@@ -1525,14 +1525,14 @@
   // communauté. Absente (communaute.sql pas passé) ou en échec : le parcours continue, ce n'est pas vital.
   async function enregistrerUnivers(){
 
-    if(!etat.ville.trim() && !etat.cherche.length && !etat.propose.length && !etat.genres.length) return;
+    if(!etat.ville.trim() && !etat.cherche.length && !etat.propose.length) return;
 
     try{
       const { error } = await supabaseClient.rpc('com_maj_profil', {
         p_ville: etat.ville.trim() || null,
         p_cherche: etat.cherche,
         p_propose: etat.propose,
-        p_genres: etat.genres
+        p_genres: []
       });
 
       if(error) console.warn("⚠️ L'univers du profil n'a pas été enregistré :", error.message);
@@ -1639,13 +1639,6 @@
         <p class="pc-surtitre">Ton univers</p>
         <h2 class="pc-titre" tabindex="-1">Qu'est-ce que tu écoutes ?</h2>
         <p class="pc-sous">Ces choix aident la communauté à te trouver, et te suggèrent des gens proches de toi. Tout est facultatif.</p>
-        <fieldset class="pc-bloc">
-          <legend>Tes styles <small>${MAX_GENRES} au plus</small></legend>
-          <div class="pc-puces" data-zone="genres"></div>
-          <div class="field">
-            <input type="text" id="pc-genre" maxlength="24" placeholder="Un autre style ? Tape-le, puis Entrée" autocomplete="off" aria-label="Ajouter un style">
-          </div>
-        </fieldset>
         <div data-zone="metiers" hidden>
           <fieldset class="pc-bloc">
             <legend>Je cherche <small>${MAX_METIERS} au plus</small></legend>
@@ -1671,7 +1664,7 @@
 
       const champ = el.querySelector('#pc-genre');
 
-      champ.addEventListener('keydown', (ev) => {
+      if(champ) champ.addEventListener('keydown', (ev) => {
 
         if(ev.key !== 'Enter' && ev.key !== ',') return;
 

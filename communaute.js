@@ -384,7 +384,28 @@ function raccourcirUrl(url){
 // com_extraire_mentions et com_extraire_tags) : la ponctuation de fin n'est pas
 // un bout de pseudo, et un mot-clic commence par une lettre. Avec
 // options.liensSeuls (messages privés), seules les adresses deviennent des liens.
+// Une réponse à la question de la semaine peut citer une sortie du catalogue : [[sortie:<id>|Titre — Artiste]].
+const RE_SORTIE = /\[\[sortie:([0-9a-f-]{36})\|([^\]]{1,140})\]\]/g;
+
 function enrichir(texte, mentions, options){
+
+  const t = String(texte || '');
+
+  if(!t.includes('[[sortie:')) return enrichirTexte(t, mentions, options);
+
+  let html = '';
+  let dernier = 0;
+
+  for(const m of t.matchAll(RE_SORTIE)){
+    html += enrichirTexte(t.slice(dernier, m.index), mentions, options);
+    html += `<button type="button" class="com-sortie-chip" data-act="ouvrir-sortie" data-id="${attr(m[1])}">${icone('casque', 14)} ${esc(m[2])}</button>`;
+    dernier = m.index + m[0].length;
+  }
+
+  return html + enrichirTexte(t.slice(dernier), mentions, options);
+}
+
+function enrichirTexte(texte, mentions, options){
 
   const t = String(texte || '');
   const connus = (mentions || []).map(p => String(p).toLowerCase());
@@ -564,7 +585,7 @@ const BD = {
   ouvrirConversation: (id)  => rpc('com_ouvrir_conversation', { p_avec: id }),
   envoyer:         (id, texte) => rpc('com_envoyer', { p_conversation: id, p_contenu: texte }),
   envoyerVocal:    (id, chemin, duree) => rpc('com_envoyer_vocal', { p_conversation: id, p_path: chemin, p_duree: duree }),
-  defisEquipe:     () => rpc('com_defis_equipe'),
+  defiCourant:     () => rpc('com_defi_courant'),
   defiPublier:     (id) => rpc('com_defi_publier', { p_defi: id }),
   defiRetirer:     (id) => rpc('com_defi_retirer', { p_defi: id }),
   mesSignalements: () => rpc('com_mes_signalements'),
@@ -883,6 +904,91 @@ function ouvrirDialogue(o){
 
     if(o.surOuverture) o.surOuverture(boite);
   });
+}
+
+// Répondre à la question de la semaine : on peut citer une sortie du catalogue, puis écrire un mot.
+async function repondreQuestion(postId, titre){
+
+  if(!exigerConnexion('Connecte-toi pour répondre à la question.')) return;
+
+  const etat = { sortie: null, minuteur: null, jeton: 0, trouvees: [] };
+
+  const r = await ouvrirDialogue({
+    titre: 'Ma réponse',
+    corps: `
+      <p class="com-dialogue-texte">${esc(titre || '')}</p>
+      <label class="com-champ"><span>Une sortie du catalogue <i>(facultatif)</i></span>
+        <input type="text" data-d="q" maxlength="60" placeholder="Cherche un titre ou un artiste…" autocomplete="off"></label>
+      <div class="com-qsem-choisie" data-d="choisie" hidden></div>
+      <div class="com-qsem-resultats" data-d="resultats"></div>
+      <label class="com-champ"><span>Ton mot</span>
+        <textarea data-d="texte" rows="3" maxlength="700" placeholder="Dis pourquoi…"></textarea></label>`,
+    boutons: [
+      { libelle: 'Annuler', valeur: 'non' },
+      { libelle: 'Répondre', valeur: 'ok', primaire: true }
+    ],
+    focus: 'input[data-d="q"]',
+    surOuverture: (boite) => {
+
+      const champ = $('[data-d="q"]', boite);
+      const liste = $('[data-d="resultats"]', boite);
+      const choisie = $('[data-d="choisie"]', boite);
+
+      const montrerChoix = () => {
+        choisie.hidden = !etat.sortie;
+        choisie.innerHTML = etat.sortie
+          ? `<img src="${attr(safeUrl(etat.sortie.cover_url) || '')}" alt=""><span><b>${esc(etat.sortie.track_title)}</b> ${esc(etat.sortie.artist_name)}</span><button type="button" data-d-retirer aria-label="Retirer">${icone('croix', 12)}</button>`
+          : '';
+      };
+
+      champ.addEventListener('input', () => {
+        clearTimeout(etat.minuteur);
+        const q = champ.value.trim();
+        if(q.length < 2){ liste.innerHTML = ''; return; }
+        etat.minuteur = setTimeout(async () => {
+          const mon = ++etat.jeton;
+          try{
+            const res = await rpc('catalogue_chercher', { p_q: q, p_limite: 6, p_decalage: 0 });
+            if(mon !== etat.jeton) return;
+            etat.trouvees = Array.isArray(res) ? res : [];
+            liste.innerHTML = etat.trouvees.map((x, i) => `
+              <button type="button" class="com-qsem-res" data-i="${i}">
+                <img src="${attr(safeUrl(x.cover_url) || '')}" alt=""><span><b>${esc(x.track_title)}</b> ${esc(x.artist_name)}</span>
+              </button>`).join('') || '<p class="com-dialogue-texte">Aucune sortie trouvée.</p>';
+          }catch(err){}
+        }, 250);
+      });
+
+      boite.addEventListener('click', (ev) => {
+        const res = ev.target.closest('.com-qsem-res');
+        if(res){ etat.sortie = etat.trouvees[Number(res.dataset.i)]; liste.innerHTML = ''; champ.value = ''; montrerChoix(); return; }
+        if(ev.target.closest('[data-d-retirer]')){ etat.sortie = null; montrerChoix(); }
+      });
+    },
+    lire: (boite, valeur) => {
+      if(valeur !== 'ok') return null;
+      return { texte: $('[data-d="texte"]', boite).value.trim() };
+    }
+  });
+
+  if(!r) return;
+
+  if(!etat.sortie && !r.texte){
+    toast('Choisis une sortie ou écris un mot.', { type: 'erreur' });
+    return;
+  }
+
+  const net = (t, n) => String(t || '').replace(/[\[\]|]/g, ' ').slice(0, n);
+  const marque = etat.sortie ? '[[sortie:' + etat.sortie.id + '|' + net(etat.sortie.track_title, 70) + ' — ' + net(etat.sortie.artist_name, 50) + ']]' : '';
+
+  try{
+    await BD.commenter(postId, (marque + (marque && r.texte ? '\n' : '') + r.texte).slice(0, 1000), null);
+    toast('Réponse envoyée', { type: 'succes' });
+    const v = S.vues.get('accueil');
+    if(v) VUES.accueil.questionSemaine(v, true);
+  }catch(err){
+    toastErreur(err);
+  }
 }
 
 async function confirmer(titre, texte, libelleOk, danger){
@@ -1509,10 +1615,10 @@ function postHtml(p, o){
              style="--sj:${attr(couleurSujet(p.sujet))};--rc:${attr(couleurRole)}"
              ${opt.detail ? '' : 'data-act="ouvrir-post" tabindex="0"'} aria-label="Message de ${attr(a.pseudo || '')}">
       ${collabHtml(p.collab)}
-      ${p.defi ? `<div class="com-epingle com-epingle-defi">${icone('trophee', 14)} Défi de la semaine · jusqu'au ${esc(new Date(p.defi.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }))}</div>`
+      ${p.defi ? `<div class="com-epingle com-epingle-defi">${icone('trophee', 14)} Question de la semaine · jusqu'au ${esc(new Date(p.defi.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }))}</div>`
         : p.epingle ? `<div class="com-epingle">${icone('epingle', 14)} Épinglé par l'équipe</div>` : ''}
       <header class="com-post-tete">
-        ${p.defi ? `<span class="com-av-lien com-av-lawave" aria-hidden="true"><img src="img/icon-192.png" alt=""></span>` : `<a class="com-av-lien" href="#community/membre/${attr(encodeURIComponent(a.pseudo || ''))}" data-act="membre" data-cle="${attr(a.pseudo)}" aria-label="Profil de ${attr(a.pseudo)}">${avatarHtml(a, 'm')}</a>`}
+        ${p.defi ? `<span class="com-av-lien com-av-lawave" aria-hidden="true"><img src="img/logo-question.png" alt=""></span>` : `<a class="com-av-lien" href="#community/membre/${attr(encodeURIComponent(a.pseudo || ''))}" data-act="membre" data-cle="${attr(a.pseudo)}" aria-label="Profil de ${attr(a.pseudo)}">${avatarHtml(a, 'm')}</a>`}
         <div class="com-post-qui">
           <div class="com-post-nom">${p.defi ? 'La Wave' : nomHtml(a) + roleHtml(a.role, true)}</div>
           <div class="com-post-meta">
@@ -3095,6 +3201,7 @@ VUES.accueil = {
             </button>
             <div class="com-rail-corps" data-rail-corps hidden></div>
           </section>
+          <section class="com-carte com-qsem" data-hote="qsem" aria-label="Question de la semaine" hidden></section>
         </div>
       </aside>
       <div class="com-filtres">
@@ -3102,7 +3209,6 @@ VUES.accueil = {
           <div data-hote="onglets"></div>
           <div data-hote="sujets" class="com-sujets-hote"></div>
         </div>
-        <div data-hote="tendances" class="com-tendances-ligne" hidden></div>
       </div>
       <div class="com-liste" data-liste></div>
       <p class="com-regles">Reste bienveillant : pas de spam, pas d'insultes. Un message qui dérape se signale depuis son menu ⋯</p>`;
@@ -3123,7 +3229,7 @@ VUES.accueil = {
       composer: $('[data-hote="composer"]', V.el),
       sujets: $('[data-hote="sujets"]', V.el),
       onglets: $('[data-hote="onglets"]', V.el),
-      tendances: $('[data-hote="tendances"]', V.el)
+      qsem: $('[data-hote="qsem"]', V.el)
     };
 
     V.composer = monterComposer(V.hotes.composer, {
@@ -3187,7 +3293,7 @@ VUES.accueil = {
     V.liste.demarrer();
     VUES.accueil.onboarding(V);
     VUES.accueil.decouvrir(V);
-    VUES.accueil.tendances(V);
+    VUES.accueil.questionSemaine(V);
     // La barre sous l'onglet actif se cale quand la vue est à l'écran : cachée,
     // elle n'a pas de largeur à mesurer.
     placerBarreOnglets(V.hotes.onglets, false);
@@ -3240,21 +3346,34 @@ VUES.accueil = {
     if(champ) setTimeout(() => champ.focus({ preventScroll: true }), 60);
   },
 
-  // Les mots-clics du moment, sous les sujets.
-  async tendances(V){
+  // La question de la semaine : un encadré sous « Explorer ». Les réponses sont les commentaires du message de la question.
+  async questionSemaine(V, forcer){
+
+    if(!forcer && V.qsemLe && Date.now() - V.qsemLe < 300000) return;
 
     try{
 
-      const t = await tendances(false);
-      const tags = ((t && t.tags) || []).slice(0, 6);
+      const d = await BD.defiCourant();
 
-      V.hotes.tendances.hidden = !tags.length;
+      V.qsemLe = Date.now();
 
-      if(tags.length){
-        V.hotes.tendances.innerHTML = `
-          <span class="com-tendances-lib">${icone('tendance', 15)} En ce moment</span>
-          ${tags.map(x => `<a class="com-tag-lien" href="#community/tag/${attr(encodeURIComponent(x.tag))}" data-act="tag" data-tag="${attr(x.tag)}">#${esc(x.tag)}<small>${x.n}</small></a>`).join('')}`;
-      }
+      if(!d || !d.post_id){ V.hotes.qsem.hidden = true; V.hotes.qsem.innerHTML = ''; return; }
+
+      const reste = d.jours_restants > 0 ? 'encore ' + d.jours_restants + ' jour' + (d.jours_restants > 1 ? 's' : '') : 'dernier jour';
+      const nb = d.nb || 0;
+
+      V.hotes.qsem.hidden = false;
+      V.hotes.qsem.innerHTML = `
+        <div class="com-qsem-tete">
+          <span class="com-qsem-logo"><img src="img/logo-question.png" alt=""></span>
+          <div><b>Question de la semaine</b><small>La Wave · ${esc(reste)}</small></div>
+        </div>
+        <h3>${esc(d.titre)}</h3>
+        <p>${esc(d.consigne)}</p>
+        <div class="com-qsem-pied">
+          <button type="button" class="com-btn com-btn-plein com-btn-petit" data-act="qsem-repondre" data-post="${attr(d.post_id)}" data-titre="${attr(d.titre)}">Répondre</button>
+          <a class="com-defi-voir" href="#community/post/${attr(encodeURIComponent(d.post_id))}" data-act="qsem-voir" data-post="${attr(d.post_id)}">${nb ? nb + ' réponse' + (nb > 1 ? 's' : '') + ' · voir' : 'Sois le premier à répondre'}</a>
+        </div>`;
 
     }catch(e){}
   },
@@ -5443,7 +5562,6 @@ function profilEnteteHtml(V){
             </div>
           </div>` : ''}
 
-        ${!bloque && p.genres && p.genres.length ? `<div class="com-profil-styles">${p.genres.map(g => `<span class="com-puce">${esc(g)}</span>`).join('')}</div>` : ''}
 
         ${soi && !aDuContenu && !auditeur ? `
           <button type="button" class="com-invite-profil" data-act="profil-modifier">
@@ -5852,7 +5970,7 @@ async function modifierMonProfil(V){
   const etat = {
     cherche: (p.cherche || []).slice(),
     propose: (p.propose || []).slice(),
-    genres: (p.genres || []).slice()
+    genres: []
   };
 
   const r = await ouvrirDialogue({
@@ -5903,7 +6021,7 @@ async function modifierMonProfil(V){
 
   try{
 
-    const res = await BD.majProfil({ p_ville: r.ville || null, p_cherche: r.cherche, p_propose: r.propose, p_genres: r.genres });
+    const res = await BD.majProfil({ p_ville: r.ville || null, p_cherche: r.cherche, p_propose: r.propose, p_genres: [] });
 
     Object.assign(V.profil, { ville: res.ville, cherche: res.cherche, propose: res.propose, genres: res.genres });
     V.hotes.entete.innerHTML = profilEnteteHtml(V);
@@ -7811,6 +7929,21 @@ function agir(act, cible, e){
       return;
     }
 
+    case 'qsem-voir': {
+      e.preventDefault();
+      aller('post/' + encodeURIComponent(cible.dataset.post));
+      return;
+    }
+
+    case 'qsem-repondre':
+      repondreQuestion(cible.dataset.post, cible.dataset.titre);
+      return;
+
+    case 'ouvrir-sortie':
+      e.stopPropagation();
+      if(typeof openCatalogueModal === 'function') openCatalogueModal(cible.dataset.id);
+      return;
+
     case 'ouvrir-post-reponse': {
       const id = idPostDe(cible);
       if(!id) return;
@@ -8699,9 +8832,28 @@ const FEUILLE = String.raw`
 .com-av-xl{width:96px; height:96px; font-size:38px; box-shadow:0 0 0 4px #090c11, inset 0 0 0 1px rgba(255,255,255,0.14);}
 .com-av-lien{display:inline-flex; border-radius:50%; text-decoration:none; transition:transform .3s var(--ease);}
 .com-av-lien:hover{transform:scale(1.06);}
-.com-av-lawave{width:40px; height:40px; border-radius:50%; overflow:hidden; flex:0 0 auto; background:#0a0d12;}
+.com-qsem{padding:16px 18px; margin-top:14px; background:linear-gradient(135deg, rgba(79,180,255,0.14), rgba(13,17,24,0.66) 62%); border-color:rgba(79,180,255,0.3);}
+.com-qsem[hidden]{display:none;}
+.com-qsem-tete{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+.com-qsem-tete b{display:block; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--blue-bright);}
+.com-qsem-tete small{color:var(--muted); font-size:12px;}
+.com-qsem-logo{flex:none; width:40px; height:40px; border-radius:50%; overflow:hidden; background:#fff; display:inline-flex;}
+.com-qsem-logo img{width:100%; height:100%; object-fit:contain;}
+.com-qsem h3{margin:0 0 4px; font-size:18px; letter-spacing:-0.01em;}
+.com-qsem p{margin:0 0 12px; font-size:14px; line-height:1.5; color:var(--ink-soft);}
+.com-qsem-pied{display:flex; align-items:center; flex-wrap:wrap; gap:12px;}
+.com-qsem-choisie, .com-qsem-res{display:flex; align-items:center; gap:10px; width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,0.04); color:var(--ink); font:inherit; font-size:14px; text-align:left; cursor:pointer;}
+.com-qsem-choisie[hidden]{display:none;}
+.com-qsem-choisie{cursor:default; margin-bottom:8px;}
+.com-qsem-choisie button{margin-left:auto; border:0; background:none; color:var(--muted); cursor:pointer;}
+.com-qsem-choisie img, .com-qsem-res img{width:38px; height:38px; border-radius:8px; object-fit:cover; flex:none; background:#0b0f15;}
+.com-qsem-res:hover{border-color:rgba(255,255,255,0.3);}
+.com-qsem-resultats{display:flex; flex-direction:column; gap:6px; margin-bottom:10px;}
+.com-sortie-chip{display:inline-flex; align-items:center; gap:6px; margin:0 0 4px; padding:5px 12px; border:1px solid rgba(79,180,255,0.4); border-radius:999px; background:rgba(79,180,255,0.1); color:var(--blue-bright); font:inherit; font-size:13px; font-weight:600; cursor:pointer;}
+.com-sortie-chip:hover{background:rgba(79,180,255,0.2);}
+.com-av-lawave{width:40px; height:40px; border-radius:50%; overflow:hidden; flex:0 0 auto; background:#fff;}
 .com-av-lawave:hover{transform:none;}
-.com-av-lawave img{width:100%; height:100%; object-fit:cover; display:block;}
+.com-av-lawave img{width:100%; height:100%; object-fit:contain; display:block;}
 .com-epingle-defi{color:#ffb454;}
 
 .com-role{
