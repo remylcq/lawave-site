@@ -800,6 +800,16 @@
   /* Le badge de niveau d'une carte améliorée */
   .ct-c-niv{position:absolute; z-index:3; top:-7px; left:-7px; height:22px; padding:0 8px; border-radius:99px; display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:800; letter-spacing:.02em; color:#1a1200; background:linear-gradient(90deg, #ffd76a, #ffb547); box-shadow:0 4px 12px rgba(0,0,0,.45); font-variant-numeric:tabular-nums;}
   .ct-c-niv i{font-style:normal; font-size:10px; letter-spacing:-.05em;}
+  /* Le bandeau d'un événement en cours, sous le pack */
+  .ct-evenement{all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:14px; width:min(560px, 100%); margin:14px auto 0; padding:10px 14px; border-radius:16px; border:1px solid color-mix(in srgb, var(--acc, #8FD3FF) 55%, transparent); background:linear-gradient(110deg, color-mix(in srgb, var(--acc, #8FD3FF) 20%, transparent), rgba(255,255,255,.03)); transition:transform .2s, border-color .2s;}
+  .ct-evenement:hover{transform:translateY(-2px); border-color:var(--acc, #8FD3FF);}
+  .ct-evenement:focus-visible{outline:2px solid var(--ct-accent); outline-offset:2px;}
+  .ct-evenement .img{flex:none; width:52px; height:52px; border-radius:12px; overflow:hidden; display:grid; place-items:center; background:rgba(0,0,0,.3);}
+  .ct-evenement .img img{width:100%; height:100%; object-fit:cover;}
+  .ct-evenement .tx{flex:1; min-width:0; display:grid; gap:1px; text-align:left;}
+  .ct-evenement small{font-size:10.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--acc, #8FD3FF);}
+  .ct-evenement b{font-size:16px;}
+  .ct-evenement .tx > span{font-size:12.5px; color:var(--ink-soft);}
   /* Le panneau d'amélioration de la fiche */
   .ct-amelio{display:grid; gap:12px; margin-top:16px; padding:16px; border-radius:16px; background:linear-gradient(160deg, rgba(242,193,78,.09), rgba(79,180,255,.05)); border:1px solid rgba(242,193,78,.28); position:relative; overflow:hidden;}
   .ct-am-tete{display:flex; align-items:center; justify-content:space-between; gap:10px;}
@@ -1657,6 +1667,12 @@
     try{ boosters = await appel('jeu_boosters'); }catch(err){ boosters = []; }
     if(!Array.isArray(boosters) || !boosters.length) boosters = REPLI;
     S.boosters = boosters;
+    // Un seul pack : les événements ne sont pas des packs, leurs cartes collector se mêlent au pack le temps de l'événement.
+    const evenements = boosters.filter(b => b.evenement);
+    boosters = boosters.filter(b => !b.evenement);
+    if(!boosters.length) boosters = REPLI;
+    let classeursInfo = [];
+    if(evenements.length){ try{ classeursInfo = await appel('jeu_classeurs'); }catch(err){ classeursInfo = []; } }
     let cur = Math.max(0, boosters.findIndex(b => b.id === S.booster));
     S.booster = boosters[cur].id;
 
@@ -1680,6 +1696,16 @@
         <div class="ct-vit-info" data-info></div>
         <div class="ct-ouvrir" data-zone-ouvrir></div>
         <div class="ct-hero-note">${ico('vinyle', 15)}1 vinyle = 1 pack.<button type="button" class="ct-lien" data-echange>Échanger des Wave Coins</button></div>
+        ${evenements.map((ev2) => {
+          const ci = classeursInfo.find((x) => x.id === ev2.id) || {};
+          const fin2 = ev2.fin ? new Date(ev2.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : '';
+          const img = visuelOk(ev2.visuel) ? `<img src="${esc(ev2.visuel)}" alt="" loading="lazy" decoding="async">` : `<span class="vide">${EMBLEMES[theme(ev2.theme)]}</span>`;
+          return `<button type="button" class="ct-evenement" data-classeur="${esc(ev2.id)}" style="--acc:${couleurOk(ev2.accent)}" aria-label="Événement ${esc(ev2.nom)} : voir les cartes collector">
+            <span class="img">${img}</span>
+            <span class="tx"><small>Événement en cours${fin2 ? ' · jusqu\'au ' + esc(fin2) : ''}</small><b>${esc(ev2.nom)}</b>
+              <span>${ci.total ? nf(ci.possedees || 0) + ' / ' + nf(ci.total) + ' cartes collector obtenues' : nf(ev2.nb_cartes) + ' cartes collector'} · mélangées à tes packs</span></span>
+            ${ico('fleche', 18)}</button>`;
+        }).join('')}
       </section>
 
       ${attente ? `<button type="button" class="ct-attente" data-aller="missions">${ico('cadeau', 22)}<div><b>${pluriel(attente, 'récompense')} à récupérer</b><span>${[e.cadeau_pret ? 'cadeau du jour' : '', e.roue_prete ? 'roue' : '', e.coffres_prets ? 'coffre' : '', e.missions_pretes ? 'missions' : ''].filter(Boolean).join(' · ')}</span></div>${ico('fleche', 18)}</button>` : ''}
@@ -1699,7 +1725,7 @@
         <div class="ct-vit-info-in">
           <h2>${esc(b.nom)}</h2>
           <p>${esc(b.description || '')}</p>
-          ${b.classeur ? `<button type="button" class="ct-lien ct-voir" data-voir>Voir les ${nf(b.nb_cartes)} cartes${ico('fleche', 14)}</button>` : ''}
+          ${b.classeur ? `<button type="button" class="ct-lien ct-voir" data-voir>Voir ma collection · ${nf(b.nb_cartes)} cartes${ico('fleche', 14)}</button>` : ''}
         </div>`;
       const cout = Number(b.cout || 1);
       zoneOuvrir.innerHTML = [1, 5, 10].map(n => `<button type="button" class="ct-btn ${n === 1 ? 'principal ' : ''}grand" data-ouvrir="${n}" ${e.vinyles < n * cout ? 'disabled' : ''}>${n > 1 ? n + ' packs' : 'Ouvrir un pack'}<span class="cout">${ico('vinyle', 12)}${n * cout}</span></button>`).join('');
@@ -1738,8 +1764,9 @@
 
     function voir(b){
       if(!b.classeur){ ouvrir(1, false, b); return; }
-      S.projet = b.id;
-      afficherVue('accueil');
+      // Toutes les cartes sont dans un seul pack : la liste se lit dans la collection (par pages, avec recherche).
+      S.col.classeur = b.id; S.col.page = 1; S.col.vue = 'toutes'; S.col.rarete = null; S.col.q = '';
+      changerVue('collection');
     }
 
     vit.addEventListener('click', (ev) => {
@@ -2186,6 +2213,7 @@
           if(c.nouvelle){ classe = 'nouveau'; texte = 'Nouveau'; }
           else if(c.nouveau_holo){ classe = 'nouveau'; texte = 'Nouveau holo'; }
           if(r >= 3){ classe = ''; texte = RAR[r].nom + (c.nouvelle ? ' · Nouveau' : ''); }
+          if(c.collector) texte = 'Collector · ' + texte;
           p.insertAdjacentHTML('beforeend', `<div class="ct-etiq ${classe}">${esc(texte)}</div>`);
           if(c.parfaite){
             if(!calme()){
@@ -2289,6 +2317,7 @@
           if(c.nouvelle){ classe = 'nouveau'; texte = 'Nouveau'; }
           else if(c.nouveau_holo){ classe = 'nouveau'; texte = 'Nouveau holo'; }
           if(n === 1 && Number(c.rarete) >= 3){ classe = ''; texte = RAR[Number(c.rarete)].nom + (c.nouvelle ? ' · Nouveau' : ''); }
+          if(c.collector) texte = 'Collector · ' + texte;
           return `
           <div class="ct-place retournee donne" data-i="${i}" style="--rc:${rar(c.rarete).c}; --rot:${(i % 2 ? 1 : -1) * 4}deg; animation-delay:${i * 60}ms">
             <div class="ct-volte" role="button" tabindex="0" aria-label="Voir la fiche de ${esc(c.nom)}">
