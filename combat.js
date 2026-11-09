@@ -135,6 +135,44 @@
   .tr3-tour{position:absolute; left:0; right:0; top:38%; text-align:center; font-size:clamp(34px, 8vw, 76px); font-weight:900; letter-spacing:.2em; text-transform:uppercase; color:#fff; text-shadow:0 0 30px rgba(79,180,255,.9), 0 3px 0 #000; pointer-events:none; animation:trTour3 1.1s ease-out forwards;}
   @keyframes trDeg3{0%{opacity:0; transform:translate(-50%, 12px) scale(.6);} 15%{opacity:1; transform:translate(-50%, 0) scale(1.18);} 100%{opacity:0; transform:translate(-50%, -54px) scale(1);}}
   @keyframes trTour3{0%{opacity:0; transform:scale(1.6);} 25%{opacity:1; transform:scale(1);} 100%{opacity:0; transform:scale(.95);}}
+  /* Critiques, ordre de jeu, journal, présentation et fin de combat */
+  .tr3-pop.crit, .tr-deg.crit{color:#ff5a5a; font-size:48px; text-shadow:0 3px 0 #000, 0 0 22px rgba(255,60,60,.9); animation-duration:1.3s;}
+  .tr-critique{position:absolute; left:0; right:0; top:22%; z-index:8; text-align:center; font-size:clamp(34px, 9vw, 84px); font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:#fff; text-shadow:0 0 28px #ff2d2d, 0 4px 0 #3a0000; pointer-events:none; animation:trCrit 1s cubic-bezier(.2,1.3,.4,1) forwards;}
+  .tr-vignette{position:absolute; inset:0; z-index:7; pointer-events:none; background:radial-gradient(ellipse at center, transparent 45%, rgba(255,30,30,.55)); opacity:0; animation:trVig .7s ease-out;}
+  @keyframes trCrit{0%{opacity:0; transform:scale(2.2) rotate(-4deg);} 22%{opacity:1; transform:scale(1) rotate(-2deg);} 75%{opacity:1;} 100%{opacity:0; transform:scale(.95) rotate(-2deg);}}
+  @keyframes trVig{0%{opacity:1;} 100%{opacity:0;}}
+  .tr-ordre{position:absolute; top:62px; left:50%; transform:translateX(-50%); z-index:5; display:flex; gap:6px; align-items:center; padding:6px 10px; border-radius:99px; background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.14); backdrop-filter:blur(4px); max-width:calc(100% - 24px); overflow:hidden;}
+  .tr-ordre small{font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:rgba(255,255,255,.6); margin-right:2px;}
+  .tr-ch{position:relative; width:34px; height:34px; border-radius:50%; background-size:cover; background-position:50% 22%; border:2px solid #4FB4FF; flex:none; transition:transform .25s, opacity .3s, box-shadow .25s;}
+  .tr-ch.e{border-color:#FF5C8A;}
+  .tr-ch.on{transform:scale(1.28); box-shadow:0 0 0 2px #fff, 0 0 16px rgba(255,255,255,.85); z-index:2;}
+  .tr-ch.ko{opacity:.28; filter:grayscale(1);}
+  .tr-ch i{position:absolute; right:-4px; bottom:-5px; min-width:15px; height:15px; padding:0 3px; border-radius:99px; display:grid; place-items:center; font-style:normal; font-size:9px; font-weight:800; color:#05070a; background:#F4F5F6;}
+  .tr-log{position:absolute; left:14px; bottom:76px; z-index:5; width:min(420px, calc(100% - 28px)); display:grid; gap:3px; pointer-events:none;}
+  .tr-log div{padding:4px 10px; border-radius:8px; font-size:12px; color:#fff; background:rgba(0,0,0,.5); text-shadow:0 1px 3px #000; animation:trLog 5s ease forwards; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .tr-log .k{color:#ff8a8a; font-weight:800;} .tr-log .a{color:#7fd0ff;} .tr-log .e{color:#ff8fb0;} .tr-log .v{color:#5BE0A6;}
+  @keyframes trLog{0%{opacity:0; transform:translateX(-12px);} 6%{opacity:1; transform:none;} 80%{opacity:1;} 100%{opacity:0;}}
+  .tr-intro{position:absolute; inset:0; z-index:12; display:grid; place-items:center; align-content:center; gap:6px; text-align:center; background:radial-gradient(ellipse at center, rgba(5,7,10,.5), rgba(5,7,10,.88)); animation:trIntro 1.5s ease forwards; pointer-events:none;}
+  .tr-intro small{font-size:13px; font-weight:800; letter-spacing:.3em; text-transform:uppercase; color:#ffd76a;}
+  .tr-intro b{font-size:clamp(30px, 8vw, 70px); line-height:1.05; letter-spacing:.04em; text-transform:uppercase; text-shadow:0 0 30px rgba(79,180,255,.8); animation:trIntroT .9s cubic-bezier(.2,1.3,.4,1);}
+  .tr-intro span{font-size:14px; color:rgba(255,255,255,.75);}
+  .tr-intro.g b{text-shadow:0 0 34px rgba(255,200,80,.95); color:#ffe9a8;}
+  @keyframes trIntro{0%{opacity:0;} 12%{opacity:1;} 80%{opacity:1;} 100%{opacity:0;}}
+  @keyframes trIntroT{from{transform:scale(2.4); opacity:0; letter-spacing:.4em;}}
+  .tr-confetti{position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:19;}
+  .tr-confetti i{position:absolute; top:-12px; width:9px; height:14px; border-radius:2px; opacity:.95; animation:trConf var(--d, 2.6s) linear var(--l, 0s) forwards;}
+  @keyframes trConf{to{transform:translate(var(--x, 0), 105vh) rotate(var(--r, 540deg)); opacity:.8;}}
+  .tr-bilan{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; width:100%;}
+  .tr-bilan div{padding:9px 6px; border-radius:11px; background:rgba(255,255,255,.06); font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em;}
+  .tr-bilan b{display:block; font-size:18px; letter-spacing:0; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .tr-mvp{display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:12px; background:linear-gradient(90deg, rgba(255,215,106,.18), rgba(255,181,71,.06)); border:1px solid rgba(255,215,106,.4); font-size:13px; width:100%; text-align:left;}
+  .tr-mvp img{width:38px; height:38px; border-radius:50%; object-fit:cover; flex:none;}
+  .tr-mvp b{color:#ffe9a8;}
+  .tr-verdict{display:inline-flex; align-items:center; height:24px; padding:0 10px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;}
+  .tr-verdict.ok{color:#05281a; background:#5BE0A6;} .tr-verdict.mid{color:#2a1c00; background:#ffd76a;} .tr-verdict.ko{color:#2b0509; background:#FF7A85;}
+  .tr3-hud .lv{display:inline-block; margin-left:4px; padding:1px 6px; border-radius:99px; font-size:9.5px; font-weight:800; color:#1a1200; background:linear-gradient(90deg, #ffd76a, #ffb547);}
+  @media (prefers-reduced-motion: reduce){ .tr-critique, .tr-vignette, .tr-intro, .tr-confetti i, .tr-intro b{animation-duration:.01s;} }
+  @media (max-width:560px){ .tr-ordre{top:54px;} .tr-ch{width:28px; height:28px;} .tr-log{bottom:70px;} .tr-log div{font-size:11px;} }
   .cb-fiche{display:grid; gap:12px; padding:14px; border-radius:16px; background:var(--ct-surface-2);}
   .cb-fiche-t{display:flex; align-items:center; justify-content:space-between; gap:10px;}
   .cb-roles{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
@@ -202,6 +240,14 @@
     const p = acc.prochain;
     const pct = Math.min(100, Math.round(acc.etage_max / acc.etages * 1000) / 10);
     const recompense = (r) => r.wc + ' WC' + (r.vinyles ? ' + ' + r.vinyles + ' vinyle' + (r.vinyles > 1 ? 's' : '') : '');
+    // Une idée de la force des deux équipes (indicatif : le combat a ses rôles, ses passifs et ses critiques)
+    const pe = p ? Math.round(p.crew.reduce((t, c) => t + score(c), 0)) : 0;
+    const pm = Math.round(S.equipe.reduce((t, c) => t + score(c), 0));
+    let verdict = '';
+    if(p && S.equipe.length === n && pe > 0){
+      const q = pm / pe;
+      verdict = `<span class="tr-puce" title="Somme pondérée des statistiques">Puissance ${nf(pm)}</span><span class="tr-verdict ${q >= 1.25 ? 'ok' : (q >= .85 ? 'mid' : 'ko')}" title="Estimation : le combat dépend aussi des rôles et des passifs">${q >= 1.25 ? 'Favorable' : (q >= .85 ? 'Équilibré' : 'Difficile')}</span>`;
+    }
     hote.innerHTML = `
       <div class="ct tr">
         <div class="ct-panneau">
@@ -215,13 +261,13 @@
 
         ${p ? `
         <div class="ct-panneau tr-etage" style="margin-top:16px">
-          <div class="tr-etage-t"><h3>${esc(p.nom)}</h3>${p.gardien ? '<span class="tr-puce or">Gardien</span>' : ''}<span class="tr-puce">Adversaires ${p.bonus >= 0 ? '+' : ''}${p.bonus} %</span>
+          <div class="tr-etage-t"><h3>${esc(p.nom)}</h3>${p.gardien ? '<span class="tr-puce or">Gardien</span>' : ''}<span class="tr-puce">Adversaires ${p.bonus >= 0 ? '+' : ''}${p.bonus} %</span><span class="tr-puce">Puissance ${nf(pe)}</span>
             <span class="tr-puce">Récompense : ${esc(recompense(p.recompense))}</span></div>
           <div class="tr-rang" style="--n:${n}">${p.crew.map((u) => `<div class="tr-u">${carte(u)}${statsHtml(u)}</div>`).join('')}</div>
         </div>
 
         <div class="ct-panneau" style="margin-top:16px">
-          <h3 style="margin:0 0 4px">Mon équipe</h3>
+          <div class="tr-etage-t" style="margin-bottom:4px"><h3 style="margin:0">Mon équipe</h3>${verdict}</div>
           <p class="sous" style="margin:0 0 12px">Chaque carte attaque celle d'en face : la 1<sup>re</sup> affronte la 1<sup>re</sup> carte adverse, et ainsi de suite.</p>
           <div class="tr-slots" style="--n:${n}">${Array.from({ length: n }, (_, i) => S.equipe[i]
             ? `<div class="tr-slot"><div class="tr-slot-n"><i>${i + 1}</i></div>${carte(S.equipe[i])}${statsHtml(S.equipe[i])}</div>`
@@ -378,7 +424,27 @@
   }
 
   function fermerScene(){
-    if(S.scene){ S.scene.fini = true; if(S.scene.detruire) S.scene.detruire(); if(S.scene.ov) S.scene.ov.remove(); S.scene = null; }
+    if(S.scene){
+      S.scene.fini = true;
+      if(S.scene.clavier) document.removeEventListener('keydown', S.scene.clavier);
+      if(S.scene.detruire) S.scene.detruire();
+      if(S.scene.ov) S.scene.ov.remove();
+      S.scene = null;
+    }
+  }
+
+  // La vitesse choisie (×1, ×2, ×3) est gardée d'un combat à l'autre.
+  const VITESSE_CLE = 'wc-combat-vitesse';
+  const vitesseSauvee = () => { try{ const v = Number(localStorage.getItem(VITESSE_CLE)); return v >= 1 && v <= 3 ? v : 1; }catch(e){ return 1; } };
+  const sauverVitesse = (v) => { try{ localStorage.setItem(VITESSE_CLE, String(v)); }catch(e){ /* sans mémoire */ } };
+
+  // Un coup critique : un mot en grand et le bord de l'écran qui rougit (les deux scènes l'utilisent).
+  function critiqueFx(sc){
+    if(sc.passer || calme()) return;
+    const b = document.createElement('div'); b.className = 'tr-critique'; b.textContent = 'Critique !';
+    const v = document.createElement('div'); v.className = 'tr-vignette';
+    sc.ov.appendChild(v); sc.ov.appendChild(b);
+    setTimeout(() => { b.remove(); v.remove(); }, 1100);
   }
 
   // Les deux « acteurs » qui rejouent le déroulé : la scène 3D (WebGL) et, à défaut, la scène 2D. Même interface :
@@ -399,13 +465,78 @@
     ov.innerHTML = `
       <div class="tr-haut"><div><h3>${esc(r.nom)}</h3><small>${r.gardien ? 'Gardien · ' : ''}Étage ${r.etage} sur ${r.etages}</small></div><span class="tr-tour" data-tour>Prêts ?</span></div>
       <div class="tr-corps" data-corps></div>
-      <div class="tr-bas"><button type="button" class="ct-btn petit" data-vitesse>Vitesse ×1</button><button type="button" class="ct-btn petit" data-passer>Passer</button></div>`;
+      <div class="tr-bas"><button type="button" class="ct-btn petit" data-vitesse>Vitesse ×1</button><button type="button" class="ct-btn petit" data-passer>Passer</button></div>
+      <div class="tr-ordre" data-ordre aria-label="Ordre de jeu"></div>
+      <div class="tr-log" data-log aria-live="off"></div>`;
     document.body.appendChild(ov);
-    const sc = { ov, fini: false, vitesse: 1, passer: false, detruire: null };
+    const sc = { ov, fini: false, vitesse: vitesseSauvee(), passer: false, detruire: null, clavier: null };
     S.scene = sc;
-    ov.querySelector('[data-vitesse]').addEventListener('click', (ev) => { sc.vitesse = sc.vitesse >= 3 ? 1 : sc.vitesse + 1; ev.currentTarget.textContent = 'Vitesse ×' + sc.vitesse; });
+    const bVitesse = ov.querySelector('[data-vitesse]');
+    bVitesse.textContent = 'Vitesse ×' + sc.vitesse;
+    const changerVitesse = () => { sc.vitesse = sc.vitesse >= 3 ? 1 : sc.vitesse + 1; bVitesse.textContent = 'Vitesse ×' + sc.vitesse; sauverVitesse(sc.vitesse); };
+    bVitesse.addEventListener('click', changerVitesse);
     ov.querySelector('[data-passer]').addEventListener('click', () => { sc.passer = true; });
+    // Espace : changer de vitesse ; Échap : passer le combat
+    sc.clavier = (e) => {
+      if(e.key === 'Escape'){ sc.passer = true; }
+      else if((e.key === ' ' || e.code === 'Space') && !(e.target && e.target.closest && e.target.closest('button, input, select, textarea'))){ e.preventDefault(); changerVitesse(); }
+    };
+    document.addEventListener('keydown', sc.clavier);
     const corps = ov.querySelector('[data-corps]');
+
+    // La présentation : le nom de l'étage (ou du gardien) et les adversaires, pendant que la scène se prépare.
+    if(!calme()){
+      const it = document.createElement('div');
+      it.className = 'tr-intro' + (r.gardien ? ' g' : '');
+      it.innerHTML = `<small>${r.gardien ? 'Gardien' : 'Étage ' + r.etage}</small><b>${esc(r.nom)}</b><span>${esc(r.b.map((u) => u.nom).join(' · '))}</span>`;
+      ov.appendChild(it);
+      setTimeout(() => it.remove(), 1600);
+    }
+
+    // L'ordre de jeu (par Vitesse), le journal des derniers coups et le bilan du combat
+    const stats = { degats: r.a.map(() => 0), crits: 0, soins: 0, meilleur: { d: 0, nom: '', titre: '' } };
+    const ordre = ov.querySelector('[data-ordre]');
+    const unites = [...r.a.map((u, i) => ({ u, c: 0, p: i + 1 })), ...r.b.map((u, i) => ({ u, c: 1, p: i + 1 }))].sort((x, y) => y.u.vit - x.u.vit);
+    ordre.innerHTML = '<small>Ordre</small>' + unites.map(({ u, c, p }) => `<span class="tr-ch${c ? ' e' : ''}" data-ch="${c}-${p}" style="background-image:url('${esc(A.safeUrl(u.photo))}')" title="${esc(u.nom)} · Vitesse ${u.vit}"><i>${u.vit}</i></span>`).join('');
+    const log = ov.querySelector('[data-log]');
+    const ligne = (html) => {
+      if(sc.passer) return;
+      const d = document.createElement('div'); d.innerHTML = html; log.appendChild(d);
+      while(log.children.length > 4) log.firstChild.remove();
+      setTimeout(() => d.remove(), 5200);
+    };
+    const nomDe = (c, p) => ((c === 0 ? r.a : r.b)[p - 1] || {}).nom || '?';
+    const cl = (c) => (c === 0 ? 'a' : 'e');
+    const puceOrdre = (c, p) => ordre.querySelector(`[data-ch="${c}-${p}"]`);
+    const suivi = (ev) => {
+      if(ev.t === 'tour'){ ordre.querySelectorAll('.on').forEach((x) => x.classList.remove('on')); return; }
+      if(ev.a){ ordre.querySelectorAll('.on').forEach((x) => x.classList.remove('on')); const x = puceOrdre(ev.a[0], ev.a[1]); if(x) x.classList.add('on'); }
+      if(ev.t === 'att'){
+        ligne(`<span class="${cl(ev.a[0])}">${esc(nomDe(ev.a[0], ev.a[1]))}</span> → <span class="${cl(ev.c[0])}">${esc(nomDe(ev.c[0], ev.c[1]))}</span> · ${esc(ev.n)} <b>−${nf(ev.d)}</b>${ev.k ? ' <span class="k">CRITIQUE</span>' : ''}`);
+        if(ev.a[0] === 0){
+          stats.degats[ev.a[1] - 1] += ev.d;
+          if(ev.k) stats.crits++;
+          if(ev.d > stats.meilleur.d) stats.meilleur = { d: ev.d, nom: nomDe(ev.a[0], ev.a[1]), titre: ev.n };
+        }
+      }else if(ev.t === 'zone'){
+        const tot = ev.x.reduce((t, h) => t + h.d, 0);
+        ligne(`<span class="${cl(ev.a[0])}">${esc(nomDe(ev.a[0], ev.a[1]))}</span> · ${esc(ev.n)} <b>−${nf(tot)}</b> sur toute l'équipe${ev.x.some((h) => h.k) ? ' <span class="k">CRITIQUE</span>' : ''}`);
+        if(ev.a[0] === 0){
+          stats.degats[ev.a[1] - 1] += tot;
+          stats.crits += ev.x.filter((h) => h.k).length;
+          if(tot > stats.meilleur.d) stats.meilleur = { d: tot, nom: nomDe(ev.a[0], ev.a[1]), titre: ev.n };
+        }
+      }else if(ev.t === 'soin' && ev.x){
+        const tot = ev.x.reduce((t, h) => t + h.d, 0);
+        ligne(`<span class="${cl(ev.a[0])}">${esc(nomDe(ev.a[0], ev.a[1]))}</span> soigne <span class="v">+${nf(tot)} PV</span>`);
+        if(ev.a[0] === 0) stats.soins += tot;
+      }else if(ev.t === 'bouclier'){
+        ligne(`<span class="${cl(ev.a[0])}">${esc(nomDe(ev.a[0], ev.a[1]))}</span> pose un bouclier`);
+      }else if(ev.t === 'ko'){
+        const x = puceOrdre(ev.c[0], ev.c[1]); if(x){ x.classList.add('ko'); x.classList.remove('on'); }
+        ligne(`<span class="${cl(ev.c[0])}">${esc(nomDe(ev.c[0], ev.c[1]))}</span> est K.O.`);
+      }
+    };
 
     let acteur = null;
     try{ acteur = await creerActeur3d(r, sc, corps); }catch(e){ acteur = null; }
@@ -417,12 +548,14 @@
     for(const ev of r.evenements){
       if(sc.fini) return;
       if(ev.t === 'tour') ov.querySelector('[data-tour]').textContent = 'Tour ' + ev.n;
+      suivi(ev);
       await acteur.evenement(ev);
     }
     if(sc.fini) return;
+    ordre.querySelectorAll('.on').forEach((x) => x.classList.remove('on'));
     await acteur.fin(!!r.victoire);
     if(sc.fini) return;
-    finir(r, sc);
+    finir(r, sc, stats);
   }
 
   // ---------------------------------------------------------------------
@@ -480,7 +613,8 @@
           avance(a, ev.a[0]);
           await attendre(ms(230));
           secoue(el(ev.c[0], ev.c[1]));
-          flotte(ev.c[0], ev.c[1], '−' + nf(ev.d), ev.s ? 'sig' : '');
+          flotte(ev.c[0], ev.c[1], '−' + nf(ev.d), ev.k ? 'crit' : (ev.s ? 'sig' : ''));
+          if(ev.k) critiqueFx(sc);
           majPv(ev.c[0], ev.c[1], ev.pv);
           if(a) a.style.transform = '';
           await attendre(ms(330));
@@ -489,7 +623,8 @@
           bulle(ev.a[0], ev.a[1], ev.n, ev.s ? 'sig' : '');
           avance(a, ev.a[0]);
           await attendre(ms(230));
-          ev.x.forEach((h) => { secoue(el(h.c[0], h.c[1])); flotte(h.c[0], h.c[1], '−' + nf(h.d), ev.s ? 'sig' : ''); majPv(h.c[0], h.c[1], h.pv); });
+          if(ev.x.some((h) => h.k)) critiqueFx(sc);
+          ev.x.forEach((h) => { secoue(el(h.c[0], h.c[1])); flotte(h.c[0], h.c[1], '−' + nf(h.d), h.k ? 'crit' : (ev.s ? 'sig' : '')); majPv(h.c[0], h.c[1], h.pv); });
           if(a) a.style.transform = '';
           await attendre(ms(330));
         }else if(ev.t === 'soin' && ev.x){
@@ -837,7 +972,8 @@
     const hud = (u, c) => {
       const d = document.createElement('div');
       d.className = 'tr3-hud ' + (c === 0 ? 'ami' : 'ennemi');
-      d.innerHTML = `<div class="n">${esc(u.nom)}</div>${u.role_nom ? `<div class="ro">${esc(u.role_nom)}</div>` : ''}<div class="pv"><i></i><b></b></div><div class="pvn">${nf(u.pv_max)} / ${nf(u.pv_max)}</div>`;
+      const niv = u.niveau > 1 || u.etoiles > 0 ? `<span class="lv">Niv ${u.niveau}${u.etoiles ? ' ' + '★'.repeat(u.etoiles) : ''}</span>` : '';
+      d.innerHTML = `<div class="n">${esc(u.nom)}</div>${u.role_nom || niv ? `<div class="ro">${esc(u.role_nom || '')}${niv}</div>` : ''}<div class="pv"><i></i><b></b></div><div class="pvn">${nf(u.pv_max)} / ${nf(u.pv_max)}</div>`;
       hudLayer.appendChild(d);
       return d;
     };
@@ -932,15 +1068,20 @@
     const coup = (f) => new THREE.Vector3(f.g.position.x, 2.0, f.g.position.z + .1);
 
     // la carte touchée recule et se redresse ; le flash, les particules, la secousse
-    const touche = (f, d, sig, couleur) => {
+    const touche = (f, d, sig, couleur, crit) => {
       const z0 = f.g.position.z, dir = f.c === 0 ? 1 : -1;
       impact = Math.min(1, impact + .7);
+      if(crit){   // un critique : impact maximal, éclat rouge, onde large
+        impact = 1;
+        burst(coup(f), 0xff3b3b, 90, 9, .85);
+        onde(f.g.position, 0xff4040, 4.4, .7);
+      }
       flash.color.set(couleur || 0xffffff); flash.position.set(f.g.position.x, 2.6, z0 + (f.c === 0 ? -1 : 1));
-      flash.intensity = sig ? 260 : 140;
+      flash.intensity = crit ? 380 : (sig ? 260 : 140);
       burst(coup(f), couleur || 0xffffff, sig ? 70 : 38, sig ? 7.5 : 5, .75);
       burst(coup(f), 0xffe6a8, sig ? 40 : 18, 3, .5);
       onde(f.g.position, couleur || 0xffffff, sig ? 3.4 : 2.4, .55);
-      secousse = Math.max(secousse, Math.min(.55, .12 + d / f.pvmax * 1.2 + (sig ? .15 : 0)));
+      secousse = Math.max(secousse, Math.min(crit ? .75 : .55, .12 + d / f.pvmax * 1.2 + (sig ? .15 : 0) + (crit ? .2 : 0)));
       eclat(f, 0xff4040, .35);
       return tw(.34, (k) => {
         const rebond = Math.sin(k * Math.PI);
@@ -1045,11 +1186,13 @@
         const a = fz(ev.a[0], ev.a[1]), t = fz(ev.c[0], ev.c[1]);
         banniere(a, ev.n, ev.s ? 'sig' : '');
         const mid = new THREE.Vector3((a.home.x + t.g.position.x) / 2, 1.5, (a.home.z + t.g.position.z) / 2);
-        if(ev.s) echelle = .35;
-        camVers(new THREE.Vector3(mid.x * .6 + (a.c === 0 ? 1.2 : -1.2), 4.6, mid.z + 8.6), new THREE.Vector3(mid.x, 2.8, mid.z), .38);
+        if(ev.s || ev.k) echelle = ev.k ? .22 : .35;
+        // un critique : la caméra se rapproche de la cible
+        camVers(new THREE.Vector3(mid.x * .6 + (a.c === 0 ? 1.2 : -1.2), ev.k ? 3.8 : 4.6, mid.z + (ev.k ? 6.6 : 8.6)), new THREE.Vector3(mid.x, 2.8, mid.z), .38);
         await elan(a, t.g.position, ev.s ? .26 : .2);
-        touche(t, ev.d, ev.s, ev.s ? 0xffd76a : (a.c === 0 ? 0x7fd0ff : 0xff8fb0));
-        popup(t, '−' + nf(ev.d), ev.s ? 'sig' : '');
+        touche(t, ev.d, ev.s, ev.k ? 0xff5050 : (ev.s ? 0xffd76a : (a.c === 0 ? 0x7fd0ff : 0xff8fb0)), ev.k);
+        if(ev.k) critiqueFx(sc);
+        popup(t, '−' + nf(ev.d), ev.k ? 'crit' : (ev.s ? 'sig' : ''));
         t.pv = ev.pv; t.bouc = ev.b || 0; majHud(t);
         await att(120);
         retour(a, .3);
@@ -1062,9 +1205,10 @@
         await tw(.32, (k) => { a.carteG.position.y = YC + Math.sin(k * Math.PI) * .9; a.carteG.rotation.y = k * Math.PI * 2; }, ease.io);
         a.carteG.rotation.y = 0;
         onde(a.g.position, ev.s ? 0xffd76a : 0xffffff, 5, .8);
+        if(ev.x.some((h) => h.k)){ echelle = .3; critiqueFx(sc); }
         ev.x.forEach((h, k) => {
           const t = fz(h.c[0], h.c[1]);
-          setTimeout(() => { if(sc.fini) return; touche(t, h.d, ev.s, ev.s ? 0xffd76a : 0xffa05c); popup(t, '−' + nf(h.d), ev.s ? 'sig' : ''); t.pv = h.pv; t.bouc = h.b || 0; majHud(t); }, sc.passer ? 0 : k * 90 / sc.vitesse);
+          setTimeout(() => { if(sc.fini) return; touche(t, h.d, ev.s, h.k ? 0xff5050 : (ev.s ? 0xffd76a : 0xffa05c), h.k); popup(t, '−' + nf(h.d), h.k ? 'crit' : (ev.s ? 'sig' : '')); t.pv = h.pv; t.bouc = h.b || 0; majHud(t); }, sc.passer ? 0 : k * 90 / sc.vitesse);
         });
         await att(520);
       }else if(ev.t === 'soin' && ev.x){
@@ -1133,15 +1277,25 @@
     };
   }
 
-  function finir(r, sc){
+  function finir(r, sc, stats){
     const g = r.gains || {};
     const fin = document.createElement('div');
     fin.className = 'tr-fin';
     const suite = r.victoire && r.etage < r.etages;
+    // Le bilan : dégâts, critiques, meilleur coup et la carte la plus décisive (MVP)
+    let bilan = '';
+    if(stats){
+      const tot = stats.degats.reduce((a, b) => a + b, 0);
+      const mi = stats.degats.indexOf(Math.max(...stats.degats));
+      const mvp = mi >= 0 && stats.degats[mi] > 0 ? r.a[mi] : null;
+      bilan = `<div class="tr-bilan"><div><b>${nf(tot)}</b>Dégâts</div><div><b>${stats.crits}</b>Critique${stats.crits > 1 ? 's' : ''}</div><div><b>${nf(stats.meilleur.d)}</b>Meilleur coup</div></div>`
+        + (mvp ? `<div class="tr-mvp"><img src="${esc(A.safeUrl(mvp.photo))}" alt=""><span><b>MVP</b> · ${esc(mvp.nom)} : ${nf(stats.degats[mi])} dégâts${stats.meilleur.nom ? ' · meilleur coup « ' + esc(stats.meilleur.titre) + ' »' : ''}</span></div>` : '');
+    }
     fin.innerHTML = `
       <div class="tr-fin-c ${r.victoire ? 'v' : 'd'}">
         <h2>${r.victoire ? 'Victoire !' : 'Défaite'}</h2>
         <p class="sous" style="margin:0">${esc(r.nom)} · ${pluriel(r.tours, 'tour', 'tours')}</p>
+        ${bilan}
         ${r.premiere ? `<div class="tr-gains">${g.wc ? `<span class="tr-puce or">+${nf(g.wc)} Wave Coins</span>` : ''}${g.vinyles ? `<span class="tr-puce or">+${nf(g.vinyles)} vinyle${g.vinyles > 1 ? 's' : ''}</span>` : ''}<span class="tr-puce">Étage ${r.etage_max} atteint</span></div>`
           : (r.victoire ? '<p class="sous" style="margin:0">Étage déjà franchi : pas de récompense, mais c\'est la classe.</p>' : '<p class="sous" style="margin:0">Change l\'ordre ou les cartes de ton équipe, puis réessaie.</p>')}
         <div class="tr-actions" style="justify-content:center">
@@ -1151,6 +1305,13 @@
         </div>
       </div>`;
     sc.ov.appendChild(fin);
+    if(r.victoire && !calme()){
+      const conf = document.createElement('div'); conf.className = 'tr-confetti';
+      const couleurs = ['#ff5c8a', '#ffd76a', '#4fb4ff', '#5be0a6', '#b36bff', '#ffffff'];
+      conf.innerHTML = Array.from({ length: 70 }, () => `<i style="left:${Math.random() * 100}%; background:${couleurs[Math.floor(Math.random() * couleurs.length)]}; --d:${(2.2 + Math.random() * 2).toFixed(2)}s; --l:${(Math.random() * .9).toFixed(2)}s; --x:${Math.round((Math.random() - .5) * 160)}px; --r:${Math.round(360 + Math.random() * 720)}deg"></i>`).join('');
+      fin.appendChild(conf);
+      setTimeout(() => conf.remove(), 5500);
+    }
     const retour = async () => { fermerScene(); try{ await charger(); dessiner(); }catch(e){ /* l'onglet a changé */ } };
     fin.querySelector('[data-retour]').addEventListener('click', retour);
     fin.querySelector('[data-rejouer]').addEventListener('click', async () => { fermerScene(); await lancer(r.etage); });
