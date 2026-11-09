@@ -40,6 +40,12 @@ window.ArtisteOutils = (function(){
 
     if(!artisteCourant || artisteCourant.handle !== a.handle || !data) return;
 
+    // Aperçu « utilisateur » (équipe) : ni ajout, ni retrait, ni statistiques.
+    if(window.vueLambda){
+      data.peut_gerer = false;
+      (data.concerts || []).forEach(c => { c.peut_supprimer = false; });
+    }
+
     a.concerts = data;
     dessinerConcerts(a);
   }

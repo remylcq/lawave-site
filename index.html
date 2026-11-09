@@ -3244,6 +3244,9 @@
     background:transparent; color:var(--ink-soft); font:inherit; font-size:13px; font-weight:500; cursor:pointer;
     transition:border-color .2s var(--ease), color .2s var(--ease);
   }
+  .vue-lambda-bandeau{position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:200; display:flex; align-items:center; gap:12px; padding:9px 10px 9px 16px; border:1px solid rgba(255,170,60,0.5); border-radius:999px; background:rgba(13,17,24,0.94); box-shadow:0 10px 30px rgba(0,0,0,0.5); font-size:13px; color:var(--ink);}
+  .vue-lambda-bandeau[hidden]{display:none;}
+  .vue-lambda-bandeau button{padding:6px 14px; border:0; border-radius:999px; background:#ffb454; color:#1a1200; font:inherit; font-size:13px; font-weight:700; cursor:pointer;}
   .fiche-pied{display:flex; justify-content:flex-end; margin-top:6px;}
   .icone-discrete{display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--muted); opacity:.6; cursor:pointer; transition:opacity .2s var(--ease), background .2s var(--ease), color .2s var(--ease);}
   .icone-discrete svg{width:17px; height:17px;}
@@ -4852,6 +4855,19 @@
     });
   }
 
+  // « Voir le site comme un utilisateur » (équipe) : un aperçu d'affichage, gardé le temps de l'onglet.
+  // Il masque les outils d'équipe et les onglets réservés à l'artiste ; la base, elle, ne change pas.
+  try{ window.vueLambda = sessionStorage.getItem('lw-vue-lambda') === '1'; }catch(e){ window.vueLambda = false; }
+
+  window.basculerVueLambda = function(){
+    try{
+      if(window.vueLambda) sessionStorage.removeItem('lw-vue-lambda');
+      else sessionStorage.setItem('lw-vue-lambda', '1');
+    }catch(e){}
+    if(/^#admin/.test(location.hash)) location.hash = '';
+    location.reload();
+  };
+
   // -1 : plus petit, 0 : normal, 1 : plus grand (d'un cran à chaque fois).
   window.reglerTailleTexte = function(sens){
     var n = sens === 0 ? 0 : Math.max(0, Math.min(NIVEAUX.length - 1, lire() + sens));
@@ -4928,6 +4944,7 @@
           <p class="mono" id="accDropPseudo" style="margin:0 0 10px; color:var(--ink); font-size:13px;"></p>
           <button onclick="goTo('profile')">Mon profil</button>
           <button onclick="goTo('waveurs')">L'espace des waveurs</button>
+          <button id="accVueLambda" style="display:none" onclick="basculerVueLambda()">Voir comme un utilisateur</button>
           <button onclick="logoutUser()">Se déconnecter</button>
         </div>
       </div>
@@ -7486,6 +7503,12 @@
   <aside class="modal-pistes" id="modalPistes" hidden aria-label="Titres du projet"></aside>
   </div>
 </div>
+
+<div class="vue-lambda-bandeau" id="vueLambdaBandeau" hidden>
+  <span>Tu vois le site comme un utilisateur lambda.</span>
+  <button type="button" onclick="basculerVueLambda()">Revenir en équipe</button>
+</div>
+<script>if(window.vueLambda){ document.getElementById('vueLambdaBandeau').hidden = false; }</script>
 
 <footer>
   <div class="footer-inner">
@@ -12346,7 +12369,8 @@ function profileToUser(row){
     xp: row.xp || 0,
     challenges: row.challenges || {},
     onboarding: row.onboarding || {},
-    isAdmin: !!row.is_admin,
+    isAdmin: !!row.is_admin && !window.vueLambda,
+    isAdminReel: !!row.is_admin,
     // Profil vérifié par l'équipe (voir sql/profils-verifies.sql) : pour quel rôle, et depuis quand.
     verifie: !!row.verifie,
     verifieRole: row.verifie_role || null,
@@ -12620,6 +12644,8 @@ function refreshAccountUI(){
     loggedOut.style.display = 'none';
     loggedIn.style.display = 'block';
     document.getElementById('accDropPseudo').textContent = currentUser.pseudo;
+    const bVue = document.getElementById('accVueLambda');
+    if(bVue) bVue.style.display = currentUser.isAdminReel ? '' : 'none';
     majCompteursCommunaute();
   } else {
     loggedOut.style.display = 'block';
@@ -20971,6 +20997,12 @@ async function chargerGalerieArtiste(){
   }
 
   if(!artisteCourant || artisteCourant.handle !== voulu || !data) return;
+
+  // Aperçu « utilisateur » : ni ajout ni suppression de photos.
+  if(window.vueLambda){
+    data.peut_gerer = false;
+    (data.photos || []).forEach(f => { f.peut_supprimer = false; });
+  }
 
   artisteCourant.galerie = data;
   dessinerGalerieArtiste();

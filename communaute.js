@@ -5398,8 +5398,11 @@ function profilEnteteHtml(V){
           : `<span class="com-profil-ondes" aria-hidden="true">${icone('ondes', 120)}</span>`}
         ${soi ? `
           <button type="button" class="com-profil-engrenage" data-act="reglages" aria-label="Paramètres du profil" title="Paramètres">${icone('rouage', 20)}</button>
-          <button type="button" class="com-ban-btn" data-act="banniere-modifier" aria-label="Changer ma bannière" title="Changer ma bannière">${icone('image', 17)}</button>
-          ${banniere ? `<button type="button" class="com-ban-btn retirer" data-act="banniere-retirer" aria-label="Retirer ma bannière" title="Retirer ma bannière">${icone('croix', 14)}</button>` : ''}
+          <button type="button" class="com-ban-btn" data-act="banniere-modifier" data-a="${banniere ? '1' : ''}" aria-haspopup="${banniere ? 'menu' : 'false'}" aria-label="${banniere ? 'Ma bannière' : 'Ajouter une bannière'}" title="${banniere ? 'Ma bannière' : 'Ajouter une bannière'}">${icone('image', 17)}</button>
+          ${banniere ? `<div class="com-ban-menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-act="banniere-choisir">Remplacer la bannière</button>
+            <button type="button" role="menuitem" data-act="banniere-retirer">Retirer la bannière</button>
+          </div>` : ''}
           <input type="file" data-c-banniere accept="image/jpeg,image/png,image/webp" hidden>` : ''}
       </div>
       <div class="com-profil-corps">
@@ -5861,12 +5864,7 @@ async function modifierMonProfil(V){
       ${auditeur ? '' : `<div class="com-champ"><span>Je cherche <i>(8 au plus)</i></span>
         <div class="com-chips-bloc" data-d="cherche">${chipsMetiersHtml(etat.cherche, 'cherche')}</div></div>
       <div class="com-champ"><span>Je propose <i>(8 au plus)</i></span>
-        <div class="com-chips-bloc" data-d="propose">${chipsMetiersHtml(etat.propose, 'propose')}</div></div>`}
-      <div class="com-champ"><span>Mes styles <i>(6 au plus)</i></span>
-        <div class="com-styles" data-d="genres"><span class="com-styles-liste"></span>
-          <input type="text" data-d="genre-saisie" maxlength="24" placeholder="Trap, boom bap…" autocomplete="off" aria-label="Ajouter un style"></div>
-        <div class="com-suggestions-styles">${GENRES_SUGGERES.map(g => `<button type="button" class="com-puce bouton" data-genre="${attr(g)}">+ ${esc(g)}</button>`).join('')}</div>
-      </div>`,
+        <div class="com-chips-bloc" data-d="propose">${chipsMetiersHtml(etat.propose, 'propose')}</div></div>`}`,
     boutons: [
       { libelle: 'Annuler', valeur: 'non' },
       { libelle: 'Enregistrer', valeur: 'ok', primaire: true }
@@ -5875,22 +5873,6 @@ async function modifierMonProfil(V){
     surOuverture: (boite) => {
 
       $('[data-d="ville"]', boite).value = p.ville || '';
-
-      const dessinerGenres = () => {
-        $('[data-d="genres"] .com-styles-liste', boite).innerHTML = etat.genres.map((g, i) => `
-          <span class="com-puce retirable">${esc(g)}<button type="button" data-retirer-genre="${i}" aria-label="Retirer ${attr(g)}">${icone('croix', 11)}</button></span>`).join('');
-        $('[data-d="genre-saisie"]', boite).hidden = etat.genres.length >= 6;
-      };
-
-      const ajouterGenre = (v) => {
-        const g = String(v || '').replace(/[,;]+/g, ' ').trim().slice(0, 24);
-        if(g.length < 2 || etat.genres.length >= 6) return false;
-        if(!etat.genres.some(x => x.toLowerCase() === g.toLowerCase())) etat.genres.push(g);
-        dessinerGenres();
-        return true;
-      };
-
-      dessinerGenres();
 
       boite.addEventListener('click', (e) => {
 
@@ -5907,31 +5889,12 @@ async function modifierMonProfil(V){
           return;
         }
 
-        const retirer = e.target.closest('[data-retirer-genre]');
-        if(retirer){ etat.genres.splice(Number(retirer.dataset.retirerGenre), 1); dessinerGenres(); return; }
-
-        const sug = e.target.closest('[data-genre]');
-        if(sug){ ajouterGenre(sug.dataset.genre); return; }
-
         const lien = e.target.closest('[data-act="reglages"]');
         if(lien){ e.preventDefault(); fermerCalque(); ouvrirReglagesProfil(); }
-      });
-
-      const saisie = $('[data-d="genre-saisie"]', boite);
-      saisie.addEventListener('keydown', (e) => {
-        if(e.key === 'Enter' || e.key === ','){
-          e.preventDefault();
-          if(ajouterGenre(saisie.value)) saisie.value = '';
-        } else if(e.key === 'Backspace' && !saisie.value && etat.genres.length){
-          etat.genres.pop();
-          dessinerGenres();
-        }
       });
     },
     lire: (boite, valeur) => {
       if(valeur !== 'ok') return null;
-      const saisie = $('[data-d="genre-saisie"]', boite);
-      if(saisie.value.trim() && etat.genres.length < 6) etat.genres.push(saisie.value.trim().slice(0, 24));
       return { ville: $('[data-d="ville"]', boite).value.trim(), cherche: etat.cherche, propose: etat.propose, genres: etat.genres };
     }
   });
@@ -8043,7 +8006,20 @@ function agir(act, cible, e){
     }
 
     case 'banniere-modifier': {
+      // Pas de bannière : on choisit directement une image. Sinon, un petit menu propose de la remplacer ou de la retirer.
+      if(cible.dataset.a){
+        const menu = $('.com-ban-menu', cible.parentElement);
+        if(menu) menu.hidden = !menu.hidden;
+        return;
+      }
       const champ = $('input[data-c-banniere]', cible.parentElement);
+      if(champ) champ.click();
+      return;
+    }
+
+    case 'banniere-choisir': {
+      const champ = $('input[data-c-banniere]', cible.parentElement.parentElement);
+      $('.com-ban-menu', cible.parentElement.parentElement).hidden = true;
       if(champ) champ.click();
       return;
     }
@@ -10076,6 +10052,10 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
     radial-gradient(120% 140% at 85% 0%, hsl(calc(var(--h,210) + 50) 70% 38% / .55), transparent 60%),
     linear-gradient(135deg, hsl(var(--h,210) 60% 30%), hsl(calc(var(--h,210) + 46) 62% 16%));
 }
+.com-ban-menu{position:absolute; right:12px; bottom:56px; z-index:5; display:flex; flex-direction:column; min-width:190px; padding:6px; border:1px solid var(--line); border-radius:14px; background:rgba(13,17,24,0.96); box-shadow:0 12px 32px rgba(0,0,0,0.5);}
+.com-ban-menu[hidden]{display:none;}
+.com-ban-menu button{padding:10px 12px; border:0; border-radius:9px; background:none; color:var(--ink); font:inherit; font-size:14px; text-align:left; cursor:pointer;}
+.com-ban-menu button:hover{background:rgba(255,255,255,0.08);}
 .com-profil-banniere > img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;}
 .com-profil-banniere.avec-image{background:#0b0f15;}
 .com-profil-banniere.avec-image::after{
