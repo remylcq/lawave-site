@@ -125,6 +125,18 @@ jobs:
           # Les .htaccess ne se servent pas (Apache les refuse) : on ne vérifie que ce que le site publie.
           fichiers=$(cd _publication && find . -type f -not -name '.ht*' | sed 's#^\./##' | sort)
           for f in $fichiers; do
+            # Un script PHP est exécuté par l'hébergement : ce qu'il sert n'est pas son texte. On vérifie qu'il répond (200)
+            # et que son code source n'est pas exposé (une réponse qui commencerait par « <?php » voudrait dire que le PHP ne tourne pas).
+            if [[ "$f" == *.php ]]; then
+              code=$(curl -sS --max-time 60 -o /tmp/php-reponse -w '%{http_code}' "$SITE_URL/$f?verif=$GITHUB_SHA" 2>/dev/null || echo 000)
+              if [ "$code" = "200" ] && ! head -c 5 /tmp/php-reponse | grep -q '<?php'; then
+                echo "ok        $f (PHP exécuté)"
+              else
+                echo "DIFFÉRENT $f (le PHP ne répond pas comme prévu : code $code)"
+                echec=1
+              fi
+              continue
+            fi
             attendu=$(sha256sum "_publication/$f" | cut -d' ' -f1)
             recu=""
             for essai in 1 2 3 4 5 6; do
