@@ -135,6 +135,10 @@
   .tr3-tour{position:absolute; left:0; right:0; top:38%; text-align:center; font-size:clamp(34px, 8vw, 76px); font-weight:900; letter-spacing:.2em; text-transform:uppercase; color:#fff; text-shadow:0 0 30px rgba(79,180,255,.9), 0 3px 0 #000; pointer-events:none; animation:trTour3 1.1s ease-out forwards;}
   @keyframes trDeg3{0%{opacity:0; transform:translate(-50%, 12px) scale(.6);} 15%{opacity:1; transform:translate(-50%, 0) scale(1.18);} 100%{opacity:0; transform:translate(-50%, -54px) scale(1);}}
   @keyframes trTour3{0%{opacity:0; transform:scale(1.6);} 25%{opacity:1; transform:scale(1);} 100%{opacity:0; transform:scale(.95);}}
+  /* La page Combat : les adversaires et mon équipe côte à côte sur grand écran */
+  .tr-vs{display:grid; gap:16px; margin-top:16px;}
+  .tr-vs > .ct-panneau{margin-top:0 !important; align-content:start;}
+  @media (min-width:980px){ .tr-vs{grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);} .tr-vs .tr-rang, .tr-vs .tr-slots{grid-template-columns:repeat(var(--n, 3), minmax(0, 1fr));} }
   /* Critiques, ordre de jeu, journal, présentation et fin de combat */
   .tr3-pop.crit, .tr-deg.crit{color:#ff5a5a; font-size:48px; text-shadow:0 3px 0 #000, 0 0 22px rgba(255,60,60,.9); animation-duration:1.3s;}
   .tr-critique{position:absolute; left:0; right:0; top:22%; z-index:8; text-align:center; font-size:clamp(34px, 9vw, 84px); font-weight:900; letter-spacing:.12em; text-transform:uppercase; color:#fff; text-shadow:0 0 28px #ff2d2d, 0 4px 0 #3a0000; pointer-events:none; animation:trCrit 1s cubic-bezier(.2,1.3,.4,1) forwards;}
@@ -260,6 +264,7 @@
         </div>
 
         ${p ? `
+        <div class="tr-vs">
         <div class="ct-panneau tr-etage" style="margin-top:16px">
           <div class="tr-etage-t"><h3>${esc(p.nom)}</h3>${p.gardien ? '<span class="tr-puce or">Gardien</span>' : ''}<span class="tr-puce">Adversaires ${p.bonus >= 0 ? '+' : ''}${p.bonus} %</span><span class="tr-puce">Puissance ${nf(pe)}</span>
             <span class="tr-puce">Récompense : ${esc(recompense(p.recompense))}</span></div>
@@ -277,6 +282,7 @@
             <button type="button" class="ct-btn principal" data-lancer ${S.equipe.length === n ? '' : 'disabled'}>Combattre l'étage ${p.etage}</button>
           </div>
           ${S.cartes.length < n ? `<p class="sous" style="margin:12px 0 0">Il te faut au moins ${n} cartes : ouvre des packs dans l'onglet Accueil.</p>` : ''}
+        </div>
         </div>` : `
         <div class="ct-panneau ct-vide" style="margin-top:16px"><b>Tu as gravi toute la Tour !</b>Les ${nf(acc.etages)} étages sont franchis.</div>`}
 
@@ -296,7 +302,7 @@
   // Composer l'équipe : la grille de la Collection, avec recherche, filtre de rareté et tri
   // ---------------------------------------------------------------------
 
-  const TRIS = [['rarete', 'Rareté'], ['score', 'Meilleures'], ['pui', 'Puissance'], ['pv', 'PV'], ['def', 'Défense'], ['vit', 'Vitesse'], ['nom', 'Nom (A–Z)'], ['numero', 'Numéro']];
+  const TRIS = [['rarete', 'Rareté'], ['score', 'Meilleures'], ['niveau', 'Niveau'], ['pui', 'Puissance'], ['pv', 'PV'], ['def', 'Défense'], ['vit', 'Vitesse'], ['nom', 'Nom (A–Z)'], ['numero', 'Numéro']];
   const GROUPES = [[0, 'Toutes'], [1, 'Commun'], [2, 'Rare'], [3, 'Épique'], [4, 'Légendaire'], [6, 'Spécial']];
   const PAR_PAGE = 60;
 
@@ -310,6 +316,7 @@
     const tri = {
       rarete: (a, b) => b.rarete - a.rarete || score(b) - score(a),
       score: (a, b) => score(b) - score(a),
+      niveau: (a, b) => (b.etoiles - a.etoiles) || (b.niveau - a.niveau) || (b.rarete - a.rarete),
       pui: (a, b) => b.pui - a.pui, pv: (a, b) => b.pv - a.pv, def: (a, b) => b.def - a.def, vit: (a, b) => b.vit - a.vit,
       nom: (a, b) => a.nom.localeCompare(b.nom, 'fr'), numero: (a, b) => (a.numero || 0) - (b.numero || 0)
     };
@@ -1331,7 +1338,7 @@
       const pct = (v, m) => Math.max(4, Math.min(100, Math.round(v / m * 100)));
       el.innerHTML = `<div class="ct-titre-sec" style="margin:22px 0 10px"><h3>Fiche de combat</h3></div>
         <div class="cb-fiche">
-          <div class="cb-fiche-t"><div class="cb-roles">${c.role_nom ? `<span class="cb-role">${esc(c.role_nom)}</span>` : ''}</div>
+          <div class="cb-fiche-t"><div class="cb-roles">${c.role_nom ? `<span class="cb-role">${esc(c.role_nom)}</span>` : ''}${c.niveau > 1 || c.etoiles > 0 ? `<span class="cb-role" style="color:#1a1200; background:linear-gradient(90deg, #ffd76a, #ffb547)">Niv ${c.niveau}${c.etoiles ? ' ' + '★'.repeat(c.etoiles) : ''}</span>` : ''}</div>
             <div class="cb-pvgros"><small>PV</small>${nf(c.pv)}</div></div>
           ${c.role_resume ? `<p class="cb-cap" style="margin:0">${esc(c.role_resume)}</p>` : ''}
           <div class="cb-stats">${[['pui', 'Puissance'], ['def', 'Défense'], ['vit', 'Vitesse']].map(([k, l]) => `<div class="cb-st"><span>${l}</span><b>${nf(c[k])}</b><i style="--w:${pct(c[k], mx[k])}%"></i></div>`).join('')}</div>
