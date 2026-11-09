@@ -39,7 +39,6 @@ on:
       - confort.js
       - sw.js
       - partage.php
-      - feed.php
       - desinscrire.php
       - i18n.js
       - modeles/**

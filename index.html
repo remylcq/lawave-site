@@ -4903,7 +4903,6 @@
   }
 })();
 </script>
-<link rel="alternate" type="application/rss+xml" title="La Wave — les sorties" href="feed.php">
 </head>
 <body>
 
@@ -5581,11 +5580,6 @@
           <span class="aide-texte"><b>Proposer une idée</b><small>Propose, et vote pour celles des autres.</small></span>
           <span class="aide-fleche" aria-hidden="true">→</span>
         </a>
-        <a class="aide-carte" href="feed.php" target="_blank" rel="noopener">
-          <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12a7 7 0 0 1 7 7M5 5a14 14 0 0 1 14 14"/><circle cx="6" cy="18" r="1.4"/></svg></span>
-          <span class="aide-texte"><b>Flux RSS</b><small>Les sorties dans ton lecteur d'actualités.</small></span>
-          <span class="aide-fleche" aria-hidden="true">→</span>
-        </a>
         <div class="aide-carte aide-texte-taille" role="group" aria-label="Taille du texte">
           <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19l5-14 5 14M6 14h6M16 9h4M18 9v10"/></svg></span>
           <span class="aide-texte"><b>Taille du texte</b><small>Pour lire plus confortablement.</small></span>
@@ -6201,9 +6195,9 @@
       </button>
 
       <button type="button" class="admin-tab" id="adminTab-defis"
-        role="tab" onclick="switchAdminTab('defis')" title="Les défis de la semaine, épinglés dans la communauté">
+        role="tab" onclick="switchAdminTab('defis')" title="La question de la semaine, dans la communauté">
         <svg class="eq-ic" aria-hidden="true"><use href="#eq-bulle"/></svg>
-        <span class="admin-tab-label">Défis</span>
+        <span class="admin-tab-label">Question</span>
       </button>
 
       <button type="button" class="admin-tab" id="adminTab-profils"
@@ -6972,8 +6966,8 @@
   <div class="admin-section" id="adminSection-defis">
     <div class="section-head">
       <div>
-        <h2>Défis de la semaine</h2>
-        <p class="desc">Un défi publié devient un message « La Wave » épinglé en haut de la communauté : chacun répond en commentaire pour le valider. Publier un nouveau défi désépingle le précédent.</p>
+        <h2>Question de la semaine</h2>
+        <p class="desc">Une question publiée apparaît dans un encadré sous « Explorer », signé La Wave : chacun répond en commentaire, avec une sortie du catalogue s'il le souhaite. Elle s'affiche du premier au dernier jour de sa semaine.</p>
       </div>
     </div>
     <div id="defisCorps"></div>
@@ -20722,9 +20716,7 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
                        onclick="ouvrirCarteDeLArtiste('${handleSain(handle)}')">📍 ${escapeHtml(profil.ville)}</span>`
               : ''
           }
-          <a href="#visite/${escapeAttribute(encodeURIComponent(handle))}" class="platform-btn-sm"
-             onclick="goTo('visite', { parametre: '${handleSain(handle)}' }); return false;">Carte de visite</a>
-          <button type="button" class="icone-discrete" aria-label="Partager cet artiste" title="Partager cet artiste"
+<button type="button" class="icone-discrete" aria-label="Partager cet artiste" title="Partager cet artiste"
                   onclick="partagerArtiste('${handleSain(handle)}', ${escapeAttribute(JSON.stringify(nom))})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg></button>
           ${instagram
             ? `<a href="${escapeAttribute(instagram)}" target="_blank"
@@ -22028,6 +22020,9 @@ function panneauProprieteHtml(profil){
   if(profil.demande_par){
     return `<p class="artiste-propriete">Une demande est déjà en cours d'examen.</p>`;
   }
+
+  // Le bouton n'apparaît que pour les comptes qui ont choisi « Artiste » comme rôle.
+  if(!rolesDe(currentUser).includes('Artiste')) return '';
 
   return `
     <div class="artiste-propriete">
@@ -28743,7 +28738,7 @@ function pageLangue(sens){
 }
 
 
-async function reglerLangue(id, nom, francophone){
+async function reglerLangueArtiste(id, nom, francophone){
 
   if(!isAdmin || langueEtat.occupe) return;
 
@@ -28786,7 +28781,7 @@ async function reglerLangue(id, nom, francophone){
 
 function retablirLangue(i){
   const a = langueEtat.donnees && langueEtat.donnees.artistes[i];
-  if(a) reglerLangue(a.id, a.nom, true);
+  if(a) reglerLangueArtiste(a.id, a.nom, true);
 }
 
 
@@ -28822,7 +28817,7 @@ function langueMasquerSaisie(){
 
 function masquerLangue(id){
   const p = (artistProfilesData || []).find(x => x.id === id);
-  if(p) reglerLangue(p.id, p.display_name || p.instagram_handle, false);
+  if(p) reglerLangueArtiste(p.id, p.display_name || p.instagram_handle, false);
 }
 
 
