@@ -4846,6 +4846,7 @@
   }
 })();
 </script>
+<link rel="alternate" type="application/rss+xml" title="La Wave — les sorties" href="feed.php">
 </head>
 <body>
 
@@ -7384,6 +7385,12 @@
     Ajouter à ma file d'écoute
   </button>
 
+  <!-- Un lien de partage qui s'affiche avec la pochette et le titre dans les messageries et les réseaux (partage.php). -->
+  <button type="button" class="fiche-bouton" id="modalPartager" onclick="partagerSortie()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg>
+    Partager cette sortie
+  </button>
+
   <!-- Les autres versions de la sortie (deluxe, réédition…). Rempli par chargerVersions. -->
   <div class="fiche-versions" id="modalVersions" hidden></div>
 
@@ -7419,6 +7426,7 @@
       <div class="footer-confort">
         <a href="#nouveautes" onclick="goTo('nouveautes'); return false;">Nouveautés</a>
         <a href="#idees" onclick="goTo('idees'); return false;">Proposer une idée</a>
+        <a href="feed.php" target="_blank" rel="noopener" title="Le flux RSS des sorties">RSS</a>
         <span class="taille-texte" role="group" aria-label="Taille du texte">
           <span>Texte</span>
           <button type="button" onclick="reglerTailleTexte(-1)" aria-label="Réduire le texte">A−</button>
@@ -20617,6 +20625,8 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
           }
           <a href="#visite/${escapeAttribute(encodeURIComponent(handle))}" class="platform-btn-sm"
              onclick="goTo('visite', { parametre: '${handleSain(handle)}' }); return false;">Carte de visite</a>
+          <button type="button" class="platform-btn-sm" style="cursor:pointer;"
+                  onclick="partagerArtiste('${handleSain(handle)}', ${escapeAttribute(JSON.stringify(nom))})">Partager</button>
           ${instagram
             ? `<a href="${escapeAttribute(instagram)}" target="_blank"
                   rel="noopener noreferrer" class="platform-btn-sm">Instagram</a>`
@@ -22366,6 +22376,39 @@ async function chargerVersions(item){
 async function ouvrirUneVersion(id){
   await assurerSorties([id]);
   openCatalogueModal(id);
+}
+
+// Partager : un lien qui s'affiche avec la pochette et le titre (partage.php), par le partage du téléphone ou copié.
+async function partagerLien(titre, texte, lien){
+
+  if(navigator.share){
+    try{ await navigator.share({ title: titre, text: texte, url: lien }); return; }
+    catch(e){ if(e && e.name === 'AbortError') return; }
+  }
+
+  try{
+    await navigator.clipboard.writeText(lien);
+    notifier('Lien copié', { detail: 'Colle-le dans un message : il s\'affichera avec la pochette.' });
+  }catch(e){
+    window.prompt('Copie ce lien :', lien);
+  }
+}
+
+function partagerSortie(){
+
+  const item = ficheItemCourant;
+
+  if(!item) return;
+
+  const lien = item.catalogNum
+    ? location.origin + '/partage.php?s=' + encodeURIComponent(item.catalogNum)
+    : location.href;
+
+  partagerLien(item.title + ' — ' + item.artist, item.title + ' sur La Wave', lien);
+}
+
+function partagerArtiste(handle, nom){
+  partagerLien(nom + ' sur La Wave', 'Les sorties de ' + nom, location.origin + '/partage.php?a=' + encodeURIComponent(handle));
 }
 
 // Joue l'extrait d'une adresse ; « bouton » est le bouton de sa ligne dans l'encadré des titres, s'il y en a un.
