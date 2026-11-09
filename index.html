@@ -1296,6 +1296,68 @@
   .art-ajout-champs input[type="file"]{max-width:100%; color:var(--ink-soft); font-size:13.5px;}
   .art-ajout-aide{margin:8px 0 0; font-size:12px; color:var(--muted);}
   .art-vide{color:var(--muted); font-size:14px;}
+  /* Les raccourcis de la carte. */
+  .carte-actions{display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; margin:-10px 0 18px;}
+  .carte-actions .cat-puce.on{border-color:var(--blue); background:rgba(20,137,222,0.16); color:var(--ink);}
+  .carte-autour{display:inline-flex; align-items:center; gap:7px;}
+  .carte-autour svg{width:16px; height:16px;}
+  .carte-actions-etat{font-size:13px; color:var(--muted);}
+  .art-ajout-champs input[type="date"], .art-ajout-champs input[type="url"]{flex:1 1 200px; min-width:0; padding:11px 14px; border:1px solid var(--line); border-radius:10px; background:rgba(0,0,0,0.25); color:var(--ink); font:inherit; font-size:14px; color-scheme:dark;}
+  .art-ajout-champs input[type="date"]:focus, .art-ajout-champs input[type="url"]:focus{outline:none; border-color:var(--blue-bright);}
+  .artiste-bio{margin:18px 0 0; max-width:62ch; font-size:15px; line-height:1.6; color:var(--ink-soft); white-space:pre-line;}
+  .artiste-propriete-aide{flex-basis:100%; font-size:12.5px; color:var(--muted); line-height:1.5;}
+  /* La grille et la frise de la discographie. */
+  .art-barre-disco{display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:10px 16px;}
+  .cat-grid[hidden]{display:none;}
+  .art-vue{display:inline-flex; margin:0 0 18px; padding:3px; gap:2px; border:1px solid var(--line); border-radius:999px;}
+  .art-vue[hidden]{display:none;}
+  .art-vue button{padding:6px 14px; border:0; border-radius:999px; background:none; color:var(--muted); font:inherit; font-size:13px; font-weight:500; cursor:pointer;}
+  .art-vue button.on{background:rgba(255,255,255,0.12); color:var(--ink);}
+  .art-frise{list-style:none; margin:4px 0 0; padding:0 0 0 22px; position:relative;}
+  .art-frise::before{content:''; position:absolute; left:5px; top:6px; bottom:6px; width:2px; border-radius:2px; background:linear-gradient(to bottom, var(--blue-bright), rgba(79,180,255,0.1));}
+  .art-frise-annee{position:relative; margin:0 0 26px;}
+  .art-frise-annee::before{content:''; position:absolute; left:-22px; top:8px; width:12px; height:12px; border-radius:50%; background:var(--bg,#05070a); border:2px solid var(--blue-bright);}
+  .art-frise-annee h4{margin:0 0 10px; font-size:20px; font-weight:700; letter-spacing:-0.01em;}
+  .art-frise-annee ul{list-style:none; margin:0; padding:0; display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:8px;}
+  .art-frise-sortie{display:flex; align-items:center; gap:12px; width:100%; padding:7px 10px 7px 7px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,0.03); color:var(--ink); font:inherit; text-align:left; cursor:pointer; transition:background .2s, border-color .2s, transform .2s;}
+  .art-frise-sortie:hover{background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.25); transform:translateX(3px);}
+  .art-frise-sortie img{width:58px; height:58px; border-radius:9px; object-fit:cover; flex:none;}
+  .art-frise-sortie span{min-width:0; display:flex; flex-direction:column; gap:2px;}
+  .art-frise-sortie strong{font-size:14.5px; font-weight:600; line-height:1.3; overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+  .art-frise-sortie small{font-size:12px; color:var(--muted);}
+  /* Les concerts à venir. */
+  .art-concerts{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
+  .art-concert{display:flex; align-items:center; gap:14px; padding:12px 14px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,0.03);}
+  .art-concert-date{flex:none; width:54px; padding:7px 0; border-radius:12px; text-align:center; background:rgba(79,180,255,0.14); border:1px solid rgba(79,180,255,0.35);}
+  .art-concert-date b{display:block; font-size:21px; line-height:1; font-variant-numeric:tabular-nums;}
+  .art-concert-date small{display:block; margin-top:3px; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--blue-bright);}
+  .art-concert-texte{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
+  .art-concert-texte strong{font-size:16px; font-weight:600;}
+  .art-concert-texte small{font-size:13px; color:var(--muted);}
+  .art-concert-billets{flex:none; padding:8px 16px; border-radius:999px; background:var(--blue-bright); color:#04121f; font-size:13px; font-weight:700; text-decoration:none; transition:background .2s;}
+  .art-concert-billets:hover{background:#fff;}
+  .art-concert-suppr{flex:none; width:30px; height:30px; border-radius:50%; border:0; background:rgba(255,255,255,0.08); color:var(--ink-soft); cursor:pointer;}
+  .art-concert-suppr:hover{background:var(--danger); color:#fff;}
+  /* Les statistiques privées. */
+  .art-stats-note{margin:0 0 14px; font-size:12.5px; color:var(--muted);}
+  .art-stats-cartes{display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; margin:0 0 22px;}
+  .art-stat{padding:16px 18px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,0.03); display:flex; flex-direction:column; gap:3px;}
+  .art-stat b{font-size:30px; line-height:1.1; letter-spacing:-0.02em; font-variant-numeric:tabular-nums;}
+  .art-stat span{font-size:13.5px; color:var(--ink-soft);}
+  .art-stat small{font-size:11.5px; color:var(--muted); line-height:1.4;}
+  .art-stats-titre{margin:0 0 10px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  .art-courbe{display:block; width:100%; height:120px; margin:0 0 24px; padding:10px 12px 0; box-sizing:border-box; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,0.02);}
+  .art-courbe rect{fill:rgba(255,255,255,0.12);}
+  .art-courbe rect.on{fill:var(--blue-bright);}
+  .art-stats-top{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px;}
+  .art-stats-top li{display:flex; align-items:center; gap:12px; padding:6px 12px 6px 6px; border:1px solid var(--line); border-radius:12px;}
+  .art-stats-top img{width:38px; height:38px; border-radius:7px; object-fit:cover;}
+  .art-stats-top span{flex:1; min-width:0; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .art-stats-top b{font-size:14px; color:var(--blue-bright); font-variant-numeric:tabular-nums;}
+  @media (max-width:560px){
+    .art-concert{flex-wrap:wrap;}
+    .art-concert-billets{margin-left:68px;}
+  }
   .art-visionneuse{position:fixed; inset:0; z-index:400; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(3,5,8,.92); backdrop-filter:blur(6px);}
   .art-visionneuse figure{margin:0; max-width:min(1100px,100%); max-height:100%; display:flex; flex-direction:column; align-items:center; gap:12px;}
   .art-visionneuse img{max-width:100%; max-height:calc(100vh - 120px); object-fit:contain; border-radius:10px;}
@@ -4823,6 +4885,16 @@
 
       </div>
 
+      <!-- Deux raccourcis : les artistes qui jouent bientôt, et ceux qui sont près de soi. -->
+      <div class="carte-actions" role="group" aria-label="Filtres de la carte">
+        <button type="button" class="cat-puce" id="carteConcertsBtn" aria-pressed="false" onclick="basculerConcertsCarte()">Concerts ce mois-ci</button>
+        <button type="button" class="cat-puce carte-autour" id="carteAutourBtn" onclick="autourDeMoiCarte()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          Autour de moi
+        </button>
+        <span class="carte-actions-etat" id="carteActionsEtat" role="status" aria-live="polite"></span>
+      </div>
+
       <div class="carte-zone">
         <div class="carte-plan">
           <canvas id="carteCanvas" aria-hidden="true"></canvas>
@@ -7317,7 +7389,7 @@ const BD = {
     'id', 'instagram_handle', 'instagram_url', 'display_name', 'photo_url', 'created_at', 'updated_at',
     'tiktok_url', 'twitter_url', 'youtube_url', 'spotify_url', 'deezer_url', 'apple_music_url',
     'ville', 'latitude', 'longitude', 'demande_par', 'demande_le', 'verifie_par', 'source',
-    'deezer_artist_id', 'deezer_verifie_le', 'deezer_suivi', 'banni', 'deezer_fans', 'francophone'
+    'deezer_artist_id', 'deezer_verifie_le', 'deezer_suivi', 'banni', 'deezer_fans', 'francophone', 'bio'
   ].join(', '),
 
   // Le catalogue s'ouvre sur les sorties les plus récentes (et toutes celles choisies à la main), pas sur tout :
@@ -18593,6 +18665,9 @@ function villesDuPays(cle){
 
     if(!lieu || paysDuLieu(lieu.lat, lieu.lon) !== cle) return;
 
+    // Le filtre « Concerts ce mois-ci » ne laisse que les artistes qui jouent bientôt.
+    if(carteConcerts && !carteConcerts.has(String(profil.instagram_handle || '').toLowerCase())) return;
+
     const { lat, lon } = lieu;
     const clePoint = profil.ville.toLowerCase() + '|' + lat.toFixed(3) + '|' + lon.toFixed(3);
 
@@ -18645,6 +18720,9 @@ function artistesLocalises(){
 // lecture du catalogue plutôt qu'une fois par ligne affichée.
 var carteComptesSorties = null;
 var carteComptesLuLe = 0;
+
+// « Concerts ce mois-ci » : quand le filtre est actif, les artistes qui jouent dans les 30 jours (handle en minuscules -> prochain concert).
+var carteConcerts = null;
 
 function sortiesParArtisteCarte(){
   return carteComptesSorties || new Map();
@@ -18782,6 +18860,122 @@ function choisirPaysCarte(cle, depuisClavier){
       { duration: 520, easing: 'cubic-bezier(.16,1,.3,1)' }
     );
   }
+}
+
+
+// ---- Les raccourcis de la carte : concerts à venir, autour de moi ----
+
+function messageActionsCarte(texte){
+  const zone = document.getElementById('carteActionsEtat');
+  if(zone) zone.textContent = texte || '';
+}
+
+// « Concerts ce mois-ci » : seuls les artistes qui jouent dans les 30 prochains jours restent sur la carte.
+async function basculerConcertsCarte(){
+
+  const bouton = document.getElementById('carteConcertsBtn');
+
+  if(!bouton || bouton.disabled) return;
+
+  if(carteConcerts){
+    carteConcerts = null;
+    bouton.setAttribute('aria-pressed', 'false');
+    bouton.classList.remove('on');
+    messageActionsCarte('');
+    afficherPaysCarte(true, false);
+    return;
+  }
+
+  bouton.disabled = true;
+
+  try{
+
+    const { data, error } = await supabaseClient.rpc('concerts_a_venir', { p_jours: 30 });
+
+    if(error) throw error;
+
+    const liste = Array.isArray(data) ? data : [];
+
+    if(!liste.length){
+      messageActionsCarte('Aucun concert annoncé dans les 30 prochains jours pour le moment.');
+      return;
+    }
+
+    carteConcerts = new Map(liste.map(c => [String(c.handle).toLowerCase(), c]));
+    bouton.setAttribute('aria-pressed', 'true');
+    bouton.classList.add('on');
+    messageActionsCarte(liste.length + ' artiste' + (liste.length > 1 ? 's' : '') + ' en concert dans les 30 prochains jours.');
+    afficherPaysCarte(true, false);
+
+  }catch(e){
+    messageActionsCarte('Les concerts ne sont pas disponibles pour le moment.');
+  }finally{
+    bouton.disabled = false;
+  }
+}
+
+// La distance à vol d'oiseau entre deux points, en kilomètres.
+function distanceKm(lat1, lon1, lat2, lon2){
+  const R = 6371, rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad, dLon = (lon2 - lon1) * rad;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// « Autour de moi » : avec l'accord du navigateur, la carte s'ouvre sur la ville la plus proche qui a des artistes.
+// La position n'est ni envoyée ni gardée : elle sert seulement ici, à choisir la ville.
+function autourDeMoiCarte(){
+
+  const bouton = document.getElementById('carteAutourBtn');
+
+  if(!navigator.geolocation){
+    messageActionsCarte("Ton navigateur ne partage pas sa position.");
+    return;
+  }
+
+  if(bouton) bouton.disabled = true;
+  messageActionsCarte('Recherche de ta position…');
+
+  navigator.geolocation.getCurrentPosition(pos => {
+
+    if(bouton) bouton.disabled = false;
+
+    const { latitude: lat, longitude: lon } = pos.coords;
+
+    const pays = paysDuLieu(lat, lon);
+
+    if(pays !== cartePays && paysCarteValide(pays)) choisirPaysCarte(pays);
+
+    let meilleur = -1, kmMin = Infinity;
+
+    carteVilles.forEach((ville, i) => {
+      const km = distanceKm(lat, lon, ville.lat, ville.lon);
+      if(km < kmMin){ kmMin = km; meilleur = i; }
+    });
+
+    if(meilleur < 0){
+      messageActionsCarte("Aucun artiste n'est encore placé sur la carte autour de toi.");
+      return;
+    }
+
+    const ville = carteVilles[meilleur];
+    const n = ville.artistes.length;
+
+    messageActionsCarte(
+      (kmMin < 15 ? 'Chez toi, à ' : 'La ville la plus proche : ') + ville.nom +
+      (kmMin >= 15 ? ' (' + Math.round(kmMin) + ' km)' : '') + ' · ' + n + ' artiste' + (n > 1 ? 's' : '') + '.');
+
+    selectionnerVilleCarte(meilleur);
+
+  }, erreur => {
+
+    if(bouton) bouton.disabled = false;
+
+    messageActionsCarte(erreur && erreur.code === 1
+      ? "Position refusée : autorise-la dans ton navigateur pour voir les artistes près de toi."
+      : "Impossible de te localiser pour le moment.");
+
+  }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 });
 }
 
 
@@ -19426,6 +19620,13 @@ function ligneArtisteCarte(profil, rang, handleTrouve){
   const photo = safeUrl(profil.photo_url);
   const trouve = handleTrouve && profil.instagram_handle === handleTrouve;
 
+  // Avec le filtre des concerts, la ligne dit où et quand l'artiste joue.
+  const concert = carteConcerts && carteConcerts.get(String(profil.instagram_handle || '').toLowerCase());
+  const sous = concert
+    ? 'Concert le ' + new Date(concert.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) +
+      ' · ' + concert.ville
+    : libelleSortiesCarte(profil.instagram_handle).replace(' sur La Wave', '');
+
   return `
     <button type="button" class="carte-artiste${trouve ? ' trouve' : ''}"
             style="--i:${Math.min(rang, 14)}"
@@ -19439,7 +19640,7 @@ function ligneArtisteCarte(profil, rang, handleTrouve){
       </span>
       <span class="carte-artiste-texte">
         ${escapeHtml(nom)}
-        <span class="carte-sorties">${libelleSortiesCarte(profil.instagram_handle).replace(' sur La Wave', '')}</span>
+        <span class="carte-sorties">${escapeHtml(sous)}</span>
       </span>
       <span class="carte-artiste-fleche" aria-hidden="true">→</span>
     </button>`;
@@ -20135,21 +20336,34 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
       </div>
     </div>
 
+    ${profil && profil.bio ? `<p class="artiste-bio">${escapeHtml(profil.bio)}</p>` : ''}
+
     ${panneauProprieteHtml(profil)}
 
     <div class="hairline" style="margin:32px 0 22px;"></div>
 
     <div class="art-onglets" id="artOnglets" role="tablist" aria-label="Page de l'artiste">
       <button type="button" role="tab" class="on" id="artOngletDisco" aria-selected="true" onclick="artisteOnglet('disco')">Discographie</button>
+      <button type="button" role="tab" id="artOngletConcerts" aria-selected="false" hidden onclick="artisteOnglet('concerts')">Concerts <span class="art-nb" id="artNbConcerts"></span></button>
       <button type="button" role="tab" id="artOngletGalerie" aria-selected="false" hidden onclick="artisteOnglet('galerie')">Galerie <span class="art-nb" id="artNbPhotos"></span></button>
+      <button type="button" role="tab" id="artOngletStats" aria-selected="false" hidden onclick="artisteOnglet('stats')">Statistiques</button>
     </div>
 
     <div id="artPanneauDisco" role="tabpanel">
-      <div class="art-filtres" id="artFiltres" role="group" aria-label="Filtrer les sorties"></div>
+      <div class="art-barre-disco">
+        <div class="art-filtres" id="artFiltres" role="group" aria-label="Filtrer les sorties"></div>
+        <div class="art-vue" id="artVue" role="group" aria-label="Affichage de la discographie" hidden>
+          <button type="button" class="on" data-vue="grille" aria-pressed="true" onclick="artisteVue('grille')">Grille</button>
+          <button type="button" data-vue="frise" aria-pressed="false" onclick="artisteVue('frise')">Frise</button>
+        </div>
+      </div>
       <div class="cat-grid" id="artGrille"></div>
+      <div id="artFrise" hidden></div>
     </div>
 
+    <div id="artPanneauConcerts" role="tabpanel" hidden></div>
     <div id="artPanneauGalerie" role="tabpanel" hidden></div>
+    <div id="artPanneauStats" role="tabpanel" hidden></div>
 
     <div id="artSimilaires"></div>
 
@@ -20159,11 +20373,36 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
     </p>
   `;
 
-  artisteCourant = { handle, nom, sorties, filtre: 'tout', galerie: null };
+  artisteCourant = { handle, nom, sorties, filtre: 'tout', vue: 'grille', galerie: null, concerts: null };
   dessinerSortiesArtiste();
   chargerGalerieArtiste();
   chargerSimilairesArtiste();
   majSuiviArtiste();
+  compterVueArtiste(handle);
+
+  // Concerts, statistiques privées et frise : un petit module chargé à la demande (artiste.js).
+  chargerArtisteOutils()
+    .then(() => { if(artisteCourant && artisteCourant.handle === handle) window.ArtisteOutils.monter(artisteCourant); })
+    .catch(() => {});
+}
+
+function chargerArtisteOutils(){
+  return chargerModuleSite('artiste.js?v=1', 'ArtisteOutils', 'des outils de la page artiste (artiste.js)');
+}
+
+// Une vue de plus pour la page, une fois par artiste et par visite (les statistiques privées de l'artiste).
+function compterVueArtiste(handle){
+
+  if(typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+  const cle = 'vue-artiste:' + handle;
+
+  try{
+    if(sessionStorage.getItem(cle)) return;
+    sessionStorage.setItem(cle, '1');
+  }catch(e){}
+
+  supabaseClient.rpc('artiste_vue', { p_handle: handle }).then(() => {}, () => {});
 }
 
 
@@ -20208,6 +20447,52 @@ function dessinerSortiesArtiste(){
   grille.innerHTML = visibles.length
     ? visibles.map(tileHtml).join('')
     : `<div class="empty-state">Aucune sortie publiée pour l'instant.</div>`;
+
+  // La frise n'a de sens qu'à partir de quelques sorties.
+  const bascule = document.getElementById('artVue');
+  if(bascule) bascule.hidden = a.sorties.length < 4;
+
+  majVueArtiste();
+}
+
+// Grille de pochettes, ou frise chronologique (par année), pour la discographie.
+async function artisteVue(cle){
+
+  const a = artisteCourant;
+
+  if(!a) return;
+
+  if(cle === 'frise'){
+    try{ await chargerArtisteOutils(); }catch(e){ notifier('Frise indisponible', { type: 'erreur' }); return; }
+  }
+
+  a.vue = cle;
+  majVueArtiste();
+}
+
+function majVueArtiste(){
+
+  const a = artisteCourant;
+  const grille = document.getElementById('artGrille');
+  const frise = document.getElementById('artFrise');
+
+  if(!a || !grille || !frise) return;
+
+  const enFrise = a.vue === 'frise' && !!window.ArtisteOutils;
+
+  document.querySelectorAll('#artVue button').forEach(b => {
+    const on = b.dataset.vue === (enFrise ? 'frise' : 'grille');
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+
+  grille.hidden = enFrise;
+  frise.hidden = !enFrise;
+
+  if(enFrise){
+    const visibles = a.sorties.filter(x => a.filtre === 'tout' || categorieSortieArtiste(x, a.handle) === a.filtre);
+    frise.innerHTML = window.ArtisteOutils.friseHtml(visibles, a.handle);
+  }
 }
 
 function artisteFiltrer(cle){
@@ -20219,16 +20504,17 @@ function artisteFiltrer(cle){
 
 function artisteOnglet(cle){
 
-  const disco = document.getElementById('artPanneauDisco');
-  const galerie = document.getElementById('artPanneauGalerie');
-  if(!disco || !galerie) return;
+  const ONGLETS = [['disco', 'Disco'], ['concerts', 'Concerts'], ['galerie', 'Galerie'], ['stats', 'Stats']];
 
-  disco.hidden = cle !== 'disco';
-  galerie.hidden = cle !== 'galerie';
+  if(!document.getElementById('artPanneauDisco')) return;
 
-  [['artOngletDisco', 'disco'], ['artOngletGalerie', 'galerie']].forEach(([id, c]) => {
-    const b = document.getElementById(id);
-    if(b){ b.classList.toggle('on', c === cle); b.setAttribute('aria-selected', String(c === cle)); }
+  ONGLETS.forEach(([c, suffixe]) => {
+
+    const panneau = document.getElementById('artPanneau' + suffixe);
+    const bouton = document.getElementById('artOnglet' + suffixe);
+
+    if(panneau) panneau.hidden = c !== cle;
+    if(bouton){ bouton.classList.toggle('on', c === cle); bouton.setAttribute('aria-selected', String(c === cle)); }
   });
 }
 
@@ -21213,6 +21499,16 @@ function panneauProprieteHtml(profil){
                  value="${escapeAttribute(profil.display_name || '')}">
         </div>
         <div class="field">
+          <label for="ma-page-bio">Présentation <span style="color:var(--muted); font-weight:400;">(600 caractères au plus)</span></label>
+          <textarea id="ma-page-bio" rows="4" maxlength="600"
+                    placeholder="Qui es-tu, ce que tu fais, ce qui arrive bientôt…">${escapeHtml(profil.bio || '')}</textarea>
+        </div>
+        <div class="field">
+          <label for="ma-page-photo">Ta photo</label>
+          <input type="file" id="ma-page-photo" accept="image/jpeg,image/png,image/webp">
+          <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">Elle sert aussi de repère sur la carte et dans le catalogue.</p>
+        </div>
+        <div class="field">
           <label for="artist-ville-${handleSain(profil.instagram_handle)}">Ville d'origine</label>
           <input type="text"
                  id="artist-ville-${handleSain(profil.instagram_handle)}"
@@ -21237,10 +21533,6 @@ function panneauProprieteHtml(profil){
               .join('')
           }
         </div>
-        <p style="font-size:12px; color:var(--muted); margin:-2px 0 14px;">
-          La photo reste réglée par l'équipe : elle sert aussi de
-          repère sur la carte et dans le catalogue.
-        </p>
         <div class="inline-actions">
           <button type="button" class="btn btn-primary"
                   onclick="enregistrerMaPageArtiste('${handleSain(profil.instagram_handle)}')">
@@ -21272,12 +21564,13 @@ function panneauProprieteHtml(profil){
 
   return `
     <div class="artiste-propriete">
-      <span>C'est ta page ?</span>
+      <span>Tu es cet artiste ?</span>
       <button type="button" class="btn btn-ghost"
               style="padding:8px 14px; font-size:13px;"
               onclick="demanderMaPageArtiste('${handleSain(profil.instagram_handle)}')">
-        Demander à la gérer
+        Revendiquer cette page
       </button>
+      <span class="artiste-propriete-aide">L'équipe vérifie ta demande ; ensuite tu complètes ta page toi-même : présentation, photo, réseaux, concerts, galerie, statistiques.</span>
     </div>`;
 }
 
@@ -21319,8 +21612,32 @@ async function enregistrerMaPageArtiste(handle){
   const msg = document.getElementById('maPageArtisteMsg');
 
   const champs = {
-    display_name: document.getElementById('ma-page-nom').value.trim() || null
+    display_name: document.getElementById('ma-page-nom').value.trim() || null,
+    bio: (document.getElementById('ma-page-bio').value || '').trim().slice(0, 600) || null
   };
+
+  // Une nouvelle photo : envoyée dans le bucket public, son adresse devient la photo de la page.
+  const fichierPhoto = document.getElementById('ma-page-photo').files[0];
+
+  if(fichierPhoto){
+
+    if(!/^image\/(jpeg|png|webp)$/.test(fichierPhoto.type)){
+      msg.textContent = 'Photo refusée : JPG, PNG ou WEBP seulement.';
+      msg.className = 'form-msg err';
+      return;
+    }
+
+    try{
+      msg.textContent = 'Envoi de la photo...';
+      msg.className = 'form-msg ok';
+      const ext = fichierPhoto.type === 'image/png' ? 'png' : fichierPhoto.type === 'image/webp' ? 'webp' : 'jpg';
+      champs.photo_url = await Fichiers.envoyer(fichierPhoto, 'artiste-' + handle.replace(/[^a-z0-9._-]/gi, '') + '-' + Date.now() + '.' + ext, fichierPhoto.type);
+    }catch(e){
+      msg.textContent = 'Photo non envoyée : ' + ((e && e.message) || 'réessaie dans un instant.');
+      msg.className = 'form-msg err';
+      return;
+    }
+  }
 
   ARTIST_SOCIALS
     .filter(reseau => reseau.column !== 'instagram_url')
