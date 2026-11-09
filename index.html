@@ -1296,6 +1296,96 @@
   .art-ajout-champs input[type="file"]{max-width:100%; color:var(--ink-soft); font-size:13.5px;}
   .art-ajout-aide{margin:8px 0 0; font-size:12px; color:var(--muted);}
   .art-vide{color:var(--muted); font-size:14px;}
+  /* ---------- LES PAGES DES OUTILS (outils.js) ---------- */
+  .lanc{position:relative; max-width:880px; margin:8px auto 0; padding:34px 28px 36px; border-radius:var(--radius-lg,28px); overflow:hidden; isolation:isolate; border:1px solid var(--line);}
+  .lanc-fond{position:absolute; inset:-40px; z-index:-1; background:var(--c) center / cover; filter:blur(60px) saturate(1.4); opacity:.5; transform:scale(1.1);}
+  .lanc::after{content:''; position:absolute; inset:0; z-index:-1; background:linear-gradient(180deg, rgba(5,7,10,.35), rgba(5,7,10,.85));}
+  .lanc-carte{display:flex; align-items:center; gap:34px; flex-wrap:wrap; justify-content:center;}
+  .lanc-cover{width:min(300px, 70vw); aspect-ratio:1; object-fit:cover; border-radius:20px; box-shadow:0 30px 70px -18px rgba(0,0,0,.8);}
+  .lanc-texte{flex:1 1 300px; min-width:0;}
+  .lanc-type{font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--blue-bright);}
+  .lanc-texte h2{margin:8px 0 4px; font-size:clamp(30px, 5vw, 46px); line-height:1.08; letter-spacing:-0.02em;}
+  .lanc-artiste{margin:0 0 20px; font-size:18px; color:var(--ink-soft);}
+  .lanc-artiste small{font-size:14px; color:var(--muted);}
+  .lanc-compte{display:flex; gap:10px; margin:0 0 22px;}
+  .lanc-compte div{min-width:70px; padding:12px 10px 10px; border-radius:16px; text-align:center; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.14); backdrop-filter:blur(6px);}
+  .lanc-compte b{display:block; font-size:30px; line-height:1; font-variant-numeric:tabular-nums;}
+  .lanc-compte span{display:block; margin-top:6px; font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  .lanc-dispo{margin:0 0 12px; font-size:20px; font-weight:700; color:#7fdca0;}
+  .lanc-plateformes{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 20px;}
+  .lanc-plateforme{padding:9px 16px; border-radius:999px; border:1px solid rgba(255,255,255,0.25); background:rgba(255,255,255,0.08); color:var(--ink); font:inherit; font-size:14px; font-weight:600; text-decoration:none; cursor:pointer;}
+  .lanc-plateforme:hover{background:rgba(255,255,255,0.18);}
+  .lanc-actions{display:flex; flex-wrap:wrap; gap:10px;}
+  .lanc-prevenus{margin:14px 0 0; font-size:13px; color:var(--muted); min-height:18px;}
+  @media (max-width:560px){ .lanc{padding:24px 16px 28px;} .lanc-compte div{min-width:0; flex:1;} }
+  .vis{max-width:520px; margin:8px auto 0; padding:34px 24px 30px; text-align:center; border:1px solid var(--line); border-radius:var(--radius-lg,28px); background:linear-gradient(160deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02));}
+  .vis-photo{width:120px; height:120px; margin:0 auto 14px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; font-size:44px; background:rgba(255,255,255,0.1); box-shadow:0 0 0 3px rgba(79,180,255,0.45);}
+  .vis-photo img{width:100%; height:100%; object-fit:cover;}
+  .vis h2{margin:0; font-size:28px; letter-spacing:-0.02em;}
+  .vis-ville{margin:4px 0 0; color:var(--muted); font-size:14px;}
+  .vis-bio{margin:14px auto 0; max-width:44ch; font-size:15px; line-height:1.55; color:var(--ink-soft); white-space:pre-line;}
+  .vis-concert{margin:20px 0 0; padding:14px; border-radius:16px; border:1px solid rgba(79,180,255,0.35); background:rgba(79,180,255,0.1); display:flex; flex-direction:column; gap:3px; align-items:center;}
+  .vis-concert span{font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--blue-bright);}
+  .vis-concert b{font-size:18px;}
+  .vis-concert small{color:var(--ink-soft);}
+  .vis-concert a{margin-top:6px; padding:6px 16px; border-radius:999px; background:var(--blue-bright); color:#04121f; font-weight:700; font-size:13px; text-decoration:none;}
+  .vis-liens{display:flex; flex-direction:column; gap:8px; margin:22px 0 0;}
+  .vis-liens a{padding:13px 18px; border-radius:999px; border:1px solid var(--line-strong); background:rgba(255,255,255,0.05); color:var(--ink); font-weight:600; text-decoration:none; transition:background .2s, transform .2s;}
+  .vis-liens a:hover{background:rgba(255,255,255,0.13); transform:translateY(-2px);}
+  .vis-titre{margin:26px 0 10px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  .vis-sorties{display:grid; grid-template-columns:repeat(4, 1fr); gap:8px;}
+  .vis-sorties button{padding:0; border:0; background:none; color:var(--ink-soft); font:inherit; font-size:11px; cursor:pointer; text-align:center;}
+  .vis-sorties img{width:100%; aspect-ratio:1; object-fit:cover; border-radius:12px; display:block; margin-bottom:4px;}
+  .vis-sorties span{display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .vis-actions{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin:26px 0 0;}
+  .ms-bloc{margin:0 0 34px;}
+  .ms-tete{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 12px;}
+  .ms-tete h3{margin:0; font-size:20px;}
+  .ms-note{margin:0 0 12px; font-size:14px; color:#ffb454;}
+  .ms-vide{color:var(--muted); font-size:14px;}
+  .ms-liste{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px;}
+  .ms-sou{display:flex; align-items:center; gap:14px; padding:10px 14px 10px 10px; border:1px solid var(--line); border-radius:16px; background:rgba(255,255,255,0.03); flex-wrap:wrap;}
+  .ms-sou img{width:54px; height:54px; border-radius:10px; object-fit:cover; flex:none;}
+  .ms-sou-texte{flex:1 1 200px; min-width:0; display:flex; flex-direction:column; gap:2px;}
+  .ms-sou-texte strong{font-size:15px;}
+  .ms-sou-texte small{font-size:12.5px; color:var(--muted);}
+  .ms-sou-texte em{font-style:normal; font-size:12.5px; color:#e5695c;}
+  .ms-statut{padding:4px 12px; border-radius:999px; font-size:12px; font-weight:700; background:rgba(255,255,255,0.1);}
+  .ms-statut.attente{background:rgba(255,170,60,0.2); color:#ffb454;}
+  .ms-statut.ok{background:rgba(110,200,140,0.2); color:#7fdca0;}
+  .ms-statut.refus{background:rgba(229,105,92,0.22); color:#ff8b7f;}
+  .ms-lien, .ms-boutons button{padding:6px 12px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--ink-soft); font:inherit; font-size:12.5px; cursor:pointer;}
+  .ms-lien:hover, .ms-boutons button:hover{border-color:rgba(255,255,255,0.3); color:var(--ink);}
+  .ms-grille{display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:12px;}
+  .ms-sortie{display:flex; gap:14px; padding:12px; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,0.03);}
+  .ms-sortie > img{width:96px; height:96px; border-radius:12px; object-fit:cover; flex:none;}
+  .ms-sortie-corps{min-width:0; display:flex; flex-direction:column; gap:4px;}
+  .ms-sortie-corps small{font-size:12.5px; color:var(--muted);}
+  .ms-chiffres{display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12.5px; color:var(--ink-soft); margin:2px 0;}
+  .ms-chiffres b{font-size:15px; color:var(--ink);}
+  .ms-boutons{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;}
+  .aff-voile{position:fixed; inset:0; z-index:420; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(3,5,8,.86); backdrop-filter:blur(8px); overflow-y:auto;}
+  .aff-boite{position:relative; width:min(860px, 100%); max-height:100%; overflow-y:auto; padding:22px 24px 24px; border-radius:24px; border:1px solid rgba(255,255,255,0.16); background:rgba(12,15,21,0.97);}
+  .aff-boite h3{margin:0 40px 14px 0; font-size:19px;}
+  .aff-fermer{position:absolute; top:14px; right:14px; width:38px; height:38px; border-radius:50%; border:0; background:rgba(255,255,255,0.1); color:#fff; cursor:pointer;}
+  .aff-corps{display:flex; gap:22px; flex-wrap:wrap;}
+  .aff-apercu{flex:1 1 280px; display:flex; justify-content:center; align-items:flex-start;}
+  .aff-apercu canvas{max-width:100%; max-height:62vh; border-radius:14px; box-shadow:0 20px 50px -16px rgba(0,0,0,.8);}
+  .aff-reglages{flex:1 1 220px; display:flex; flex-direction:column; gap:14px; justify-content:flex-start;}
+  .aff-reglages label{display:flex; flex-direction:column; gap:6px; font-size:13.5px; color:var(--ink-soft);}
+  .aff-reglages select{padding:10px 14px; border-radius:12px; border:1px solid var(--line); background:rgba(0,0,0,0.3); color:var(--ink); font:inherit;}
+  .aff-case{flex-direction:row !important; align-items:center; gap:10px !important; cursor:pointer;}
+  .aff-aide{margin:0; font-size:12.5px; color:var(--muted);}
+  .aff-erreur{margin:0; font-size:13px; color:#ff8b7f;}
+  .aff-large{width:min(1000px, 100%);}
+  .aff-photos{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px;}
+  .aff-photos figure{margin:0;}
+  .aff-photos img{width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:10px; display:block;}
+  .aff-photos figcaption{font-size:11.5px; color:var(--muted); margin-top:3px;}
+  .accred-photos{border-top:1px dashed var(--line); margin-top:14px;}
+  .accred-photos-ul{list-style:none; margin:0; padding:0; display:flex; flex-wrap:wrap; gap:6px;}
+  .accred-photos-ul li{display:inline-flex; align-items:center; gap:8px; padding:3px 6px 3px 10px; border-radius:999px; background:rgba(255,255,255,0.07); font-size:12px;}
+  .accred-photos-ul button{width:20px; height:20px; border-radius:50%; border:0; background:rgba(255,255,255,0.12); color:#fff; font-size:10px; cursor:pointer;}
   /* Les raccourcis de la carte. */
   .carte-actions{display:flex; flex-wrap:wrap; align-items:center; gap:8px 10px; margin:-10px 0 18px;}
   .carte-actions .cat-puce.on{border-color:var(--blue); background:rgba(20,137,222,0.16); color:var(--ink);}
@@ -4800,6 +4890,21 @@
     </section>
   </section>
 
+  <!-- ================= PAGES DES OUTILS (outils.js) : lancement d'une sortie, carte de visite, mes sorties ================= -->
+  <section id="page-lancement" class="page"><section><div id="lancementCorps"></div></section></section>
+  <section id="page-visite" class="page"><section><div id="visiteCorps"></div></section></section>
+  <section id="page-mes-sorties" class="page">
+    <section>
+      <div class="section-head">
+        <div>
+          <h2>Mes sorties</h2>
+          <p class="desc">Où en sont tes soumissions, les chiffres de tes sorties, et de quoi les lancer : page de lancement, affiche, carte de visite.</p>
+        </div>
+      </div>
+      <div id="mesSortiesCorps"></div>
+    </section>
+  </section>
+
   <!-- ================= PAGE ARTISTE ================= -->
   <section id="page-artiste" class="page">
     <section>
@@ -4938,6 +5043,7 @@
           <h2>Soumettre une sortie</h2>
           <p class="desc">Quelques infos, une cover, et ta sortie file directement vers l'équipe La Wave.</p>
         </div>
+        <button type="button" class="btn btn-ghost" onclick="goTo('mes-sorties')">Suivre mes soumissions</button>
       </div>
 
       <div class="form-wrap">
@@ -8242,6 +8348,9 @@ const BD = {
       cgu: "Conditions d'utilisation",
       faq: 'Questions fréquentes',
       aide: 'Aide et informations',
+      lancement: 'Une sortie à venir',
+      visite: 'Carte de visite',
+      'mes-sorties': 'Mes sorties',
       artiste: detail || 'Artiste'
     };
     const t = titres[pageId] || titres.home;
@@ -8432,6 +8541,7 @@ const BD = {
   // Le compte à rebours des fiches ne tourne que sur leur page.
   if(pageId === 'accreditations') renderAccreditations(); else arreterCompteursAccred();
   if(pageId === 'submit') jouerEntreeSoumission();
+  if(pageId === 'lancement' || pageId === 'visite' || pageId === 'mes-sorties') rendrePageOutils(pageId);
   if(pageId === 'bugreport') preparerSignalement();
   // SONDAGE DES TESTEURS (TEMPORAIRE) : sondage.js remplit la page à l'ouverture.
   if(pageId === 'sondage' && window.Sondage) window.Sondage.ouvrir();
@@ -11357,6 +11467,9 @@ function renderSuiviAccreditations(){
     .join('');
 
   zone.innerHTML = `<div class="accred-suivi">${lignes}</div>`;
+
+  // Les photos déjà déposées se listent sous chaque accréditation retenue.
+  if(zone.querySelector('[data-accred-photos]')) chargerOutils().then(() => window.Outils.listerPhotosAccred()).catch(() => {});
 }
 
 
@@ -11436,7 +11549,26 @@ function livraisonHtml(inscription, id){
       </form>
 
       <div class="form-msg" id="accred-livraison-msg-${id}"></div>
+
+      <!-- Ou une sélection de photos, déposée ici : réduites automatiquement (2 400 px), 40 au plus, vues par l'équipe seule. -->
+      <div class="accred-photos" data-accred-photos="${id}">
+        <p class="accred-aide" style="margin:14px 0 8px;">Ou dépose une sélection de photos (40 au plus, réduites automatiquement) :</p>
+        <div class="accred-livraison-form">
+          <input type="file" id="accred-fichiers-${id}" accept="image/jpeg,image/png,image/webp" multiple>
+          <button type="button" class="btn btn-ghost" id="accred-photos-bouton-${id}" onclick="deposerPhotosAccred('${id}')">Déposer</button>
+        </div>
+        <div class="form-msg" id="accred-photos-msg-${id}"></div>
+        <div class="accred-photos-liste"></div>
+      </div>
     </div>`;
+}
+
+async function deposerPhotosAccred(id){
+  try{ await chargerOutils(); await window.Outils.deposerPhotos(id); }catch(e){ notifier('Dépôt impossible', { detail: e.message, type: 'erreur' }); }
+}
+
+function voirPhotosAccred(evenement, user){
+  chargerOutils().then(() => window.Outils.voirPhotosEquipe(evenement, user)).catch(e => notifier('Photos indisponibles', { detail: e.message, type: 'erreur' }));
 }
 
 
@@ -20309,6 +20441,8 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
                        onclick="ouvrirCarteDeLArtiste('${handleSain(handle)}')">📍 ${escapeHtml(profil.ville)}</span>`
               : ''
           }
+          <a href="#visite/${escapeAttribute(encodeURIComponent(handle))}" class="platform-btn-sm"
+             onclick="goTo('visite', { parametre: '${handleSain(handle)}' }); return false;">Carte de visite</a>
           ${instagram
             ? `<a href="${escapeAttribute(instagram)}" target="_blank"
                   rel="noopener noreferrer" class="platform-btn-sm">Instagram</a>`
@@ -20384,6 +20518,20 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
   chargerArtisteOutils()
     .then(() => { if(artisteCourant && artisteCourant.handle === handle) window.ArtisteOutils.monter(artisteCourant); })
     .catch(() => {});
+}
+
+// Les outils des artistes et des photographes (outils.js) : pages de lancement, carte de visite, mes sorties, affiches,
+// photos livrées. Déclarations de fonctions : goTo peut les appeler avant la fin du script.
+function chargerOutils(){
+  return chargerModuleSite('outils.js?v=1', 'Outils', 'des outils des artistes (outils.js)');
+}
+
+function rendrePageOutils(pageId){
+  chargerOutils().then(() => window.Outils.rendre(pageId)).catch(e => {
+    const zones = { lancement: 'lancementCorps', visite: 'visiteCorps', 'mes-sorties': 'mesSortiesCorps' };
+    const z = document.getElementById(zones[pageId]);
+    if(z) z.innerHTML = '<div class="empty-state">Cette page ne se charge pas pour le moment.</div>';
+  });
 }
 
 function chargerArtisteOutils(){
@@ -25066,8 +25214,11 @@ function adminInscritsHtml(evenement, inscrits){
                         onchange="marquerRecue('${escapeAttribute(i.id)}', this.checked, '${escapeAttribute(evenement.id)}')">
                  reçues
                </label>`
-            : '—'
-        }</td>
+            : (i.statut === 'retenu' && i.livraison_le ? '' : '—')
+        }${i.statut === 'retenu' && i.livraison_le
+            ? `<button type="button" class="btn btn-ghost" style="padding:4px 10px; font-size:12px; margin-top:4px;"
+                       onclick="voirPhotosAccred('${escapeAttribute(evenement.id)}', '${escapeAttribute(i.user_id)}')">Photos déposées</button>`
+            : ''}</td>
       </tr>`).join('');
 
   return `
