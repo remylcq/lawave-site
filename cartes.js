@@ -401,6 +401,7 @@
   .ct-c-num{position:absolute; top:5.6cqw; left:6.6cqw; font-size:max(7px, 4.3cqw); font-style:italic; font-weight:300; line-height:1; letter-spacing:.02em; font-variant-numeric:tabular-nums; text-shadow:0 1px 8px rgba(0,0,0,.5);}
   .ct-c-logo{position:absolute; top:4.2cqw; right:6cqw; height:8cqw; width:auto; max-width:none; display:block;}
   .ct-c-plaque{position:absolute; left:4cqw; right:4cqw; bottom:6.6cqw; display:flex; flex-direction:column-reverse; align-items:center; gap:0; text-align:center;}
+  .ct-c-titre{max-width:100%; margin-bottom:.8cqw; font-size:max(6px, 4.6cqw); font-weight:600; line-height:1.1; letter-spacing:.02em; color:rgba(255,255,255,.82); text-shadow:0 1px 4px rgba(0,0,0,.9); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ct-c-rar{margin-top:.6cqw; font-size:max(6px, 4.3cqw); font-style:italic; font-weight:400; line-height:1; letter-spacing:.1em; text-transform:uppercase; color:var(--rc); filter:brightness(1.12);}
   .ct-c-nom{max-width:100%; font-family:'Anton', 'Bebas Neue', Impact, 'Arial Narrow', sans-serif; font-size:calc(var(--nf, 1) * 15.5cqw); font-weight:400; text-transform:uppercase; line-height:.98; padding-top:.5cqw; letter-spacing:.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ct-c-reflet{position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .3s;}
@@ -799,6 +800,7 @@
   .ct-gain.w{color:#FFE9A8; background:rgba(242,193,78,.14);} .ct-gain.w .ct-ico{color:#F2C14E;}
   /* Le badge de niveau d'une carte améliorée */
   .ct-c-niv{position:absolute; z-index:3; top:-7px; left:-7px; height:22px; padding:0 8px; border-radius:99px; display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:800; letter-spacing:.02em; color:#1a1200; background:linear-gradient(90deg, #ffd76a, #ffb547); box-shadow:0 4px 12px rgba(0,0,0,.45); font-variant-numeric:tabular-nums;}
+  .ct-fiche-titre{margin:2px 0 8px; font-size:17px; font-weight:700; color:var(--ink-soft);} .ct-fiche-titre small{font-size:13px; font-weight:600; color:var(--muted);}
   .ct-c-niv i{font-style:normal; font-size:10px; letter-spacing:-.05em;}
   /* Le bandeau d'un événement en cours, sous le pack */
   .ct-evenement{all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:14px; width:min(560px, 100%); margin:14px auto 0; padding:10px 14px; border-radius:16px; border:1px solid color-mix(in srgb, var(--acc, #8FD3FF) 55%, transparent); background:linear-gradient(110deg, color-mix(in srgb, var(--acc, #8FD3FF) 20%, transparent), rgba(255,255,255,.03)); transition:transform .2s, border-color .2s;}
@@ -1414,6 +1416,7 @@
           <div class="ct-c-plaque">
             <div class="ct-c-rar">${esc(rar(r).nom)}</div>
             <div class="ct-c-nom">${esc(c.nom)}</div>
+            ${c.titre ? `<div class="ct-c-titre" title="${esc(c.titre)}">${esc(c.titre)}</div>` : ''}
           </div>
           <div class="ct-c-reflet"></div>
         </div>
@@ -2382,6 +2385,7 @@
         <div>
           <span class="ct-fiche-num">${numero(c.numero)}</span>
           <h2>${esc(c.nom)}</h2>
+          ${c.titre ? `<p class="ct-fiche-titre">${esc(c.titre)}<small>${c.type_sortie ? ' · ' + esc(c.type_sortie) : ''}</small></p>` : ''}
           <div class="ct-fiche-rar">${esc(rar(r).nom)}${c.holos > 0 ? ' · Holo obtenue' : ''}</div>
           <div class="ct-stats">
             <div class="ct-stat"><b>${c.fans ? esc(court(c.fans)) : '—'}</b><span>fans Deezer</span></div>
@@ -2639,7 +2643,7 @@
       </section>
 
       <div class="ct-outils">
-        <label class="ct-recherche">${ico('loupe', 17)}<input type="search" placeholder="Chercher un artiste" value="${esc(o.q)}" data-q aria-label="Chercher un artiste"></label>
+        <label class="ct-recherche">${ico('loupe', 17)}<input type="search" placeholder="Chercher un artiste ou un titre" value="${esc(o.q)}" data-q aria-label="Chercher un artiste ou un titre"></label>
         <div class="ct-segment" role="group" aria-label="Afficher">
           ${[['toutes', 'Toutes'], ['possedees', 'Obtenues'], ['manquantes', 'Manquantes'], ['doublons', 'Doublons'], ['holos', 'Holos']].map(([v, l]) => `<button type="button" data-v="${v}" class="${o.vue === v ? 'actif' : ''}" aria-pressed="${o.vue === v}">${l}</button>`).join('')}
         </div>

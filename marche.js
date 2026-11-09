@@ -248,7 +248,7 @@
 
     corps.innerHTML = `
       <div class="mk-filtres">
-        <label class="ct-recherche">${A.ico('loupe', 17)}<input type="search" placeholder="Chercher un artiste" value="${A.esc(f.q)}" data-f="q" aria-label="Chercher un artiste"></label>
+        <label class="ct-recherche">${A.ico('loupe', 17)}<input type="search" placeholder="Chercher un artiste ou un titre" value="${A.esc(f.q)}" data-f="q" aria-label="Chercher un artiste"></label>
         <select class="ct-select" data-f="booster" aria-label="Collection"><option value="">Toutes les collections</option>${bs.map((b) => `<option value="${A.esc(b.id)}"${f.booster === b.id ? ' selected' : ''}>${A.esc(b.nom)}</option>`).join('')}</select>
         <select class="ct-select" data-f="rarete" aria-label="Rareté"><option value="">Toutes les raretés</option>${[1, 2, 3, 4, 5].map((n) => `<option value="${n}"${String(f.rarete) === String(n) ? ' selected' : ''}>${A.esc(nomRar(n))}</option>`).join('')}</select>
         <select class="ct-select" data-f="holo" aria-label="Type"><option value="">Normales et holos</option><option value="0"${f.holo === '0' ? ' selected' : ''}>Normales</option><option value="1"${f.holo === '1' ? ' selected' : ''}>Holos</option></select>
@@ -308,7 +308,7 @@
       <div class="mk-achat">
         <div class="gauche">${A.carteHtml(c, { eager: true, vivante: true })}</div>
         <div class="droite">
-          <h3>${A.esc(c.nom)}</h3>
+          <h3>${A.esc(c.nom)}${c.titre ? ' · ' + A.esc(c.titre) : ''}</h3>
           <div class="rar" style="--rc:${A.rar(c.rarete).c}">${A.esc(nomRar(c.rarete))}${c.holo ? ' · Holo' : ''}</div>
           <div style="margin-top:12px">${prix(a.prix, true)}</div>
           <p class="sous" style="margin-top:6px">Vendue par ${A.esc(a.vendeur)} · encore ${A.esc(reste(a.expire_le))}</p>
@@ -368,7 +368,7 @@
         <div class="mk-ligne">
           <div class="mk-mini">${A.carteHtml(c, {})}</div>
           <div class="tx">
-            <b>${A.esc(c.nom)}</b>
+            <b>${A.esc(c.nom)}${c.titre ? ' · ' + A.esc(c.titre) : ''}</b>
             <span><span class="mk-tag etat-${a.etat}">${ETATS[a.etat] || a.etat}</span></span>
             <small>${A.esc(nomRar(c.rarete))}${c.holo ? ' · Holo' : ''} · ${a.etat === 'active' ? 'encore ' + A.esc(reste(a.expire_le)) : (a.etat === 'vendue' && a.acheteur ? 'à ' + A.esc(a.acheteur) + ' · ' : '') + A.esc(quand(a.ferme_le || a.cree_le))}</small>
             ${a.etat === 'active' ? `<div class="mk-repere">${ind.plancher ? `<span>Plus bas : <b>${A.nf(ind.plancher)}</b></span>` : ''}${ind.mediane ? `<span>Médiane : <b>${A.nf(ind.mediane)}</b></span>` : ''}</div>` : ''}
@@ -420,7 +420,7 @@
         <div class="mk-ligne">
           <div class="mk-mini">${A.carteHtml(x.carte, {})}</div>
           <div class="tx">
-            <b>${A.esc(x.carte.nom)}</b>
+            <b>${A.esc(x.carte.nom)}${x.carte.titre ? ' · ' + A.esc(x.carte.titre) : ''}</b>
             <small>${A.esc(nomRar(x.carte.rarete))}${x.carte.holo ? ' · Holo' : ''} · ${vente ? 'vendue à' : 'achetée à'} ${A.esc(x.autre)}</small>
             <small>${A.esc(quand(x.cree_le))}</small>
           </div>
@@ -528,7 +528,7 @@
         <div class="mk-achat">
           <div class="gauche">${A.carteHtml(Object.assign({}, c, { holo }), { eager: true })}</div>
           <div class="droite">
-            <h3>${A.esc(c.nom)}</h3>
+            <h3>${A.esc(c.nom)}${c.titre ? ' · ' + A.esc(c.titre) : ''}</h3>
             <div class="rar" style="--rc:${A.rar(c.rarete).c}">${A.esc(nomRar(c.rarete))}${holo ? ' · Holo' : ''}</div>
             ${normales > 0 && holos > 0 ? `<div class="ct-segment" style="margin-top:12px" role="group" aria-label="Version">
               <button type="button" data-v="0" class="${!holo ? 'actif' : ''}" aria-pressed="${!holo}">Normale ×${normales}</button>
@@ -709,7 +709,7 @@
         zoneA.innerHTML = r.annonces.length ? `<div class="mk-liste">${r.annonces.map((a) => `
           <div class="mk-ligne">
             <div class="mk-mini">${A.carteHtml(a.carte, {})}</div>
-            <div class="tx"><b>${A.esc(a.carte.nom)}</b><small>${A.esc(nomRar(a.carte.rarete))}${a.carte.holo ? ' · Holo' : ''} · par ${A.esc(a.vendeur)}</small><small>encore ${A.esc(reste(a.expire_le))}</small></div>
+            <div class="tx"><b>${A.esc(a.carte.nom)}${a.carte.titre ? ' · ' + A.esc(a.carte.titre) : ''}</b><small>${A.esc(nomRar(a.carte.rarete))}${a.carte.holo ? ' · Holo' : ''} · par ${A.esc(a.vendeur)}</small><small>encore ${A.esc(reste(a.expire_le))}</small></div>
             <div class="droite">${prix(a.prix)}<button type="button" class="ct-btn petit" data-retirer="${a.id}">Retirer</button></div>
           </div>`).join('')}</div>${pagination(r)}` : '<div class="ct-vide">Aucune annonce en cours.</div>';
         zoneA.querySelectorAll('[data-retirer]').forEach((b) => b.addEventListener('click', () => confirmerRetrait(Number(b.dataset.retirer), annonces, racine)));
