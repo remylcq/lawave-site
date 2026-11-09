@@ -596,6 +596,10 @@
   }
   .cat-puce:hover{border-color:rgba(255,255,255,0.28); color:var(--ink);}
   .cat-puce[aria-pressed="true"]{border-color:var(--blue); color:var(--ink); background:rgba(20,137,222,0.16);}
+  .cat-hasard{display:inline-flex; align-items:center; gap:7px;}
+  .cat-hasard svg{width:16px; height:16px; transition:transform .5s var(--ease);}
+  .cat-hasard:hover svg{transform:rotate(180deg);}
+  .cat-hasard:disabled{opacity:.6; cursor:wait;}
   .cat-reinit{padding:9px 6px; border:0; background:transparent; font-size:13px; color:var(--muted); text-decoration:underline; text-underline-offset:3px;}
   .cat-reinit:hover{color:var(--ink);}
   .cat-reinit[hidden]{display:none;}
@@ -2967,6 +2971,74 @@
     background:radial-gradient(circle at var(--gx,30%) var(--gy,20%), rgba(255,255,255,.75), rgba(255,255,255,0) 58%);
   }
   .cover-grand-aide{margin:0; font-size:13px; color:var(--muted);}
+  /* Le vinyle : caché derrière la pochette, il en sort et tourne tant qu'un extrait joue. */
+  .cover-grand-scene{position:relative; transition:transform .7s var(--ease);}
+  .cover-grand-vinyle{
+    position:absolute; top:3%; left:3%; width:94%; height:94%; border-radius:50%; pointer-events:none;
+    transition:transform .8s var(--ease); box-shadow:0 18px 40px -10px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.14);
+  }
+  .cover-grand-vinyle i{
+    position:absolute; inset:0; border-radius:50%; animation:vinyleTourne 2.4s linear infinite; animation-play-state:paused;
+    background:
+      radial-gradient(circle, #05070a 0 3%, transparent 3.5%),
+      radial-gradient(circle, transparent 0 24%, rgba(255,255,255,0) 24%),
+      repeating-radial-gradient(circle, #10151c 0 2px, #1d242e 2px 3px),
+      #10151c;
+  }
+  /* L'étiquette centrale reprend la pochette ; un reflet fixe traverse le disque. */
+  .cover-grand-vinyle i::before{
+    content:''; position:absolute; inset:33%; border-radius:50%; background:var(--c) center / cover no-repeat #1b222c;
+    box-shadow:0 0 0 3px #0c0f14; outline:1px solid rgba(255,255,255,.1);
+  }
+  .cover-grand-vinyle::after{
+    content:''; position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 20deg, rgba(255,255,255,0) 0 8%, rgba(255,255,255,.14) 14%, rgba(255,255,255,0) 22% 58%, rgba(255,255,255,.1) 66%, rgba(255,255,255,0) 74%);
+  }
+  .cover-grand.joue .cover-grand-vinyle{transform:translateX(48%);}
+  .cover-grand.joue .cover-grand-vinyle i{animation-play-state:running;}
+  .cover-grand.joue .cover-grand-scene{transform:translateX(-20%);}
+  @keyframes vinyleTourne{to{transform:rotate(360deg);}}
+  @media (prefers-reduced-motion:reduce){ .cover-grand-vinyle i{animation:none;} .cover-grand-vinyle, .cover-grand-scene{transition:none;} }
+  .cover-grand-ecouter{
+    display:inline-flex; align-items:center; gap:9px; padding:11px 22px; border-radius:999px; border:1px solid rgba(255,255,255,0.22);
+    background:rgba(255,255,255,0.1); color:#fff; font:inherit; font-size:14px; font-weight:600; cursor:pointer;
+    transition:background .2s, border-color .2s, transform .2s;
+  }
+  .cover-grand-ecouter:hover{background:rgba(255,255,255,0.2); transform:translateY(-1px);}
+  .cover-grand-ecouter svg{width:15px; height:15px; fill:currentColor;}
+  .cover-grand-ecouter .i-pause{display:none;}
+  .cover-grand.joue .cover-grand-ecouter{background:var(--blue-bright); border-color:var(--blue-bright); color:#04121f;}
+  .cover-grand.joue .cover-grand-ecouter .i-play{display:none;}
+  .cover-grand.joue .cover-grand-ecouter .i-pause{display:block;}
+  /* Dans la fiche : le bouton « file d'écoute », les autres versions, « Tout écouter ». */
+  .fiche-bouton{
+    display:inline-flex; align-items:center; gap:8px; margin:0 0 14px; padding:8px 14px; border-radius:999px; border:1px solid var(--line);
+    background:transparent; color:var(--ink-soft); font:inherit; font-size:13px; font-weight:500; cursor:pointer;
+    transition:border-color .2s var(--ease), color .2s var(--ease);
+  }
+  .fiche-bouton[hidden]{display:none;}
+  .fiche-bouton:hover{border-color:rgba(255,255,255,0.28); color:var(--ink);}
+  .fiche-bouton svg{width:15px; height:15px;}
+  .fiche-versions[hidden]{display:none;}
+  .fiche-versions{margin:0 0 14px;}
+  .fiche-versions-titre{margin:0 0 8px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+  .fiche-versions-liste{display:flex; flex-direction:column; gap:4px;}
+  .fiche-version{
+    display:flex; align-items:center; gap:10px; width:100%; padding:6px 8px 6px 6px; border:0; border-radius:12px; background:rgba(255,255,255,0.04);
+    color:var(--ink); font:inherit; text-align:left; cursor:pointer; transition:background .2s;
+  }
+  .fiche-version:hover{background:rgba(255,255,255,0.09);}
+  .fiche-version img{width:34px; height:34px; border-radius:7px; object-fit:cover; flex:none;}
+  .fiche-version span{min-width:0; display:flex; flex-direction:column; font-size:13px; line-height:1.3;}
+  .fiche-version small{font-size:11.5px; color:var(--muted);}
+  .pistes-entete{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:0 0 8px;}
+  .pistes-entete .pistes-titre{margin:0;}
+  .pistes-tout{
+    display:inline-flex; align-items:center; gap:6px; padding:5px 11px; border-radius:999px; border:1px solid var(--line-strong);
+    background:transparent; color:var(--ink-soft); font:inherit; font-size:12px; font-weight:600; cursor:pointer; transition:background .2s, color .2s;
+  }
+  .pistes-tout:hover{background:var(--glass-hi); color:var(--ink);}
+  .pistes-tout svg{width:11px; height:11px; fill:currentColor;}
   .cover-grand-fermer{position:absolute; top:18px; right:18px; width:44px; height:44px; border-radius:50%; border:0; background:rgba(255,255,255,0.1); color:#fff; font-size:20px; cursor:pointer;}
   .cover-grand-fermer:hover{background:rgba(255,255,255,0.22);}
   /* Les titres de la sortie, un extrait de 30 s par titre. */
@@ -6968,6 +7040,15 @@
 
   <div class="listen-row" id="modalListenRow"></div>
 
+  <!-- File d'écoute : la sortie rejoint le lecteur d'extraits (lecteur.js), qui enchaîne les extraits pendant qu'on navigue. -->
+  <button type="button" class="fiche-bouton" id="modalFile" onclick="ajouterAlaFile()" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h12M4 12h12M4 18h7M18 15v6M15 18h6"/></svg>
+    Ajouter à ma file d'écoute
+  </button>
+
+  <!-- Les autres versions de la sortie (deluxe, réédition…). Rempli par chargerVersions. -->
+  <div class="fiche-versions" id="modalVersions" hidden></div>
+
   <!-- Clip, quand la sortie en a un. Rempli par openCatalogueModal. -->
   <div id="modalClip"></div>
 
@@ -7333,9 +7414,23 @@ const BD = {
       p_mois: e.mois ? Number(e.mois) : null,
       p_tri: e.tri || 'recent',
       p_limite: limite,
-      p_decalage: decalage
+      p_decalage: decalage,
+      // « Cette semaine » : les sorties des sept derniers jours (aujourd'hui compris).
+      p_depuis: e.semaine ? dateIsoIlYa(6) : null
     });
     return { data, error };
+  },
+
+  // Une sortie au hasard, hors de celles que l'on a déjà notées ou gardées (voir sql/lot-catalogue.sql).
+  async catalogueHasard(type){
+    const { data, error } = await supabaseClient.rpc('catalogue_hasard', { p_type: type || null });
+    return { data, error };
+  },
+
+  // Les autres versions d'une sortie : deluxe, réédition, version…
+  async catalogueVersions(id){
+    const { data, error } = await supabaseClient.rpc('catalogue_versions', { p_release: id });
+    return { data: Array.isArray(data) ? data : [], error };
   },
 
   comptesArtistes(){
@@ -14651,7 +14746,14 @@ const CATALOGUE_PAR_PAGE = 60;
 let catalogueTrie = [];   // les sorties lues à l'ouverture du site : l'accueil en montre les quatre premières
 
 // Des « var » : goTo peut ouvrir le catalogue (adresse #catalogue) avant que le script n'atteigne cet endroit.
-var catalogueEtat = { q: '', type: '', annee: '', mois: '', tri: 'recent', page: 1, total: 0, charge: false, luLe: 0 };
+var catalogueEtat = { q: '', type: '', annee: '', mois: '', tri: 'recent', semaine: false, page: 1, total: 0, charge: false, luLe: 0 };
+
+// La date du jour, moins n jours, en « AAAA-MM-JJ » (heure locale).
+function dateIsoIlYa(n){
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
 var catalogueJeton = 0;
 var catalogueMinuteur = null;
 
@@ -14689,16 +14791,30 @@ function catalogueDessinerFiltres(){
     <select class="cat-select" data-cat="tri" aria-label="Ordre">
       ${CATALOGUE_TRIS.map(([valeur, libelle]) => `<option value="${valeur}">${escapeHtml(libelle)}</option>`).join('')}
     </select>
+    <button type="button" class="cat-puce" data-cat-semaine aria-pressed="false">Cette semaine</button>
+    <button type="button" class="cat-puce cat-hasard" data-cat-hasard>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><circle cx="8.5" cy="8.5" r="1" fill="currentColor"/><circle cx="15.5" cy="8.5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="8.5" cy="15.5" r="1" fill="currentColor"/><circle cx="15.5" cy="15.5" r="1" fill="currentColor"/></svg>
+      Surprends-moi
+    </button>
     <button type="button" class="cat-reinit" data-cat-reinit hidden>Réinitialiser</button>`;
 
   zone.addEventListener('click', ev => {
 
     const type = ev.target.closest('[data-cat-type]');
 
+    if(ev.target.closest('[data-cat-hasard]')){
+      catalogueSurprise(ev.target.closest('[data-cat-hasard]'));
+      return;
+    }
+
     if(type){
       catalogueEtat.type = type.dataset.catType;
+    } else if(ev.target.closest('[data-cat-semaine]')){
+      catalogueEtat.semaine = !catalogueEtat.semaine;
+      // La semaine se lit du plus récent au plus ancien, sans année ni mois en travers.
+      if(catalogueEtat.semaine){ catalogueEtat.annee = ''; catalogueEtat.mois = ''; if(catalogueEtat.tri === 'ancien') catalogueEtat.tri = 'recent'; }
     } else if(ev.target.closest('[data-cat-reinit]')){
-      Object.assign(catalogueEtat, { q: '', type: '', annee: '', mois: '', tri: 'recent' });
+      Object.assign(catalogueEtat, { q: '', type: '', annee: '', mois: '', tri: 'recent', semaine: false });
       const champ = document.getElementById('rechercheCataloguePublic');
       if(champ) champ.value = '';
     } else {
@@ -14719,6 +14835,7 @@ function catalogueDessinerFiltres(){
     catalogueEtat[liste.dataset.cat] = liste.value;
 
     if(liste.dataset.cat === 'annee' && !liste.value) catalogueEtat.mois = '';
+    if(liste.dataset.cat === 'annee' && liste.value) catalogueEtat.semaine = false;
 
     catalogueEtat.page = 1;
     catalogueMajFiltres();
@@ -14759,8 +14876,39 @@ function catalogueMajFiltres(){
     if(liste.dataset.cat === 'mois') liste.hidden = !e.annee;
   });
 
+  const semaine = zone.querySelector('[data-cat-semaine]');
+
+  if(semaine){
+    semaine.classList.toggle('on', !!e.semaine);
+    semaine.setAttribute('aria-pressed', String(!!e.semaine));
+  }
+
   zone.querySelector('[data-cat-reinit]').hidden =
-    !(e.q || e.type || e.annee || e.mois || e.tri !== 'recent');
+    !(e.q || e.type || e.annee || e.mois || e.semaine || e.tri !== 'recent');
+}
+
+
+// « Surprends-moi » : une sortie au hasard, que l'on n'a pas déjà notée ni gardée, ouverte directement (dans le type choisi).
+async function catalogueSurprise(bouton){
+
+  if(bouton && bouton.disabled) return;
+  if(bouton) bouton.disabled = true;
+
+  try{
+
+    const { data, error } = await BD.catalogueHasard(catalogueEtat.type);
+
+    if(error || !data){
+      notifier('Pas de surprise pour le moment, réessaie dans un instant.', { type: 'erreur' });
+      return;
+    }
+
+    fusionnerSorties([data], true);
+    openCatalogueModal(data.id);
+
+  } finally {
+    if(bouton) bouton.disabled = false;
+  }
 }
 
 
@@ -21449,6 +21597,8 @@ document.getElementById(
 
   renderNoteBloc(item.id);
   chargerPistes(item);
+  chargerVersions(item);
+  ficheItemCourant = item;
 
   document.getElementById('catalogueModal').classList.add('open');
 
@@ -21466,21 +21616,104 @@ document.getElementById(
 // chaque titre contient déjà ses featurings. Chaque titre a un extrait de 30 secondes ; un seul joue à la fois, et
 // l'extrait s'arrête quand la fiche se ferme.
 
-let extraitAudio = null;
-let extraitBouton = null;
+// Des « var » : lireAdresse peut fermer une fiche (arreterExtrait) avant que le script n'atteigne cet endroit.
+var extraitAudio = null;
+var extraitBouton = null;
 
 var pistesCourantes = [];
+var ficheItemCourant = null;   // la sortie dont la fiche est ouverte
+
+// La pochette en grand et le lecteur savent ainsi quand un extrait démarre ou s'arrête.
+function annoncerEtatExtrait(){
+  document.dispatchEvent(new CustomEvent('extrait-etat', { detail: { joue: !!extraitAudio } }));
+}
 
 function arreterExtrait(){
+
+  const jouait = !!extraitAudio;
 
   if(extraitAudio){ try{ extraitAudio.pause(); }catch(e){} extraitAudio = null; }
   if(extraitBouton){ const l = extraitBouton.closest('.piste'); if(l) l.classList.remove('joue'); extraitBouton = null; }
   const cover = document.getElementById('modalCoverZone');
   if(cover) cover.classList.remove('joue');
+  if(jouait) annoncerEtatExtrait();
+}
+
+// Le lecteur à file d'attente (lecteur.js) est chargé à la première utilisation.
+function chargerLecteur(){
+  return chargerModuleSite('lecteur.js?v=1', 'Lecteur', "du lecteur d'extraits (lecteur.js)");
+}
+
+async function ajouterAlaFile(){
+
+  const item = ficheItemCourant;
+
+  if(!item) return;
+
+  try{
+    await chargerLecteur();
+    window.Lecteur.ajouterSortie({ id: item.id, title: item.title, artist: item.artist, cover: item.cover });
+  }catch(e){
+    notifier(e.message, { type: 'erreur' });
+  }
+}
+
+// « Tout écouter » : les extraits de tous les titres du projet s'enchaînent dans le lecteur.
+async function toutEcouterLesTitres(){
+
+  const item = ficheItemCourant;
+
+  if(!item || !pistesCourantes.some(p => p.apercu)) return;
+
+  try{
+    await chargerLecteur();
+    window.Lecteur.lireListe(pistesCourantes, { id: item.id, title: item.title, artist: item.artist, cover: item.cover });
+  }catch(e){
+    notifier(e.message, { type: 'erreur' });
+  }
+}
+
+// Les autres versions de la sortie (deluxe, réédition, version…), sous les liens d'écoute.
+async function chargerVersions(item){
+
+  const zone = document.getElementById('modalVersions');
+
+  if(!zone) return;
+
+  zone.hidden = true;
+  zone.innerHTML = '';
+
+  if(!item || !item.id || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+  const voulu = item.id;
+  zone.dataset.release = voulu;
+
+  const { data } = await BD.catalogueVersions(voulu).catch(() => ({ data: [] }));
+
+  if(zone.dataset.release !== voulu || !data.length) return;
+
+  zone.innerHTML = `
+    <p class="fiche-versions-titre">Autres versions</p>
+    <div class="fiche-versions-liste">
+      ${data.slice(0, 6).map(v => `
+        <button type="button" class="fiche-version" onclick="ouvrirUneVersion('${escapeAttribute(v.id)}')">
+          <img src="${escapeAttribute(safeUrl(v.cover))}" alt="" loading="lazy">
+          <span>${escapeHtml(v.titre)}${v.date ? '<small>' + escapeHtml(new Date(v.date + 'T00:00:00').getFullYear()) + '</small>' : ''}</span>
+        </button>`).join('')}
+    </div>`;
+  zone.hidden = false;
+}
+
+async function ouvrirUneVersion(id){
+  await assurerSorties([id]);
+  openCatalogueModal(id);
 }
 
 // Joue l'extrait d'une adresse ; « bouton » est le bouton de sa ligne dans l'encadré des titres, s'il y en a un.
 function lancerExtrait(url, bouton){
+
+  // Un seul son à la fois : le lecteur à file d'attente se tait.
+  if(window.Lecteur) window.Lecteur.pause();
 
   const audio = new Audio(url);
   audio.volume = 0.9;
@@ -21492,6 +21725,7 @@ function lancerExtrait(url, bouton){
   audio.addEventListener('ended', () => { if(extraitAudio === audio) arreterExtrait(); });
   audio.addEventListener('error', () => { if(extraitAudio === audio) arreterExtrait(); });
   audio.play().catch(() => { if(extraitAudio === audio) arreterExtrait(); });
+  annoncerEtatExtrait();
 }
 
 function jouerExtrait(bouton){
@@ -21527,6 +21761,8 @@ function ouvrirCoverGrand(){
 
   const depart = source.getBoundingClientRect();
   const calme = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const zoneCover = document.getElementById('modalCoverZone');
+  const avecExtrait = !!(zoneCover && zoneCover.classList.contains('a-extrait'));
 
   const voile = document.createElement('div');
   voile.className = 'cover-grand';
@@ -21535,12 +21771,30 @@ function ouvrirCoverGrand(){
   voile.setAttribute('aria-label', 'Pochette en grand');
   voile.innerHTML = `
     <button type="button" class="cover-grand-fermer" aria-label="Fermer">✕</button>
-    <div class="cover-grand-scene"><div class="cover-grand-carte">
-      <img src="${escapeAttribute(source.src)}" alt="${escapeAttribute(source.alt || '')}" draggable="false">
-      <span class="cover-grand-reflet"></span>
-    </div></div>
+    <div class="cover-grand-scene">
+      <!-- Le vinyle sort de la pochette et tourne tant que l'extrait joue. -->
+      <span class="cover-grand-vinyle" aria-hidden="true" style="--c:url('${escapeAttribute(source.src)}')"><i></i></span>
+      <div class="cover-grand-carte">
+        <img src="${escapeAttribute(source.src)}" alt="${escapeAttribute(source.alt || '')}" draggable="false">
+        <span class="cover-grand-reflet"></span>
+      </div>
+    </div>
+    ${avecExtrait ? `<button type="button" class="cover-grand-ecouter">
+      <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>
+      <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1"/><rect x="13.8" y="5" width="4.2" height="14" rx="1"/></svg>
+      <span>Écouter un extrait</span></button>` : ''}
     <p class="cover-grand-aide">${calme ? '' : 'Bouge la souris pour incliner la pochette'}</p>`;
   document.body.appendChild(voile);
+
+  // Le vinyle sort et tourne pendant qu'un extrait joue ; le bouton dit ce qu'un clic fait.
+  const majLecture = () => {
+    const joue = !!extraitAudio;
+    voile.classList.toggle('joue', joue);
+    const lib = voile.querySelector('.cover-grand-ecouter span');
+    if(lib) lib.textContent = joue ? "Arrêter l'extrait" : 'Écouter un extrait';
+  };
+  document.addEventListener('extrait-etat', majLecture);
+  majLecture();
 
   const carte = voile.querySelector('.cover-grand-carte');
   const arrivee = carte.getBoundingClientRect();
@@ -21586,11 +21840,17 @@ function ouvrirCoverGrand(){
     raf = requestAnimationFrame(dessiner);
   }
 
-  const fermer = () => { cancelAnimationFrame(raf); voile.remove(); document.removeEventListener('keydown', touche_, true); };
+  const fermer = () => {
+    cancelAnimationFrame(raf);
+    voile.remove();
+    document.removeEventListener('keydown', touche_, true);
+    document.removeEventListener('extrait-etat', majLecture);
+  };
   const touche_ = (e) => { if(e.key === 'Escape'){ e.stopImmediatePropagation(); fermer(); } };
 
   voile.addEventListener('click', (e) => {
-    if(e.target.closest('.cover-grand-fermer') || !e.target.closest('.cover-grand-carte')) fermer();
+    if(e.target.closest('.cover-grand-ecouter')){ jouerExtraitCover(); return; }
+    if(e.target.closest('.cover-grand-fermer') || !e.target.closest('.cover-grand-carte, .cover-grand-vinyle')) fermer();
   });
   document.addEventListener('keydown', touche_, true);
 }
@@ -21614,6 +21874,9 @@ async function chargerPistes(item){
   arreterExtrait();
 
   if(cover) cover.classList.remove('a-extrait');
+
+  const boutonFile = document.getElementById('modalFile');
+  if(boutonFile) boutonFile.hidden = true;
 
   if(!item || !item.id || typeof supabaseClient === 'undefined' || !supabaseClient) return;
 
@@ -21640,6 +21903,7 @@ async function chargerPistes(item){
     cover.classList.add('a-extrait');
     const bouton = document.getElementById('coverLecture');
     if(bouton) bouton.setAttribute('aria-label', 'Écouter un extrait de ' + (item.title || 'cette sortie'));
+    if(boutonFile) boutonFile.hidden = false;
   }
 
   // Un single n'a qu'un titre : pas d'encadré.
@@ -21650,7 +21914,12 @@ async function chargerPistes(item){
 
   zone.innerHTML = `
     <div class="pistes">
-      <p class="pistes-titre">${pistes.length} titres</p>
+      <div class="pistes-entete">
+        <p class="pistes-titre">${pistes.length} titres</p>
+        ${pistes.some(p => p.apercu) ? `<button type="button" class="pistes-tout" onclick="toutEcouterLesTitres()">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z"/></svg>
+          Tout écouter</button>` : ''}
+      </div>
       <ol class="pistes-liste">
         ${pistes.map((p) => `
           <li class="piste">
