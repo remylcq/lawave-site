@@ -33,6 +33,7 @@ on:
       - combat.js
       - marche.js
       - cartes-equipe.js
+      - lecteur.js
       - modeles/**
       - decor/**
       - logos/**
