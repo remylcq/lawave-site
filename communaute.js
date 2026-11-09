@@ -161,6 +161,9 @@ const ICONES = {
   casque:    '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4.5" height="6.5" rx="1.6"/><rect x="16.5" y="14" width="4.5" height="6.5" rx="1.6"/>',
   lien:      '<path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1"/>',
   envoyer:   '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>',
+  lecture:   '<path d="M8 5.2v13.6a1 1 0 0 0 1.5.86l11-6.8a1 1 0 0 0 0-1.72l-11-6.8A1 1 0 0 0 8 5.2z" fill="currentColor"/>',
+  pause:     '<rect x="6" y="5" width="4.2" height="14" rx="1" fill="currentColor"/><rect x="13.8" y="5" width="4.2" height="14" rx="1" fill="currentColor"/>',
+  etoileP:   '<path d="m12 3 2.7 5.6 6.1.8-4.5 4.2 1.1 6.1L12 16.8 6.6 19.7l1.1-6.1L3.2 9.4l6.1-.8z" fill="currentColor"/>',
   loupe:     '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
   croix:     '<path d="M6 6l12 12M18 6 6 18"/>',
   coche:     '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
@@ -560,6 +563,16 @@ const BD = {
   messages:        (id, avant) => rpc('com_messages', { p_conversation: id, p_avant: avant || null, p_limite: 40 }),
   ouvrirConversation: (id)  => rpc('com_ouvrir_conversation', { p_avec: id }),
   envoyer:         (id, texte) => rpc('com_envoyer', { p_conversation: id, p_contenu: texte }),
+  envoyerVocal:    (id, chemin, duree) => rpc('com_envoyer_vocal', { p_conversation: id, p_path: chemin, p_duree: duree }),
+  defiCourant:     () => rpc('com_defi_courant'),
+  mesSignalements: () => rpc('com_mes_signalements'),
+  studios:         (a) => rpc('com_studios_liste', a),
+  studio:          (id) => rpc('com_studio', { p_id: id }),
+  studioProposer:  (a) => rpc('com_studio_proposer', a),
+  studioNoter:     (id, note, avis) => rpc('com_studio_noter', { p_id: id, p_note: note, p_avis: avis || null }),
+  studioAvisRetirer: (id) => rpc('com_studio_avis_retirer', { p_id: id }),
+  studiosAValider: () => rpc('com_studios_a_valider'),
+  studioTraiter:   (id, action) => rpc('com_studio_traiter', { p_id: id, p_action: action }),
   lire:            (id)     => rpc('com_lire', { p_conversation: id }),
 
   publier:     (a)   => rpc('com_publier', a),
@@ -3067,6 +3080,7 @@ VUES.accueil = {
 
     V.el.innerHTML = `
       <div data-hote="onboarding"></div>
+      <div data-hote="defi"></div>
       <div data-hote="composer" class="com-hote-composer"></div>
       <!-- Le contenu de l'ancienne page « Explorer » : à droite du fil sur grand écran, repliable sous le composer sinon. -->
       <aside class="com-rail" data-incruste data-cle="accueil" aria-label="Trouver des membres">
@@ -3104,6 +3118,7 @@ VUES.accueil = {
 
     V.hotes = {
       onboarding: $('[data-hote="onboarding"]', V.el),
+      defi: $('[data-hote="defi"]', V.el),
       composer: $('[data-hote="composer"]', V.el),
       sujets: $('[data-hote="sujets"]', V.el),
       onglets: $('[data-hote="onglets"]', V.el),
@@ -3176,6 +3191,36 @@ VUES.accueil = {
     // elle n'a pas de largeur à mesurer.
     placerBarreOnglets(V.hotes.onglets, false);
     VUES.accueil.majRail(V);
+    VUES.accueil.defi(V);
+  },
+
+  // Le défi de la semaine : une consigne, un mot-clic ; participer ouvre le composer avec le mot-clic déjà posé.
+  async defi(V){
+
+    if(V.defiLe && Date.now() - V.defiLe < 300000) return;
+
+    try{
+
+      const d = await BD.defiCourant();
+
+      V.defiLe = Date.now();
+
+      if(!d){ V.hotes.defi.innerHTML = ''; return; }
+
+      const reste = d.jours_restants > 0 ? 'encore ' + d.jours_restants + ' jour' + (d.jours_restants > 1 ? 's' : '') : 'dernier jour';
+
+      V.hotes.defi.innerHTML = `
+        <section class="com-carte com-defi" aria-label="Défi de la semaine">
+          <div class="com-defi-tete"><span class="com-defi-pastille">${icone('trophee', 14)} Défi de la semaine</span><span class="com-defi-reste">${esc(reste)}</span></div>
+          <h3>${esc(d.titre)}</h3>
+          <p>${esc(d.consigne)}</p>
+          <div class="com-defi-pied">
+            <button type="button" class="com-btn com-btn-plein com-btn-petit" data-act="defi-participer" data-tag="${attr(d.tag)}">Participer</button>
+            <a class="com-defi-voir" href="#community/tag/${attr(encodeURIComponent(d.tag))}" data-act="tag" data-tag="${attr(d.tag)}">${d.nb ? d.nb + ' participation' + (d.nb > 1 ? 's' : '') + ' · voir' : 'Sois le premier à participer'} <small>#${esc(d.tag)}</small></a>
+          </div>
+        </section>`;
+
+    }catch(e){}
   },
 
   // Le bloc « Explorer » : toujours ouvert quand il y a la place à droite du fil, repliable en dessous.
@@ -3831,13 +3876,13 @@ async function signalerContenu(type, id){
   const r = await ouvrirDialogue({
     titre: type === 'membre' ? 'Signaler ce membre' : 'Signaler ce contenu',
     corps: `
-      <p class="com-dialogue-texte">Pourquoi le signales-tu ? L'équipe de La Wave regardera. Ton signalement reste anonyme.</p>
+      <p class="com-dialogue-texte">Touche le motif : c'est envoyé tout de suite. L'équipe de La Wave regardera, et tu pourras suivre ce qu'il en advient dans « Mes signalements ». Ton signalement reste anonyme.</p>
       <div class="com-radios" role="radiogroup" aria-label="Motif">
         ${MOTIFS.map(m => `
           <label class="com-radio"><input type="radio" name="com-motif" value="${m.cle}"><span>${esc(m.libelle)}</span></label>`).join('')}
       </div>
-      <label class="com-champ" style="margin-top:12px">
-        <span>Un détail à ajouter <i>(facultatif)</i></span>
+      <label class="com-champ" data-d="zone-details" style="margin-top:12px" hidden>
+        <span>Dis-nous ce qui ne va pas <i>(facultatif)</i></span>
         <textarea data-d="details" rows="2" maxlength="500"></textarea>
       </label>
       <p class="com-dialogue-erreur" data-d="erreur" hidden>Choisis un motif.</p>`,
@@ -3846,6 +3891,16 @@ async function signalerContenu(type, id){
       { libelle: 'Signaler', valeur: 'ok', primaire: true }
     ],
     focus: 'input[type="radio"]',
+    // Un motif touché part aussitôt ; « Autre » laisse la place d'un détail avant l'envoi.
+    surOuverture: (boite) => {
+      $$('input[name="com-motif"]', boite).forEach(r => r.addEventListener('change', () => {
+        const zone = $('[data-d="zone-details"]', boite);
+        if(r.value === 'autre'){ zone.hidden = false; $('textarea', zone).focus(); return; }
+        zone.hidden = true;
+        const envoi = $('[data-valeur="ok"]', boite);
+        if(envoi) envoi.click();
+      }));
+    },
     lire: (boite, valeur) => {
       if(valeur !== 'ok') return null;
       const choisi = $('input[name="com-motif"]:checked', boite);
@@ -3858,10 +3913,50 @@ async function signalerContenu(type, id){
 
   try{
     await BD.signaler(type, id, r.motif, r.details);
-    toast('Merci, c\'est signalé', { detail: "L'équipe va regarder ça.", icone: '🛡️' });
+    toast('Merci, c\'est signalé', { detail: "Suis-le dans ton menu, « Mes signalements ».", icone: '🛡️' });
   }catch(e){
     toastErreur(e);
   }
+}
+
+// « Mes signalements » : ce que l'on a signalé, et où cela en est.
+async function ouvrirMesSignalements(){
+
+  if(!exigerConnexion('Connecte-toi pour voir tes signalements.')) return;
+
+  let liste = [];
+
+  try{
+    liste = await BD.mesSignalements();
+  }catch(e){
+    toastErreur(e);
+    return;
+  }
+
+  const STATUTS = {
+    en_cours: ['En cours d\'examen', 'cours'],
+    examine: ['Examiné · aucune suite', 'examine'],
+    retire: ['Contenu retiré', 'retire']
+  };
+
+  const CIBLES = { post: 'Message', commentaire: 'Commentaire', membre: 'Membre' };
+
+  await ouvrirDialogue({
+    titre: 'Mes signalements',
+    corps: liste.length
+      ? `<ul class="com-mes-sig">${liste.map(s => {
+          const [lib, cls] = STATUTS[s.statut] || STATUTS.en_cours;
+          const motif = (MOTIFS.find(m => m.cle === s.motif) || { libelle: s.motif }).libelle;
+          return `
+            <li>
+              <div class="com-mes-sig-haut"><b>${esc(CIBLES[s.cible_type] || 'Contenu')}</b><span class="com-mes-sig-statut ${cls}">${esc(lib)}</span></div>
+              <p class="com-mes-sig-extrait">${s.extrait ? esc(s.extrait) : '<i>Ce contenu n\'existe plus.</i>'}</p>
+              <small>${esc(motif)} · ${esc(depuis(s.cree_le))}</small>
+            </li>`;
+        }).join('')}</ul>`
+      : '<p class="com-dialogue-texte">Tu n\'as encore rien signalé.</p>',
+    boutons: [{ libelle: 'Fermer', valeur: 'ok', primaire: true }]
+  });
 }
 
 async function bloquerMembre(id, pseudo, actif){
@@ -4871,6 +4966,283 @@ VUES.explorer = {
 
 
 // ---------------------------------------------------------------------
+// Studios : l'annuaire de la communauté
+//
+// Chacun peut proposer un studio (il est publié après un coup d'œil de l'équipe), noter ceux qu'il connaît et
+// laisser un avis. Les tarifs sont indicatifs : ils viennent de ceux qui proposent le studio.
+// ---------------------------------------------------------------------
+
+const SERVICES_STUDIO = ['Enregistrement', 'Mixage', 'Mastering', 'Production', 'Répétition', 'Clip vidéo', 'Ingé son'];
+
+function etoilesHtml(note){
+  const n = Math.round(Number(note) || 0);
+  return `<span class="com-etoiles" aria-hidden="true">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? 'on' : ''}">${icone('etoileP', 14)}</i>`).join('')}</span>`;
+}
+
+function studioCarteHtml(s){
+
+  return `
+    <button type="button" class="com-studio" data-act="studio-ouvrir" data-id="${attr(s.id)}">
+      <span class="com-studio-haut">
+        <b>${esc(s.nom)}</b>
+        ${s.statut === 'en_attente' ? '<span class="com-studio-attente">En attente de validation</span>' : ''}
+      </span>
+      <span class="com-studio-ville">${esc(s.ville)}</span>
+      <span class="com-studio-note">${s.nb_avis ? etoilesHtml(s.note) + ' <em>' + esc(String(s.note).replace('.', ',')) + '</em> <small>(' + s.nb_avis + ' avis)</small>' : '<small>Pas encore d\'avis</small>'}</span>
+      ${s.description ? `<span class="com-studio-desc">${esc(s.description)}</span>` : ''}
+      <span class="com-studio-pied">
+        ${s.tarif_heure ? `<span class="com-studio-tarif">dès ${s.tarif_heure} €/h</span>` : ''}
+        ${(s.services || []).slice(0, 4).map(x => `<span class="com-puce">${esc(x)}</span>`).join('')}
+      </span>
+    </button>`;
+}
+
+VUES.studios = {
+
+  titre: () => 'Studios',
+
+  creer(V){
+
+    V.etat = { q: '', ville: '' };
+    V.studios = new Map();
+
+    V.el.innerHTML = `
+      <div class="com-collabs-barre">
+        <button type="button" class="com-sujet-bouton" data-act="aller" data-vers="collabs">${icone('retour', 15)}<span>Annonces</span></button>
+        <button type="button" class="com-sujet-bouton" data-act="studio-proposer">${icone('plus', 15)}<span>Proposer un studio</span></button>
+      </div>
+      <header class="com-studios-tete">
+        <h2>Annuaire des studios</h2>
+        <p>Les studios que la communauté recommande : tarifs, services et avis de ceux qui y ont enregistré.</p>
+      </header>
+      <div class="com-studios-filtres">
+        <label class="com-recherche-champ">
+          ${icone('loupe', 18)}
+          <input type="search" data-st="q" placeholder="Chercher un studio ou une ville" autocomplete="off" aria-label="Chercher un studio">
+        </label>
+        <select data-st="ville" aria-label="Filtrer par ville"><option value="">Toutes les villes</option></select>
+      </div>
+      <div data-st-avalider></div>
+      <div class="com-studios-liste" data-st-liste>${squeletteMembre(3)}</div>`;
+
+    V.hotes = { liste: $('[data-st-liste]', V.el), avalider: $('[data-st-avalider]', V.el), ville: $('select[data-st="ville"]', V.el) };
+  },
+
+  montrer(V){
+    VUES.studios.charger(V);
+    VUES.studios.chargerAValider(V);
+  },
+
+  saisir(V, c){
+
+    V.etat[c.dataset.st] = c.value.trim();
+
+    if(c.dataset.st === 'q'){
+      clearTimeout(V.attente);
+      V.attente = setTimeout(() => VUES.studios.charger(V), 280);
+    } else {
+      VUES.studios.charger(V);
+    }
+  },
+
+  async charger(V){
+
+    const id = V.gen = (V.gen || 0) + 1;
+
+    try{
+
+      const r = await BD.studios({ p_q: V.etat.q || null, p_ville: V.etat.ville || null, p_limite: 60, p_decalage: 0 });
+
+      if(id !== V.gen) return;
+
+      // Les villes du filtre se remplissent une fois.
+      const sel = V.hotes.ville;
+
+      if(sel && sel.options.length <= 1 && (r.villes || []).length){
+        (r.villes || []).forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+        sel.value = V.etat.ville || '';
+      }
+
+      (r.studios || []).forEach(s => V.studios.set(s.id, s));
+
+      V.hotes.liste.innerHTML = (r.studios || []).length
+        ? r.studios.map(studioCarteHtml).join('')
+        : etatVide({
+            icone: 'casque', titre: V.etat.q || V.etat.ville ? 'Aucun studio ne correspond' : 'Pas encore de studio',
+            texte: V.etat.q || V.etat.ville ? 'Essaie une autre ville ou un autre mot.' : 'Propose le premier : ceux qui cherchent où enregistrer te diront merci.',
+            bouton: V.etat.q || V.etat.ville ? null : { libelle: 'Proposer un studio', attrs: 'data-act="studio-proposer"' }
+          });
+
+    }catch(e){
+      if(id === V.gen) V.hotes.liste.innerHTML = etatErreur(e, true);
+    }
+  },
+
+  // L'équipe voit ici les studios proposés, à publier ou à refuser.
+  async chargerAValider(V){
+
+    const u = moi();
+
+    if(!u || !u.isAdmin){ V.hotes.avalider.innerHTML = ''; return; }
+
+    try{
+
+      const liste = await BD.studiosAValider();
+
+      V.hotes.avalider.innerHTML = liste.length ? `
+        <section class="com-carte com-studios-valider" aria-label="Studios à valider">
+          <h3>À valider <span>${liste.length}</span></h3>
+          ${liste.map(s => `
+            <div class="com-studio-valider">
+              <div><b>${esc(s.nom)}</b> · ${esc(s.ville)}${s.tarif_heure ? ' · ' + s.tarif_heure + ' €/h' : ''}
+                <small>proposé par ${s.auteur ? '@' + esc(s.auteur.pseudo) : 'un membre'}</small>
+                ${s.description ? `<p>${esc(s.description)}</p>` : ''}
+                ${s.lien ? `<a href="${attr(s.lien)}" target="_blank" rel="noopener noreferrer">${esc(s.lien)}</a>` : ''}</div>
+              <div class="com-studio-valider-actions">
+                <button type="button" class="com-btn com-btn-plein com-btn-petit" data-act="studio-traiter" data-action="publier" data-id="${attr(s.id)}">Publier</button>
+                <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="studio-traiter" data-action="refuser" data-id="${attr(s.id)}">Refuser</button>
+              </div>
+            </div>`).join('')}
+        </section>` : '';
+
+    }catch(e){
+      V.hotes.avalider.innerHTML = '';
+    }
+  },
+
+  async traiter(V, id, action){
+
+    try{
+      await BD.studioTraiter(id, action);
+      toast(action === 'publier' ? 'Studio publié' : 'Studio refusé', { duree: 2000 });
+      VUES.studios.charger(V);
+      VUES.studios.chargerAValider(V);
+    }catch(e){
+      toastErreur(e);
+    }
+  },
+
+  async proposer(V){
+
+    if(!exigerConnexion('Connecte-toi pour proposer un studio.')) return;
+
+    const r = await ouvrirDialogue({
+      titre: 'Proposer un studio',
+      corps: `
+        <p class="com-dialogue-texte">Un studio que tu connais : l'équipe le regarde, puis il apparaît dans l'annuaire.</p>
+        <div class="com-grille-champs">
+          <label class="com-champ"><span>Nom du studio</span><input type="text" data-d="nom" maxlength="80"></label>
+          <label class="com-champ"><span>Ville</span><input type="text" data-d="ville" maxlength="60"></label>
+          <label class="com-champ"><span>Tarif à l'heure <i>(facultatif, en €)</i></span><input type="number" data-d="tarif" min="5" max="500" inputmode="numeric"></label>
+          <label class="com-champ"><span>Lien <i>(facultatif)</i></span><input type="url" data-d="lien" maxlength="300" placeholder="https://…"></label>
+        </div>
+        <label class="com-champ" style="margin-top:10px"><span>Ce qu'on y fait <i>(facultatif)</i></span><textarea data-d="description" rows="3" maxlength="600"></textarea></label>
+        <div class="com-radios com-services" style="margin-top:10px">
+          ${SERVICES_STUDIO.map(x => `<label class="com-radio"><input type="checkbox" name="com-service" value="${attr(x)}"><span>${esc(x)}</span></label>`).join('')}
+        </div>
+        <p class="com-dialogue-erreur" data-d="erreur" hidden></p>`,
+      boutons: [
+        { libelle: 'Annuler', valeur: 'non' },
+        { libelle: 'Proposer', valeur: 'ok', primaire: true }
+      ],
+      focus: '[data-d="nom"]',
+      lire: (boite, valeur) => {
+        if(valeur !== 'ok') return null;
+        const lire = (k) => $('[data-d="' + k + '"]', boite).value.trim();
+        const nom = lire('nom'), ville = lire('ville');
+        if(nom.length < 2 || ville.length < 2){
+          const e = $('[data-d="erreur"]', boite);
+          e.textContent = 'Donne au moins le nom et la ville du studio.';
+          e.hidden = false;
+          return false;
+        }
+        return {
+          p_nom: nom, p_ville: ville, p_description: lire('description') || null,
+          p_tarif: lire('tarif') ? Number(lire('tarif')) : null, p_lien: lire('lien') || null,
+          p_services: $$('input[name="com-service"]:checked', boite).map(i => i.value)
+        };
+      }
+    });
+
+    if(!r || !r.p_nom) return;
+
+    try{
+      const rep = await BD.studioProposer(r);
+      toast(rep.publie ? 'Studio publié' : 'Merci, c\'est proposé', { detail: rep.publie ? '' : "L'équipe le regarde avant de le publier.", duree: 3500 });
+      if(V && V.nom === 'studios') VUES.studios.charger(V);
+    }catch(e){
+      toastErreur(e);
+    }
+  },
+
+  async ouvrir(V, id){
+
+    let s;
+
+    try{
+      s = await BD.studio(id);
+    }catch(e){
+      toastErreur(e);
+      return;
+    }
+
+    if(!s){ toast("Ce studio n'existe plus.", { type: 'erreur' }); return; }
+
+    const u = moi();
+    const mien = (s.avis || []).find(a => a.mien);
+
+    const r = await ouvrirDialogue({
+      titre: s.nom,
+      corps: `
+        <p class="com-studio-ville">${esc(s.ville)}${s.tarif_heure ? ' · dès ' + s.tarif_heure + ' €/h' : ''}</p>
+        <p class="com-studio-note">${s.nb_avis ? etoilesHtml(s.note) + ' <em>' + esc(String(s.note).replace('.', ',')) + '</em> <small>(' + s.nb_avis + ' avis)</small>' : '<small>Pas encore d\'avis</small>'}</p>
+        ${s.description ? `<p class="com-dialogue-texte">${esc(s.description)}</p>` : ''}
+        ${(s.services || []).length ? `<p class="com-studio-pied">${s.services.map(x => `<span class="com-puce">${esc(x)}</span>`).join('')}</p>` : ''}
+        ${s.lien ? `<p><a class="com-lien-ext" href="${attr(s.lien)}" target="_blank" rel="noopener noreferrer">Site du studio</a></p>` : ''}
+        <div class="com-studio-avis">
+          <h4>Avis</h4>
+          ${(s.avis || []).length ? s.avis.map(a => `
+            <div class="com-studio-un-avis">
+              <div>${etoilesHtml(a.note)} <b>${a.auteur ? '@' + esc(a.auteur.pseudo) : 'Un membre'}</b> <small>${esc(depuis(a.cree_le))}</small></div>
+              ${a.avis ? `<p>${esc(a.avis)}</p>` : ''}
+            </div>`).join('') : '<p class="com-dialogue-texte">Personne n\'a encore laissé d\'avis.</p>'}
+        </div>
+        ${s.statut === 'publie' ? `
+          <div class="com-studio-noter">
+            <h4>${mien ? 'Modifier mon avis' : 'Laisser un avis'}</h4>
+            ${u ? `
+              <div class="com-notes" role="radiogroup" aria-label="Note">
+                ${[1, 2, 3, 4, 5].map(i => `<label><input type="radio" name="com-note" value="${i}"${mien && mien.note === i ? ' checked' : ''}><span>${i} ★</span></label>`).join('')}
+              </div>
+              <textarea data-d="avis" rows="2" maxlength="500" placeholder="Ton avis (facultatif)">${esc(mien && mien.avis || '')}</textarea>
+              <p class="com-dialogue-erreur" data-d="erreur" hidden>Choisis une note.</p>` : '<p class="com-dialogue-texte">Connecte-toi pour laisser un avis.</p>'}
+          </div>` : ''}`,
+      boutons: [
+        { libelle: 'Fermer', valeur: 'non' },
+        ...(u && s.statut === 'publie' ? [{ libelle: mien ? 'Mettre à jour' : 'Publier mon avis', valeur: 'ok', primaire: true }] : [])
+      ],
+      lire: (boite, valeur) => {
+        if(valeur !== 'ok') return null;
+        const choisi = $('input[name="com-note"]:checked', boite);
+        if(!choisi){ $('[data-d="erreur"]', boite).hidden = false; return false; }
+        return { note: Number(choisi.value), avis: $('[data-d="avis"]', boite).value };
+      }
+    });
+
+    if(!r || !r.note) return;
+
+    try{
+      await BD.studioNoter(id, r.note, r.avis);
+      toast('Merci pour ton avis', { duree: 2000 });
+      if(V && V.nom === 'studios') VUES.studios.charger(V);
+    }catch(e){
+      toastErreur(e);
+    }
+  }
+};
+
+
+// ---------------------------------------------------------------------
 // Annonces : qui cherche quoi
 //
 // Les messages de type « collab », seuls : ceux qui cherchent un beatmaker,
@@ -4902,7 +5274,10 @@ VUES.collabs = {
     V.el.innerHTML = `
       <div class="com-collabs-barre">
         ${selecteurExplorer('annonces')}
-        <button type="button" class="com-sujet-bouton" data-act="collab-publier">${icone('plus', 15)}<span>Annonce</span></button>
+        <span class="com-collabs-liens">
+          <button type="button" class="com-sujet-bouton" data-act="aller" data-vers="studios">${icone('casque', 15)}<span>Studios</span></button>
+          <button type="button" class="com-sujet-bouton" data-act="collab-publier">${icone('plus', 15)}<span>Annonce</span></button>
+        </span>
       </div>
       <div class="com-collabs-barre">
         <div class="com-seg com-seg-texte" role="radiogroup" aria-label="Sens de l'annonce">
@@ -5676,12 +6051,89 @@ function bulleHtml(m, o){
   if(o && o.debutGroupe) classes.push('debut');
   if(o && o.finGroupe) classes.push('fin');
 
+  const vocal = !!m.audio_path;
+
   return `
     <div class="${classes.join(' ')}" data-msg="${attr(m.id)}">
-      <div class="com-bulle-texte">${enrichirDm(m.contenu)}</div>
+      <div class="com-bulle-texte${vocal ? ' com-bulle-vocal' : ''}">${vocal ? vocalHtml(m) : enrichirDm(m.contenu)}</div>
       ${o && o.finGroupe ? `<time class="com-bulle-heure" title="${attr(dateLongue(m.cree_le))}">${esc(heure(m.cree_le))}</time>` : ''}
       ${m.etat === 'erreur' ? `<button type="button" class="com-bulle-retry" data-act="msg-retry" data-id="${attr(m.id)}">Non envoyé · Réessayer</button>` : ''}
     </div>`;
+}
+
+function dureeVocal(s){
+  const n = Math.max(0, Math.round(Number(s) || 0));
+  return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+}
+
+// Un message vocal : un bouton lecture, une barre de progression, la durée.
+function vocalHtml(m){
+
+  const envoi = m.audio_path === '(envoi)';
+
+  return `
+    <div class="com-vocal${envoi ? ' envoi' : ''}" data-vocal="${attr(m.audio_path)}">
+      <button type="button" class="com-vocal-bouton" data-act="vocal-lire" aria-label="Écouter le message vocal"${envoi ? ' disabled' : ''}>
+        <span class="i-lire">${icone('lecture', 16)}</span><span class="i-pause">${icone('pause', 16)}</span>
+      </button>
+      <span class="com-vocal-onde" aria-hidden="true"><i></i></span>
+      <span class="com-vocal-duree">${envoi ? 'Envoi…' : esc(dureeVocal(m.audio_duree))}</span>
+    </div>`;
+}
+
+// Un seul vocal joue à la fois ; l'adresse de lecture est signée (le bucket est privé : seuls les deux participants lisent).
+var vocalCourant = null;
+
+function arreterVocal(){
+  if(!vocalCourant) return;
+  try{ vocalCourant.audio.pause(); }catch(e){}
+  vocalCourant.bloc.classList.remove('joue');
+  const barre = $('.com-vocal-onde i', vocalCourant.bloc);
+  if(barre) barre.style.width = '0';
+  vocalCourant = null;
+}
+
+async function lireVocal(bouton){
+
+  const bloc = bouton.closest('[data-vocal]');
+  if(!bloc) return;
+
+  const chemin = bloc.dataset.vocal;
+
+  // Le même vocal : pause ou reprise.
+  if(vocalCourant && vocalCourant.chemin === chemin){
+    if(vocalCourant.audio.paused){ vocalCourant.audio.play().catch(() => {}); bloc.classList.add('joue'); }
+    else { vocalCourant.audio.pause(); bloc.classList.remove('joue'); }
+    return;
+  }
+
+  arreterVocal();
+  bouton.disabled = true;
+
+  try{
+
+    const { data, error } = await supabaseClient.storage.from('vocaux').createSignedUrl(chemin, 3600);
+
+    if(error || !data) throw error || new Error('Vocal introuvable.');
+
+    const audio = new Audio(data.signedUrl);
+    const barre = $('.com-vocal-onde i', bloc);
+
+    vocalCourant = { audio, bloc, chemin };
+
+    audio.addEventListener('timeupdate', () => { if(barre && audio.duration) barre.style.width = (audio.currentTime / audio.duration * 100).toFixed(1) + '%'; });
+    audio.addEventListener('ended', () => { if(vocalCourant && vocalCourant.audio === audio) arreterVocal(); });
+    audio.addEventListener('error', () => { if(vocalCourant && vocalCourant.audio === audio){ arreterVocal(); toast("Ce vocal ne se lit pas.", { type: 'erreur' }); } });
+
+    bloc.classList.add('joue');
+    await audio.play();
+
+  }catch(e){
+    arreterVocal();
+    toastErreur(e);
+  }finally{
+    bouton.disabled = false;
+  }
 }
 
 // Dans un message privé, les adresses sont cliquables, rien d'autre.
@@ -5777,6 +6229,13 @@ VUES.messages = {
                 <textarea rows="1" maxlength="2000" data-msg-texte placeholder="Écris un message…" aria-label="Ton message"></textarea>
               </div>
               <button type="button" class="com-envoyer" data-act="msg-envoyer" aria-label="Envoyer" disabled>${icone('envoyer', 20)}</button>
+              <button type="button" class="com-micro" data-act="msg-micro" aria-label="Enregistrer un message vocal" title="Message vocal">${icone('micro', 20)}</button>
+              <div class="com-vocal-enreg" data-vocal-enreg hidden>
+                <span class="com-rec-point" aria-hidden="true"></span>
+                <span class="com-rec-temps" data-rec-temps role="timer">0:00</span>
+                <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="vocal-annuler">Annuler</button>
+                <button type="button" class="com-btn com-btn-plein com-btn-petit" data-act="vocal-envoyer">Envoyer</button>
+              </div>
             </div>
             <p class="com-msg-bloque" data-msg-bloque hidden>Vous ne pouvez plus vous écrire.</p>
           </div>
@@ -5790,6 +6249,7 @@ VUES.messages = {
       conv: $('[data-fil-conv]', V.el),
       msgs: $('[data-msgs]', V.el),
       saisie: $('[data-msg-texte]', V.el),
+      saisieBloc: $('[data-saisie]', V.el),
       envoyer: $('[data-act="msg-envoyer"]', V.el)
     };
 
@@ -5798,6 +6258,8 @@ VUES.messages = {
     t.addEventListener('input', () => {
       ajusterTexte(t);
       V.hotes.envoyer.disabled = !t.value.trim();
+      // Sans texte, c'est le micro qui s'offre ; avec du texte, le bouton d'envoi.
+      V.hotes.saisieBloc.dataset.texte = t.value.trim() ? '1' : '';
     });
 
     t.addEventListener('keydown', (e) => {
@@ -6161,6 +6623,123 @@ VUES.messages = {
     }catch(e){
 
       provisoire.etat = 'erreur';
+      if(V.conv && V.id === id) VUES.messages.dessinerFil(V, false);
+      toastErreur(e);
+    }
+  },
+
+  // ---- Messages vocaux : enregistrer, envoyer ----
+
+  async vocalDemarrer(V){
+
+    if(!V.conv || !V.id || V.vocal) return;
+
+    if(!navigator.mediaDevices || !window.MediaRecorder){
+      toast("Ton navigateur ne permet pas d'enregistrer un vocal.", { type: 'erreur' });
+      return;
+    }
+
+    let flux;
+
+    try{
+      flux = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }catch(e){
+      toast('Micro refusé', { detail: 'Autorise le micro dans ton navigateur pour envoyer un vocal.', type: 'erreur' });
+      return;
+    }
+
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+    const rec = new MediaRecorder(flux, mime ? { mimeType: mime } : undefined);
+    const morceaux = [];
+
+    rec.ondataavailable = (e) => { if(e.data && e.data.size) morceaux.push(e.data); };
+
+    const v = V.vocal = { rec, flux, morceaux, mime: rec.mimeType || mime, debut: Date.now(), conv: V.id, minuteur: 0 };
+    const temps = $('[data-rec-temps]', V.el);
+
+    v.minuteur = setInterval(() => {
+      const s = Math.floor((Date.now() - v.debut) / 1000);
+      if(temps) temps.textContent = dureeVocal(s);
+      if(s >= 180) VUES.messages.vocalArreter(V, true);   // trois minutes au plus
+    }, 250);
+
+    V.hotes.saisieBloc.dataset.enreg = '1';
+    $('[data-vocal-enreg]', V.el).hidden = false;
+    if(temps) temps.textContent = '0:00';
+
+    rec.start();
+  },
+
+  // Arrête l'enregistrement ; « envoyer » : le vocal part, sinon il est jeté.
+  vocalArreter(V, envoyer){
+
+    const v = V.vocal;
+
+    if(!v) return;
+
+    V.vocal = null;
+    clearInterval(v.minuteur);
+
+    const duree = Math.max(1, Math.round((Date.now() - v.debut) / 1000));
+
+    v.rec.onstop = () => {
+      v.flux.getTracks().forEach(t => t.stop());
+      if(envoyer && v.morceaux.length){
+        const blob = new Blob(v.morceaux, { type: (v.mime || 'audio/webm').split(';')[0] });
+        VUES.messages.vocalEnvoyer(V, v.conv, blob, Math.min(duree, 180));
+      }
+    };
+
+    try{ v.rec.stop(); }catch(e){ v.flux.getTracks().forEach(t => t.stop()); }
+
+    V.hotes.saisieBloc.dataset.enreg = '';
+    $('[data-vocal-enreg]', V.el).hidden = true;
+  },
+
+  async vocalEnvoyer(V, id, blob, duree){
+
+    if(!V.conv || V.id !== id) return;
+
+    if(duree < 1 || blob.size < 200){
+      toast('Vocal trop court', { type: 'erreur' });
+      return;
+    }
+
+    const base = blob.type || 'audio/webm';
+    const ext = /mp4/.test(base) ? 'm4a' : /ogg/.test(base) ? 'ogg' : 'webm';
+    const uuid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2);
+    const chemin = moi().id + '/' + uuid + '.' + ext;
+
+    const provisoire = {
+      id: 'tmp-' + Date.now(), auteur_id: moi().id, contenu: '🎤 Message vocal', cree_le: new Date().toISOString(),
+      etat: 'envoi', audio_path: '(envoi)', audio_duree: duree
+    };
+
+    V.conv.messages.push(provisoire);
+    VUES.messages.dessinerFil(V, false);
+    VUES.messages.defilerEnBas(V, true);
+
+    try{
+
+      const envoi = await supabaseClient.storage.from('vocaux').upload(chemin, blob, { contentType: base, upsert: false });
+
+      if(envoi.error) throw envoi.error;
+
+      const reel = await BD.envoyerVocal(id, chemin, duree);
+
+      if(V.conv && V.id === id){
+        V.conv.messages = V.conv.messages.filter(m => m === provisoire || m.id !== reel.id);
+        const i = V.conv.messages.indexOf(provisoire);
+        if(i >= 0) V.conv.messages[i] = reel;
+        VUES.messages.dessinerFil(V, false);
+        VUES.messages.defilerEnBas(V, false);
+      }
+
+      VUES.messages.chargerListe(V, false);
+
+    }catch(e){
+
+      if(V.conv) V.conv.messages = V.conv.messages.filter(m => m !== provisoire);
       if(V.conv && V.id === id) VUES.messages.dessinerFil(V, false);
       toastErreur(e);
     }
@@ -6670,7 +7249,7 @@ VUES.recherche = {
 // ---------------------------------------------------------------------
 
 const ROUTES_AVEC_PARAMETRE = ['post', 'membre', 'tag', 'sujet'];
-const ROUTES_SIMPLES = ['collabs', 'cartes', 'messages', 'notifications', 'favoris', 'recherche'];
+const ROUTES_SIMPLES = ['studios', 'collabs', 'cartes', 'messages', 'notifications', 'favoris', 'recherche'];
 
 function pageActive(){
   const p = document.getElementById('page-community');
@@ -6705,7 +7284,7 @@ function lireRoute(){
   return { nom: 'accueil', param: null, cle: 'accueil' };
 }
 
-const VUES_PERMANENTES = ['accueil', 'collabs', 'cartes', 'messages', 'notifications', 'favoris', 'recherche'];
+const VUES_PERMANENTES = ['accueil', 'studios', 'collabs', 'cartes', 'messages', 'notifications', 'favoris', 'recherche'];
 const VUES_DETAIL_MAX = 6;
 
 function profondeur(){
@@ -6890,7 +7469,7 @@ function majCoque(){
 
   const actif = {
     accueil: 'accueil', sujet: 'accueil', tag: 'accueil', post: 'accueil',
-    collabs: 'annonces', cartes: 'cartes', messages: 'messages', notifications: 'notifications'
+    collabs: 'annonces', studios: 'annonces', cartes: 'cartes', messages: 'messages', notifications: 'notifications'
   }[route.nom] || null;
 
   const monProfil = route.nom === 'membre' && u && route.param.toLowerCase() === u.pseudo.toLowerCase();
@@ -7027,6 +7606,7 @@ function menuMoi(ancre){
     { libelle: 'Mon profil', icone: 'profil', action: () => aller('membre/' + encodeURIComponent(u.pseudo)) },
     { libelle: 'Enregistrés', icone: 'signet', action: () => { S.ongletVoulu = 'enregistres'; aller('membre/' + encodeURIComponent(u.pseudo)); } },
     { libelle: "L'espace des waveurs", icone: 'jeu', action: () => goTo('waveurs') },
+    { libelle: 'Mes signalements', icone: 'drapeau', action: () => ouvrirMesSignalements() },
     { libelle: 'Réglages du compte', icone: 'rouage', separe: true, action: () => ouvrirReglagesProfil() }
   ]);
 }
@@ -7534,6 +8114,52 @@ function agir(act, cible, e){
       VUES.explorer.plus(V);
       return;
 
+    // --- Vocaux, défi, studios ---
+
+    case 'msg-micro':
+      if(V && V.nom === 'messages') VUES.messages.vocalDemarrer(V);
+      return;
+
+    case 'vocal-annuler':
+      if(V && V.nom === 'messages') VUES.messages.vocalArreter(V, false);
+      return;
+
+    case 'vocal-envoyer':
+      if(V && V.nom === 'messages') VUES.messages.vocalArreter(V, true);
+      return;
+
+    case 'vocal-lire':
+      lireVocal(cible);
+      return;
+
+    case 'defi-participer': {
+      if(!exigerConnexion('Connecte-toi pour participer au défi.')) return;
+      const accueil = S.vues.get('accueil');
+      if(!accueil || !accueil.composer) return;
+      ouvrirComposer(accueil.composer, { sansAnimation: true, type: 'message' });
+      const zone = champ(accueil.composer, 'texte');
+      if(zone){
+        const tag = '#' + cible.dataset.tag + ' ';
+        if(!zone.value.includes(tag)) zone.value = tag + zone.value;
+        zone.dispatchEvent(new Event('input', { bubbles: true }));
+        zone.focus();
+        zone.setSelectionRange(zone.value.length, zone.value.length);
+      }
+      return;
+    }
+
+    case 'studio-proposer':
+      VUES.studios.proposer(V);
+      return;
+
+    case 'studio-ouvrir':
+      VUES.studios.ouvrir(V, cible.dataset.id);
+      return;
+
+    case 'studio-traiter':
+      VUES.studios.traiter(V, cible.dataset.id, cible.dataset.action);
+      return;
+
     // --- Annonces ---
 
     case 'collab-publier':
@@ -7655,6 +8281,7 @@ function brancherEvenements(){
     const V = vueDe(c);
 
     if(c.matches && c.matches('[data-ex]') && V) { VUES.explorer.saisir(V, c); return; }
+    if(c.matches && c.matches('[data-st]') && V && V.nom === 'studios') { VUES.studios.saisir(V, c); return; }
     if(c.matches && c.matches('[data-rech="q"]') && V) { VUES.recherche.saisir(V, c); return; }
   });
 
@@ -7667,6 +8294,7 @@ function brancherEvenements(){
     const V = vueDe(c);
 
     if(c.matches && c.matches('select[data-ex]') && V) { VUES.explorer.saisir(V, c); return; }
+    if(c.matches && c.matches('select[data-st]') && V && V.nom === 'studios') { VUES.studios.saisir(V, c); return; }
     if(c.matches && c.matches('input[data-c-avatar]')) { choisirAvatar(c); return; }
     if(c.matches && c.matches('input[data-c-banniere]')) { choisirBanniere(c); return; }
   });
@@ -8801,6 +9429,94 @@ const FEUILLE = String.raw`
   .com-rail-tete > .com-ic:last-child{display:none;}
 }
 
+/* ---------- LE DÉFI DE LA SEMAINE ---------- */
+.com-defi{padding:16px 18px 16px; margin-bottom:14px; background:linear-gradient(135deg, rgba(255,170,60,0.16), rgba(13,17,24,0.66) 62%); border-color:rgba(255,170,60,0.32);}
+.com-defi-tete{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px;}
+.com-defi-pastille{display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#ffb454;}
+.com-defi-reste{font-size:12px; color:var(--muted);}
+.com-defi h3{margin:0 0 4px; font-size:19px; letter-spacing:-0.01em;}
+.com-defi p{margin:0 0 12px; font-size:14.5px; line-height:1.5; color:var(--ink-soft);}
+.com-defi-pied{display:flex; align-items:center; flex-wrap:wrap; gap:12px;}
+.com-defi-voir{font-size:13px; color:var(--blue-bright); text-decoration:none;}
+.com-defi-voir:hover{text-decoration:underline;}
+.com-defi-voir small{color:var(--muted); font-size:12px;}
+
+/* ---------- LES MESSAGES VOCAUX ---------- */
+.com-micro{flex:none; width:42px; height:42px; border-radius:50%; border:0; background:rgba(255,255,255,0.1); color:var(--ink); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:background .2s;}
+.com-micro:hover{background:rgba(255,255,255,0.2);}
+.com-msg-saisie[data-texte="1"] .com-micro, .com-msg-saisie[data-enreg="1"] .com-micro{display:none;}
+.com-msg-saisie:not([data-texte="1"]) .com-envoyer{display:none;}
+.com-msg-saisie[data-enreg="1"] .com-msg-champ, .com-msg-saisie[data-enreg="1"] .com-envoyer{display:none;}
+.com-vocal-enreg{flex:1; display:flex; align-items:center; gap:10px; min-width:0; padding:4px 0;}
+.com-vocal-enreg[hidden]{display:none;}
+.com-rec-point{width:11px; height:11px; border-radius:50%; background:var(--danger,#e5695c); animation:comRec 1.1s ease-in-out infinite;}
+@keyframes comRec{50%{opacity:.25;}}
+.com-rec-temps{flex:1; font-size:15px; font-weight:600; font-variant-numeric:tabular-nums;}
+.com-vocal{display:flex; align-items:center; gap:10px; min-width:190px;}
+.com-vocal-bouton{flex:none; width:34px; height:34px; padding:0; border-radius:50%; border:0; background:rgba(255,255,255,0.22); color:inherit; display:inline-flex; align-items:center; justify-content:center; cursor:pointer;}
+.com-vocal-bouton:disabled{opacity:.5; cursor:default;}
+.com-vocal-bouton span{display:inline-flex;}
+.com-vocal-bouton .i-pause, .com-vocal.joue .com-vocal-bouton .i-lire{display:none;}
+.com-vocal.joue .com-vocal-bouton .i-pause{display:inline-flex;}
+.com-vocal-onde{flex:1; height:4px; border-radius:4px; background:rgba(255,255,255,0.25); overflow:hidden;}
+.com-vocal-onde i{display:block; height:100%; width:0; background:#fff;}
+.com-vocal-duree{font-size:12.5px; font-variant-numeric:tabular-nums; opacity:.85;}
+
+/* ---------- MES SIGNALEMENTS ---------- */
+.com-mes-sig{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; max-height:min(420px, 60vh); overflow-y:auto;}
+.com-mes-sig li{padding:10px 12px; border:1px solid var(--line); border-radius:14px;}
+.com-mes-sig-haut{display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:13.5px;}
+.com-mes-sig-statut{padding:3px 10px; border-radius:99px; font-size:11.5px; font-weight:600; background:rgba(255,255,255,0.1);}
+.com-mes-sig-statut.cours{background:rgba(255,170,60,0.2); color:#ffb454;}
+.com-mes-sig-statut.retire{background:rgba(110,200,140,0.2); color:#7fdca0;}
+.com-mes-sig-extrait{margin:6px 0 4px; font-size:13.5px; color:var(--ink-soft); line-height:1.4;}
+.com-mes-sig small{color:var(--muted); font-size:12px;}
+
+/* ---------- LES STUDIOS ---------- */
+.com-collabs-liens{display:inline-flex; gap:8px; flex-wrap:wrap;}
+.com-studios-tete{margin:4px 0 16px;}
+.com-studios-tete h2{margin:0 0 4px; font-size:24px; letter-spacing:-0.02em;}
+.com-studios-tete p{margin:0; color:var(--ink-soft); font-size:14.5px;}
+.com-studios-filtres{display:flex; flex-wrap:wrap; gap:10px; margin:0 0 16px;}
+.com-studios-filtres .com-recherche-champ{flex:1 1 260px;}
+.com-studios-filtres select{padding:10px 14px; border-radius:99px; border:1px solid var(--line); background:transparent; color:var(--ink-soft); font:inherit; font-size:14px;}
+.com-studios-filtres select option{background:#10141a; color:#F4F5F6;}
+.com-studios-liste{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px;}
+.com-studios-liste > .com-vide, .com-studios-liste > .com-erreur{grid-column:1 / -1;}
+.com-studio{display:flex; flex-direction:column; gap:7px; padding:16px 18px; text-align:left; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,0.03); color:var(--ink); font:inherit; cursor:pointer; transition:background .2s, border-color .2s, transform .25s var(--ease);}
+.com-studio:hover{background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.25); transform:translateY(-2px);}
+.com-studio-haut{display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:17px;}
+.com-studio-attente{padding:2px 9px; border-radius:99px; font-size:11px; font-weight:600; background:rgba(255,170,60,0.2); color:#ffb454;}
+.com-studio-ville{display:flex; align-items:center; gap:6px; margin:0; font-size:13.5px; color:var(--ink-soft);}
+.com-studio-note{display:flex; align-items:center; gap:6px; margin:0; font-size:13px; color:var(--ink-soft);}
+.com-studio-note em{font-style:normal; font-weight:700; color:var(--ink);}
+.com-studio-note small{color:var(--muted);}
+.com-etoiles{display:inline-flex; gap:1px; color:rgba(255,255,255,0.18);}
+.com-etoiles i{display:inline-flex; font-style:normal;}
+.com-etoiles i.on{color:#ffb454;}
+.com-studio-desc{font-size:13.5px; line-height:1.45; color:var(--ink-soft); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
+.com-studio-pied{display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0;}
+.com-studio-tarif{font-size:13px; font-weight:700; color:var(--blue-bright); margin-right:4px;}
+.com-studio-avis h4, .com-studio-noter h4{margin:14px 0 6px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+.com-studio-un-avis{padding:8px 0; border-top:1px solid var(--line); font-size:13.5px;}
+.com-studio-un-avis p{margin:4px 0 0; color:var(--ink-soft); line-height:1.45;}
+.com-studio-un-avis small{color:var(--muted);}
+.com-notes{display:flex; gap:6px; margin:0 0 8px; flex-wrap:wrap;}
+.com-notes label{cursor:pointer;}
+.com-notes input{position:absolute; opacity:0; pointer-events:none;}
+.com-notes span{display:inline-block; padding:7px 13px; border-radius:99px; border:1px solid var(--line); font-size:13.5px;}
+.com-notes input:checked + span{border-color:#ffb454; background:rgba(255,170,60,0.18); color:#ffb454;}
+.com-notes input:focus-visible + span{outline:2px solid var(--blue-bright); outline-offset:2px;}
+.com-studio-noter textarea{width:100%; box-sizing:border-box;}
+.com-studios-valider{padding:14px 18px; margin-bottom:16px; border-color:rgba(255,170,60,0.32);}
+.com-studios-valider h3{margin:0 0 8px; font-size:15px;}
+.com-studios-valider h3 span{margin-left:6px; padding:1px 8px; border-radius:99px; background:rgba(255,170,60,0.2); color:#ffb454; font-size:12px;}
+.com-studio-valider{display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:10px 0; border-top:1px solid var(--line); font-size:14px;}
+.com-studio-valider small{display:block; color:var(--muted);}
+.com-studio-valider p{margin:4px 0; color:var(--ink-soft);}
+.com-studio-valider-actions{display:flex; gap:6px; flex:none;}
+.com-services{display:flex; flex-wrap:wrap; gap:6px;}
+
 .com-ruban{margin:0 0 18px;}
 .com-ruban-liste{display:flex; gap:10px; overflow-x:auto; scrollbar-width:none; padding:2px 2px 6px;}
 .com-ruban-liste::-webkit-scrollbar{display:none;}
@@ -9121,7 +9837,7 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
 .com{display:block; padding-bottom:96px;}
 .com-centre{min-width:0;}
 .com-vue{max-width:760px; margin-left:auto; margin-right:auto;}
-.com[data-vue="explorer"] .com-vue, .com[data-vue="collabs"] .com-vue,
+.com[data-vue="explorer"] .com-vue, .com[data-vue="collabs"] .com-vue, .com[data-vue="studios"] .com-vue,
 .com[data-vue="messages"] .com-vue, .com[data-vue="membre"] .com-vue,
 .com[data-vue="cartes"] .com-vue{max-width:none;}
 
