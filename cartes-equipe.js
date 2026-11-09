@@ -250,7 +250,6 @@
     'carte-sel-retirer': () => retirerCartes([...E.sel]),
     'carte-sel-vider': () => { E.sel.clear(); dessinerCartes(); },
     // Albums
-    'album-ajouter': () => ajouterAlbum(),
     'album-ouvrir': (el) => editerAlbum(E.albums.find((a) => a.id === el.dataset.id)),
     // Joueurs
     'joueur-ouvrir': (el) => ouvrirJoueur(el.dataset.id),
@@ -1187,7 +1186,7 @@
 
   async function sAlbums(){
     E.main.innerHTML = `
-      ${tete('Albums', 'Une carte = un artiste + un de ses projets. Ses attaques sont des titres du projet.', '<button type="button" class="ct-btn principal" data-act="album-ajouter">Ajouter un album</button>')}
+      ${tete('Albums', 'Les cartes d\'album se créent toutes seules quand tu choisis l\'album d\'une carte (onglet Cartes). Ici, tu règles leurs attaques.')}
       <div class="ee-barre-outils">
         <label class="ee-recherche">${api.ico('loupe', 16)}<input type="search" data-in="album-q" value="${esc(E.albumQ)}" placeholder="Artiste ou album" aria-label="Chercher une carte d'album" autocomplete="off"></label>
       </div>
@@ -1212,68 +1211,7 @@
               <small class="ee-alb-att">${noms.length ? esc(noms.join(' · ')) : 'Aucune attaque'}</small></span>
           </button>`;
         }).join('')}</div>`
-      : vide(E.albumQ ? 'Aucune carte' : 'Pas encore de carte d\'album', E.albumQ ? 'Change ta recherche.' : 'Clique sur « Ajouter un album » pour créer la première.');
-  }
-
-  // Ajouter un album : l'artiste, puis son projet ; la carte est créée avec ses titres (les 3 plus écoutés deviennent ses attaques).
-  function ajouterAlbum(){
-    const etat = { etape: 'artiste', q: '', artistes: [], artiste: null, projets: [], singles: false, projet: null, types: [], suggere: null, type: '' };
-    const f = api.fenetre('<div data-zone></div>', true);
-    const zone = $('[data-zone]', f.corps);
-
-    async function chercher(){
-      etat.artistes = await rpc('jeu_equipe_albums_artistes', { p_q: etat.q.trim() || null });
-      dessiner();
-    }
-    async function ouvrirArtiste(a){
-      etat.artiste = a;
-      etat.projets = await rpc('jeu_equipe_albums_projets', { p_artist: a.artist_id, p_singles: etat.singles });
-      etat.etape = 'projets';
-      dessiner();
-    }
-    async function choisirProjet(p){
-      etat.projet = p;
-      zone.innerHTML = '<p class="sous">Lecture des titres sur Deezer…</p>';
-      try{
-        const c = await rpc('jeu_equipe_album_ajouter', { p_release: p.release, p_type: null });
-        api.toast('Carte créée avec ' + c.nb_titres + ' titres.');
-        f.fermer();
-        await sAlbums();
-        editerAlbum(c);
-      }catch(e){ etat.etape = 'projets'; dessiner(); }
-    }
-
-    function dessiner(){
-      if(etat.etape === 'artiste'){
-        zone.innerHTML = `
-          <h2>Ajouter un album</h2>
-          <p class="sous">Cherche l'artiste, puis choisis son projet.</p>
-          <label class="ee-recherche">${api.ico('loupe', 16)}<input type="search" data-q value="${esc(etat.q)}" placeholder="Nom d'un artiste" aria-label="Nom d'un artiste" autocomplete="off"></label>
-          <div class="ee-resultats">${etat.artistes.length ? etat.artistes.map((a, i) => `
-            <div class="ee-res"><img class="ee-photo" src="${esc(api.safeUrl(a.photo))}" alt="" loading="lazy">
-              <div class="ee-nom"><b>${esc(a.nom)}</b><small>${a.projets} projet${a.projets > 1 ? 's' : ''} · ${a.cartes} carte${a.cartes > 1 ? 's' : ''} d'album</small></div>
-              <button type="button" class="ct-btn petit principal" data-art="${i}">Choisir</button></div>`).join('') : '<p class="ee-aide">Aucun artiste.</p>'}</div>`;
-        const q = $('[data-q]', zone);
-        q.focus(); q.setSelectionRange(q.value.length, q.value.length);
-        q.addEventListener('input', debounce(() => { etat.q = q.value; chercher(); }, 250));
-        $$('[data-art]', zone).forEach((b) => b.addEventListener('click', () => ouvrirArtiste(etat.artistes[Number(b.dataset.art)])));
-      }else if(etat.etape === 'projets'){
-        zone.innerHTML = `
-          <h2>${esc(etat.artiste.nom)}</h2>
-          <p class="sous">Choisis le projet de la carte.</p>
-          <div class="ee-barre-outils"><button type="button" class="ct-btn petit" data-retour>Changer d'artiste</button>
-            <label class="ee-case"><input type="checkbox" data-singles${etat.singles ? ' checked' : ''}> Montrer aussi les singles</label></div>
-          ${etat.projets.length ? `<div class="ee-alb-grille compact">${etat.projets.map((p, i) => `
-            <button type="button" class="ee-alb" data-proj="${i}"${p.carte ? ' disabled' : ''}>
-              <span class="ee-alb-cover"><img src="${esc(api.safeUrl(p.cover))}" alt="" loading="lazy"></span>
-              <span class="ee-alb-txt"><b>${esc(p.titre)}</b><small>${esc(p.sortie)} · ${esc(moisAnnee(p.date))}</small>${p.carte ? '<span class="ee-puce">Déjà une carte</span>' : ''}</span></button>`).join('')}</div>`
-            : '<p class="ee-aide">Aucun projet avec des titres sur Deezer pour cet artiste.</p>'}`;
-        $('[data-retour]', zone).addEventListener('click', () => { etat.etape = 'artiste'; dessiner(); });
-        $('[data-singles]', zone).addEventListener('change', (ev) => { etat.singles = ev.target.checked; ouvrirArtiste(etat.artiste); });
-        $$('[data-proj]', zone).forEach((b) => b.addEventListener('click', () => choisirProjet(etat.projets[Number(b.dataset.proj)])));
-      }
-    }
-    chercher();
+      : vide(E.albumQ ? 'Aucune carte' : 'Pas encore de carte d\'album', E.albumQ ? 'Change ta recherche.' : 'Dans l\'onglet Cartes, choisis l\'album d\'une carte : elle apparaîtra ici.');
   }
 
   // Régler une carte d'album : ses attaques (de 1 à 3 titres du projet, dans l'ordre choisi).
@@ -1337,42 +1275,63 @@
     dessiner();
   }
 
-  // La carte d'album d'une carte de la collection : son type et ses attaques (les titres du projet) viennent d'elle.
+  // L'album d'une carte de la collection : on choisit parmi les projets de l'artiste (déjà connus du site). La carte d'album
+  // (titres Deezer, 3 attaques par défaut) se crée toute seule au moment de l'enregistrement : aucune étape à part.
   async function albumCarte(artistId){
     const c = E.cartes.find((x) => x.artist_id === artistId);
     if(!c) return;
-    const albums = await rpc('jeu_equipe_albums_de', { p_artist: artistId });
-    const etat = { choix: c.album_id || '' };
+    const liees = await rpc('jeu_equipe_albums_de', { p_artist: artistId });
+    const actuel = liees.find((a) => a.id === c.album_id) || null;
+    const etat = { release: actuel ? actuel.release_id : '', singles: !!(actuel && actuel.sortie !== 'Projet'), items: [], charge: false };
     const f = api.fenetre('<div data-ed></div>', true);
     const ed = $('[data-ed]', f.corps);
+
+    // Les projets de l'artiste ; l'album déjà lié reste affiché même s'il n'en fait plus partie (ex. un single).
+    async function charger(){
+      const projets = await rpc('jeu_equipe_albums_projets', { p_artist: artistId, p_singles: etat.singles });
+      const items = projets.map((p) => ({ release: p.release, id: p.carte || null, titre: p.titre, cover: p.cover, sortie: p.sortie, date: p.date }));
+      liees.forEach((a) => { if(!items.some((i) => i.release === a.release_id)) items.push({ release: a.release_id, id: a.id, titre: a.album, cover: a.cover, sortie: a.sortie, date: a.date }); });
+      etat.items = items;
+      etat.charge = true;
+      dessiner();
+    }
     const dessiner = () => {
       ed.innerHTML = `
         <h2>Album de la carte</h2>
-        <p class="sous">${esc(c.nom || '')} dans « ${esc(nomCol(E.cid))} » : choisis la carte d'album qui donne son type et ses attaques.</p>
+        <p class="sous">${esc(c.nom || '')} dans « ${esc(nomCol(E.cid))} » : choisis son album. Ses titres deviennent les attaques de la carte (les 3 plus écoutés par défaut).</p>
+        <div class="ee-barre-outils"><label class="ee-case"><input type="checkbox" data-singles${etat.singles ? ' checked' : ''}> Montrer aussi les singles</label></div>
         <div class="ee-alb-grille compact">
-          <button type="button" class="ee-alb${etat.choix === '' ? ' choisi' : ''}" data-alb="">
+          <button type="button" class="ee-alb${etat.release === '' ? ' choisi' : ''}" data-rel="">
             <span class="ee-alb-cover vide">${ic('croix', 26)}</span>
-            <span class="ee-alb-txt"><b>Aucun</b><small>Type et attaques automatiques</small></span></button>
-          ${albums.map((a) => `
-          <button type="button" class="ee-alb${etat.choix === a.id ? ' choisi' : ''}" data-alb="${esc(a.id)}">
+            <span class="ee-alb-txt"><b>Aucun</b><small>Attaques automatiques</small></span></button>
+          ${etat.items.map((a) => `
+          <button type="button" class="ee-alb${etat.release === a.release ? ' choisi' : ''}" data-rel="${esc(a.release)}">
             <span class="ee-alb-cover"><img src="${esc(api.safeUrl(a.cover))}" alt="" loading="lazy"></span>
-            <span class="ee-alb-txt"><b>${esc(a.album)}</b><small>${esc(a.sortie)}</small></span></button>`).join('')}
+            <span class="ee-alb-txt"><b>${esc(a.titre)}</b><small>${esc(a.sortie || '')} · ${esc(moisAnnee(a.date))}</small></span></button>`).join('')}
         </div>
-        ${albums.length ? '' : '<p class="ee-aide">Cet artiste n\'a pas encore de carte d\'album : crée-en une dans la section « Albums ».</p>'}
+        ${etat.charge && !etat.items.length ? '<p class="ee-aide">Aucun projet avec des titres sur Deezer pour cet artiste.</p>' : ''}
         <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-ok>Enregistrer</button></div>`;
-      $$('[data-alb]', ed).forEach((b) => b.addEventListener('click', () => { etat.choix = b.dataset.alb; dessiner(); }));
+      $$('[data-rel]', ed).forEach((b) => b.addEventListener('click', () => { etat.release = b.dataset.rel; dessiner(); }));
+      $('[data-singles]', ed).addEventListener('change', async (ev) => { etat.singles = ev.target.checked; await charger(); });
       $('[data-non]', ed).addEventListener('click', f.fermer);
       $('[data-ok]', ed).addEventListener('click', async (ev) => {
         ev.target.disabled = true;
+        ev.target.textContent = 'Enregistrement…';
         try{
-          await rpc('jeu_equipe_carte_album', { p_booster: E.cid, p_artist: artistId, p_album: etat.choix || null });
+          let album = null;
+          if(etat.release){
+            const it = etat.items.find((i) => i.release === etat.release);
+            album = it.id || (await rpc('jeu_equipe_album_ajouter', { p_release: it.release, p_type: null })).id;
+          }
+          await rpc('jeu_equipe_carte_album', { p_booster: E.cid, p_artist: artistId, p_album: album });
           api.toast('Album enregistré.');
           f.fermer();
           await chargerCartes(); dessinerListe();
-        }catch(e){ ev.target.disabled = false; }
+        }catch(e){ ev.target.disabled = false; ev.target.textContent = 'Enregistrer'; }
       });
     };
     dessiner();
+    await charger();
   }
 
   async function sModule(nom, global, titre, texte){
