@@ -35,6 +35,7 @@ on:
       - cartes-equipe.js
       - lecteur.js
       - artiste.js
+      - outils.js
       - modeles/**
       - decor/**
       - logos/**

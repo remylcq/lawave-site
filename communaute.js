@@ -6893,6 +6893,11 @@ function notificationTexte(n){
       return { fort: 'Pépite repérée', apres: ` : tu avais noté « ${sortie.titre || 'cette sortie'} » avant tout le monde` };
     case 'cosmetique':
       return { fort: 'Nouveau cosmétique', apres: ` : ${d.nom || ''}` };
+    // La veille d'un événement accrédité : de quoi s'y préparer.
+    case 'rappel_accreditation': {
+      const quand = d.date ? new Date(d.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h') : '';
+      return { fort: 'Demain : ' + (d.artiste || 'ton événement'), apres: [d.salle, d.ville].filter(Boolean).length ? ' · ' + [d.salle, d.ville].filter(Boolean).join(', ') + (quand ? ' · ' + quand : '') : '' };
+    }
   }
 
   return { fort: a.pseudo, apres: '' };
@@ -6910,7 +6915,7 @@ function notificationHtml(n){
   const systeme = !n.acteur;
   const pochette = safeUrl(d.cover || (d.sortie && d.sortie.cover) || (d.a && d.a.cover) || '');
   const emoji = (d.evenement && d.evenement.emoji) || (d.chapitre ? '📖' : null)
-    || { resume_semaine: '📊', duel: '⚔️', saison: '🏆', cosmetique: '✨', decouvreur: '💎' }[n.type] || '🔔';
+    || { resume_semaine: '📊', duel: '⚔️', saison: '🏆', cosmetique: '✨', decouvreur: '💎', rappel_accreditation: '📸' }[n.type] || '🔔';
   const avatar = systeme
     ? `<span class="com-notif-av"><span class="com-notif-sys">${pochette ? `<img src="${attr(pochette)}" alt="" loading="lazy">` : emoji}</span></span>`
     : `<span class="com-notif-av">${avatarHtml(a, 'm')}<span class="com-notif-type t-${attr(n.type)}">${icone(icones[n.type] || 'cloche', 12)}</span></span>`;
@@ -7606,6 +7611,7 @@ function menuMoi(ancre){
     { libelle: 'Mon profil', icone: 'profil', action: () => aller('membre/' + encodeURIComponent(u.pseudo)) },
     { libelle: 'Enregistrés', icone: 'signet', action: () => { S.ongletVoulu = 'enregistres'; aller('membre/' + encodeURIComponent(u.pseudo)); } },
     { libelle: "L'espace des waveurs", icone: 'jeu', action: () => goTo('waveurs') },
+    { libelle: 'Mes sorties', icone: 'casque', action: () => goTo('mes-sorties') },
     { libelle: 'Mes signalements', icone: 'drapeau', action: () => ouvrirMesSignalements() },
     { libelle: 'Réglages du compte', icone: 'rouage', separe: true, action: () => ouvrirReglagesProfil() }
   ]);
