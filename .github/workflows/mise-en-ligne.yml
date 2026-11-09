@@ -34,6 +34,7 @@ on:
       - marche.js
       - cartes-equipe.js
       - lecteur.js
+      - artiste.js
       - modeles/**
       - decor/**
       - logos/**
