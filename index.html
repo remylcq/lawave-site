@@ -976,6 +976,8 @@
   .aide-texte b{font-size:15px; font-weight:600;}
   .aide-texte small{font-size:13px; color:var(--muted); line-height:1.45;}
   .aide-fleche{font-size:18px; color:var(--muted);}
+  .aide-texte-taille{flex-wrap:wrap;}
+  .aide-texte-taille .taille-texte{margin-left:auto;}
   .doc .aide-bas{display:flex; flex-wrap:wrap; gap:6px 22px; margin-top:28px; padding-top:20px; border-top:1px solid var(--line); font-size:13px;}
   .doc .aide-bas a{color:var(--muted); text-decoration:none;}
   .doc .aide-bas a:hover{color:var(--ink);}
@@ -1345,6 +1347,15 @@
   .nv-jour ul{margin:0; padding-left:18px; color:var(--ink-soft); font-size:14.5px; line-height:1.6;}
   .nv-fin{margin:6px 0 0; color:var(--muted); font-size:14px;}
   .nv-fin a{color:var(--blue-bright);}
+  .df-form{display:flex; flex-direction:column; gap:10px; max-width:560px;}
+  .df-form input, .df-form textarea{padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,0.04); color:var(--ink); font:inherit;}
+  .df-dates{display:flex; gap:14px; flex-wrap:wrap; color:var(--muted); font-size:13px;}
+  .df-dates label{display:flex; align-items:center; gap:6px;}
+  .df-liste{display:flex; flex-direction:column; gap:8px;}
+  .df-ligne{display:flex; align-items:center; gap:10px; padding:12px 14px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,0.03);}
+  .df-ligne.publie{border-color:rgba(255,170,60,0.4);}
+  .df-texte{flex:1; min-width:0; display:flex; flex-direction:column; gap:2px;}
+  .df-texte small{color:var(--muted); font-size:12px;}
   .tb-titre{margin:22px 0 10px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
   .tb-total{margin-left:6px; padding:1px 9px; border-radius:99px; background:rgba(255,170,60,0.2); color:#ffb454; font-size:12px; letter-spacing:0;}
   .tb-cartes{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:10px;}
@@ -3233,6 +3244,13 @@
     background:transparent; color:var(--ink-soft); font:inherit; font-size:13px; font-weight:500; cursor:pointer;
     transition:border-color .2s var(--ease), color .2s var(--ease);
   }
+  .vue-lambda-bandeau{position:fixed; left:50%; bottom:16px; transform:translateX(-50%); z-index:200; display:flex; align-items:center; gap:12px; padding:9px 10px 9px 16px; border:1px solid rgba(255,170,60,0.5); border-radius:999px; background:rgba(13,17,24,0.94); box-shadow:0 10px 30px rgba(0,0,0,0.5); font-size:13px; color:var(--ink);}
+  .vue-lambda-bandeau[hidden]{display:none;}
+  .vue-lambda-bandeau button{padding:6px 14px; border:0; border-radius:999px; background:#ffb454; color:#1a1200; font:inherit; font-size:13px; font-weight:700; cursor:pointer;}
+  .fiche-pied{display:flex; justify-content:flex-end; margin-top:6px;}
+  .icone-discrete{display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; padding:0; border:0; border-radius:50%; background:transparent; color:var(--muted); opacity:.6; cursor:pointer; transition:opacity .2s var(--ease), background .2s var(--ease), color .2s var(--ease);}
+  .icone-discrete svg{width:17px; height:17px;}
+  .icone-discrete:hover, .icone-discrete:focus-visible{opacity:1; color:var(--ink); background:rgba(255,255,255,0.07);}
   .fiche-bouton[hidden]{display:none;}
   .fiche-bouton:hover{border-color:rgba(255,255,255,0.28); color:var(--ink);}
   .fiche-bouton svg{width:15px; height:15px;}
@@ -4837,6 +4855,19 @@
     });
   }
 
+  // « Voir le site comme un utilisateur » (équipe) : un aperçu d'affichage, gardé le temps de l'onglet.
+  // Il masque les outils d'équipe et les onglets réservés à l'artiste ; la base, elle, ne change pas.
+  try{ window.vueLambda = sessionStorage.getItem('lw-vue-lambda') === '1'; }catch(e){ window.vueLambda = false; }
+
+  window.basculerVueLambda = function(){
+    try{
+      if(window.vueLambda) sessionStorage.removeItem('lw-vue-lambda');
+      else sessionStorage.setItem('lw-vue-lambda', '1');
+    }catch(e){}
+    if(/^#admin/.test(location.hash)) location.hash = '';
+    location.reload();
+  };
+
   // -1 : plus petit, 0 : normal, 1 : plus grand (d'un cran à chaque fois).
   window.reglerTailleTexte = function(sens){
     var n = sens === 0 ? 0 : Math.max(0, Math.min(NIVEAUX.length - 1, lire() + sens));
@@ -4913,6 +4944,7 @@
           <p class="mono" id="accDropPseudo" style="margin:0 0 10px; color:var(--ink); font-size:13px;"></p>
           <button onclick="goTo('profile')">Mon profil</button>
           <button onclick="goTo('waveurs')">L'espace des waveurs</button>
+          <button id="accVueLambda" style="display:none" onclick="basculerVueLambda()">Voir comme un utilisateur</button>
           <button onclick="logoutUser()">Se déconnecter</button>
         </div>
       </div>
@@ -5539,6 +5571,30 @@
           <span class="aide-texte"><b>Signaler un problème</b><small>Un bug, un artiste, une demande sur tes données.</small></span>
           <span class="aide-fleche" aria-hidden="true">→</span>
         </a>
+        <a class="aide-carte" href="#nouveautes" onclick="goTo('nouveautes'); return false;">
+          <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.4 5.4L20 9.2l-4.2 3.8L17 19l-5-3-5 3 1.2-6L4 9.2l5.6-.8z"/></svg></span>
+          <span class="aide-texte"><b>Nouveautés</b><small>Ce qui vient d'arriver sur le site.</small></span>
+          <span class="aide-fleche" aria-hidden="true">→</span>
+        </a>
+        <a class="aide-carte" href="#idees" onclick="goTo('idees'); return false;">
+          <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg></span>
+          <span class="aide-texte"><b>Proposer une idée</b><small>Propose, et vote pour celles des autres.</small></span>
+          <span class="aide-fleche" aria-hidden="true">→</span>
+        </a>
+        <a class="aide-carte" href="feed.php" target="_blank" rel="noopener">
+          <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12a7 7 0 0 1 7 7M5 5a14 14 0 0 1 14 14"/><circle cx="6" cy="18" r="1.4"/></svg></span>
+          <span class="aide-texte"><b>Flux RSS</b><small>Les sorties dans ton lecteur d'actualités.</small></span>
+          <span class="aide-fleche" aria-hidden="true">→</span>
+        </a>
+        <div class="aide-carte aide-texte-taille" role="group" aria-label="Taille du texte">
+          <span class="aide-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19l5-14 5 14M6 14h6M16 9h4M18 9v10"/></svg></span>
+          <span class="aide-texte"><b>Taille du texte</b><small>Pour lire plus confortablement.</small></span>
+          <span class="taille-texte">
+            <button type="button" onclick="reglerTailleTexte(-1)" aria-label="Réduire le texte">A−</button>
+            <button type="button" onclick="reglerTailleTexte(0)" aria-label="Taille normale">A</button>
+            <button type="button" onclick="reglerTailleTexte(1)" aria-label="Agrandir le texte">A+</button>
+          </span>
+        </div>
       </div>
 
       <p class="aide-bas">
@@ -6142,6 +6198,12 @@
         role="tab" onclick="switchAdminTab('community')" title="Modération du forum">
         <svg class="eq-ic" aria-hidden="true"><use href="#eq-bulle"/></svg>
         <span class="admin-tab-label">Modération</span>
+      </button>
+
+      <button type="button" class="admin-tab" id="adminTab-defis"
+        role="tab" onclick="switchAdminTab('defis')" title="Les défis de la semaine, épinglés dans la communauté">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-bulle"/></svg>
+        <span class="admin-tab-label">Défis</span>
       </button>
 
       <button type="button" class="admin-tab" id="adminTab-profils"
@@ -6907,6 +6969,16 @@
 
   <!-- ================= FORUM ================= -->
 
+  <div class="admin-section" id="adminSection-defis">
+    <div class="section-head">
+      <div>
+        <h2>Défis de la semaine</h2>
+        <p class="desc">Un défi publié devient un message « La Wave » épinglé en haut de la communauté : chacun répond en commentaire pour le valider. Publier un nouveau défi désépingle le précédent.</p>
+      </div>
+    </div>
+    <div id="defisCorps"></div>
+  </div>
+
   <div class="admin-section" id="adminSection-community">
 
     <div class="section-head">
@@ -7407,18 +7479,6 @@
 
   <div class="listen-row" id="modalListenRow"></div>
 
-  <!-- File d'écoute : la sortie rejoint le lecteur d'extraits (lecteur.js), qui enchaîne les extraits pendant qu'on navigue. -->
-  <button type="button" class="fiche-bouton" id="modalFile" onclick="ajouterAlaFile()" hidden>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h12M4 12h12M4 18h7M18 15v6M15 18h6"/></svg>
-    Ajouter à ma file d'écoute
-  </button>
-
-  <!-- Un lien de partage qui s'affiche avec la pochette et le titre dans les messageries et les réseaux (partage.php). -->
-  <button type="button" class="fiche-bouton" id="modalPartager" onclick="partagerSortie()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg>
-    Partager cette sortie
-  </button>
-
   <!-- Les autres versions de la sortie (deluxe, réédition…). Rempli par chargerVersions. -->
   <div class="fiche-versions" id="modalVersions" hidden></div>
 
@@ -7430,12 +7490,25 @@
   <!-- Note moyenne de la communauté, puis la note du visiteur -->
   <div class="note-moyenne" id="modalNoteMoyenne"></div>
   <div id="modalNoteBloc"></div>
+
+  <!-- Partager : une icône discrète en bas à droite. Le lien s'affiche avec la pochette et le titre dans les messageries (partage.php). -->
+  <div class="fiche-pied">
+    <button type="button" class="icone-discrete" id="modalPartager" onclick="partagerSortie()" aria-label="Partager cette sortie" title="Partager cette sortie">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg>
+    </button>
+  </div>
 </div>
   </div>
   <!-- Les titres d'un projet : un petit encadré rattaché à la fiche. Rempli par chargerPistes. -->
   <aside class="modal-pistes" id="modalPistes" hidden aria-label="Titres du projet"></aside>
   </div>
 </div>
+
+<div class="vue-lambda-bandeau" id="vueLambdaBandeau" hidden>
+  <span>Tu vois le site comme un utilisateur lambda.</span>
+  <button type="button" onclick="basculerVueLambda()">Revenir en équipe</button>
+</div>
+<script>if(window.vueLambda){ document.getElementById('vueLambdaBandeau').hidden = false; }</script>
 
 <footer>
   <div class="footer-inner">
@@ -7452,18 +7525,9 @@
         <a class="footer-aide" href="#aide" onclick="goTo('aide'); return false;">Aide et informations<span aria-hidden="true">→</span></a>
       </nav>
       <div class="footer-confort">
-        <a href="#nouveautes" onclick="goTo('nouveautes'); return false;">Nouveautés</a>
-        <a href="#idees" onclick="goTo('idees'); return false;">Proposer une idée</a>
-        <a href="feed.php" target="_blank" rel="noopener" title="Le flux RSS des sorties">RSS</a>
         <span class="taille-texte langue" role="group" aria-label="Langue" data-i18n-skip>
           <button type="button" data-l="fr" onclick="reglerLangue('fr')" aria-pressed="false" aria-label="Français">FR</button>
           <button type="button" data-l="en" onclick="reglerLangue('en')" aria-pressed="false" aria-label="English">EN</button>
-        </span>
-        <span class="taille-texte" role="group" aria-label="Taille du texte">
-          <span>Texte</span>
-          <button type="button" onclick="reglerTailleTexte(-1)" aria-label="Réduire le texte">A−</button>
-          <button type="button" onclick="reglerTailleTexte(0)" aria-label="Taille normale">A</button>
-          <button type="button" onclick="reglerTailleTexte(1)" aria-label="Agrandir le texte">A+</button>
         </span>
         <button type="button" id="installerApp" class="installer-app" hidden onclick="installerApplication()">Installer l'application</button>
       </div>
@@ -12305,7 +12369,8 @@ function profileToUser(row){
     xp: row.xp || 0,
     challenges: row.challenges || {},
     onboarding: row.onboarding || {},
-    isAdmin: !!row.is_admin,
+    isAdmin: !!row.is_admin && !window.vueLambda,
+    isAdminReel: !!row.is_admin,
     // Profil vérifié par l'équipe (voir sql/profils-verifies.sql) : pour quel rôle, et depuis quand.
     verifie: !!row.verifie,
     verifieRole: row.verifie_role || null,
@@ -12579,6 +12644,8 @@ function refreshAccountUI(){
     loggedOut.style.display = 'none';
     loggedIn.style.display = 'block';
     document.getElementById('accDropPseudo').textContent = currentUser.pseudo;
+    const bVue = document.getElementById('accVueLambda');
+    if(bVue) bVue.style.display = currentUser.isAdminReel ? '' : 'none';
     majCompteursCommunaute();
   } else {
     loggedOut.style.display = 'block';
@@ -20657,8 +20724,8 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
           }
           <a href="#visite/${escapeAttribute(encodeURIComponent(handle))}" class="platform-btn-sm"
              onclick="goTo('visite', { parametre: '${handleSain(handle)}' }); return false;">Carte de visite</a>
-          <button type="button" class="platform-btn-sm" style="cursor:pointer;"
-                  onclick="partagerArtiste('${handleSain(handle)}', ${escapeAttribute(JSON.stringify(nom))})">Partager</button>
+          <button type="button" class="icone-discrete" aria-label="Partager cet artiste" title="Partager cet artiste"
+                  onclick="partagerArtiste('${handleSain(handle)}', ${escapeAttribute(JSON.stringify(nom))})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg></button>
           ${instagram
             ? `<a href="${escapeAttribute(instagram)}" target="_blank"
                   rel="noopener noreferrer" class="platform-btn-sm">Instagram</a>`
@@ -20740,7 +20807,7 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
 // photos livrées. Déclarations de fonctions : goTo peut les appeler avant la fin du script.
 // Idées, nouveautés, export des données, tableau de bord de l'équipe (confort.js).
 function chargerConfort(){
-  return chargerModuleSite('confort.js?v=1', 'Confort', 'du confort du site (confort.js)');
+  return chargerModuleSite('confort.js?v=2', 'Confort', 'du confort du site (confort.js)');
 }
 
 function rendrePageConfort(pageId){
@@ -20930,6 +20997,12 @@ async function chargerGalerieArtiste(){
   }
 
   if(!artisteCourant || artisteCourant.handle !== voulu || !data) return;
+
+  // Aperçu « utilisateur » : ni ajout ni suppression de photos.
+  if(window.vueLambda){
+    data.peut_gerer = false;
+    (data.photos || []).forEach(f => { f.peut_supprimer = false; });
+  }
 
   artisteCourant.galerie = data;
   dessinerGalerieArtiste();
@@ -22355,20 +22428,6 @@ function chargerLecteur(){
   return chargerModuleSite('lecteur.js?v=1', 'Lecteur', "du lecteur d'extraits (lecteur.js)");
 }
 
-async function ajouterAlaFile(){
-
-  const item = ficheItemCourant;
-
-  if(!item) return;
-
-  try{
-    await chargerLecteur();
-    window.Lecteur.ajouterSortie({ id: item.id, title: item.title, artist: item.artist, cover: item.cover });
-  }catch(e){
-    notifier(e.message, { type: 'erreur' });
-  }
-}
-
 // « Tout écouter » : les extraits de tous les titres du projet s'enchaînent dans le lecteur.
 async function toutEcouterLesTitres(){
 
@@ -22619,9 +22678,6 @@ async function chargerPistes(item){
 
   if(cover) cover.classList.remove('a-extrait');
 
-  const boutonFile = document.getElementById('modalFile');
-  if(boutonFile) boutonFile.hidden = true;
-
   if(!item || !item.id || typeof supabaseClient === 'undefined' || !supabaseClient) return;
 
   const voulu = item.id;
@@ -22647,7 +22703,6 @@ async function chargerPistes(item){
     cover.classList.add('a-extrait');
     const bouton = document.getElementById('coverLecture');
     if(bouton) bouton.setAttribute('aria-label', 'Écouter un extrait de ' + (item.title || 'cette sortie'));
-    if(boutonFile) boutonFile.hidden = false;
   }
 
   // Un single n'a qu'un titre : pas d'encadré.
@@ -24552,6 +24607,7 @@ function renderAdminGreeting(nom){
 
 const ADMIN_TABS = [
   'tableau',
+  'defis',
   'submissions',
   'catalogue',
   'artists',
@@ -24658,6 +24714,10 @@ function switchAdminTab(nom){
 
   if(nom === 'tableau'){
     chargerTableauBord();
+  }
+
+  if(nom === 'defis'){
+    chargerConfort().then(() => window.Confort.defisEquipe()).catch(() => {});
   }
 
   if(nom === 'membres'){

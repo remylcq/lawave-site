@@ -564,7 +564,9 @@ const BD = {
   ouvrirConversation: (id)  => rpc('com_ouvrir_conversation', { p_avec: id }),
   envoyer:         (id, texte) => rpc('com_envoyer', { p_conversation: id, p_contenu: texte }),
   envoyerVocal:    (id, chemin, duree) => rpc('com_envoyer_vocal', { p_conversation: id, p_path: chemin, p_duree: duree }),
-  defiCourant:     () => rpc('com_defi_courant'),
+  defisEquipe:     () => rpc('com_defis_equipe'),
+  defiPublier:     (id) => rpc('com_defi_publier', { p_defi: id }),
+  defiRetirer:     (id) => rpc('com_defi_retirer', { p_defi: id }),
   mesSignalements: () => rpc('com_mes_signalements'),
   studios:         (a) => rpc('com_studios_liste', a),
   studio:          (id) => rpc('com_studio', { p_id: id }),
@@ -1507,11 +1509,12 @@ function postHtml(p, o){
              style="--sj:${attr(couleurSujet(p.sujet))};--rc:${attr(couleurRole)}"
              ${opt.detail ? '' : 'data-act="ouvrir-post" tabindex="0"'} aria-label="Message de ${attr(a.pseudo || '')}">
       ${collabHtml(p.collab)}
-      ${p.epingle ? `<div class="com-epingle">${icone('epingle', 14)} Épinglé par l'équipe</div>` : ''}
+      ${p.defi ? `<div class="com-epingle com-epingle-defi">${icone('trophee', 14)} Défi de la semaine · jusqu'au ${esc(new Date(p.defi.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }))}</div>`
+        : p.epingle ? `<div class="com-epingle">${icone('epingle', 14)} Épinglé par l'équipe</div>` : ''}
       <header class="com-post-tete">
-        <a class="com-av-lien" href="#community/membre/${attr(encodeURIComponent(a.pseudo || ''))}" data-act="membre" data-cle="${attr(a.pseudo)}" aria-label="Profil de ${attr(a.pseudo)}">${avatarHtml(a, 'm')}</a>
+        ${p.defi ? `<span class="com-av-lien com-av-lawave" aria-hidden="true"><img src="img/icon-192.png" alt=""></span>` : `<a class="com-av-lien" href="#community/membre/${attr(encodeURIComponent(a.pseudo || ''))}" data-act="membre" data-cle="${attr(a.pseudo)}" aria-label="Profil de ${attr(a.pseudo)}">${avatarHtml(a, 'm')}</a>`}
         <div class="com-post-qui">
-          <div class="com-post-nom">${nomHtml(a)}${roleHtml(a.role, true)}</div>
+          <div class="com-post-nom">${p.defi ? 'La Wave' : nomHtml(a) + roleHtml(a.role, true)}</div>
           <div class="com-post-meta">
             ${tempsHtml(p.cree_le)}${p.modifie_le ? ' <span class="com-modifie" title="Modifié">· modifié</span>' : ''}
             <span class="com-sep">·</span>
@@ -3080,7 +3083,6 @@ VUES.accueil = {
 
     V.el.innerHTML = `
       <div data-hote="onboarding"></div>
-      <div data-hote="defi"></div>
       <div data-hote="composer" class="com-hote-composer"></div>
       <!-- Le contenu de l'ancienne page « Explorer » : à droite du fil sur grand écran, repliable sous le composer sinon. -->
       <aside class="com-rail" data-incruste data-cle="accueil" aria-label="Trouver des membres">
@@ -3118,7 +3120,6 @@ VUES.accueil = {
 
     V.hotes = {
       onboarding: $('[data-hote="onboarding"]', V.el),
-      defi: $('[data-hote="defi"]', V.el),
       composer: $('[data-hote="composer"]', V.el),
       sujets: $('[data-hote="sujets"]', V.el),
       onglets: $('[data-hote="onglets"]', V.el),
@@ -3191,36 +3192,6 @@ VUES.accueil = {
     // elle n'a pas de largeur à mesurer.
     placerBarreOnglets(V.hotes.onglets, false);
     VUES.accueil.majRail(V);
-    VUES.accueil.defi(V);
-  },
-
-  // Le défi de la semaine : une consigne, un mot-clic ; participer ouvre le composer avec le mot-clic déjà posé.
-  async defi(V){
-
-    if(V.defiLe && Date.now() - V.defiLe < 300000) return;
-
-    try{
-
-      const d = await BD.defiCourant();
-
-      V.defiLe = Date.now();
-
-      if(!d){ V.hotes.defi.innerHTML = ''; return; }
-
-      const reste = d.jours_restants > 0 ? 'encore ' + d.jours_restants + ' jour' + (d.jours_restants > 1 ? 's' : '') : 'dernier jour';
-
-      V.hotes.defi.innerHTML = `
-        <section class="com-carte com-defi" aria-label="Défi de la semaine">
-          <div class="com-defi-tete"><span class="com-defi-pastille">${icone('trophee', 14)} Défi de la semaine</span><span class="com-defi-reste">${esc(reste)}</span></div>
-          <h3>${esc(d.titre)}</h3>
-          <p>${esc(d.consigne)}</p>
-          <div class="com-defi-pied">
-            <button type="button" class="com-btn com-btn-plein com-btn-petit" data-act="defi-participer" data-tag="${attr(d.tag)}">Participer</button>
-            <a class="com-defi-voir" href="#community/tag/${attr(encodeURIComponent(d.tag))}" data-act="tag" data-tag="${attr(d.tag)}">${d.nb ? d.nb + ' participation' + (d.nb > 1 ? 's' : '') + ' · voir' : 'Sois le premier à participer'} <small>#${esc(d.tag)}</small></a>
-          </div>
-        </section>`;
-
-    }catch(e){}
   },
 
   // Le bloc « Explorer » : toujours ouvert quand il y a la place à droite du fil, repliable en dessous.
@@ -5427,8 +5398,11 @@ function profilEnteteHtml(V){
           : `<span class="com-profil-ondes" aria-hidden="true">${icone('ondes', 120)}</span>`}
         ${soi ? `
           <button type="button" class="com-profil-engrenage" data-act="reglages" aria-label="Paramètres du profil" title="Paramètres">${icone('rouage', 20)}</button>
-          <button type="button" class="com-ban-btn" data-act="banniere-modifier" aria-label="Changer ma bannière" title="Changer ma bannière">${icone('image', 17)}</button>
-          ${banniere ? `<button type="button" class="com-ban-btn retirer" data-act="banniere-retirer" aria-label="Retirer ma bannière" title="Retirer ma bannière">${icone('croix', 14)}</button>` : ''}
+          <button type="button" class="com-ban-btn" data-act="banniere-modifier" data-a="${banniere ? '1' : ''}" aria-haspopup="${banniere ? 'menu' : 'false'}" aria-label="${banniere ? 'Ma bannière' : 'Ajouter une bannière'}" title="${banniere ? 'Ma bannière' : 'Ajouter une bannière'}">${icone('image', 17)}</button>
+          ${banniere ? `<div class="com-ban-menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-act="banniere-choisir">Remplacer la bannière</button>
+            <button type="button" role="menuitem" data-act="banniere-retirer">Retirer la bannière</button>
+          </div>` : ''}
           <input type="file" data-c-banniere accept="image/jpeg,image/png,image/webp" hidden>` : ''}
       </div>
       <div class="com-profil-corps">
@@ -5890,12 +5864,7 @@ async function modifierMonProfil(V){
       ${auditeur ? '' : `<div class="com-champ"><span>Je cherche <i>(8 au plus)</i></span>
         <div class="com-chips-bloc" data-d="cherche">${chipsMetiersHtml(etat.cherche, 'cherche')}</div></div>
       <div class="com-champ"><span>Je propose <i>(8 au plus)</i></span>
-        <div class="com-chips-bloc" data-d="propose">${chipsMetiersHtml(etat.propose, 'propose')}</div></div>`}
-      <div class="com-champ"><span>Mes styles <i>(6 au plus)</i></span>
-        <div class="com-styles" data-d="genres"><span class="com-styles-liste"></span>
-          <input type="text" data-d="genre-saisie" maxlength="24" placeholder="Trap, boom bap…" autocomplete="off" aria-label="Ajouter un style"></div>
-        <div class="com-suggestions-styles">${GENRES_SUGGERES.map(g => `<button type="button" class="com-puce bouton" data-genre="${attr(g)}">+ ${esc(g)}</button>`).join('')}</div>
-      </div>`,
+        <div class="com-chips-bloc" data-d="propose">${chipsMetiersHtml(etat.propose, 'propose')}</div></div>`}`,
     boutons: [
       { libelle: 'Annuler', valeur: 'non' },
       { libelle: 'Enregistrer', valeur: 'ok', primaire: true }
@@ -5904,22 +5873,6 @@ async function modifierMonProfil(V){
     surOuverture: (boite) => {
 
       $('[data-d="ville"]', boite).value = p.ville || '';
-
-      const dessinerGenres = () => {
-        $('[data-d="genres"] .com-styles-liste', boite).innerHTML = etat.genres.map((g, i) => `
-          <span class="com-puce retirable">${esc(g)}<button type="button" data-retirer-genre="${i}" aria-label="Retirer ${attr(g)}">${icone('croix', 11)}</button></span>`).join('');
-        $('[data-d="genre-saisie"]', boite).hidden = etat.genres.length >= 6;
-      };
-
-      const ajouterGenre = (v) => {
-        const g = String(v || '').replace(/[,;]+/g, ' ').trim().slice(0, 24);
-        if(g.length < 2 || etat.genres.length >= 6) return false;
-        if(!etat.genres.some(x => x.toLowerCase() === g.toLowerCase())) etat.genres.push(g);
-        dessinerGenres();
-        return true;
-      };
-
-      dessinerGenres();
 
       boite.addEventListener('click', (e) => {
 
@@ -5936,31 +5889,12 @@ async function modifierMonProfil(V){
           return;
         }
 
-        const retirer = e.target.closest('[data-retirer-genre]');
-        if(retirer){ etat.genres.splice(Number(retirer.dataset.retirerGenre), 1); dessinerGenres(); return; }
-
-        const sug = e.target.closest('[data-genre]');
-        if(sug){ ajouterGenre(sug.dataset.genre); return; }
-
         const lien = e.target.closest('[data-act="reglages"]');
         if(lien){ e.preventDefault(); fermerCalque(); ouvrirReglagesProfil(); }
-      });
-
-      const saisie = $('[data-d="genre-saisie"]', boite);
-      saisie.addEventListener('keydown', (e) => {
-        if(e.key === 'Enter' || e.key === ','){
-          e.preventDefault();
-          if(ajouterGenre(saisie.value)) saisie.value = '';
-        } else if(e.key === 'Backspace' && !saisie.value && etat.genres.length){
-          etat.genres.pop();
-          dessinerGenres();
-        }
       });
     },
     lire: (boite, valeur) => {
       if(valeur !== 'ok') return null;
-      const saisie = $('[data-d="genre-saisie"]', boite);
-      if(saisie.value.trim() && etat.genres.length < 6) etat.genres.push(saisie.value.trim().slice(0, 24));
       return { ville: $('[data-d="ville"]', boite).value.trim(), cherche: etat.cherche, propose: etat.propose, genres: etat.genres };
     }
   });
@@ -8072,7 +8006,20 @@ function agir(act, cible, e){
     }
 
     case 'banniere-modifier': {
+      // Pas de bannière : on choisit directement une image. Sinon, un petit menu propose de la remplacer ou de la retirer.
+      if(cible.dataset.a){
+        const menu = $('.com-ban-menu', cible.parentElement);
+        if(menu) menu.hidden = !menu.hidden;
+        return;
+      }
       const champ = $('input[data-c-banniere]', cible.parentElement);
+      if(champ) champ.click();
+      return;
+    }
+
+    case 'banniere-choisir': {
+      const champ = $('input[data-c-banniere]', cible.parentElement.parentElement);
+      $('.com-ban-menu', cible.parentElement.parentElement).hidden = true;
       if(champ) champ.click();
       return;
     }
@@ -8137,22 +8084,6 @@ function agir(act, cible, e){
     case 'vocal-lire':
       lireVocal(cible);
       return;
-
-    case 'defi-participer': {
-      if(!exigerConnexion('Connecte-toi pour participer au défi.')) return;
-      const accueil = S.vues.get('accueil');
-      if(!accueil || !accueil.composer) return;
-      ouvrirComposer(accueil.composer, { sansAnimation: true, type: 'message' });
-      const zone = champ(accueil.composer, 'texte');
-      if(zone){
-        const tag = '#' + cible.dataset.tag + ' ';
-        if(!zone.value.includes(tag)) zone.value = tag + zone.value;
-        zone.dispatchEvent(new Event('input', { bubbles: true }));
-        zone.focus();
-        zone.setSelectionRange(zone.value.length, zone.value.length);
-      }
-      return;
-    }
 
     case 'studio-proposer':
       VUES.studios.proposer(V);
@@ -8768,6 +8699,10 @@ const FEUILLE = String.raw`
 .com-av-xl{width:96px; height:96px; font-size:38px; box-shadow:0 0 0 4px #090c11, inset 0 0 0 1px rgba(255,255,255,0.14);}
 .com-av-lien{display:inline-flex; border-radius:50%; text-decoration:none; transition:transform .3s var(--ease);}
 .com-av-lien:hover{transform:scale(1.06);}
+.com-av-lawave{width:40px; height:40px; border-radius:50%; overflow:hidden; flex:0 0 auto; background:#0a0d12;}
+.com-av-lawave:hover{transform:none;}
+.com-av-lawave img{width:100%; height:100%; object-fit:cover; display:block;}
+.com-epingle-defi{color:#ffb454;}
 
 .com-role{
   display:inline-flex; align-items:center; gap:4px; flex:none;
@@ -10117,6 +10052,10 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
     radial-gradient(120% 140% at 85% 0%, hsl(calc(var(--h,210) + 50) 70% 38% / .55), transparent 60%),
     linear-gradient(135deg, hsl(var(--h,210) 60% 30%), hsl(calc(var(--h,210) + 46) 62% 16%));
 }
+.com-ban-menu{position:absolute; right:12px; bottom:56px; z-index:5; display:flex; flex-direction:column; min-width:190px; padding:6px; border:1px solid var(--line); border-radius:14px; background:rgba(13,17,24,0.96); box-shadow:0 12px 32px rgba(0,0,0,0.5);}
+.com-ban-menu[hidden]{display:none;}
+.com-ban-menu button{padding:10px 12px; border:0; border-radius:9px; background:none; color:var(--ink); font:inherit; font-size:14px; text-align:left; cursor:pointer;}
+.com-ban-menu button:hover{background:rgba(255,255,255,0.08);}
 .com-profil-banniere > img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block;}
 .com-profil-banniere.avec-image{background:#0b0f15;}
 .com-profil-banniere.avec-image::after{
