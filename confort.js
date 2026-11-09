@@ -351,10 +351,10 @@ window.Confort = (function(){
 
     // Les files à traiter : un pavé par file, qui mène à l'onglet concerné.
     const FILES = [
-      ['soumissions', 'Soumissions à valider', 'submissions'], ['imports', 'Imports à valider', 'submissions'],
-      ['signalements', 'Signalements ouverts', null], ['verifications', 'Profils à vérifier', 'profils'],
-      ['pages_artistes', 'Pages d\'artistes demandées', 'artists'], ['studios', 'Studios à publier', null],
-      ['idees', 'Idées nouvelles', null], ['accreditations', 'Inscriptions photo', 'accreditations']
+      ['soumissions', 'Soumissions à valider', "ouvrirAttente('membre')"], ['imports', 'Imports à valider', "ouvrirAttente('auto')"],
+      ['signalements', 'Signalements ouverts', null], ['verifications', 'Profils à vérifier', "switchAdminTab('profils')"],
+      ['pages_artistes', 'Pages d\'artistes demandées', "ouvrirFiltreArtistes('demandes')"], ['studios', 'Studios à publier', null],
+      ['idees', 'Idées nouvelles', null], ['accreditations', 'Inscriptions photo', "switchAdminTab('accreditations')"]
     ];
 
     const total = FILES.reduce((n, f) => n + (d.a_traiter[f[0]] || 0), 0);
@@ -373,7 +373,7 @@ window.Confort = (function(){
           const n = d.a_traiter[cle] || 0;
           const contenu = `<b>${n}</b><span>${esc(lib)}</span>`;
           return onglet
-            ? `<button type="button" class="tb-file${n ? ' plein' : ''}" onclick="switchAdminTab('${onglet}')">${contenu}</button>`
+            ? `<button type="button" class="tb-file${n ? ' plein' : ''}" onclick="${onglet}">${contenu}</button>`
             : `<div class="tb-file${n ? ' plein' : ''}">${contenu}</div>`;
         }).join('')}
       </div>

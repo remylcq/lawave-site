@@ -8872,7 +8872,7 @@ const FEUILLE = String.raw`
 .com-nom[data-act]{cursor:pointer;}
 .com-nom[data-act]:hover{text-decoration:underline;}
 .com-profil-nom{display:flex; align-items:center; flex-wrap:wrap; gap:6px 12px;}
-.com-logo-nom{height:30px; width:auto; max-width:140px; object-fit:contain; flex:none; opacity:.95;}
+.com-logo-nom{height:44px; width:auto; max-width:200px; object-fit:contain; flex:none; opacity:.95;}
 .com-nom-ligne{display:inline-flex; align-items:center; gap:5px; max-width:100%; vertical-align:middle;}
 .com-nom-ligne > *{flex:none;}
 .com-nom-ligne > .com-nom{flex:0 1 auto; min-width:0; overflow-wrap:anywhere;}

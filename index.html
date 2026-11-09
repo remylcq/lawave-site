@@ -2453,7 +2453,7 @@
   /* Le logo envoyé par un média, sur fond sombre : un logo blanc détouré s'y lit comme sur le profil. */
   .vf-logo{display:flex; align-items:center; gap:12px; margin:12px 0 0; padding:10px 14px; border-radius:var(--radius-sm); background:#0a0d12; border:1px solid var(--line);}
   .vf-logo span{font-size:12px; color:var(--muted);}
-  .vf-logo img{height:34px; max-width:160px; object-fit:contain;}
+  .vf-logo img{height:52px; max-width:220px; object-fit:contain;}
   .vf-alerte{margin:10px 0 0; font-size:12px; color:var(--danger);}
   .vf-etat{margin:10px 0 0; font-size:12px; font-weight:600;}
   .vf-etat.ok{color:#8fe3ab;}
@@ -5597,11 +5597,6 @@
     </section>
   </section>
 
-  <!-- ================= SONDAGE DES TESTEURS (TEMPORAIRE) — rempli par sondage.js ================= -->
-  <section id="page-sondage" class="page">
-    <section class="doc sdg" id="sondageRacine"></section>
-  </section>
-
   <!-- ================= MENTIONS LÉGALES ================= -->
   <section id="page-mentions" class="page">
     <section class="doc">
@@ -6233,13 +6228,6 @@
         role="tab" onclick="switchAdminTab('settings')" title="Chiffres réseaux">
         <svg class="eq-ic" aria-hidden="true"><use href="#eq-reglages"/></svg>
         <span class="admin-tab-label">Réglages</span>
-      </button>
-
-      <!-- SONDAGE DES TESTEURS (TEMPORAIRE) — onglet -->
-      <button type="button" class="admin-tab" id="adminTab-sondage"
-        role="tab" onclick="switchAdminTab('sondage')" title="Réponses au sondage des testeurs (temporaire)">
-        <svg class="eq-ic" aria-hidden="true"><use href="#eq-etoile"/></svg>
-        <span class="admin-tab-label">Sondage testeurs</span>
       </button>
 
       <!-- COLLECTIONS DE CARTES — onglet -->
@@ -7005,17 +6993,6 @@
     <div id="cartesEquipe"></div>
   </div>
 
-  <!-- SONDAGE DES TESTEURS (TEMPORAIRE) — section, remplie par sondage.js (Sondage.chargerEquipe). -->
-  <div class="admin-section" id="adminSection-sondage">
-    <div class="section-head">
-      <div>
-        <h2>Sondage des testeurs</h2>
-        <p class="desc">Les réponses des testeurs au sondage du site : chiffres clés, synthèse par question, réponses libres, détail par testeur, export CSV.</p>
-      </div>
-    </div>
-    <div id="sondageEquipe"></div>
-  </div>
-
   <!-- ACCÈS TESTEURS (TEMPORAIRE) — section. RETRAIT : supprimer jusqu'à « fin ». -->
 
   <div class="admin-section" id="adminSection-acces">
@@ -7563,8 +7540,6 @@
 
 <!-- Version figée (celle servie au 23 octobre 2026) avec son empreinte : une mise à jour de la bibliothèque ne change plus le site
      sans qu'on l'ait choisi, et un fichier altéré serait refusé par le navigateur. -->
-<!-- SONDAGE DES TESTEURS (TEMPORAIRE) : page, bouton flottant et onglet équipe (voir sondage.js) -->
-<script src="sondage.js?v=1"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0" integrity="sha384-UagCvVPT5XXA0Hx+nJYUAGBFseHT9zBgpJMSebsAxl9lciTwbT+39j5VfRjdP5Tp" crossorigin="anonymous"></script>
 
@@ -8612,7 +8587,6 @@ const BD = {
       bugreport: 'Signaler un problème',
       admin: 'Espace équipe',
       mentions: 'Mentions légales',
-      sondage: 'Sondage des testeurs',
       confidentialite: 'Politique de confidentialité',
       cgu: "Conditions d'utilisation",
       faq: 'Questions fréquentes',
@@ -8815,8 +8789,6 @@ const BD = {
   if(pageId === 'lancement' || pageId === 'visite' || pageId === 'mes-sorties') rendrePageOutils(pageId);
   if(pageId === 'idees' || pageId === 'nouveautes') rendrePageConfort(pageId);
   if(pageId === 'bugreport') preparerSignalement();
-  // SONDAGE DES TESTEURS (TEMPORAIRE) : sondage.js remplit la page à l'ouverture.
-  if(pageId === 'sondage' && window.Sondage) window.Sondage.ouvrir();
   // La salle recouvre l'écran : on la ferme dès qu'on quitte la page
   // Communauté, ou qu'on y revient sur l'onglet Communauté. L'onglet
   // Waveurs, lui, ne l'arrête pas (voir afficherOngletCommunaute).
@@ -20799,7 +20771,7 @@ async function ouvrirPageArtiste(handle, depuisAdresse, origine){
 // photos livrées. Déclarations de fonctions : goTo peut les appeler avant la fin du script.
 // Idées, nouveautés, export des données, tableau de bord de l'équipe (confort.js).
 function chargerConfort(){
-  return chargerModuleSite('confort.js?v=2', 'Confort', 'du confort du site (confort.js)');
+  return chargerModuleSite('confort.js?v=3', 'Confort', 'du confort du site (confort.js)');
 }
 
 function rendrePageConfort(pageId){
@@ -24616,7 +24588,6 @@ const ADMIN_TABS = [
   'selection',
   'membres',
   'audience',
-  'sondage',   // SONDAGE DES TESTEURS (TEMPORAIRE)
   'cartes',    // COLLECTIONS DE CARTES
   'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
@@ -24732,11 +24703,6 @@ function switchAdminTab(nom){
     chargerCartes().then(() => { if(window.Cartes) window.Cartes.equipe(document.getElementById('cartesEquipe')); }).catch(() => {});
   }
 
-  // SONDAGE DES TESTEURS (TEMPORAIRE)
-  if(nom === 'sondage' && window.Sondage){
-    window.Sondage.chargerEquipe();
-  }
-
   // ACCÈS TESTEURS (TEMPORAIRE)
   if(nom === 'acces'){
     renderAdminAcces();
@@ -24815,11 +24781,6 @@ function accesMessageInvitation(nom, email, motDePasse){
     'Il suffit de saisir ces deux informations sur la première page. ' +
     'Tes identifiants sont personnels : merci de ne pas les partager.\n\n' +
     'Le but : que tu fasses le tour du site (catalogue, carte, communauté, profil, soumission de sortie…) et que tu me dises franchement ce que tu en penses.\n\n' +
-    '📝 Le sondage : en bas à gauche de chaque page du site, tu verras un petit bouton bleu « Ton avis ». Il ouvre un sondage sur le site de La Wave. ' +
-    "Tu commences par indiquer les parties du site que tu as parcourues, et seules les questions qui les concernent s'ouvrent (compte 10 à 25 minutes selon ce que tu as testé). " +
-    "Aucune question n'est obligatoire, tout s'enregistre au fur et à mesure et tu peux t'arrêter et reprendre quand tu veux. " +
-    'Tu peux y revenir autant de fois que tu veux pour compléter ou modifier tes réponses.\n\n' +
-    'Lien direct vers le sondage : ' + accesAdresseSite() + '#sondage\n\n' +
     "Et si tu tombes sur un bug ou un truc bizarre, dis-le-moi tout de suite (ou via « Signaler un problème » en bas du site) : c'est tout l'intérêt du test !\n\n" +
     'Merci pour ton aide 🙏';
 }
@@ -28355,7 +28316,10 @@ function artistesFiltres(){
     // Deezer (sql/deezer-photos.sql) ; restent ceux que Deezer n'illustre
     // pas, à compléter à la main.
     { cle: 'sansphoto', libelle: 'Sans photo',
-      garde: p => !p.photo_url }
+      garde: p => !p.photo_url },
+    // Les artistes qui demandent à gérer leur page : à valider ou refuser (case « Pages d'artistes demandées » du tableau de bord).
+    { cle: 'demandes', libelle: 'Demandes de page',
+      garde: p => !!p.demande_par && !p.verifie_par }
   ];
 }
 
@@ -28382,6 +28346,25 @@ function artistesFiltresHtml(){
   }).join('');
 }
 
+
+// Depuis le tableau de bord : ouvre l'onglet puis la vue filtrée.
+function ouvrirFiltreArtistes(cle){
+  switchAdminTab('artists');
+  const champ = document.getElementById('rechercheArtistesEquipe');
+  if(champ) champ.value = '';
+  loadArtistProfiles().then(() => choisirFiltreArtistes(cle));
+}
+
+// Depuis le tableau de bord : les sorties en attente, automatiques ou de membres.
+function ouvrirAttente(origine){
+  switchAdminTab('submissions');
+  attente.origine = origine || '';
+  attente.page = 0;
+  attente.texte = '';
+  const champ = document.getElementById('attenteRecherche');
+  if(champ) champ.value = '';
+  loadArtistSubmissions();
+}
 
 function choisirFiltreArtistes(cle){
   artistesFiltre = cle;
