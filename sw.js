@@ -11,7 +11,7 @@
    version.txt (qui dit qu'une mise à jour est disponible) n'est jamais gardé.
    ===================================================================== */
 
-const VERSION = 'lw-v1';
+const VERSION = 'lw-v2';
 const FICHIERS = 'lw-fichiers-' + VERSION;
 const PAGES = 'lw-pages-' + VERSION;
 
@@ -24,6 +24,42 @@ self.addEventListener('activate', (event) => {
     const noms = await caches.keys();
     await Promise.all(noms.filter(n => n !== FICHIERS && n !== PAGES).map(n => caches.delete(n)));
     await self.clients.claim();
+  })());
+});
+
+// Une alerte du site, reçue même quand La Wave n'est pas ouverte (envoyée par la fonction « envoyer-push », voir sql/push.sql).
+self.addEventListener('push', (event) => {
+
+  let m = {};
+
+  try{ m = event.data ? event.data.json() : {}; }catch(e){ m = { corps: event.data ? event.data.text() : '' }; }
+
+  event.waitUntil(self.registration.showNotification(m.titre || 'La Wave', {
+    body: m.corps || '',
+    icon: '/img/icon-192.png',
+    badge: '/img/icon-192.png',
+    tag: m.url || 'lawave',
+    data: { url: m.url || '/' }
+  }));
+});
+
+// Un toucher sur l'alerte : on revient sur l'onglet de La Wave s'il est ouvert, sinon on l'ouvre.
+self.addEventListener('notificationclick', (event) => {
+
+  event.notification.close();
+
+  const cible = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+
+  event.waitUntil((async () => {
+    const fenetres = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for(const f of fenetres){
+      if(f.url.startsWith(self.location.origin) && 'focus' in f){
+        await f.focus();
+        if('navigate' in f) await f.navigate(cible).catch(() => {});
+        return;
+      }
+    }
+    await self.clients.openWindow(cible);
   })());
 });
 

@@ -248,6 +248,66 @@ window.Confort = (function(){
   }
 
   // ------------------------------------------------------------------
+  // Les alertes sur l'appareil (notifications push)
+  // ------------------------------------------------------------------
+
+  function cleEnOctets(base64url){
+    const b = (base64url + '='.repeat((4 - base64url.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+    const brut = atob(b);
+    return Uint8Array.from(brut, c => c.charCodeAt(0));
+  }
+
+  // Active (ou coupe) les alertes de La Wave sur cet appareil : elles arrivent même site fermé.
+  async function pushBasculer(){
+
+    if(!currentUser){ annoncer('Connecte-toi pour recevoir des alertes'); openAuthModal('login'); return; }
+
+    if(!('serviceWorker' in navigator) || !('PushManager' in window)){
+      annoncer('Alertes indisponibles', "Ce navigateur ne sait pas en recevoir. Sur iPhone, ajoute d'abord La Wave à l'écran d'accueil.");
+      return;
+    }
+
+    if(!/^(www\.)?lawave\.fr$/.test(location.hostname)){
+      annoncer('Alertes indisponibles ici', 'Elles se règlent sur lawave.fr.');
+      return;
+    }
+
+    try{
+
+      const reg = await navigator.serviceWorker.ready;
+      const existant = await reg.pushManager.getSubscription();
+
+      if(existant){
+        await supabaseClient.rpc('push_desabonner', { p_endpoint: existant.endpoint });
+        await existant.unsubscribe();
+        annoncer('Alertes coupées sur cet appareil');
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+
+      if(permission !== 'granted'){
+        annoncer('Alertes refusées', "Autorise les notifications dans ton navigateur pour les recevoir.");
+        return;
+      }
+
+      const cle = await supabaseClient.rpc('push_cle_publique');
+      if(cle.error || !cle.data) throw cle.error || new Error('Clé introuvable.');
+
+      const abo = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: cleEnOctets(cle.data) });
+      const j = abo.toJSON();
+
+      const rep = await supabaseClient.rpc('push_abonner', { p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth });
+      if(rep.error) throw rep.error;
+
+      annoncer('Alertes activées', 'Tu seras prévenu des réactions, messages, sorties de tes artistes et rappels, même site fermé.');
+
+    }catch(e){
+      annoncer('Alertes impossibles', e && e.message, 'erreur');
+    }
+  }
+
+  // ------------------------------------------------------------------
   // Le tableau de bord de l'équipe
   // ------------------------------------------------------------------
 
@@ -313,6 +373,6 @@ window.Confort = (function(){
     if(pageId === 'nouveautes') return nouveautes();
   }
 
-  return { rendre, trier, voter, proposer, traiter, supprimer, exporter, tableauBord };
+  return { rendre, trier, voter, proposer, traiter, supprimer, exporter, tableauBord, pushBasculer };
 
 })();

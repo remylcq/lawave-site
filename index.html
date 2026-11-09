@@ -7232,6 +7232,7 @@
       <button type="button" class="btn btn-primary" onclick="saveProfile()">Enregistrer</button>
       <div class="form-msg" id="profileMsg"></div>
       <div class="pf-tiroir-liens">
+        <button type="button" class="lien-discret" onclick="basculerAlertes()">Alertes sur cet appareil (activer / couper)</button>
         <button type="button" class="lien-discret" onclick="exporterMesDonnees()">Exporter mes données</button>
         <button type="button" class="lien-discret" onclick="Profil.fermerReglages(); logoutUser()">Se déconnecter</button>
       </div>
@@ -20716,6 +20717,11 @@ function rendrePageConfort(pageId){
     const z = document.getElementById(pageId === 'idees' ? 'ideesCorps' : 'nouveautesCorps');
     if(z) z.innerHTML = '<div class="empty-state">Cette page ne se charge pas pour le moment.</div>';
   });
+}
+
+// Les alertes de La Wave sur cet appareil, même site fermé (notifications push, voir sql/push.sql).
+function basculerAlertes(){
+  chargerConfort().then(() => window.Confort.pushBasculer()).catch(e => notifier('Alertes impossibles', { detail: e.message, type: 'erreur' }));
 }
 
 function exporterMesDonnees(){
