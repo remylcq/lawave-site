@@ -145,7 +145,7 @@
 
   const SECTIONS = [
     ['ensemble', 'Vue d\'ensemble', 'ensemble'], ['collections', 'Collections', 'pack'], ['cartes', 'Cartes', 'cartes'], ['albums', 'Albums', 'image'],
-    ['joueurs', 'Joueurs', 'joueurs'], ['combat', 'Combat', null], ['marche', 'Marché', null], ['quotidien', 'Quotidien', null]
+    ['joueurs', 'Joueurs', 'joueurs'], ['combat', 'Combat', null], ['marche', 'Marché', null]
   ];
 
   async function monter(hote, a){
@@ -177,7 +177,6 @@
       else if(E.section === 'albums') await sAlbums();
       else if(E.section === 'joueurs') await sJoueurs();
       else if(E.section === 'combat') await sModule('combat', 'WaveCombat', 'Combat', 'La Tour : difficultés, récompenses et taille des équipes.');
-      else if(E.section === 'quotidien') await sModule('accueil', 'WaveAccueil', 'Quotidien', 'Événements à durée limitée et nouveautés du jeu.');
       else await sModule('marche', 'WaveMarche', 'Marché', 'Annonces, prix et ventes entre joueurs.');
     }catch(e){
       E.main.innerHTML = vide('Impossible d\'afficher cette section', e.message || String(e));

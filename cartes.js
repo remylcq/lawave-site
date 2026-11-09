@@ -40,12 +40,14 @@
     { nom: 'Rare', c: '#4FB4FF' },
     { nom: 'Épique', c: '#A879FF' },
     { nom: 'Légendaire', c: '#F2C14E' },
-    { nom: 'Mythique', c: '#FF5C8A' },
-    { nom: 'Spécial', c: '#8FEFFF' }   // propre à Vague Glaciale
+    { nom: 'Légendaire', c: '#F2C14E' },   // l'ancienne rareté Mythique est retirée : plus aucune carte n'a ce rang
+    { nom: 'Spécial', c: '#FF3B47' }   // propre à Vague Glaciale
   ];
   const rar = (r) => RAR[Math.min(Math.max(Number(r) || 1, 1), 6)];
 
-  const VUES = [['accueil', 'Accueil'], ['packs', 'Packs'], ['collection', 'Collection'], ['combat', 'Combat'], ['marche', 'Marché'], ['missions', 'Missions'], ['bonus', 'Bonus'], ['succes', 'Succès']];
+  const VUES = [['accueil', 'Accueil'], ['collection', 'Collection'], ['combat', 'Combat'], ['marche', 'Marché'], ['missions', 'Missions & Succès']];
+  // Les anciennes adresses (#community/cartes/packs, /bonus, /succes) mènent aux onglets qui les ont remplacées.
+  const ANCIENNES_VUES = { packs: 'accueil', bonus: 'missions', succes: 'missions' };
 
   // ---------------------------------------------------------------------
   // Les icônes (un trait, la couleur du texte)
@@ -311,7 +313,7 @@
   @property --ct-a{syntax:'<angle>'; inherits:false; initial-value:0deg;}
 
   .ct, .ct-scene, .ct-voile{
-    --r1:#B4BDC8; --r2:#4FB4FF; --r3:#A879FF; --r4:#F2C14E; --r5:#FF5C8A; --r6:#8FEFFF;
+    --r1:#B4BDC8; --r2:#4FB4FF; --r3:#A879FF; --r4:#F2C14E; --r5:#F2C14E; --r6:#FF3B47;
     --ct-surface:rgba(255,255,255,.04); --ct-surface-2:rgba(255,255,255,.07);
     --ct-trait:rgba(255,255,255,.08); --ct-trait-fort:rgba(255,255,255,.15);
     --ct-accent:#4FB4FF; --ct-accent-fonce:#1489DE; --ct-ok:#5BE0A6;
@@ -411,7 +413,7 @@
     background-size:23px 23px, 31px 31px, 17px 17px;}
   .ct-carte.vivante.r4, .ct-carte.r4:hover{box-shadow:0 0 0 1px rgba(242,193,78,.35), 0 0 34px -6px rgba(242,193,78,.55), 0 14px 30px -14px rgba(0,0,0,.8);}
   .ct-carte.vivante.r5, .ct-carte.r5:hover{box-shadow:0 0 40px -6px rgba(255,92,138,.55), 0 14px 30px -14px rgba(0,0,0,.8);}
-  .ct-carte.vivante.r6, .ct-carte.r6:hover{box-shadow:0 0 0 1px rgba(200,246,255,.5), 0 0 46px -4px rgba(143,239,255,.7), 0 14px 30px -14px rgba(0,0,0,.8);}
+  .ct-carte.vivante.r6, .ct-carte.r6:hover{box-shadow:0 0 0 1px rgba(255,150,150,.5), 0 0 46px -4px rgba(255,59,71,.7), 0 14px 30px -14px rgba(0,0,0,.8);}
   .ct-carte.vivante.r4 .ct-c-reflet, .ct-carte.vivante.r5 .ct-c-reflet, .ct-carte.vivante.r6 .ct-c-reflet{animation:ctLum 3.6s ease-in-out infinite;}
   @media (hover:hover){
     .ct-carte.r4:hover .ct-c-reflet, .ct-carte.r5:hover .ct-c-reflet, .ct-carte.r6:hover .ct-c-reflet{animation:ctLum 2.4s ease-in-out infinite;}
@@ -705,8 +707,8 @@
   .ct-titre-rar.mythe{letter-spacing:.16em; animation:ctTitreMythe 2.8s ease both; text-shadow:none; filter:drop-shadow(0 0 22px var(--teinte)) drop-shadow(0 0 48px var(--teinte));}
   .ct-titre-rar.mythe span{display:inline-block; opacity:0; background:linear-gradient(180deg, #fff, #ffd2e1 45%, var(--teinte)); -webkit-background-clip:text; background-clip:text; color:transparent;
     animation:ctLettre .8s cubic-bezier(.2,1.4,.3,1) forwards; animation-delay:calc(var(--i) * 80ms);}
-  .ct-halo.special{background:conic-gradient(from 0deg, #ffffff, #8fefff, #b9a8ff, #ffffff, #7fd4ff, #e6f9ff, #ffffff);}
-  .ct-titre-rar.special span{background:linear-gradient(180deg, #fff, #d7f6ff 45%, var(--teinte)); -webkit-background-clip:text; background-clip:text;}
+  .ct-halo.special{background:conic-gradient(from 0deg, #ffffff, #ff6670, #ff3b47, #ffffff, #ff8a8a, #ffe1e1, #ffffff);}
+  .ct-titre-rar.special span{background:linear-gradient(180deg, #fff, #ffd7d7 45%, var(--teinte)); -webkit-background-clip:text; background-clip:text;}
   @keyframes ctLettre{from{opacity:0; transform:translateY(40px) scale(2.2) rotateX(70deg);} to{opacity:1; transform:none;}}
   @keyframes ctTitreMythe{0%,82%{opacity:1;} 100%{opacity:0;}}
   @media (prefers-reduced-motion: reduce){ .ct-onde, .ct-halo{display:none;} .ct-pile.mythe{animation:none;} }
@@ -1362,7 +1364,6 @@
           
           <span class="ct-c-num">${numero(c.numero)}</span>
           ${c.type_nom && !verrou ? `<span class="ct-c-type" style="--tc:${couleurOk(c.couleur)}" data-type="${esc(c.type_nom)}" title="${esc(c.type_nom)}">${glypheType(c)}</span>` : ''}
-          ${!verrou && (c.iv_max != null || c.iv_pct != null) ? `<span class="ct-c-iv${Number(c.iv_max != null ? c.iv_max : c.iv_pct) >= 100 ? ' parfaite' : ''}">IV ${Math.round(Number(c.iv_max != null ? c.iv_max : c.iv_pct))} %</span>` : ''}
           <img class="ct-c-logo" src="img/logo-wave.png" alt="La Wave" width="380" height="204" decoding="async">
           ${verrou ? `<span class="ct-c-cadenas">${ico('cadenas', 24)}</span>` : ''}
           <div class="ct-c-plaque">
@@ -1432,8 +1433,8 @@
 
   function ongletsHtml(){
     const e = S.etat;
-    const pastilles = { missions: e.missions_pretes || 0, bonus: aRecuperer(e) };
-    const icones = { accueil: 'accueil', packs: 'pack', collection: 'cartes', combat: 'combat', marche: 'marche', missions: 'cible', bonus: 'cadeau', succes: 'trophee' };
+    const pastilles = { missions: e.missions_pretes || 0 };
+    const icones = { accueil: 'pack', collection: 'cartes', combat: 'combat', marche: 'marche', missions: 'cible' };
     return VUES.map(([id, nom]) => `
       <button type="button" class="ct-onglet${S.vue === id ? ' actif' : ''}" data-vue="${id}" role="tab" aria-selected="${S.vue === id}">
         ${ico(icones[id], 17)}${esc(nom)}${pastilles[id] ? `<span class="ct-pastille">${pastilles[id]}</span>` : ''}
@@ -1491,7 +1492,8 @@
       return;
     }
 
-    const demande = (location.hash.split('/')[2] || '').toLowerCase();
+    let demande = (location.hash.split('/')[2] || '').toLowerCase();
+    demande = ANCIENNES_VUES[demande] || demande;
     S.vue = VUES.some(v => v[0] === demande) ? demande : (VUES.some(v => v[0] === S.vue) ? S.vue : 'accueil');
 
     hote.innerHTML = `
@@ -1517,15 +1519,10 @@
 
     await afficherVue(S.vue);
 
-    // Le cadeau du jour s'offre de lui-même, une fois par visite.
-    if(S.etat.cadeau_pret && !S.cadeauPropose){
-      S.cadeauPropose = true;
-      setTimeout(() => { if(S.hote && S.hote.isConnected && !document.querySelector('.ct-voile, .ct-scene')) fenetreCadeau(); }, 700);
-    }
   }
 
   function quitter(){
-    ['WaveAccueil', 'WaveCombat', 'WaveMarche'].forEach((g) => { if(window[g] && typeof window[g].quitter === 'function') window[g].quitter(); });
+    ['WaveCombat', 'WaveMarche'].forEach((g) => { if(window[g] && typeof window[g].quitter === 'function') window[g].quitter(); });
     clearInterval(S.minuteur);
   }
 
@@ -1552,14 +1549,11 @@
   async function afficherVue(v){
     if(!S.corps.querySelector('.ct-panneau')) S.corps.innerHTML = '<div class="ct-vide">Chargement…</div>';
     try{
-      if(v === 'accueil') await vueModule('accueil', 'WaveAccueil');
-      else if(v === 'packs') await vuePacks();
+      if(v === 'accueil') await vuePacks();
       else if(v === 'collection') await vueCollection();
       else if(v === 'combat') await vueModule('combat', 'WaveCombat');
       else if(v === 'marche') await vueModule('marche', 'WaveMarche');
-      else if(v === 'missions') await vueMissions();
-      else if(v === 'bonus') await vueBonus();
-      else if(v === 'succes') await vueSucces();
+      else if(v === 'missions') await vueMissionsSucces();
     }catch(e){
       S.corps.innerHTML = `<div class="ct-panneau ct-vide">${esc(e.message)}</div>`;
     }
@@ -1634,7 +1628,7 @@
     if(projet){ await vueProjet(projet); return; }
     S.projet = null;
 
-    const attente = aRecuperer(e) + (e.missions_pretes || 0);
+    const attente = e.missions_pretes || 0;
     const plusieurs = boosters.length > 1;
 
     S.corps.innerHTML = `
@@ -1651,7 +1645,7 @@
         <div class="ct-hero-note">${ico('vinyle', 15)}1 vinyle = 1 pack.<button type="button" class="ct-lien" data-echange>Échanger des Wave Coins</button></div>
       </section>
 
-      ${attente ? `<button type="button" class="ct-attente" data-aller="${aRecuperer(e) ? 'bonus' : 'missions'}">${ico('cadeau', 22)}<div><b>${pluriel(attente, 'récompense')} à récupérer</b><span>${[e.cadeau_pret ? 'cadeau du jour' : '', e.roue_prete ? 'roue' : '', e.coffres_prets ? 'coffre' : '', e.missions_pretes ? 'missions' : ''].filter(Boolean).join(' · ')}</span></div>${ico('fleche', 18)}</button>` : ''}
+      ${attente ? `<button type="button" class="ct-attente" data-aller="missions">${ico('cadeau', 22)}<div><b>${pluriel(attente, 'récompense')} à récupérer</b><span>${[e.cadeau_pret ? 'cadeau du jour' : '', e.roue_prete ? 'roue' : '', e.coffres_prets ? 'coffre' : '', e.missions_pretes ? 'missions' : ''].filter(Boolean).join(' · ')}</span></div>${ico('fleche', 18)}</button>` : ''}
 `;
 
     const vit = S.corps.querySelector('.ct-vitrine');
@@ -1708,7 +1702,7 @@
     function voir(b){
       if(!b.classeur){ ouvrir(1, false, b); return; }
       S.projet = b.id;
-      afficherVue('packs');
+      afficherVue('accueil');
     }
 
     vit.addEventListener('click', (ev) => {
@@ -1750,8 +1744,13 @@
 
   // La page d'un booster, comme celle d'un projet musical : la pochette, puis ses cartes en tracklist.
   async function vueProjet(b){
+    // Toutes les cartes du pack : le classeur se lit page par page, on les réunit.
     const r = await appel('jeu_classeur_lire', { p_booster: b.id, p_page: 1, p_tri: 'numero' });
-    const cartes = r.cartes || [];
+    let cartes = (r.cartes || []).slice();
+    for(let pg = 2; pg <= Math.min(Number(r.pages) || 1, 30); pg++){
+      const suite = await appel('jeu_classeur_lire', { p_booster: b.id, p_page: pg, p_tri: 'numero' });
+      cartes = cartes.concat(suite.cartes || []);
+    }
     const obtenues = cartes.filter(c => c.quantite > 0).length;
     const e = S.etat;
     const cout = Number(b.cout || 1);
@@ -1773,22 +1772,12 @@
           </div>
         </header>
         ${b.description ? `<p class="ct-pj-desc">${esc(b.description)}</p>` : ''}
-        <div class="ct-tracks" role="list" aria-label="Cartes du booster">
-          <div class="ct-tr-tete" aria-hidden="true"><span>#</span><span></span><span>Artiste</span><span>Rareté</span><span></span></div>
-          ${cartes.map((c, i) => `
-            <button type="button" class="ct-track${c.quantite ? '' : ' manque'}" role="listitem" data-i="${i}" style="--rc:${rar(c.rarete).c}" aria-label="${esc(c.nom)}, ${esc(rar(c.rarete).nom)}${c.quantite ? '' : ', pas encore obtenue'}">
-              <span class="n">${String(c.numero || i + 1).padStart(2, '0')}</span>
-              <img class="ph" src="${esc(safeUrl(c.photo))}" alt="" loading="lazy" decoding="async">
-              <span class="nom">${esc(c.nom)}</span>
-              <span class="rar">${esc(rar(c.rarete).nom)}</span>
-              <span class="et">${c.quantite ? (c.holo ? ico('etoile', 14) : '') + (c.quantite > 1 ? '×' + c.quantite : ico('coche', 15)) : ico('cadenas', 14)}</span>
-            </button>`).join('')}
-        </div>
+        <div class="ct-grille" aria-label="Cartes du pack">${cartes.map((c, i) => `<button type="button" class="ct-case" data-i="${i}" aria-label="${esc(c.nom)}, ${esc(rar(c.rarete).nom)}${c.quantite ? '' : ', pas encore obtenue'}">${carteHtml(c, { quantite: true, verrou: !c.quantite })}</button>`).join('')}</div>
       </section>`;
 
-    S.corps.querySelector('[data-retour]').addEventListener('click', () => { S.projet = null; afficherVue('packs'); });
+    S.corps.querySelector('[data-retour]').addEventListener('click', () => { S.projet = null; afficherVue('accueil'); });
     S.corps.querySelectorAll('[data-ouvrir]').forEach((x) => x.addEventListener('click', () => ouvrir(Number(x.dataset.ouvrir), false, b)));
-    S.corps.querySelectorAll('.ct-track').forEach((x) => x.addEventListener('click', () => fiche(cartes[Number(x.dataset.i)].id, b.id)));
+    S.corps.querySelectorAll('.ct-grille [data-i]').forEach((x) => x.addEventListener('click', () => fiche(cartes[Number(x.dataset.i)].id, b.id)));
   }
 
   // Échanger des Wave Coins contre des vinyles : on choisit un nombre de vinyles (donc de packs), le prix est en Wave Coins.
@@ -1822,7 +1811,7 @@
         majEntete(); Son.jouer('gain'); vibre(25);
         toast('+' + nf(n) + ' vinyle' + (n > 1 ? 's' : ''));
         f.fermer();
-        if(S.vue === 'packs' || S.vue === 'collection') afficherVue(S.vue);
+        if(S.vue === 'accueil' || S.vue === 'collection') afficherVue(S.vue);
       }catch(e){ toast(e.message, 'err'); ok.disabled = false; }
     });
   }
@@ -1859,7 +1848,7 @@
     for(const nv of (r.niveaux || [])) await niveauAtteint(nv);
 
     if(encore){ ouvrir(n, false, b); return; }
-    if(S.vue === 'packs' || S.vue === 'collection') afficherVue(S.vue);
+    if(S.vue === 'accueil' || S.vue === 'collection') afficherVue(S.vue);
   }
   function niveauAtteint(nv){
     return new Promise((fin) => {
@@ -2162,7 +2151,6 @@
           if(r >= 3){ classe = ''; texte = RAR[r].nom + (c.nouvelle ? ' · Nouveau' : ''); }
           p.insertAdjacentHTML('beforeend', `<div class="ct-etiq ${classe}">${esc(texte)}</div>`);
           if(c.parfaite){
-            p.insertAdjacentHTML('beforeend', '<div class="ct-iv">IV parfaits !</div>');
             if(!calme()){
               fx.gerbe(pos.x, pos.y, ['#ffd76a', '#fff3c4', '#ffffff', '#ffb547'], 100, { vitesse: 10, vie: 65 });
               Son.jouer('holo');
@@ -2177,7 +2165,7 @@
             rayons.classList.add('on');
             eclair();
             ov.classList.remove('secousse'); void ov.offsetWidth; ov.classList.add('secousse');
-            fx.pluie(r === 6 ? ['#ffffff', '#8fefff', '#bfeaff', '#b9a8ff', '#e6f9ff'] : (r >= 5 ? ['#ff5c8a', '#ffb547', '#fff27a', '#5cffc8', '#5cb8ff', '#b36bff'] : ['#F2C14E', '#fff3c4', '#ffffff', '#e9a73a']), r >= 5 ? 160 : 90);
+            fx.pluie(r === 6 ? ['#ffffff', '#ff6670', '#ff3b47', '#ff8a8a', '#ffe1e1'] : (r >= 5 ? ['#ff5c8a', '#ffb547', '#fff27a', '#5cffc8', '#5cb8ff', '#b36bff'] : ['#F2C14E', '#fff3c4', '#ffffff', '#e9a73a']), r >= 5 ? 160 : 90);
             const mythe = r >= 5 && !calme();
             const titre = el('div', 'ct-titre-rar' + (mythe ? ' mythe' : '') + (r === 6 ? ' special' : ''),
               mythe ? [...RAR[r].nom].map((ch, k) => `<span style="--i:${k}">${esc(ch)}</span>`).join('') : esc(RAR[r].nom));
@@ -2185,8 +2173,8 @@
             setTimeout(() => titre.remove(), mythe ? 2900 : 1700);
             if(mythe){
               // Onde de choc double, braises qui montent, la caméra s'approche doucement.
-              ondes(r === 6 ? [RAR[6].c, '#ffffff', '#b9a8ff'] : [RAR[5].c, '#ffffff', '#ffb547']);
-              fx.braises(r === 6 ? ['#ffffff', '#8fefff', '#b9a8ff'] : ['#ff5c8a', '#ffb547', '#fff27a', '#b36bff'], 6000);
+              ondes(r === 6 ? [RAR[6].c, '#ffffff', '#ff8a8a'] : [RAR[5].c, '#ffffff', '#ffb547']);
+              fx.braises(r === 6 ? ['#ffffff', '#ff6670', '#ff8a8a'] : ['#ff5c8a', '#ffb547', '#fff27a', '#b36bff'], 6000);
               if(pile) pile.classList.add('mythe');
             }
           }else if(r === 3){
@@ -2335,9 +2323,6 @@
             <div class="ct-stat"><b>${possede ? '×' + c.quantite : '—'}</b><span>${possede ? 'en ta possession' : 'pas encore obtenue'}</span></div>
           </div>
           ${c.album ? `<div class="ct-album"><img src="${esc(safeUrl(c.cover))}" alt=""><div><small>Album</small><b>${esc(c.album)}</b>${c.type_nom ? `<span class="ct-type-puce" style="--tc:${couleurOk(c.couleur)}" data-type="${esc(c.type_nom)}" title="Forces et faiblesses">${esc(c.type_nom)}</span>` : ''}</div></div>` : ''}
-          ${(c.exemplaires || []).length ? `
-            <div class="ct-titre-sec" style="margin:18px 0 8px"><h3>Tes exemplaires</h3></div>
-            <div class="ct-exemp">${c.exemplaires.map((e) => `<div class="ct-ex${e.parfaite ? ' parfaite' : ''}" style="--p:${Number(e.pct)}%"><b>${Number(e.pct)} %</b><span class="iv">PV ${e.iv[0]} · PUI ${e.iv[1]} · DÉF ${e.iv[2]} · VIT ${e.iv[3]}</span>${e.holo ? '<i>Holo</i>' : ''}${e.parfaite ? '<i class="pf">Parfait</i>' : ''}</div>`).join('')}</div>` : ''}
           ${classeur ? '<div data-combat></div>' : ''}
           ${c.ville ? `<p class="sous" style="margin-top:12px">${esc(c.ville)}</p>` : ''}${classeur && possede ? `<div class="ct-actions" style="margin-top:12px"><button type="button" class="ct-btn petit" data-vendre>${ico('marche', 15)}Vendre sur le marché</button></div>` : ''}
           ${(c.sorties_liste || []).length ? `
@@ -2516,8 +2501,9 @@
   // Missions
   // ---------------------------------------------------------------------
 
-  async function vueMissions(){
+  async function vueMissions(hote){
 
+    hote = hote || S.corps;
     const m = await appel('jeu_missions');
 
     const ligne = (q) => {
@@ -2541,7 +2527,7 @@
         ${b.pris ? '' : `<button type="button" class="ct-btn ${b.pret ? 'principal' : ''} petit" data-prendre="${esc(b.cle)}" ${b.pret ? '' : 'disabled'}>Récupérer</button>`}
       </div>`;
 
-    S.corps.innerHTML = `
+    hote.innerHTML = `
       <div class="ct-deux">
         <section class="ct-panneau">
           <div class="ct-entete-panneau"><div><h3>Aujourd'hui</h3><p class="sous">Trois missions, renouvelées chaque jour.</p></div><span class="ct-puce-temps">${ico('horloge', 14)}${duree(m.fin_jour)}</span></div>
@@ -2554,164 +2540,36 @@
       </div>
       <p style="margin:14px 2px 0; font-size:13px; color:var(--muted)">Noter, écouter, commenter ou donner ton avis sur une sortie compte pour les missions du site.</p>`;
 
-    S.corps.querySelectorAll('[data-prendre]').forEach((b) => b.addEventListener('click', async () => {
+    hote.querySelectorAll('[data-prendre]').forEach((b) => b.addEventListener('click', async () => {
       b.disabled = true;
       try{
         const r = await appel('jeu_mission_prendre', { p_cle: b.dataset.prendre });
         poserEtat(r.etat); majEntete(); Son.jouer('gain'); vibre(20);
         toast('Récupéré : ' + gainsTexte(r.gain));
-        vueMissions();
+        vueMissions(hote);
       }catch(e){ toast(e.message, 'err'); b.disabled = false; }
     }));
   }
 
-  // ---------------------------------------------------------------------
-  // Bonus : cadeau de connexion, roue, coffre
-  // ---------------------------------------------------------------------
-
-  function serieHtml(c){
-    return `<div class="ct-serie">${c.cadeaux.map((g) => {
-      const fait = g.jour < c.jour || (!c.pret && g.jour === c.jour);
-      return `
-      <div class="ct-jour${fait ? ' fait' : ''}${c.pret && g.jour === c.jour ? ' aujourdhui' : ''}${g.jour === 7 ? ' sept' : ''}">
-        <span>J${g.jour}</span>${ico(fait ? 'coche' : (g.garantis ? 'pack' : 'vinyle'), 17)}
-        <b>+${nf(vin(g))}</b>
-      </div>`;
-    }).join('')}</div>`;
-  }
-
-  async function prendreCadeau(bouton, apres){
-    bouton.disabled = true;
-    try{
-      const r = await appel('jeu_cadeau_prendre');
-      poserEtat(r.etat); majEntete(); Son.jouer('gain'); vibre(25);
-      toast('Cadeau du jour : ' + gainsTexte(r.gain));
-      if(apres) apres();
-    }catch(e){ toast(e.message, 'err'); bouton.disabled = false; }
-  }
-
-  async function fenetreCadeau(){
-    let c;
-    try{ c = await appel('jeu_cadeau'); }catch(e){ return; }
-    if(!c.pret) return;
-    const f = fenetre(`
-      <span class="ct-surtitre">${ico('cadeau', 15)}Cadeau de connexion</span>
-      <h2 style="margin-top:8px">Jour ${c.jour} de ta série</h2>
-      <p class="sous">${c.serie > 0 ? pluriel(c.serie, 'jour') + ' d\'affilée. Reviens demain pour ne pas casser ta série : le 7ᵉ jour est le plus gros.' : 'Reviens chaque jour : les cadeaux grossissent jusqu\'au 7ᵉ jour.'}</p>
-      <div style="margin-top:18px">${serieHtml(c)}</div>
-      <button type="button" class="ct-btn principal grand" style="width:100%" data-prendre>Récupérer : ${esc(gainsTexte(c.cadeaux[c.jour - 1]))}</button>`);
-    const b = f.corps.querySelector('[data-prendre]');
-    b.addEventListener('click', () => prendreCadeau(b, () => { f.fermer(); if(S.vue === 'bonus' || S.vue === 'packs') afficherVue(S.vue); }));
-  }
-
-  async function vueBonus(){
-
-    const [c, roue, coffre] = await Promise.all([appel('jeu_cadeau'), appel('jeu_roue'), appel('jeu_coffre')]);
-    const heure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
-
-    // La roue : des parts sombres aux bleus de la marque, une seule dorée pour le gros lot.
-    const sect = roue.secteurs, ang = 360 / sect.length, R = 150;
-    const jackpot = (l) => /JACKPOT/i.test(l);
-    const couleurs = ['#0f2c4d', '#14406e', '#0c2440', '#185089'];
-    const svgRoue = sect.map((s, k) => {
-      const a0 = (k - .5) * ang - 90, a1 = (k + .5) * ang - 90;
-      const pt = (a) => [R * Math.cos(a * Math.PI / 180), R * Math.sin(a * Math.PI / 180)];
-      const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
-      const lib = libVin(s.libelle).replace(/JACKPOT\s*·\s*/i, '').replace(/\s*💿/, ' vinyles');
-      const mots = lib.split(' ');
-      const or = jackpot(s.libelle);
-      return `<path d="M0 0 L${x0.toFixed(2)} ${y0.toFixed(2)} A${R} ${R} 0 0 1 ${x1.toFixed(2)} ${y1.toFixed(2)} Z" fill="${or ? 'url(#ctOr)' : couleurs[k % couleurs.length]}" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
-        <g transform="rotate(${k * ang})"><text x="0" y="${-R + 40}" text-anchor="middle" fill="${or ? '#2a1a00' : '#fff'}" font-weight="800" font-size="17">${esc(mots[0])}</text>
-        <text x="0" y="${-R + 57}" text-anchor="middle" fill="${or ? '#3d2700' : 'rgba(255,255,255,.62)'}" font-weight="700" font-size="9.5" letter-spacing="1">${esc(mots.slice(1).join(' ').toUpperCase())}</text></g>`;
-    }).join('');
-
-    S.corps.innerHTML = `
-      <div class="ct-bonus">
-        <section class="ct-panneau roue">
-          <div class="ct-entete-panneau"><div><h3>Roue du jour</h3><p class="sous">Un tour gratuit chaque jour.</p></div>${roue.prete ? '' : `<span class="ct-puce-temps">${ico('horloge', 14)}demain</span>`}</div>
-          <div class="ct-roue-zone">
-            <div class="ct-roue">
-              <svg class="ct-roue-pointe" viewBox="0 0 26 32" aria-hidden="true"><path d="M13 31 1.5 6.5A11.5 11.5 0 1 1 24.5 6.5z" fill="#F4F5F6"/><circle cx="13" cy="11" r="4" fill="#1489DE"/></svg>
-              <svg viewBox="-160 -160 320 320" role="img" aria-label="Roue du jour">
-                <defs><linearGradient id="ctOr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff1b0"/><stop offset=".5" stop-color="#f2c14e"/><stop offset="1" stop-color="#c88a1e"/></linearGradient></defs>
-                <circle r="157" fill="#08111d" stroke="rgba(255,255,255,.14)" stroke-width="2"/>
-                <g class="ct-roue-disque" data-disque>${svgRoue}</g>
-                <circle r="30" fill="#0b0f15" stroke="rgba(255,255,255,.25)" stroke-width="2"/>
-                <g transform="translate(-19 -19) scale(.38)" style="color:#4FB4FF">${EMBLEME.replace('class="ct-embleme"', 'width="100" height="100"')}</g>
-              </svg>
-            </div>
-            <div class="ct-roue-res" data-res>${roue.dernier ? 'Aujourd\'hui : <b>' + esc(libVin(roue.dernier.libelle)) + '</b>' : 'Des vinyles, un pack Épique… et un gros lot.'}</div>
-            <button type="button" class="ct-btn principal grand" data-tourner ${roue.prete ? '' : 'disabled'}>${roue.prete ? 'Tourner la roue' : 'Déjà tournée aujourd\'hui'}</button>
-          </div>
-        </section>
-
-        <section class="ct-panneau">
-          <div class="ct-entete-panneau"><div><h3>Cadeau de connexion</h3><p class="sous">${c.serie > 0 ? 'Série de ' + pluriel(c.serie, 'jour') + '. ' : ''}Le 7ᵉ jour est le plus gros.</p></div></div>
-          ${serieHtml(c)}
-          <button type="button" class="ct-btn ${c.pret ? 'principal' : ''}" style="width:100%" data-cadeau ${c.pret ? '' : 'disabled'}>${c.pret ? 'Récupérer : ' + esc(gainsTexte(c.cadeaux[c.jour - 1])) : 'Récupéré, reviens demain'}</button>
-        </section>
-
-        <section class="ct-panneau">
-          <div class="ct-entete-panneau"><div><h3>Coffre</h3><p class="sous">Des vinyles à 9 h, 13 h, 18 h et 22 h, à prendre dans les 8 heures.</p></div></div>
-          <div class="ct-creneaux">${coffre.cadeaux.map((x) => `
-            <div class="ct-creneau ${x.etat}">
-              <span class="h">${String(x.heure).padStart(2, '0')} h</span>
-              <small>${x.etat === 'pret' ? 'jusqu\'à ' + heure(x.fin) : (x.etat === 'a_venir' ? 'à venir' : (x.etat === 'prise' ? 'récupéré' : 'expiré'))}</small>
-              <button type="button" class="ct-btn ${x.etat === 'pret' ? 'principal' : ''} petit" data-coffre="${esc(x.cle)}" ${x.etat === 'pret' ? '' : 'disabled'} aria-label="Récupérer ${nf(vin(x))} vinyles">${x.etat === 'prise' ? ico('coche', 15) : ico('vinyle', 14) + '+' + nf(vin(x))}</button>
-            </div>`).join('')}</div>
-        </section>
-      </div>`;
-
-    const disque = S.corps.querySelector('[data-disque]');
-    if(roue.dernier){ disque.style.transition = 'none'; disque.style.transform = `rotate(${-(roue.dernier.n - 1) * ang}deg)`; }
-
-    const t = S.corps.querySelector('[data-tourner]');
-    t.addEventListener('click', async () => {
-      t.disabled = true;
-      let x;
-      try{ x = await appel('jeu_roue_tourner'); }catch(e){ toast(e.message, 'err'); t.disabled = false; return; }
-      Son.pret();
-      disque.getBoundingClientRect();
-      disque.style.transition = '';
-      disque.style.transform = `rotate(${-(x.n - 1) * ang - 360 * 7}deg)`;
-      // Le cliquetis ralentit avec la roue.
-      let d = 55, total = 0;
-      const clic = () => { if(total > 5000 || !disque.isConnected) return; Son.jouer('tic'); total += d; d *= 1.09; setTimeout(clic, d); };
-      clic();
-      await attendre(calme() ? 100 : 5500);
-      poserEtat(x.etat); majEntete();
-      Son.jouer(jackpot(x.libelle) ? 'r5' : 'gain'); vibre([25, 40, 25]);
-      const res = S.corps.querySelector('[data-res]');
-      if(res) res.innerHTML = 'Gagné : <b>' + esc(libVin(x.libelle)) + '</b>';
-      t.textContent = 'Déjà tournée aujourd\'hui';
-      toast('Roue du jour : ' + libVin(x.libelle));
-    });
-
-    const cb = S.corps.querySelector('[data-cadeau]');
-    if(cb) cb.addEventListener('click', () => prendreCadeau(cb, () => vueBonus()));
-
-    S.corps.querySelectorAll('[data-coffre]').forEach((b) => b.addEventListener('click', async () => {
-      b.disabled = true;
-      try{
-        const x = await appel('jeu_coffre_prendre', { p_cle: b.dataset.coffre });
-        poserEtat(x.etat); majEntete(); Son.jouer('gain'); vibre(20);
-        toast('+' + nf(vin(x.gain)) + ' vinyles');
-        vueBonus();
-      }catch(e){ toast(e.message, 'err'); b.disabled = false; }
-    }));
-  }
-
-  // ---------------------------------------------------------------------
-  // Succès
-  // ---------------------------------------------------------------------
-
+  // L'icône de chaque famille de succès.
   const FAMILLES = {
     ouvertures: 'pack', uniques: 'cartes', holos: 'etoile', rares: 'etoile', epiques: 'etoile', legendaires: 'trophee',
-    mythiques: 'trophee', niveau: 'eclair', recycles: 'recycler', ateliers: 'marteau', roues: 'roue', serie: 'horloge', missions: 'cible'
+    niveau: 'eclair', recycles: 'recycler', ateliers: 'marteau', roues: 'roue', serie: 'horloge', missions: 'cible'
   };
 
-  async function vueSucces(){
+  // Missions et succès sur la même page : les missions du jour et de la semaine, puis les succès.
+  async function vueMissionsSucces(){
+    const hote = S.corps;
+    hote.innerHTML = '<section data-ms="missions"></section><section data-ms="succes" style="margin-top:26px"></section>';
+    const m = hote.querySelector('[data-ms="missions"]');
+    const x = hote.querySelector('[data-ms="succes"]');
+    await Promise.all([vueMissions(m), vueSucces(x)]);
+    x.insertAdjacentHTML('afterbegin', '<div class="ct-titre-sec" style="margin:0 0 12px"><h3>Succès</h3></div>');
+  }
 
+  async function vueSucces(hote){
+
+    hote = hote || S.corps;
     const r = await appel('jeu_succes');
     const liste = r.succes || [];
     const familles = {};
@@ -2724,7 +2582,7 @@
       return { k, s: l.find(x => !x.pris) || l[l.length - 1], l };
     }).sort((a, b) => (Number(b.s.atteint && !b.s.pris) - Number(a.s.atteint && !a.s.pris)) || (Number(a.s.pris) - Number(b.s.pris)) || (b.s.progres / b.s.seuil - a.s.progres / a.s.seuil));
 
-    S.corps.innerHTML = `
+    hote.innerHTML = `
       <section class="ct-panneau ct-prog" style="margin-bottom:16px">
         <div class="ct-prog-chiffre">${pris}<small> / ${liste.length}</small></div>
         <div class="ct-prog-droite">
@@ -2749,13 +2607,13 @@
 
     const prendre = async (id) => { const x = await appel('jeu_succes_prendre', { p_id: id }); poserEtat(x.etat); return x; };
 
-    S.corps.querySelectorAll('[data-prendre]').forEach((b) => b.addEventListener('click', async () => {
+    hote.querySelectorAll('[data-prendre]').forEach((b) => b.addEventListener('click', async () => {
       b.disabled = true;
-      try{ const x = await prendre(b.dataset.prendre); majEntete(); Son.jouer('gain'); vibre(20); toast('Succès : ' + gainsTexte(x.gain)); vueSucces(); }
+      try{ const x = await prendre(b.dataset.prendre); majEntete(); Son.jouer('gain'); vibre(20); toast('Succès : ' + gainsTexte(x.gain)); vueSucces(hote); }
       catch(e){ toast(e.message, 'err'); b.disabled = false; }
     }));
 
-    const tout = S.corps.querySelector('[data-tout]');
+    const tout = hote.querySelector('[data-tout]');
     if(tout) tout.addEventListener('click', async () => {
       tout.disabled = true;
       let t = 0, v = 0;
@@ -2764,7 +2622,7 @@
       }
       majEntete(); Son.jouer('gain');
       toast('Récupéré : ' + gainsTexte({ tirages: t, vinyles: v }));
-      vueSucces();
+      vueSucces(hote);
     });
   }
 
@@ -2787,7 +2645,7 @@
   // L'interface que le jeu prête à ses modules (combat.js, marche.js, cartes-equipe.js).
   const api = {
     appel, toast, fenetre, vibre, Son, ico, esc, nf, court, pluriel, numero, RAR, rar, couleurOk, safeUrl, theme, EMBLEMES,
-    visuelOk, carteHtml, inclinable, fiche, poserEtat, majEntete, rafraichirEtat, duree, vin, gainsHtml, gainsTexte, changerVue, prendreCadeau,
+    visuelOk, carteHtml, inclinable, fiche, poserEtat, majEntete, rafraichirEtat, duree, vin, gainsHtml, gainsTexte, changerVue,
     etat: () => S.etat,
     boosters: () => S.boosters || [],
     actualiser: () => (S.vue ? afficherVue(S.vue) : Promise.resolve())
