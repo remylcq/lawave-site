@@ -213,7 +213,7 @@
   const pluriel = (n, un, plus) => n + ' ' + (n > 1 ? plus : un);
   const cle = (c) => c.booster + '|' + c.artist_id + '|' + (c.holo ? 1 : 0);
   const score = (c) => c.pv * .3 + c.pui + c.def * .8 + c.vit * .5;
-  const carte = (c) => A.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, holo: c.holo, classeur: c.booster }, { niv: (c.niveau > 1 || c.etoiles > 0) ? { niveau: c.niveau, etoiles: c.etoiles } : null });
+  const carte = (c) => A.carteHtml({ nom: c.nom, titre: c.titre, rarete: c.rarete, numero: c.numero, photo: c.photo, holo: c.holo, classeur: c.booster }, { niv: (c.niveau > 1 || c.etoiles > 0) ? { niveau: c.niveau, etoiles: c.etoiles } : null });
   const sansAccent = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const statsHtml = (c) => `<div class="tr-stats"><span>PV <b>${nf(c.pv_max || c.pv)}</b></span><span>PUI <b>${nf(c.pui)}</b></span><span>DÉF <b>${nf(c.def)}</b></span><span>VIT <b>${nf(c.vit)}</b></span></div>${c.role_nom ? `<div class="tr-role" title="${esc(c.role_resume || '')}">${esc(c.role_nom)}</div>` : ''}`;
 
@@ -333,7 +333,7 @@
     const visibles = () => {
       const q = sansAccent(S.q.trim());
       return S.cartes
-        .filter((c) => (!S.rarete || (S.rarete === 4 ? (c.rarete === 4 || c.rarete === 5) : c.rarete === S.rarete)) && (!q || sansAccent(c.nom).includes(q)))
+        .filter((c) => (!S.rarete || (S.rarete === 4 ? (c.rarete === 4 || c.rarete === 5) : c.rarete === S.rarete)) && (!q || sansAccent(c.nom).includes(q) || sansAccent(c.titre).includes(q)))
         .sort(tri[S.tri] || tri.rarete);
     };
     const rang = (c) => choix.findIndex((x) => cle(x) === cle(c));
@@ -389,7 +389,7 @@
             <button type="button" class="ct-btn petit" data-vider>Vider</button></div>
         </div>
         <div class="ct-outils">
-          <label class="ct-recherche">${A.ico('loupe', 17)}<input type="search" placeholder="Chercher une carte" value="${esc(S.q)}" data-q aria-label="Chercher une carte"></label>
+          <label class="ct-recherche">${A.ico('loupe', 17)}<input type="search" placeholder="Chercher un artiste ou un titre" value="${esc(S.q)}" data-q aria-label="Chercher une carte"></label>
           <div class="ct-segment" role="group" aria-label="Rareté">${GROUPES.map(([v, l]) => `<button type="button" data-rar="${v}" class="${S.rarete === v ? 'actif' : ''}" aria-pressed="${S.rarete === v}">${l}</button>`).join('')}</div>
           <select class="ct-select" data-tri aria-label="Trier">${TRIS.map(([v, l]) => `<option value="${v}"${S.tri === v ? ' selected' : ''}>${l}</option>`).join('')}</select>
         </div>

@@ -267,7 +267,13 @@
     'col-taux': (el) => { E.form.taux[Number(el.dataset.i)] = Number(el.value); majTaux(false); majBarre(); },
     'col-fichier': (el) => { if(el.files && el.files[0]) televerser(el.files[0]); el.value = ''; },
     'carte-rar': (el) => changerRarete([el.dataset.a], Number(el.value)),
-    'carte-filtre': (el) => { E.filtre = el.value; E.limite = 72; dessinerListe(); },
+    'carte-filtre': (el) => {
+      E.filtre = el.value; E.limite = 72;
+      if(E.cid !== 'principal'){ dessinerListe(); return; }
+      // le pack principal est trop grand pour être chargé en entier : la recherche se fait côté serveur
+      clearTimeout(E.tFiltre);
+      E.tFiltre = setTimeout(async () => { try{ await chargerCartes(); dessinerListe(); }catch(e){ /* le message est déjà affiché */ } }, 350);
+    },
     'carte-tri': (el) => { const v = el.value; el.value = ''; if(v) trierCartes(v); },
     'carte-cible': (el) => { E.cid = el.value; E.sel.clear(); E.filtre = ''; E.rareteFiltre = null; E.limite = 72; return sCartes(); },
     'album-q': debounce((el) => { E.albumQ = el.value; listerAlbums(); }, 250),
@@ -551,11 +557,11 @@
   const triees = () => E.cartes.slice().sort((a, b) => a.numero - b.numero);
   const cartesVisibles = () => {
     const q = E.filtre.trim().toLowerCase();
-    return triees().filter(c => (!E.rareteFiltre || Number(c.rarete) === E.rareteFiltre) && (!q || String(c.nom || '').toLowerCase().includes(q)));
+    return triees().filter(c => (!E.rareteFiltre || Number(c.rarete) === E.rareteFiltre) && (!q || (String(c.nom || '') + ' ' + String(c.titre || '')).toLowerCase().includes(q)));
   };
 
   async function chargerCartes(){
-    E.cartes = await api.appel('jeu_equipe_cartes', { p_booster: E.cid });
+    E.cartes = await api.appel('jeu_equipe_cartes', { p_booster: E.cid, p_q: E.cid === 'principal' ? (E.filtre.trim() || null) : null });
     const garde = new Set(E.cartes.map(c => c.artist_id));
     E.sel = new Set([...E.sel].filter(a => garde.has(a)));
   }
@@ -594,7 +600,7 @@
     $('[data-cartes-tete]').innerHTML = `
       <div class="ee-barre-outils">
         <label class="ee-champ ee-cible"><span class="sr">Collection</span><select data-in="carte-cible" aria-label="Collection">${E.boosters.map(x => `<option value="${esc(x.id)}"${x.id === E.cid ? ' selected' : ''}>${esc(x.nom)}${x.actif ? '' : ' (archivée)'}</option>`).join('')}</select></label>
-        <button type="button" class="ct-btn principal" data-act="carte-ajouter">${ic('plus', 16)}Ajouter des artistes</button>
+        <button type="button" class="ct-btn principal" data-act="carte-ajouter">${ic('plus', 16)}Ajouter des cartes</button>
         <button type="button" class="ct-btn" data-act="carte-auto">${ic('baguette', 16)}Raretés automatiques</button>
         <label class="ee-champ"><span class="sr">Trier</span><select data-in="carte-tri" aria-label="Renuméroter">
           <option value="">Renuméroter…</option><option value="rarete">Par rareté, puis écoutes</option><option value="fans">Par écoutes</option><option value="nom">Par nom (A–Z)</option></select></label>
@@ -620,12 +626,14 @@
     const tout = cartesVisibles(), filtre = !!(E.filtre.trim() || E.rareteFiltre) || tout.length > E.limite;
     const vis = tout.slice(0, E.limite);
     const zone = $('[data-cartes-liste]');
+    const nbPack = ((E.boosters.find(z => z.id === E.cid) || {}).nb) || 0;
+    const aidePack = E.cid === 'principal' ? `<p class="ee-aide ee-cg-aide">${nf(nbPack)} cartes dans le pack (une par projet ou single) : la liste est limitée, cherche un artiste ou un titre.</p>` : '';
     zone.innerHTML = vis.length
-      ? `${filtre ? '' : '<p class="ee-aide ee-cg-aide">Glisse une carte avant ou après une autre pour changer l\'ordre.</p>'}
+      ? `${aidePack}${filtre ? '' : '<p class="ee-aide ee-cg-aide">Glisse une carte avant ou après une autre pour changer l\'ordre.</p>'}
         <div class="ee-cg-grille" role="list">${vis.map((c, i) => `
         <div class="ee-cg${E.sel.has(c.artist_id) ? ' sel' : ''}" role="listitem" data-a="${esc(c.artist_id)}" style="--rc:${rar(c.rarete).c}" ${filtre ? '' : 'draggable="true"'}>
           <label class="ee-cg-sel" title="Sélectionner"><input type="checkbox" class="ee-coche" data-act="carte-sel" data-a="${esc(c.artist_id)}" ${E.sel.has(c.artist_id) ? 'checked' : ''} aria-label="Sélectionner ${esc(c.nom || '')}"></label>
-          <div class="ee-cg-carte">${api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, fans: c.fans, classeur: E.cid, type_nom: (c.carte_album || {}).type_nom, couleur: (c.carte_album || {}).couleur, icone: (c.carte_album || {}).icone }, {})}</div>
+          <div class="ee-cg-carte">${api.carteHtml({ nom: c.nom, titre: c.titre, rarete: c.rarete, numero: c.numero, photo: c.photo, fans: c.fans, classeur: E.cid, type_nom: (c.carte_album || {}).type_nom, couleur: (c.carte_album || {}).couleur, icone: (c.carte_album || {}).icone }, {})}</div>
           <div class="ee-cg-pied">
             <div class="ee-nom"><b>${esc(c.nom || 'Artiste')}</b><small>${c.fans ? esc(api.court(c.fans)) + ' fans' : 'fans inconnus'}${c.joueurs ? ' · ' + c.joueurs + ' joueur' + (c.joueurs > 1 ? 's' : '') : ''}</small>
               <small class="ee-cg-album">${(c.carte_album || {}).album ? esc(c.carte_album.album) : 'Pas d\'album lié'}</small></div>
@@ -633,7 +641,7 @@
               <select class="ee-rar" data-in="carte-rar" data-a="${esc(c.artist_id)}" style="--rc:${rar(c.rarete).c}" aria-label="Rareté de ${esc(c.nom || '')}">${listeRar(E.cid).map((r) => `<option value="${r}"${Number(c.rarete) === r ? ' selected' : ''}>${esc(rar(r).nom)}</option>`).join('')}</select>
               <details class="ee-plus"><summary aria-label="Options de ${esc(c.nom || '')}" title="Options">${ic('points', 16)}</summary>
                 <div class="ee-menu">
-                  <button type="button" data-act="carte-album" data-a="${esc(c.artist_id)}">${ic('cartes', 16)}Choisir l'album${(c.carte_album || {}).album ? '<small>liée</small>' : ''}</button>
+                  ${c.titre ? '' : `<button type="button" data-act="carte-album" data-a="${esc(c.artist_id)}">${ic('cartes', 16)}Choisir l'album${(c.carte_album || {}).album ? '<small>liée</small>' : ''}</button>`}
                   <button type="button" data-act="carte-photo" data-a="${esc(c.artist_id)}">${ic('image', 16)}Changer la photo${c.photo_perso ? '<small>choisie</small>' : ''}</button>
                   ${Number(c.rarete) >= 5 ? `<button type="button" data-act="carte-son" data-a="${esc(c.artist_id)}">${api.ico('son', 16)}Clip YouTube${c.clip_id ? '<small>réglé</small>' : ''}</button>` : ''}
                   <button type="button" data-act="carte-apercu" data-a="${esc(c.artist_id)}">${ic('oeil', 16)}Aperçu</button>
@@ -643,7 +651,7 @@
             </div>
           </div>
         </div>`).join('')}</div>${tout.length > vis.length ? `<div class="ee-plus-liste"><button type="button" class="ct-btn" data-act="carte-plus">Afficher ${Math.min(72, tout.length - vis.length)} cartes de plus <small>(${vis.length} sur ${tout.length})</small></button></div>` : ''}`
-      : vide(E.cartes.length ? 'Aucune carte ne correspond' : 'Cette collection est vide', E.cartes.length ? 'Change le filtre.' : 'Ajoute des artistes avec le bouton « Ajouter des artistes ».');
+      : vide(E.cartes.length ? 'Aucune carte ne correspond' : 'Cette collection est vide', E.cartes.length ? 'Change le filtre.' : 'Ajoute des cartes avec le bouton « Ajouter des cartes ».');
   }
 
   // Le glisser-déposer : posé une fois sur le conteneur (il survit aux redessins de la liste).
@@ -760,7 +768,7 @@
           <div data-combat></div>
         </div>
       </div>`, true);
-    const dessin = () => { $('[data-carte]', f.corps).innerHTML = api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, holo, fans: c.fans, classeur: E.cid }, { eager: true, vivante: true }); };
+    const dessin = () => { $('[data-carte]', f.corps).innerHTML = api.carteHtml({ nom: c.nom, titre: c.titre, rarete: c.rarete, numero: c.numero, photo: c.photo, holo, fans: c.fans, classeur: E.cid }, { eager: true, vivante: true }); };
     dessin();
     $('[data-holo]', f.corps).addEventListener('change', (ev) => { holo = ev.target.checked; dessin(); });
     try{
@@ -774,7 +782,7 @@
   function ajouterArtistes(){
     const etat = { onglet: 'chercher', r: 1, q: '', res: [], decalage: 0, fin: false, n: 10, liste: [], coller: [], ajoutes: 0 };
     const f = api.fenetre(`
-      <h2>Ajouter des artistes</h2>
+      <h2>Ajouter des cartes</h2>
       <p class="sous">À « ${esc(nomCol(E.cid))} ». Choisis la rareté, puis ajoute.</p>
       <div class="ee-onglets" role="tablist">${[['chercher', 'Chercher'], ['top', 'Les plus écoutés'], ['coller', 'Coller une liste']].map(([id, n]) => `<button type="button" role="tab" data-o="${id}" class="${id === etat.onglet ? 'actif' : ''}">${n}</button>`).join('')}</div>
       <div class="ee-ajout-rar"><span>Rareté des cartes ajoutées</span><span data-pts></span></div>
@@ -784,7 +792,7 @@
     const ligneArtiste = (a, i, action) => `
       <div class="ee-res">
         <img class="ee-photo" src="${esc(api.safeUrl(a.photo))}" alt="" loading="lazy">
-        <div class="ee-nom"><b>${esc(a.nom)}</b><small>${a.fans ? esc(api.court(a.fans)) + ' fans' : 'fans inconnus'}</small></div>
+        <div class="ee-nom"><b>${esc(a.nom)}</b><small>${a.titre ? esc(a.titre) + (a.type ? ' · ' + esc(a.type) : '') + ' · ' : ''}${a.fans ? esc(api.court(a.fans)) + ' fans' : 'fans inconnus'}</small></div>
         ${a.deja ? '<span class="ee-puce">Déjà dans la collection</span>' : action}
       </div>`;
     const ajouter = async (items) => {
@@ -813,7 +821,7 @@
       }else if(etat.onglet === 'top'){
         zone.innerHTML = `
           <label class="ee-champ"><span>Combien d'artistes ?</span><input type="number" min="1" max="100" value="${etat.n}" data-n></label>
-          <div class="ee-resultats">${etat.liste.map(a => `<div class="ee-res compact"><img class="ee-photo" src="${esc(api.safeUrl(a.photo))}" alt="" loading="lazy"><div class="ee-nom"><b>${esc(a.nom)}</b><small>${a.fans ? esc(api.court(a.fans)) + ' fans' : ''}</small></div></div>`).join('') || '<p class="sous">Chargement…</p>'}</div>
+          <div class="ee-resultats">${etat.liste.map(a => `<div class="ee-res compact"><img class="ee-photo" src="${esc(api.safeUrl(a.photo))}" alt="" loading="lazy"><div class="ee-nom"><b>${esc(a.nom)}</b><small>${a.titre ? esc(a.titre) + ' · ' : ''}${a.fans ? esc(api.court(a.fans)) + ' fans' : ''}</small></div></div>`).join('') || '<p class="sous">Chargement…</p>'}</div>
           <button type="button" class="ct-btn principal" data-top ${etat.liste.length ? '' : 'disabled'}>Ajouter ${etat.liste.length} carte${etat.liste.length > 1 ? 's' : ''} en ${esc(rar(etat.r).nom)}</button>`;
       }else{
         zone.innerHTML = `
@@ -1116,7 +1124,7 @@
 
     const z = fen.corps, $z = (sel) => z.querySelector(sel);
     const dessin = () => {
-      $z('[data-carte]').innerHTML = api.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo, fans: c.fans, classeur: E.cid }, { eager: true, vivante: true });
+      $z('[data-carte]').innerHTML = api.carteHtml({ nom: c.nom, titre: c.titre, rarete: c.rarete, numero: c.numero, photo, fans: c.fans, classeur: E.cid }, { eager: true, vivante: true });
       $z('[data-etat-photo]').textContent = envoi ? 'Envoi…' : (perso ? 'Photo choisie pour cette collection.' : 'Photo de l\'artiste (aucune photo choisie).');
       $z('[data-defaut]').disabled = !perso && !c.photo_perso;
     };
