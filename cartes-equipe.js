@@ -25,7 +25,7 @@
     root: null, main: null, section: 'ensemble',
     boosters: [],
     col: null, form: null, orig: null,             // Collections : id en cours de modification (« + » = nouvelle)
-    cid: null, cartes: [], filtre: '', rareteFiltre: null, sel: new Set(),   // Cartes
+    cid: null, cartes: [], filtre: '', rareteFiltre: null, limite: 72, sel: new Set(),   // Cartes
     joueurQ: '', joueur: null, cacheCartes: {},    // Joueurs
     albums: [], albumQ: '', albumType: '', typesAlb: null   // Albums
   };
@@ -56,8 +56,8 @@
     points: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
     image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/>'
   };
-  // Vague Glaciale a une sixième rareté, « Spécial » ; les autres collections en ont cinq.
-  const nbRar = (id) => id === 'glaciale' ? 6 : 5;
+  // Le pack principal a cinq raretés ; une collection d'événement a une sixième, « Spécial ».
+  const nbRar = (id) => id === 'principal' ? 5 : 6;
   // Le rang 5 (l'ancienne Mythique) est retiré : plus aucune carte ne l'a, on ne l'affiche plus.
   const listeRar = (id) => Array.from({ length: nbRar(id) }, (_, k) => k + 1).filter((r) => r !== 5);
   const ic = (n, t) => `<svg class="ee-ico" width="${t || 16}" height="${t || 16}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[n] || ''}</svg>`;
@@ -94,7 +94,7 @@
     if(annuler) s.querySelector('button').addEventListener('click', () => { clearTimeout(fin); s.remove(); annuler(); });
   }
 
-  const pts = (sel, attrs, nb) => `<span class="ee-pts" role="group" aria-label="Rareté">${listeRar(nb === 6 ? 'glaciale' : '').map(r =>
+  const pts = (sel, attrs, nb) => `<span class="ee-pts" role="group" aria-label="Rareté">${listeRar(nb === 6 ? 'evenement' : 'principal').map(r =>
     `<button type="button" class="ee-pt${Number(sel) === r ? ' on' : ''}" style="--rc:${rar(r).c}" data-r="${r}" ${attrs || ''} aria-label="${esc(rar(r).nom)}" aria-pressed="${Number(sel) === r}" title="${esc(rar(r).nom)}"></button>`).join('')}</span>`;
 
   const quand = (iso) => {
@@ -214,7 +214,7 @@
 
   const ACTIONS = {
     section: (el) => aller(el.dataset.id),
-    'aller-cartes': (el) => aller('cartes', { cid: el.dataset.id, filtre: '', rareteFiltre: null, sel: new Set() }),
+    'aller-cartes': (el) => aller('cartes', { cid: el.dataset.id, filtre: '', rareteFiltre: null, limite: 72, sel: new Set() }),
     'aller-collection': (el) => aller('collections', { col: el.dataset.id }),
     'nouvelle-collection': () => aller('collections', { col: '+' }),
     'donner-vinyles': () => aller('joueurs', { joueur: null }),
@@ -244,7 +244,8 @@
     'carte-album': (el) => albumCarte(el.dataset.a),
     'carte-ajouter': () => ajouterArtistes(),
     'carte-auto': () => raretesAuto(),
-    'carte-filtre-rarete': (el) => { const r = Number(el.dataset.r); E.rareteFiltre = E.rareteFiltre === r ? null : r; dessinerCartes(); },
+    'carte-plus': () => { E.limite += 72; dessinerListe(); },
+    'carte-filtre-rarete': (el) => { const r = Number(el.dataset.r); E.rareteFiltre = E.rareteFiltre === r ? null : r; E.limite = 72; dessinerCartes(); },
     'carte-tout': () => { const vis = cartesVisibles(); const tous = vis.every(c => E.sel.has(c.artist_id)); vis.forEach(c => tous ? E.sel.delete(c.artist_id) : E.sel.add(c.artist_id)); dessinerCartes(); },
     'carte-sel-rarete': (el) => changerRarete([...E.sel], Number(el.dataset.r)),
     'carte-sel-retirer': () => retirerCartes([...E.sel]),
@@ -266,9 +267,9 @@
     'col-taux': (el) => { E.form.taux[Number(el.dataset.i)] = Number(el.value); majTaux(false); majBarre(); },
     'col-fichier': (el) => { if(el.files && el.files[0]) televerser(el.files[0]); el.value = ''; },
     'carte-rar': (el) => changerRarete([el.dataset.a], Number(el.value)),
-    'carte-filtre': (el) => { E.filtre = el.value; dessinerListe(); },
+    'carte-filtre': (el) => { E.filtre = el.value; E.limite = 72; dessinerListe(); },
     'carte-tri': (el) => { const v = el.value; el.value = ''; if(v) trierCartes(v); },
-    'carte-cible': (el) => { E.cid = el.value; E.sel.clear(); E.filtre = ''; E.rareteFiltre = null; return sCartes(); },
+    'carte-cible': (el) => { E.cid = el.value; E.sel.clear(); E.filtre = ''; E.rareteFiltre = null; E.limite = 72; return sCartes(); },
     'album-q': debounce((el) => { E.albumQ = el.value; listerAlbums(); }, 250),
     'joueur-q': debounce((el) => { E.joueurQ = el.value; listerJoueurs(); }, 250),
     'joueur-col': (el) => chargerArtistesOffre(el.value)
@@ -283,7 +284,7 @@
     E.boosters = r.collections || E.boosters;
     const kpi = (lib, val, sous) => `<div class="ee-kpi"><b>${val}</b><span>${esc(lib)}</span>${sous ? `<small>${sous}</small>` : ''}</div>`;
     E.main.innerHTML = `
-      ${tete('Vue d\'ensemble', 'Wave Cards en un coup d\'œil.', `<button type="button" class="ct-btn principal" data-act="nouvelle-collection">${ic('plus', 16)}Nouvelle collection</button>`)}
+      ${tete('Vue d\'ensemble', 'Wave Cards en un coup d\'œil.', `<button type="button" class="ct-btn principal" data-act="nouvelle-collection">${ic('plus', 16)}Nouvel événement</button>`)}
       <div class="ee-kpis">
         ${kpi('Joueurs', nf(r.joueurs), nf(r.actifs_jour) + ' actif' + (r.actifs_jour > 1 ? 's' : '') + ' aujourd\'hui')}
         ${kpi('Packs ouverts', nf(r.ouvertures), nf(r.ouvertures_jour) + ' aujourd\'hui')}
@@ -301,7 +302,7 @@
             ${barreRaretes(b.raretes)}
           </div>
           <div class="ee-col-act"><button type="button" class="ct-btn petit" data-act="aller-cartes" data-id="${esc(b.id)}">Cartes</button><button type="button" class="ct-btn petit" data-act="aller-collection" data-id="${esc(b.id)}">Réglages</button></div>
-        </article>`).join('')}</div>` : vide('Aucune collection', 'Crée la première avec « Nouvelle collection ».')}
+        </article>`).join('')}</div>` : vide('Aucune collection', 'Crée le premier avec « Nouvel événement ».')}
       <div class="ee-titre-ligne"><h3 class="ee-titre">Activité récente</h3><button type="button" class="ct-lien" data-act="journal">Tout voir</button></div>
       ${(r.activite || []).length ? `<ul class="ee-journal">${r.activite.map(ligneJournal).join('')}</ul>` : vide('Rien pour l\'instant', 'Les gestes de l\'équipe apparaîtront ici.')}
       <h3 class="ee-titre">Raccourcis</h3>
@@ -328,7 +329,7 @@
 
   const formDe = (b) => ({
     id: b.id, nom: b.nom || '', serie: b.serie || '', description: b.description || '', theme: b.theme || 'onde', accent: b.accent || '#4FB4FF',
-    visuel: b.visuel || '', cout: Number(b.cout || 1), taux: (b.taux || [40, 30, 18, 12, 0]).map(Number), holo_x: Number(b.holo_x == null ? 1 : b.holo_x),
+    visuel: b.visuel || '', cout: Number(b.cout || 1), taux: (b.taux || [40, 30, 18, 12, 0]).map(Number), holo_x: Number(b.holo_x == null ? 1 : b.holo_x), melange: Number(b.melange == null ? 10 : b.melange),
     debut: b.debut || '', fin: b.fin || '', actif: !!b.actif
   });
   const sale = () => E.form && JSON.stringify(E.form) !== JSON.stringify(E.orig);
@@ -352,7 +353,7 @@
     }
     E.form = null;
     E.main.innerHTML = `
-      ${tete('Collections', 'Les boosters du jeu. Touche une collection pour la régler.')}
+      ${tete('Collections', 'Le pack principal (toutes les cartes) et les événements. Touche une collection pour la régler.')}
       <div class="ee-tuiles">
         ${E.boosters.map((b, i) => `
           <article class="ee-tuile">
@@ -368,7 +369,7 @@
               <span class="ee-ordre"><button type="button" class="ee-ib" data-act="col-monter" data-id="${esc(b.id)}" aria-label="Monter" ${i === 0 ? 'disabled' : ''}>${ic('haut', 15)}</button><button type="button" class="ee-ib" data-act="col-descendre" data-id="${esc(b.id)}" aria-label="Descendre" ${i === E.boosters.length - 1 ? 'disabled' : ''}>${ic('bas', 15)}</button></span>
             </div>
           </article>`).join('')}
-        <button type="button" class="ee-tuile nouvelle" data-act="nouvelle-collection">${ic('plus', 26)}<b>Nouvelle collection</b><small>Un nom, un visuel, des cartes : c'est tout.</small></button>
+        <button type="button" class="ee-tuile nouvelle" data-act="nouvelle-collection">${ic('plus', 26)}<b>Nouvel événement</b><small>Des cartes collector qui se mêlent au pack pendant quelques semaines.</small></button>
       </div>`;
   }
 
@@ -419,7 +420,9 @@
         </div>
         <div class="ee-pile">
           <section class="ee-bloc"><h3>Tirage</h3>
-            <label class="ee-champ"><span>Prix d'un pack (vinyles)</span><input type="number" min="1" max="10000" step="1" data-in="col-champ" data-f="cout" value="${f.cout}"><small>1 vinyle = 1 ouverture de pack.</small></label>
+            ${f.id === 'principal'
+              ? `<label class="ee-champ"><span>Prix d'un pack (vinyles)</span><input type="number" min="1" max="10000" step="1" data-in="col-champ" data-f="cout" value="${f.cout}"><small>1 vinyle = 1 ouverture de pack.</small></label>`
+              : `<label class="ee-champ"><span>Part dans le pack (%)</span><input type="number" min="0" max="90" step="0.5" data-in="col-champ" data-f="melange" value="${f.melange}"><small>Chaque carte tirée a cette chance d'être une carte collector de l'événement (0 = jamais). Les chances par rareté ci-dessous s'appliquent à l'intérieur de l'événement.</small></label>`}
             <div class="ee-champ"><span>Chances par rareté (%)</span>
               <div class="ee-taux" style="--nr:${listeRar(f.id).length}">${listeRar(f.id).map(r => `<label style="--rc:${rar(r).c}"><i></i><span>${esc(rar(r).nom)}</span><input type="number" min="0" max="100" step="0.5" data-in="col-taux" data-i="${r - 1}" value="${f.taux[r - 1]}" aria-label="${esc(rar(r).nom)}"></label>`).join('')}</div>
               <div class="ee-total" data-total></div>
@@ -428,12 +431,12 @@
             <label class="ee-champ"><span>Multiplicateur holo</span><input type="number" min="0" max="20" step="0.5" data-in="col-champ" data-f="holo_x" value="${f.holo_x}"><small>1 = chances normales d'obtenir une carte holo.</small></label>
           </section>
           <section class="ee-bloc"><h3>Calendrier</h3>
-            <label class="ee-interrupteur"><input type="checkbox" data-in="col-actif" ${f.actif ? 'checked' : ''}><span class="ee-sw"></span><b>En ligne</b><small>Visible dans les packs et ouvrable par les joueurs.</small></label>
+            <label class="ee-interrupteur"><input type="checkbox" data-in="col-actif" ${f.actif ? 'checked' : ''}><span class="ee-sw"></span><b>En ligne</b><small>Le pack principal est ouvrable ; un événement se mêle au pack entre son début et sa fin.</small></label>
             <div class="ee-ligne2">
               <label class="ee-champ"><span>Début</span><input type="date" data-in="col-champ" data-f="debut" value="${esc(f.debut)}"></label>
               <label class="ee-champ"><span>Fin</span><input type="date" data-in="col-champ" data-f="fin" value="${esc(f.fin)}"></label>
             </div>
-            <small class="ee-aide">Laisse vide pour une collection permanente.</small>
+            <small class="ee-aide">Pour un événement : dates de début et de fin. Vide = toujours.</small>
           </section>
           ${nouveau ? '' : `<section class="ee-bloc"><h3>Actions</h3>
             <div class="ee-actions-col">
@@ -479,7 +482,7 @@
     }
     const b = await rpc('jeu_equipe_booster_sauver', { p_id: id, p_donnees: {
       nom: f.nom.trim(), serie: f.serie.trim(), description: f.description.trim(), theme: f.theme, accent: f.accent, visuel: f.visuel || null,
-      cout: Number(f.cout), taux: f.taux.map(Number), holo_x: Number(f.holo_x), debut: f.debut || null, fin: f.fin || null, actif: !!f.actif } });
+      cout: Number(f.cout), taux: f.taux.map(Number), holo_x: Number(f.holo_x), melange: Number(f.melange), debut: f.debut || null, fin: f.fin || null, actif: !!f.actif } });
     await chargerBoosters();
     E.col = b.id; E.form = formDe(b); E.orig = JSON.parse(JSON.stringify(E.form));
     api.toast(nouveau ? 'Collection créée' : 'Collection enregistrée');
@@ -614,7 +617,8 @@
   // dépose avant ou après une autre. Les petites flèches font la même chose au toucher. Avec un filtre actif l'ordre est
   // partiel : on ne réordonne pas.
   function dessinerListe(){
-    const vis = cartesVisibles(), filtre = !!(E.filtre.trim() || E.rareteFiltre);
+    const tout = cartesVisibles(), filtre = !!(E.filtre.trim() || E.rareteFiltre) || tout.length > E.limite;
+    const vis = tout.slice(0, E.limite);
     const zone = $('[data-cartes-liste]');
     zone.innerHTML = vis.length
       ? `${filtre ? '' : '<p class="ee-aide ee-cg-aide">Glisse une carte avant ou après une autre pour changer l\'ordre.</p>'}
@@ -638,7 +642,7 @@
                 </div></details>
             </div>
           </div>
-        </div>`).join('')}</div>`
+        </div>`).join('')}</div>${tout.length > vis.length ? `<div class="ee-plus-liste"><button type="button" class="ct-btn" data-act="carte-plus">Afficher ${Math.min(72, tout.length - vis.length)} cartes de plus <small>(${vis.length} sur ${tout.length})</small></button></div>` : ''}`
       : vide(E.cartes.length ? 'Aucune carte ne correspond' : 'Cette collection est vide', E.cartes.length ? 'Change le filtre.' : 'Ajoute des artistes avec le bouton « Ajouter des artistes ».');
   }
 
@@ -1542,6 +1546,7 @@
   .ee-nom b{font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ee-nom small{font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ee-pts{display:inline-flex; gap:7px; align-items:center;}
+  .ee-plus-liste{display:flex; justify-content:center; margin:20px 0 6px;}
   .ee-pt{appearance:none; padding:0; width:22px; height:22px; border-radius:50%; border:2px solid color-mix(in srgb, var(--rc) 50%, transparent); background:transparent; cursor:pointer; transition:transform .12s, background .12s;}
   .ee-pt:hover{transform:scale(1.18); background:color-mix(in srgb, var(--rc) 45%, transparent);}
   .ee-pt.on{background:var(--rc); border-color:#fff; box-shadow:0 0 0 2px color-mix(in srgb, var(--rc) 40%, transparent), 0 0 14px color-mix(in srgb, var(--rc) 60%, transparent);}
