@@ -564,7 +564,9 @@ const BD = {
   ouvrirConversation: (id)  => rpc('com_ouvrir_conversation', { p_avec: id }),
   envoyer:         (id, texte) => rpc('com_envoyer', { p_conversation: id, p_contenu: texte }),
   envoyerVocal:    (id, chemin, duree) => rpc('com_envoyer_vocal', { p_conversation: id, p_path: chemin, p_duree: duree }),
-  defiCourant:     () => rpc('com_defi_courant'),
+  defisEquipe:     () => rpc('com_defis_equipe'),
+  defiPublier:     (id) => rpc('com_defi_publier', { p_defi: id }),
+  defiRetirer:     (id) => rpc('com_defi_retirer', { p_defi: id }),
   mesSignalements: () => rpc('com_mes_signalements'),
   studios:         (a) => rpc('com_studios_liste', a),
   studio:          (id) => rpc('com_studio', { p_id: id }),
@@ -1507,11 +1509,12 @@ function postHtml(p, o){
              style="--sj:${attr(couleurSujet(p.sujet))};--rc:${attr(couleurRole)}"
              ${opt.detail ? '' : 'data-act="ouvrir-post" tabindex="0"'} aria-label="Message de ${attr(a.pseudo || '')}">
       ${collabHtml(p.collab)}
-      ${p.epingle ? `<div class="com-epingle">${icone('epingle', 14)} Épinglé par l'équipe</div>` : ''}
+      ${p.defi ? `<div class="com-epingle com-epingle-defi">${icone('trophee', 14)} Défi de la semaine · jusqu'au ${esc(new Date(p.defi.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }))}</div>`
+        : p.epingle ? `<div class="com-epingle">${icone('epingle', 14)} Épinglé par l'équipe</div>` : ''}
       <header class="com-post-tete">
-        <a class="com-av-lien" href="#community/membre/${attr(encodeURIComponent(a.pseudo || ''))}" data-act="membre" data-cle="${attr(a.pseudo)}" aria-label="Profil de ${attr(a.pseudo)}">${avatarHtml(a, 'm')}</a>
+        ${p.defi ? `<span class="com-av-lien com-av-lawave" aria-hidden="true"><img src="img/icon-192.png" alt=""></span>` : `<a class="com-av-lien" href="#community/membre/${attr(encodeURIComponent(a.pseudo || ''))}" data-act="membre" data-cle="${attr(a.pseudo)}" aria-label="Profil de ${attr(a.pseudo)}">${avatarHtml(a, 'm')}</a>`}
         <div class="com-post-qui">
-          <div class="com-post-nom">${nomHtml(a)}${roleHtml(a.role, true)}</div>
+          <div class="com-post-nom">${p.defi ? 'La Wave' : nomHtml(a) + roleHtml(a.role, true)}</div>
           <div class="com-post-meta">
             ${tempsHtml(p.cree_le)}${p.modifie_le ? ' <span class="com-modifie" title="Modifié">· modifié</span>' : ''}
             <span class="com-sep">·</span>
@@ -3080,7 +3083,6 @@ VUES.accueil = {
 
     V.el.innerHTML = `
       <div data-hote="onboarding"></div>
-      <div data-hote="defi"></div>
       <div data-hote="composer" class="com-hote-composer"></div>
       <!-- Le contenu de l'ancienne page « Explorer » : à droite du fil sur grand écran, repliable sous le composer sinon. -->
       <aside class="com-rail" data-incruste data-cle="accueil" aria-label="Trouver des membres">
@@ -3118,7 +3120,6 @@ VUES.accueil = {
 
     V.hotes = {
       onboarding: $('[data-hote="onboarding"]', V.el),
-      defi: $('[data-hote="defi"]', V.el),
       composer: $('[data-hote="composer"]', V.el),
       sujets: $('[data-hote="sujets"]', V.el),
       onglets: $('[data-hote="onglets"]', V.el),
@@ -3191,36 +3192,6 @@ VUES.accueil = {
     // elle n'a pas de largeur à mesurer.
     placerBarreOnglets(V.hotes.onglets, false);
     VUES.accueil.majRail(V);
-    VUES.accueil.defi(V);
-  },
-
-  // Le défi de la semaine : une consigne, un mot-clic ; participer ouvre le composer avec le mot-clic déjà posé.
-  async defi(V){
-
-    if(V.defiLe && Date.now() - V.defiLe < 300000) return;
-
-    try{
-
-      const d = await BD.defiCourant();
-
-      V.defiLe = Date.now();
-
-      if(!d){ V.hotes.defi.innerHTML = ''; return; }
-
-      const reste = d.jours_restants > 0 ? 'encore ' + d.jours_restants + ' jour' + (d.jours_restants > 1 ? 's' : '') : 'dernier jour';
-
-      V.hotes.defi.innerHTML = `
-        <section class="com-carte com-defi" aria-label="Défi de la semaine">
-          <div class="com-defi-tete"><span class="com-defi-pastille">${icone('trophee', 14)} Défi de la semaine</span><span class="com-defi-reste">${esc(reste)}</span></div>
-          <h3>${esc(d.titre)}</h3>
-          <p>${esc(d.consigne)}</p>
-          <div class="com-defi-pied">
-            <button type="button" class="com-btn com-btn-plein com-btn-petit" data-act="defi-participer" data-tag="${attr(d.tag)}">Participer</button>
-            <a class="com-defi-voir" href="#community/tag/${attr(encodeURIComponent(d.tag))}" data-act="tag" data-tag="${attr(d.tag)}">${d.nb ? d.nb + ' participation' + (d.nb > 1 ? 's' : '') + ' · voir' : 'Sois le premier à participer'} <small>#${esc(d.tag)}</small></a>
-          </div>
-        </section>`;
-
-    }catch(e){}
   },
 
   // Le bloc « Explorer » : toujours ouvert quand il y a la place à droite du fil, repliable en dessous.
@@ -8138,22 +8109,6 @@ function agir(act, cible, e){
       lireVocal(cible);
       return;
 
-    case 'defi-participer': {
-      if(!exigerConnexion('Connecte-toi pour participer au défi.')) return;
-      const accueil = S.vues.get('accueil');
-      if(!accueil || !accueil.composer) return;
-      ouvrirComposer(accueil.composer, { sansAnimation: true, type: 'message' });
-      const zone = champ(accueil.composer, 'texte');
-      if(zone){
-        const tag = '#' + cible.dataset.tag + ' ';
-        if(!zone.value.includes(tag)) zone.value = tag + zone.value;
-        zone.dispatchEvent(new Event('input', { bubbles: true }));
-        zone.focus();
-        zone.setSelectionRange(zone.value.length, zone.value.length);
-      }
-      return;
-    }
-
     case 'studio-proposer':
       VUES.studios.proposer(V);
       return;
@@ -8768,6 +8723,10 @@ const FEUILLE = String.raw`
 .com-av-xl{width:96px; height:96px; font-size:38px; box-shadow:0 0 0 4px #090c11, inset 0 0 0 1px rgba(255,255,255,0.14);}
 .com-av-lien{display:inline-flex; border-radius:50%; text-decoration:none; transition:transform .3s var(--ease);}
 .com-av-lien:hover{transform:scale(1.06);}
+.com-av-lawave{width:40px; height:40px; border-radius:50%; overflow:hidden; flex:0 0 auto; background:#0a0d12;}
+.com-av-lawave:hover{transform:none;}
+.com-av-lawave img{width:100%; height:100%; object-fit:cover; display:block;}
+.com-epingle-defi{color:#ffb454;}
 
 .com-role{
   display:inline-flex; align-items:center; gap:4px; flex:none;

@@ -385,12 +385,102 @@ window.Confort = (function(){
   }
 
   // ------------------------------------------------------------------
+  // Les défis de la semaine (espace équipe) : chaque défi se publie en message épinglé dans la communauté.
+  // ------------------------------------------------------------------
+
+  async function defisEquipe(){
+
+    const corps = document.getElementById('defisCorps');
+    if(!corps) return;
+
+    let liste;
+
+    try{
+      const rep = await supabaseClient.rpc('com_defis_equipe');
+      if(rep.error) throw rep.error;
+      liste = rep.data || [];
+    }catch(e){
+      corps.innerHTML = '<p class="art-vide">Les défis ne se chargent pas pour le moment.</p>';
+      return;
+    }
+
+    const jour = d => new Date(d + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    const auj = new Date().toISOString().slice(0, 10);
+
+    corps.innerHTML = `
+      <form class="df-form" onsubmit="Confort.defiCreer(event)">
+        <p class="tb-titre" style="margin-top:0">Nouveau défi</p>
+        <input id="dfTitre" maxlength="80" placeholder="Titre du défi (ex. Ton son préféré de 2019)" required>
+        <textarea id="dfConsigne" maxlength="300" rows="2" placeholder="La consigne, en une ou deux phrases" required></textarea>
+        <div class="df-dates"><label>Du <input type="date" id="dfDebut" required></label><label>au <input type="date" id="dfFin" required></label></div>
+        <button type="submit" class="btn btn-primary">Créer et publier</button>
+      </form>
+      <p class="tb-titre">Tous les défis</p>
+      <div class="df-liste">
+        ${liste.map(d => `
+          <div class="df-ligne${d.post_id ? ' publie' : ''}">
+            <div class="df-texte">
+              <b>${esc(d.titre)}</b>
+              <small>${esc(jour(d.debut))} → ${esc(jour(d.fin))}${d.debut <= auj && auj <= d.fin ? ' · en cours' : ''}${d.post_id ? ' · ' + d.nb_commentaires + ' réponse' + (d.nb_commentaires > 1 ? 's' : '') + (d.epingle ? ' · épinglé' : '') : ''}</small>
+            </div>
+            ${d.post_id
+              ? `<a class="btn btn-ghost" href="#community/post/${esc(d.post_id)}">Voir</a>
+                 <button type="button" class="btn btn-ghost" onclick="Confort.defiRetirer('${esc(d.id)}')">Retirer</button>`
+              : `<button type="button" class="btn btn-primary" onclick="Confort.defiPublier('${esc(d.id)}')">Publier</button>`}
+          </div>`).join('') || '<p class="art-vide">Aucun défi pour le moment.</p>'}
+      </div>`;
+
+    const lundi = new Date();
+    lundi.setDate(lundi.getDate() + ((8 - lundi.getDay()) % 7 || 7));
+    const dim = new Date(lundi); dim.setDate(dim.getDate() + 6);
+    const iso = d => d.toISOString().slice(0, 10);
+    document.getElementById('dfDebut').value = iso(lundi);
+    document.getElementById('dfFin').value = iso(dim);
+  }
+
+  async function defiAction(nom, args, ok){
+    try{
+      const rep = await supabaseClient.rpc(nom, args);
+      if(rep.error) throw rep.error;
+      notifier(ok, { type: 'succes' });
+      defisEquipe();
+      return rep.data;
+    }catch(e){
+      notifier('Action impossible', { detail: e.message, type: 'erreur' });
+    }
+  }
+
+  function defiPublier(id){ return defiAction('com_defi_publier', { p_defi: id }, 'Défi publié et épinglé dans la communauté'); }
+
+  function defiRetirer(id){
+    if(!confirm('Retirer le message de ce défi (et ses réponses) de la communauté ?')) return;
+    return defiAction('com_defi_retirer', { p_defi: id }, 'Message du défi retiré');
+  }
+
+  async function defiCreer(e){
+    e.preventDefault();
+    const debut = document.getElementById('dfDebut').value;
+    const fin = document.getElementById('dfFin').value;
+    if(fin < debut){ notifier('Les dates sont inversées',{ type: 'erreur' }); return; }
+    try{
+      const rep = await supabaseClient.rpc('com_defi_creer', {
+        p_titre: document.getElementById('dfTitre').value, p_consigne: document.getElementById('dfConsigne').value,
+        p_tag: 'defi' + debut.replace(/-/g, ''), p_debut: debut, p_fin: fin
+      });
+      if(rep.error) throw rep.error;
+      await defiPublier(rep.data.id);
+    }catch(err){
+      notifier('Action impossible', { detail: err.message, type: 'erreur' });
+    }
+  }
+
+  // ------------------------------------------------------------------
 
   function rendre(pageId){
     if(pageId === 'idees') return idees();
     if(pageId === 'nouveautes') return nouveautes();
   }
 
-  return { rendre, trier, voter, proposer, traiter, supprimer, exporter, tableauBord, pushBasculer, emailResumeBasculer };
+  return { rendre, trier, voter, proposer, traiter, supprimer, exporter, tableauBord, defisEquipe, defiPublier, defiRetirer, defiCreer, pushBasculer, emailResumeBasculer };
 
 })();
