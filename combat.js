@@ -171,7 +171,7 @@
   const pluriel = (n, un, plus) => n + ' ' + (n > 1 ? plus : un);
   const cle = (c) => c.booster + '|' + c.artist_id + '|' + (c.holo ? 1 : 0);
   const score = (c) => c.pv * .3 + c.pui + c.def * .8 + c.vit * .5;
-  const carte = (c) => A.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, holo: c.holo, classeur: c.booster }, {});
+  const carte = (c) => A.carteHtml({ nom: c.nom, rarete: c.rarete, numero: c.numero, photo: c.photo, holo: c.holo, classeur: c.booster }, { niv: (c.niveau > 1 || c.etoiles > 0) ? { niveau: c.niveau, etoiles: c.etoiles } : null });
   const sansAccent = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const statsHtml = (c) => `<div class="tr-stats"><span>PV <b>${nf(c.pv_max || c.pv)}</b></span><span>PUI <b>${nf(c.pui)}</b></span><span>DÉF <b>${nf(c.def)}</b></span><span>VIT <b>${nf(c.vit)}</b></span></div>${c.role_nom ? `<div class="tr-role" title="${esc(c.role_resume || '')}">${esc(c.role_nom)}</div>` : ''}`;
 
