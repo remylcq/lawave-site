@@ -41,6 +41,7 @@ on:
       - partage.php
       - feed.php
       - desinscrire.php
+      - i18n.js
       - modeles/**
       - decor/**
       - logos/**
