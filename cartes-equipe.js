@@ -176,7 +176,7 @@
       else if(E.section === 'cartes') await sCartes();
       else if(E.section === 'albums') await sAlbums();
       else if(E.section === 'joueurs') await sJoueurs();
-      else if(E.section === 'combat') await sModule('combat', 'WaveCombat', 'Combat', 'La Tour : difficultés, récompenses et taille des équipes.');
+      else if(E.section === 'combat') await sModule('combat', 'WaveCombat', 'Combat', 'La Tour (1 000 étages) : réglages, récompenses et taille des équipes.');
       else await sModule('marche', 'WaveMarche', 'Marché', 'Annonces, prix et ventes entre joueurs.');
     }catch(e){
       E.main.innerHTML = vide('Impossible d\'afficher cette section', e.message || String(e));
@@ -241,7 +241,6 @@
     'carte-son': (el) => sonCarte(el.dataset.a),
     'carte-photo': (el) => photoCarte(el.dataset.a),
     'carte-album': (el) => albumCarte(el.dataset.a),
-    'iv-regler': () => reglerIv(),
     'carte-ajouter': () => ajouterArtistes(),
     'carte-auto': () => raretesAuto(),
     'carte-filtre-rarete': (el) => { const r = Number(el.dataset.r); E.rareteFiltre = E.rareteFiltre === r ? null : r; dessinerCartes(); },
@@ -353,7 +352,7 @@
     }
     E.form = null;
     E.main.innerHTML = `
-      ${tete('Collections', 'Les boosters du jeu. Touche une collection pour la régler.', '<button type="button" class="ct-btn" data-act="iv-regler">Réglages des IV</button>')}
+      ${tete('Collections', 'Les boosters du jeu. Touche une collection pour la régler.')}
       <div class="ee-tuiles">
         ${E.boosters.map((b, i) => `
           <article class="ee-tuile">
@@ -1373,40 +1372,6 @@
       });
     };
     dessiner();
-  }
-
-  // Les IV : effet sur les statistiques, minimum selon la rareté, chance d'une carte parfaite (par défaut et par collection).
-  async function reglerIv(){
-    const r = await rpc('jeu_equipe_iv_lire');
-    const f = api.fenetre('<div data-ed></div>', true);
-    const ed = $('[data-ed]', f.corps);
-    const num = (cle, v, min, max, pas) => `<input type="number" class="ee-champ-num" data-iv="${cle}" value="${v == null ? '' : v}" min="${min}" max="${max}" step="${pas}">`;
-    ed.innerHTML = `
-      <h2>Réglages des IV</h2>
-      <p class="sous">Chaque carte tirée a ses propres IV : quatre valeurs de 0 à 31 (PV, Puissance, Défense, Vitesse).</p>
-      <div class="ee-iv-grille">
-        <label class="ee-champ"><span>Effet sur les statistiques (± %)</span>${num('effet', r.effet_pct, 0, 50, 1)}<small>À 15 %, un IV de 31 donne +15 % et un IV de 0 donne −15 %.</small></label>
-        <label class="ee-champ"><span>Carte parfaite (% par défaut)</span>${num('parfait', r.parfait_defaut, 0, 100, 0.1)}<small>Chance que les 4 IV soient à 31 d'un coup.</small></label>
-      </div>
-      <h3 class="ee-alb-h">IV minimum selon la rareté <small>plus la rareté est haute, plus le minimum l'est</small></h3>
-      <div class="ee-iv-grille six">${r.min.map((m, k) => `<label class="ee-champ"><span>${esc(rar(k + 1).nom)}</span>${num('min' + k, m, 0, 30, 1)}</label>`).join('')}</div>
-      <h3 class="ee-alb-h">Carte parfaite par collection <small>vide = la valeur par défaut</small></h3>
-      <div class="ee-iv-grille">${r.boosters.map((b, k) => `<label class="ee-champ"><span>${esc(b.nom)}</span>${num('b' + k, b.parfait, 0, 100, 0.1)}</label>`).join('')}</div>
-      <div class="ct-actions" style="justify-content:flex-end; margin-top:18px"><button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-ok>Enregistrer</button></div>`;
-    $('[data-non]', ed).addEventListener('click', f.fermer);
-    $('[data-ok]', ed).addEventListener('click', async (ev) => {
-      const v = (cle) => $(`[data-iv="${cle}"]`, ed).value;
-      ev.target.disabled = true;
-      try{
-        await rpc('jeu_equipe_iv_ecrire', { p: {
-          effet_pct: Number(v('effet')), parfait_defaut: Number(v('parfait')),
-          min: r.min.map((_, k) => Number(v('min' + k))),
-          boosters: r.boosters.map((b, k) => ({ id: b.id, parfait: v('b' + k) === '' ? null : Number(v('b' + k)) }))
-        } });
-        api.toast('Réglages des IV enregistrés.');
-        f.fermer();
-      }catch(e){ ev.target.disabled = false; }
-    });
   }
 
   async function sModule(nom, global, titre, texte){
