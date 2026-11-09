@@ -58,7 +58,8 @@
   };
   // Vague Glaciale a une sixième rareté, « Spécial » ; les autres collections en ont cinq.
   const nbRar = (id) => id === 'glaciale' ? 6 : 5;
-  const listeRar = (id) => Array.from({ length: nbRar(id) }, (_, k) => k + 1);
+  // Le rang 5 (l'ancienne Mythique) est retiré : plus aucune carte ne l'a, on ne l'affiche plus.
+  const listeRar = (id) => Array.from({ length: nbRar(id) }, (_, k) => k + 1).filter((r) => r !== 5);
   const ic = (n, t) => `<svg class="ee-ico" width="${t || 16}" height="${t || 16}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONES[n] || ''}</svg>`;
 
   // Un appel à la base : l'erreur (écrite en français dans le SQL) s'affiche telle quelle.
@@ -421,7 +422,7 @@
           <section class="ee-bloc"><h3>Tirage</h3>
             <label class="ee-champ"><span>Prix d'un pack (vinyles)</span><input type="number" min="1" max="10000" step="1" data-in="col-champ" data-f="cout" value="${f.cout}"><small>1 vinyle = 1 ouverture de pack.</small></label>
             <div class="ee-champ"><span>Chances par rareté (%)</span>
-              <div class="ee-taux" style="--nr:${f.taux.length}">${listeRar(f.id).map(r => `<label style="--rc:${rar(r).c}"><i></i><span>${esc(rar(r).nom)}</span><input type="number" min="0" max="100" step="0.5" data-in="col-taux" data-i="${r - 1}" value="${f.taux[r - 1]}" aria-label="${esc(rar(r).nom)}"></label>`).join('')}</div>
+              <div class="ee-taux" style="--nr:${listeRar(f.id).length}">${listeRar(f.id).map(r => `<label style="--rc:${rar(r).c}"><i></i><span>${esc(rar(r).nom)}</span><input type="number" min="0" max="100" step="0.5" data-in="col-taux" data-i="${r - 1}" value="${f.taux[r - 1]}" aria-label="${esc(rar(r).nom)}"></label>`).join('')}</div>
               <div class="ee-total" data-total></div>
               ${f.taux.length === 5 ? `<div class="ee-presets">${PRESETS.map(([n, t]) => `<button type="button" class="ct-btn petit" data-act="col-preset" data-t="${t.join(',')}">${n}</button>`).join('')}</div>` : ''}
             </div>
@@ -586,7 +587,7 @@
   function dessinerTete(){
     const b = E.boosters.find(x => x.id === E.cid) || {};
     const vis = cartesVisibles();
-    const nr = nbRar(E.cid), par = listeRar(E.cid).map(r => E.cartes.filter(c => Number(c.rarete) === r).length);
+    const nr = nbRar(E.cid), par = Array.from({ length: 6 }, (_, k) => E.cartes.filter(c => Number(c.rarete) === k + 1).length);
     const tout = vis.length && vis.every(c => E.sel.has(c.artist_id));
     $('[data-cartes-tete]').innerHTML = `
       <div class="ee-barre-outils">
@@ -860,28 +861,28 @@
   // Raretés automatiques : on fixe la part de chaque rareté, les plus écoutés prennent les plus rares.
   function raretesAuto(){
     if(!E.cartes.length){ api.toast('La collection est vide.', 'err'); return; }
-    const parts = [40, 25, 20, 10, 5];   // Commun … Mythique
+    const parts = [40, 30, 20, 10];   // Commun … Légendaire
     // Les cartes Spécial (Vague Glaciale) se règlent à la main : le calcul automatique n'y touche pas.
     const classes = E.cartes.filter(c => Number(c.rarete) < 6).sort((a, b) => (Number(b.fans) || 0) - (Number(a.fans) || 0));
     const calcul = () => {
       const n = classes.length, nb = parts.map(p => Math.round(n * p / 100));
       nb[0] = Math.max(0, n - nb.slice(1).reduce((a, b) => a + b, 0));
       const res = new Map(); let k = 0;
-      for(let r = 5; r >= 1; r--){ for(let i = 0; i < nb[r - 1] && k < n; i++) res.set(classes[k++].artist_id, r); }
+      for(let r = 4; r >= 1; r--){ for(let i = 0; i < nb[r - 1] && k < n; i++) res.set(classes[k++].artist_id, r); }
       classes.slice(k).forEach(c => res.set(c.artist_id, 1));
       return { nb, res, changes: classes.filter(c => res.get(c.artist_id) !== Number(c.rarete)) };
     };
     const f = api.fenetre(`
       <h2>Raretés automatiques</h2>
       <p class="sous">Les artistes les plus écoutés reçoivent les raretés les plus hautes. Règle la part de chaque rareté.</p>
-      <div class="ee-taux ee-taux-auto">${[1, 2, 3, 4, 5].map(r => `<label style="--rc:${rar(r).c}"><i></i><span>${esc(rar(r).nom)}</span><input type="number" min="0" max="100" step="1" data-p="${r - 1}" value="${parts[r - 1]}" aria-label="${esc(rar(r).nom)} en %"></label>`).join('')}</div>
+      <div class="ee-taux ee-taux-auto">${[1, 2, 3, 4].map(r => `<label style="--rc:${rar(r).c}"><i></i><span>${esc(rar(r).nom)}</span><input type="number" min="0" max="100" step="1" data-p="${r - 1}" value="${parts[r - 1]}" aria-label="${esc(rar(r).nom)} en %"></label>`).join('')}</div>
       <div class="ee-total" data-t></div>
       <div data-apercu class="ee-auto-apercu"></div>
       <div class="ct-actions" style="justify-content:flex-end; margin-top:16px"><button type="button" class="ct-btn" data-non>Annuler</button><button type="button" class="ct-btn principal" data-oui>Appliquer</button></div>`, true);
     const maj = () => {
       const tot = parts.reduce((a, b) => a + b, 0), ok = Math.abs(tot - 100) < .5, { nb, changes, res } = calcul();
       const t = $('[data-t]', f.corps); t.className = 'ee-total ' + (ok ? 'ok' : 'ko'); t.textContent = ok ? 'Total : 100 %' : 'Total : ' + tot + ' % (il faut 100 %)';
-      $('[data-apercu]', f.corps).innerHTML = `<div class="ee-auto-nb">${[5, 4, 3, 2, 1].map(r => `<span style="--rc:${rar(r).c}"><i></i>${esc(rar(r).nom)} <b>${nb[r - 1]}</b></span>`).join('')}</div>
+      $('[data-apercu]', f.corps).innerHTML = `<div class="ee-auto-nb">${[4, 3, 2, 1].map(r => `<span style="--rc:${rar(r).c}"><i></i>${esc(rar(r).nom)} <b>${nb[r - 1]}</b></span>`).join('')}</div>
         <p class="sous">${changes.length ? changes.length + ' carte' + (changes.length > 1 ? 's changent' : ' change') + ' de rareté.' : 'Aucun changement.'}</p>
         ${changes.length ? `<ul class="ee-auto-liste">${changes.slice(0, 10).map(c => `<li><b>${esc(c.nom)}</b> ${esc(rar(c.rarete).nom)} → <span style="color:${rar(res.get(c.artist_id)).c}">${esc(rar(res.get(c.artist_id)).nom)}</span></li>`).join('')}${changes.length > 10 ? `<li>… et ${changes.length - 10} autres</li>` : ''}</ul>` : ''}`;
       $('[data-oui]', f.corps).disabled = !ok || !changes.length;
