@@ -14,7 +14,7 @@ dest="${1:-_publication}"
 rm -rf "$dest"
 mkdir -p "$dest"
 
-for f in index.html 404.html robots.txt sitemap.xml site.webmanifest waveurs.js communaute.js portail.js sondage.js verification.js parcours.js profil.js xp.js cartes.js accueil.js combat.js marche.js cartes-equipe.js lecteur.js artiste.js outils.js confort.js sw.js partage.php feed.php; do
+for f in index.html 404.html robots.txt sitemap.xml site.webmanifest waveurs.js communaute.js portail.js sondage.js verification.js parcours.js profil.js xp.js cartes.js accueil.js combat.js marche.js cartes-equipe.js lecteur.js artiste.js outils.js confort.js sw.js partage.php feed.php desinscrire.php; do
   [ -f "$f" ] || { echo "Fichier manquant : $f" >&2; exit 1; }
   cp "$f" "$dest/$f"
 done
