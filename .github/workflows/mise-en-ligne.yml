@@ -36,6 +36,8 @@ on:
       - lecteur.js
       - artiste.js
       - outils.js
+      - confort.js
+      - sw.js
       - modeles/**
       - decor/**
       - logos/**
