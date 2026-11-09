@@ -796,6 +796,39 @@
   .ct-gain{display:inline-flex; align-items:center; gap:4px; height:24px; padding:0 8px; border-radius:7px; font-size:12px; font-weight:700; color:var(--ink-soft); background:rgba(255,255,255,.06); font-variant-numeric:tabular-nums;}
   .ct-gain .ct-ico{color:var(--ct-accent);}
   .ct-gain.v .ct-ico{color:#F2C14E;}
+  .ct-gain.w{color:#FFE9A8; background:rgba(242,193,78,.14);} .ct-gain.w .ct-ico{color:#F2C14E;}
+  /* Le badge de niveau d'une carte améliorée */
+  .ct-c-niv{position:absolute; z-index:3; top:-7px; left:-7px; height:22px; padding:0 8px; border-radius:99px; display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:800; letter-spacing:.02em; color:#1a1200; background:linear-gradient(90deg, #ffd76a, #ffb547); box-shadow:0 4px 12px rgba(0,0,0,.45); font-variant-numeric:tabular-nums;}
+  .ct-c-niv i{font-style:normal; font-size:10px; letter-spacing:-.05em;}
+  /* Le panneau d'amélioration de la fiche */
+  .ct-amelio{display:grid; gap:12px; margin-top:16px; padding:16px; border-radius:16px; background:linear-gradient(160deg, rgba(242,193,78,.09), rgba(79,180,255,.05)); border:1px solid rgba(242,193,78,.28); position:relative; overflow:hidden;}
+  .ct-am-tete{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .ct-am-tete h3{margin:0; font-size:16px;}
+  .ct-am-etoiles{display:inline-flex; gap:3px; font-size:17px; color:rgba(255,255,255,.22); letter-spacing:0;}
+  .ct-am-etoiles .on{color:#F2C14E; text-shadow:0 0 10px rgba(242,193,78,.7);}
+  .ct-am-niv{display:grid; gap:6px; font-size:13px; color:var(--ink-soft);}
+  .ct-am-niv b{font-size:22px; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .ct-am-niv .l{display:flex; align-items:baseline; justify-content:space-between; gap:8px; flex-wrap:wrap;}
+  .ct-am-stats{display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px;}
+  .ct-am-st{padding:9px 6px; text-align:center; border-radius:11px; background:rgba(0,0,0,.22); font-size:11px; color:var(--muted); letter-spacing:.05em; text-transform:uppercase;}
+  .ct-am-st b{display:block; margin:2px 0; font-size:18px; letter-spacing:0; color:var(--ink); font-variant-numeric:tabular-nums;}
+  .ct-am-st em{display:block; font-style:normal; font-size:11.5px; letter-spacing:0; text-transform:none; color:#5BE0A6; font-weight:700; min-height:15px;}
+  .ct-am-act{display:flex; flex-wrap:wrap; gap:8px;}
+  .ct-am-act .ct-btn{flex:1 1 auto;}
+  .ct-am-etoile{display:grid; gap:8px; padding:12px; border-radius:12px; background:rgba(0,0,0,.2); font-size:13px; color:var(--ink-soft); line-height:1.45;}
+  .ct-am-etoile b{color:var(--ink);}
+  .ct-am-solde{font-size:12px; color:var(--muted);}
+  .ct-am-flash{position:absolute; inset:0; pointer-events:none; background:radial-gradient(circle at 50% 40%, rgba(255,226,140,.55), transparent 60%); opacity:0; animation:ctAmFlash .9s ease-out;}
+  .ct-am-gagne{position:absolute; left:50%; top:30%; z-index:4; transform:translateX(-50%); font-size:30px; font-weight:900; letter-spacing:.06em; color:#ffd76a; text-shadow:0 2px 0 #000, 0 0 18px rgba(255,200,80,.8); pointer-events:none; animation:ctAmGagne 1.4s ease-out forwards; white-space:nowrap;}
+  @keyframes ctAmFlash{0%{opacity:1;} 100%{opacity:0;}}
+  @keyframes ctAmGagne{0%{opacity:0; transform:translate(-50%, 14px) scale(.6);} 18%{opacity:1; transform:translate(-50%, 0) scale(1.15);} 100%{opacity:0; transform:translate(-50%, -40px) scale(1);}}
+  .ct-fiche-carte.ct-monte{animation:ctMonte .8s cubic-bezier(.2,1.4,.4,1);}
+  @keyframes ctMonte{0%{transform:scale(1); filter:none;} 35%{transform:scale(1.07); filter:brightness(1.5) drop-shadow(0 0 22px rgba(255,210,90,.9));} 100%{transform:scale(1); filter:none;}}
+  @media (prefers-reduced-motion: reduce){ .ct-am-flash, .ct-am-gagne, .ct-fiche-carte.ct-monte{animation:none;} }
+  @media (max-width:560px){ .ct-am-stats{grid-template-columns:repeat(2, minmax(0, 1fr));} }
+  /* Les succès : catégories */
+  .ct-succes-cats{margin:0 0 14px; max-width:100%;}
+  .ct-medaille.pret{color:#1a1200; background:linear-gradient(135deg, #ffd76a, #ffb547);}
   .ct-gain.g .ct-ico{color:var(--r3);}
 
   .ct-bonus{display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:16px; align-items:start;}
@@ -1375,6 +1408,7 @@
           <div class="ct-c-reflet"></div>
         </div>
         ${o.quantite && c.quantite > 1 ? `<span class="ct-c-badge">×${c.quantite}</span>` : ''}
+        ${o.niv && !verrou && (o.niv.niveau > 1 || o.niv.etoiles > 0) ? `<span class="ct-c-niv" title="Niveau ${o.niv.niveau}${o.niv.etoiles ? ', ' + o.niv.etoiles + ' étoile' + (o.niv.etoiles > 1 ? 's' : '') : ''}">Niv ${o.niv.niveau}${o.niv.etoiles ? `<i>${'★'.repeat(o.niv.etoiles)}</i>` : ''}</span>` : ''}
         ${o.nouveau ? '<span class="ct-c-nouveau">Nouveau</span>' : ''}
       </div>`;
   }
@@ -1563,9 +1597,10 @@
 
   const gainsHtml = (g) => [
     vin(g) ? `<span class="ct-gain v">${ico('vinyle', 13)}+${nf(vin(g))}</span>` : '',
+    g.wc ? `<span class="ct-gain w">${ico('piece', 13)}+${nf(g.wc)} WC</span>` : '',
     g.garantis ? `<span class="ct-gain g">${ico('pack', 13)}Épique</span>` : ''
   ].join('');
-  const gainsTexte = (g) => [vin(g) ? '+' + nf(vin(g)) + ' vinyles' : '', g.garantis ? 'un pack Épique garanti' : ''].filter(Boolean).join(', ');
+  const gainsTexte = (g) => [vin(g) ? '+' + nf(vin(g)) + ' vinyles' : '', g.wc ? '+' + nf(g.wc) + ' Wave Coins' : '', g.garantis ? 'un pack Épique garanti' : ''].filter(Boolean).join(', ');
 
   // ---------------------------------------------------------------------
   // Packs
@@ -2325,6 +2360,7 @@
             <div class="ct-stat"><b>${possede ? '×' + c.quantite : '—'}</b><span>${possede ? 'en ta possession' : 'pas encore obtenue'}</span></div>
           </div>
           ${c.album ? `<div class="ct-album"><img src="${esc(safeUrl(c.cover))}" alt=""><div><small>Album</small><b>${esc(c.album)}</b>${c.type_nom ? `<span class="ct-type-puce" style="--tc:${couleurOk(c.couleur)}" data-type="${esc(c.type_nom)}" title="Forces et faiblesses">${esc(c.type_nom)}</span>` : ''}</div></div>` : ''}
+          ${classeur && possede ? '<div data-amelio></div>' : ''}
           ${classeur ? '<div data-combat></div>' : ''}
           ${c.ville ? `<p class="sous" style="margin-top:12px">${esc(c.ville)}</p>` : ''}${classeur && possede ? `<div class="ct-actions" style="margin-top:12px"><button type="button" class="ct-btn petit" data-vendre>${ico('marche', 15)}Vendre sur le marché</button></div>` : ''}
           ${(c.sorties_liste || []).length ? `
@@ -2352,9 +2388,14 @@
 
     // La fiche de combat (type, stats, attaques, capacité) vient du module combat.js.
     const zc = f.corps.querySelector('[data-combat]');
-    if(zc && typeof window.chargerWaveModule === 'function'){
-      window.chargerWaveModule('combat').then(() => window.WaveCombat.fiche(zc, api, { artist: c.id, booster: classeur, holo: c.holos > 0 })).catch(() => {});
-    }
+    const fichesCombat = () => {
+      if(zc && typeof window.chargerWaveModule === 'function'){
+        window.chargerWaveModule('combat').then(() => window.WaveCombat.fiche(zc, api, { artist: c.id, booster: classeur, holo: c.holos > 0 })).catch(() => {});
+      }
+    };
+    fichesCombat();
+    const za = f.corps.querySelector('[data-amelio]');
+    if(za) ameliorer(za, c, classeur, f.corps.querySelector('.ct-fiche-carte'), fichesCombat);
 
     f.corps.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => {
       const s = c.sorties_liste[Number(b.dataset.s)];
@@ -2388,6 +2429,107 @@
         if(S.vue === 'collection') vueCollection();
       }catch(e){ toast(e.message, 'err'); b.disabled = false; }
     }));
+  }
+
+  // ---------------------------------------------------------------------
+  // Améliorer une carte : niveaux (Wave Coins) et étoiles (doublons + Wave Coins). Le serveur décide de tout (jeu_carte_*) ;
+  // le miroir de la formule des coûts ne sert qu'à annoncer le prix de « ×5 » et de « Max » avant de cliquer.
+  // ---------------------------------------------------------------------
+
+  const coutNiveau = (rarete, niveau) => Math.max(1, Math.round([2, 3, 4, 6, 6, 9][Math.min(Math.max(rarete, 1), 6) - 1] * Math.pow(Math.max(niveau, 1), 1.25)));
+
+  // Le prix et le nombre de niveaux de « monter n fois » (dans la limite du palier et des Wave Coins)
+  function planMonter(p, n){
+    let niv = p.niveau, total = 0, fait = 0;
+    while(fait < n && niv < p.cap){
+      const cout = coutNiveau(p.rarete, niv);
+      if(total + cout > p.wc) break;
+      total += cout; niv++; fait++;
+    }
+    return { fait, total };
+  }
+
+  async function ameliorer(zone, c, classeur, carteEl, apres){
+    let p;
+    const charger = async () => { p = await appel('jeu_carte_progres', { p_booster: classeur, p_artist: c.id }); };
+    try{ await charger(); }catch(e){ zone.innerHTML = ''; return; }
+    const stats = [['pv', 'PV'], ['pui', 'PUI'], ['def', 'DÉF'], ['vit', 'VIT']];
+
+    const dessiner = () => {
+      const pct = Math.round((p.niveau - 1) / (p.niveau_max - 1) * 100);
+      const dansPalier = p.niveau >= p.cap;
+      const next = p.stats_suivant;
+      const nxt = (k) => next && next[k] > p.stats[k] ? `<em>+${nf(next[k] - p.stats[k])}</em>` : '<em></em>';
+      const x5 = planMonter(p, 5), xm = planMonter(p, 20);
+      const e = p.etoile;
+      zone.innerHTML = `
+        <section class="ct-amelio" aria-label="Amélioration de la carte">
+          <div class="ct-am-tete"><h3>Amélioration</h3>
+            <span class="ct-am-etoiles" aria-label="${p.etoiles} étoile${p.etoiles > 1 ? 's' : ''} sur ${p.etoiles_max}">${Array.from({ length: p.etoiles_max }, (_, i) => `<span class="${i < p.etoiles ? 'on' : ''}">★</span>`).join('')}</span></div>
+          <div class="ct-am-niv">
+            <div class="l"><span>Niveau <b>${p.niveau}</b> / ${p.cap}</span><span>Bonus : <b style="font-size:15px; color:#5BE0A6">+${Math.round((p.mult - 1) * 100)} %</b></span></div>
+            <div class="ct-barre or"><i style="width:${Math.max(pct, 2)}%"></i></div>
+            <small>${p.etoiles >= p.etoiles_max ? 'Cinq étoiles : le palier maximum est atteint.' : `Chaque étoile débloque 10 niveaux de plus (niveau max ${p.niveau_max}).`}</small>
+          </div>
+          <div class="ct-am-stats">${stats.map(([k, l]) => `<div class="ct-am-st">${l}<b>${nf(p.stats[k])}</b>${nxt(k)}</div>`).join('')}</div>
+          ${dansPalier ? '' : `
+          <div class="ct-am-act">
+            <button type="button" class="ct-btn principal" data-monter="1" ${p.peut ? '' : 'disabled'}>Monter · ${nf(p.cout)} WC</button>
+            <button type="button" class="ct-btn" data-monter="5" ${x5.fait > 1 ? '' : 'disabled'}>×5${x5.fait > 1 ? ' · ' + nf(x5.total) + ' WC' : ''}</button>
+            <button type="button" class="ct-btn" data-monter="20" ${xm.fait > 1 ? '' : 'disabled'}>Max${xm.fait > 1 ? ' (+' + xm.fait + ') · ' + nf(xm.total) + ' WC' : ''}</button>
+          </div>
+          ${p.peut ? '' : `<div class="ct-am-solde">${p.wc < p.cout ? 'Il te manque ' + nf(p.cout - p.wc) + ' Wave Coins.' : ''}</div>`}`}
+          ${e ? `
+          <div class="ct-am-etoile">
+            <div><b>Étoile ${p.etoiles + 1}</b> · ${e.doublons} doublon${e.doublons > 1 ? 's' : ''} de cette carte (tu en as ${p.doublons}) et ${nf(e.wc)} Wave Coins.</div>
+            ${e.pret ? '' : `<div>Monte d'abord la carte au niveau ${p.cap}.</div>`}
+            ${e.pret && !e.peut ? `<div>${p.doublons < e.doublons ? 'Il te manque ' + (e.doublons - p.doublons) + ' doublon' + (e.doublons - p.doublons > 1 ? 's' : '') + '.' : 'Il te manque ' + nf(e.wc - p.wc) + ' Wave Coins.'}</div>` : ''}
+            ${p.stats_etoile ? `<div>Bonus de l'étoile : ${stats.map(([k, l]) => `${l} <b style="color:#5BE0A6">+${nf(p.stats_etoile[k] - p.stats[k])}</b>`).join(' · ')}</div>` : ''}
+            <button type="button" class="ct-btn ${e.peut ? 'principal' : ''}" data-etoile ${e.peut ? '' : 'disabled'}>${ico('etoile', 15)}Ajouter l'étoile</button>
+          </div>` : ''}
+          <div class="ct-am-solde">${ico('piece', 13)} ${nf(p.wc)} Wave Coins</div>
+        </section>`;
+      zone.querySelectorAll('[data-monter]').forEach((b) => b.addEventListener('click', () => agir(b, () => appel('jeu_carte_monter', { p_booster: classeur, p_artist: c.id, p_niveaux: Number(b.dataset.monter) }),
+        (r) => ({ texte: '+' + r.niveaux + ' niveau' + (r.niveaux > 1 ? 'x' : ''), toast: r.niveaux + ' niveau' + (r.niveaux > 1 ? 'x' : '') + ' gagné' + (r.niveaux > 1 ? 's' : '') + ' pour ' + nf(r.depense) + ' Wave Coins', son: 'r' + Math.min(Math.max(c.rarete, 1), 6) }))));
+      const be = zone.querySelector('[data-etoile]');
+      if(be) be.addEventListener('click', () => agir(be, () => appel('jeu_carte_etoile', { p_booster: classeur, p_artist: c.id }),
+        (r) => ({ texte: '★ ÉTOILE ' + r.etoiles, toast: 'Étoile ' + r.etoiles + ' !', son: 'r6', fort: true })));
+    };
+
+    async function agir(bouton, appelServeur, decrire){
+      bouton.disabled = true;
+      try{
+        const r = await appelServeur();
+        const d = decrire(r);
+        poserEtat(r.etat); majEntete();
+        p = r.progres;
+        S.niveaux = null;
+        Son.jouer(d.son); vibre(d.fort ? [20, 40, 20, 40, 40] : 20);
+        toast(d.toast);
+        dessiner();
+        if(!calme()){
+          const sec = zone.querySelector('.ct-amelio');
+          if(sec){
+            sec.insertAdjacentHTML('beforeend', `<span class="ct-am-flash"></span><span class="ct-am-gagne">${esc(d.texte)}</span>`);
+            setTimeout(() => sec.querySelectorAll('.ct-am-flash, .ct-am-gagne').forEach((x) => x.remove()), 1500);
+          }
+          if(carteEl){ carteEl.classList.remove('ct-monte'); void carteEl.offsetWidth; carteEl.classList.add('ct-monte'); }
+        }
+        // les statistiques de la fiche de combat et la grille de la collection se remettent à jour
+        if(typeof apres === 'function') apres();
+        if(S.vue === 'collection') vueCollection();
+      }catch(e){ toast(e.message, 'err'); try{ await charger(); }catch(x){ /* on garde l'affichage */ } dessiner(); }
+    }
+    dessiner();
+  }
+
+  // Les niveaux de mes cartes (badges de la collection), lus une fois puis remis à zéro après chaque amélioration.
+  async function niveauxMap(){
+    if(S.niveaux) return S.niveaux;
+    const m = new Map();
+    try{ (await appel('jeu_cartes_niveaux_lire')).forEach((x) => m.set(x.booster + '|' + x.artist, { niveau: x.niveau, etoiles: x.etoiles })); }catch(e){ /* sans badges */ }
+    S.niveaux = m;
+    return m;
   }
 
   // Quitter le jeu pour une autre page : les fenêtres et la scène se ferment.
@@ -2444,6 +2586,7 @@
     if(!cl){ await vueCouvertures(classeurs); return; }
 
     const r = await appel('jeu_classeur_lire', { p_booster: cl.id, p_page: o.page, p_vue: o.vue, p_rarete: o.rarete, p_q: o.q || null, p_tri: o.tri });
+    const nivs = await niveauxMap();
     const raretes = r.raretes || [];
     const possedees = raretes.reduce((s, x) => s + Number(x.possedees || 0), 0);
     const total = raretes.reduce((s, x) => s + Number(x.total || 0), 0);
@@ -2477,7 +2620,7 @@
       </div>
 
       ${r.cartes.length
-        ? `<div class="ct-grille">${r.cartes.map((c, i) => `<button type="button" class="ct-case" data-i="${i}" aria-label="${esc(c.nom)}${c.quantite ? '' : ', pas encore obtenue'}">${carteHtml(c, { quantite: true, verrou: !c.quantite })}</button>`).join('')}</div>`
+        ? `<div class="ct-grille">${r.cartes.map((c, i) => `<button type="button" class="ct-case" data-i="${i}" aria-label="${esc(c.nom)}${c.quantite ? '' : ', pas encore obtenue'}">${carteHtml(c, { quantite: true, verrou: !c.quantite, niv: nivs.get(cl.id + '|' + c.id) })}</button>`).join('')}</div>`
         : `<div class="ct-panneau ct-vide">${o.q || o.rarete || o.vue !== 'toutes' ? '<b>Aucune carte</b>Rien ne correspond à ces filtres.' : '<b>Aucune carte pour l\'instant</b>Les cartes arrivent dès que les artistes sont prêts.'}</div>`}
       ${r.pages > 1 ? `<div class="ct-pages"><button type="button" class="ct-btn petit" data-page="-1" ${o.page <= 1 ? 'disabled' : ''}>Précédente</button><span>Page ${r.page} sur ${r.pages}</span><button type="button" class="ct-btn petit" data-page="1" ${o.page >= r.pages ? 'disabled' : ''}>Suivante</button></div>` : ''}`;
 
@@ -2556,8 +2699,18 @@
   // L'icône de chaque famille de succès.
   const FAMILLES = {
     ouvertures: 'pack', uniques: 'cartes', holos: 'etoile', rares: 'etoile', epiques: 'etoile', legendaires: 'trophee',
-    niveau: 'eclair', recycles: 'recycler', ateliers: 'marteau', roues: 'roue', serie: 'horloge', missions: 'cible'
+    niveau: 'eclair', recycles: 'recycler', ateliers: 'marteau', roues: 'roue', serie: 'horloge', missions: 'cible',
+    tour: 'combat', combats: 'combat', gardiens: 'trophee', cniv: 'eclair', amelio: 'marteau', etoiles: 'etoile', cinq: 'trophee',
+    speciales: 'etoile', ventes: 'marche', achats: 'marche', doublons: 'cartes', depenses: 'piece'
   };
+  // Les catégories de l'onglet Succès : quelles familles tombent dans quelle catégorie.
+  const CATS_SUCCES = [
+    ['collection', 'Collection', ['ouvertures', 'uniques', 'holos', 'rares', 'epiques', 'legendaires', 'speciales', 'doublons']],
+    ['combat', 'Combat', ['tour', 'combats', 'gardiens']],
+    ['amelioration', 'Amélioration', ['cniv', 'amelio', 'etoiles', 'cinq', 'depenses']],
+    ['marche', 'Marché', ['ventes', 'achats']],
+    ['progression', 'Progression', ['niveau', 'recycles', 'ateliers', 'roues', 'serie', 'missions']]
+  ];
 
   // Missions et succès sur la même page : les missions du jour et de la semaine, puis les succès.
   async function vueMissionsSucces(){
@@ -2574,11 +2727,15 @@
     hote = hote || S.corps;
     const r = await appel('jeu_succes');
     const liste = r.succes || [];
-    const familles = {};
-    liste.forEach((s) => { (familles[s.famille] = familles[s.famille] || []).push(s); });
-
     const pris = liste.filter(s => s.pris).length;
     const prets = liste.filter(s => s.atteint && !s.pris);
+    const cat = S.succesCat || 'tous';
+    const catDe = (f) => (CATS_SUCCES.find((c) => c[2].includes(f)) || [])[0];
+    const visibles = liste.filter((s) => cat === 'tous' || (cat === 'prets' ? (s.atteint && !s.pris) : catDe(s.famille) === cat));
+    const familles = {};
+    visibles.forEach((s) => { (familles[s.famille] = familles[s.famille] || []).push(s); });
+    const wcAPrendre = prets.reduce((t, s) => t + (s.wc || 0), 0);
+    const segments = [['tous', 'Tous', liste.length], ['prets', 'À récupérer', prets.length]].concat(CATS_SUCCES.map((c) => [c[0], c[1], liste.filter((s) => c[2].includes(s.famille)).length]));
     const lignes = Object.keys(familles).map((k) => {
       const l = familles[k];
       return { k, s: l.find(x => !x.pris) || l[l.length - 1], l };
@@ -2588,15 +2745,17 @@
       <section class="ct-panneau ct-prog" style="margin-bottom:16px">
         <div class="ct-prog-chiffre">${pris}<small> / ${liste.length}</small></div>
         <div class="ct-prog-droite">
-          <div class="lib"><span>succès récupérés</span>${prets.length ? `<button type="button" class="ct-btn principal petit" data-tout>Tout récupérer (${prets.length})</button>` : ''}</div>
+          <div class="lib"><span>succès récupérés${wcAPrendre ? ' · ' + nf(wcAPrendre) + ' Wave Coins à récupérer' : ''}</span>${prets.length ? `<button type="button" class="ct-btn principal petit" data-tout>Tout récupérer (${prets.length})</button>` : ''}</div>
           <div class="ct-barre or"><i style="width:${liste.length ? pris / liste.length * 100 : 0}%"></i></div>
         </div>
       </section>
+      <div class="ct-segment ct-succes-cats" role="group" aria-label="Catégories de succès">${segments.map(([v, l, n]) => `<button type="button" data-cat="${v}" class="${cat === v ? 'actif' : ''}" aria-pressed="${cat === v}">${l}${n ? ` <small style="opacity:.65">${n}</small>` : ''}</button>`).join('')}</div>
+      ${lignes.length ? '' : '<div class="ct-panneau ct-vide"><b>Rien à récupérer pour l\'instant</b>Joue, combats et améliore tes cartes pour atteindre de nouveaux paliers.</div>'}
       <div class="ct-liste">${lignes.map(({ k, s, l }) => {
         const pret = s.atteint && !s.pris;
         return `
           <div class="ct-ligne${pret ? ' pret' : (s.pris ? ' fait' : '')}">
-            <span class="ct-medaille">${ico(FAMILLES[k] || 'trophee', 20)}</span>
+            <span class="ct-medaille${pret ? ' pret' : ''}">${ico(FAMILLES[k] || 'trophee', 20)}</span>
             <div class="tx">
               <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap"><b>${esc(s.nom)}</b><span class="ct-paliers" aria-label="${l.filter(x => x.pris).length} paliers sur ${l.length}">${l.map(x => `<i class="${x.pris ? 'on' : ''}"></i>`).join('')}</span></div>
               <div style="font-size:12.5px; color:var(--muted); margin-top:2px">${esc(s.description)}</div>
@@ -2606,6 +2765,8 @@
             ${s.pris ? '' : `<button type="button" class="ct-btn ${pret ? 'principal' : ''} petit" data-prendre="${esc(s.id)}" ${pret ? '' : 'disabled'}>Récupérer</button>`}
           </div>`;
       }).join('')}</div>`;
+
+    hote.querySelectorAll('[data-cat]').forEach((b) => b.addEventListener('click', () => { S.succesCat = b.dataset.cat; vueSucces(hote); }));
 
     const prendre = async (id) => { const x = await appel('jeu_succes_prendre', { p_id: id }); poserEtat(x.etat); return x; };
 
@@ -2618,12 +2779,12 @@
     const tout = hote.querySelector('[data-tout]');
     if(tout) tout.addEventListener('click', async () => {
       tout.disabled = true;
-      let t = 0, v = 0;
+      let t = 0, v = 0, w = 0;
       for(const s of prets){
-        try{ const x = await prendre(s.id); t += x.gain.tirages || 0; v += x.gain.vinyles || 0; }catch(e){ /* déjà pris : on passe */ }
+        try{ const x = await prendre(s.id); t += x.gain.tirages || 0; v += x.gain.vinyles || 0; w += x.gain.wc || 0; }catch(e){ /* déjà pris : on passe */ }
       }
       majEntete(); Son.jouer('gain');
-      toast('Récupéré : ' + gainsTexte({ tirages: t, vinyles: v }));
+      toast('Récupéré : ' + gainsTexte({ tirages: t, vinyles: v, wc: w }));
       vueSucces(hote);
     });
   }
