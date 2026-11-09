@@ -708,6 +708,8 @@
   .ct-titre-rar.mythe span{display:inline-block; opacity:0; background:linear-gradient(180deg, #fff, #ffd2e1 45%, var(--teinte)); -webkit-background-clip:text; background-clip:text; color:transparent;
     animation:ctLettre .8s cubic-bezier(.2,1.4,.3,1) forwards; animation-delay:calc(var(--i) * 80ms);}
   .ct-halo.special{background:conic-gradient(from 0deg, #ffffff, #ff6670, #ff3b47, #ffffff, #ff8a8a, #ffe1e1, #ffffff);}
+  /* Plus de bandes de couleur, de halo irisé ni d'ondes de choc pendant l'ouverture : seule la carte compte. */
+  .ct-rayons, .ct-halo, .ct-onde{display:none !important;}
   .ct-titre-rar.special span{background:linear-gradient(180deg, #fff, #ffd7d7 45%, var(--teinte)); -webkit-background-clip:text; background-clip:text;}
   @keyframes ctLettre{from{opacity:0; transform:translateY(40px) scale(2.2) rotateX(70deg);} to{opacity:1; transform:none;}}
   @keyframes ctTitreMythe{0%,82%{opacity:1;} 100%{opacity:0;}}
