@@ -307,6 +307,24 @@ window.Confort = (function(){
     }
   }
 
+  // Le résumé hebdomadaire par e-mail : on l'active ou on le coupe depuis les réglages (voir sql/email-resume.sql).
+  async function emailResumeBasculer(){
+
+    if(!currentUser){ annoncer('Connecte-toi pour recevoir le résumé'); openAuthModal('login'); return; }
+
+    try{
+      const etat = await supabaseClient.rpc('email_resume_etat');
+      if(etat.error) throw etat.error;
+      const veut = !etat.data;
+      const rep = await supabaseClient.rpc('email_resume_regler', { p_actif: veut });
+      if(rep.error) throw rep.error;
+      annoncer(veut ? 'Résumé hebdomadaire activé' : 'Résumé hebdomadaire coupé',
+               veut ? 'Chaque lundi, les sorties de tes artistes suivis, par e-mail.' : 'Tu ne recevras plus d\'e-mail.');
+    }catch(e){
+      annoncer('Action impossible', e && e.message, 'erreur');
+    }
+  }
+
   // ------------------------------------------------------------------
   // Le tableau de bord de l'équipe
   // ------------------------------------------------------------------
@@ -373,6 +391,6 @@ window.Confort = (function(){
     if(pageId === 'nouveautes') return nouveautes();
   }
 
-  return { rendre, trier, voter, proposer, traiter, supprimer, exporter, tableauBord, pushBasculer };
+  return { rendre, trier, voter, proposer, traiter, supprimer, exporter, tableauBord, pushBasculer, emailResumeBasculer };
 
 })();

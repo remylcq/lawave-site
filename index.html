@@ -7233,6 +7233,7 @@
       <div class="form-msg" id="profileMsg"></div>
       <div class="pf-tiroir-liens">
         <button type="button" class="lien-discret" onclick="basculerAlertes()">Alertes sur cet appareil (activer / couper)</button>
+        <button type="button" class="lien-discret" onclick="basculerResume()">Résumé hebdomadaire par e-mail (activer / couper)</button>
         <button type="button" class="lien-discret" onclick="exporterMesDonnees()">Exporter mes données</button>
         <button type="button" class="lien-discret" onclick="Profil.fermerReglages(); logoutUser()">Se déconnecter</button>
       </div>
@@ -20722,6 +20723,11 @@ function rendrePageConfort(pageId){
 // Les alertes de La Wave sur cet appareil, même site fermé (notifications push, voir sql/push.sql).
 function basculerAlertes(){
   chargerConfort().then(() => window.Confort.pushBasculer()).catch(e => notifier('Alertes impossibles', { detail: e.message, type: 'erreur' }));
+}
+
+// Le résumé hebdomadaire par e-mail (sql/email-resume.sql).
+function basculerResume(){
+  chargerConfort().then(() => window.Confort.emailResumeBasculer()).catch(e => notifier('Action impossible', { detail: e.message, type: 'erreur' }));
 }
 
 function exporterMesDonnees(){
