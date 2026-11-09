@@ -325,11 +325,11 @@
   // ---------------------------------------------------------------------
 
   const THEMES = [['onde', 'Onde'], ['couronne', 'Couronne'], ['aube', 'Aube'], ['garanti', 'Gala'], ['glace', 'Glace'], ['deferlante', 'Déferlante']];
-  const PRESETS = [['Équilibré', [40, 30, 18, 9, 3]], ['Généreux', [30, 30, 22, 13, 5]], ['Rare', [55, 28, 11, 5, 1]]];
+  const PRESETS = [['Équilibré', [40, 30, 18, 12, 0]], ['Généreux', [30, 30, 22, 18, 0]], ['Rare', [55, 28, 11, 6, 0]]];   // le 5e rang (ancienne Mythique) n'existe plus : toujours 0
 
   const formDe = (b) => ({
     id: b.id, nom: b.nom || '', serie: b.serie || '', description: b.description || '', theme: b.theme || 'onde', accent: b.accent || '#4FB4FF',
-    visuel: b.visuel || '', cout: Number(b.cout || 1), taux: (b.taux || [40, 30, 18, 9, 3]).map(Number), holo_x: Number(b.holo_x == null ? 1 : b.holo_x),
+    visuel: b.visuel || '', cout: Number(b.cout || 1), taux: (b.taux || [40, 30, 18, 12, 0]).map(Number), holo_x: Number(b.holo_x == null ? 1 : b.holo_x),
     debut: b.debut || '', fin: b.fin || '', actif: !!b.actif
   });
   const sale = () => E.form && JSON.stringify(E.form) !== JSON.stringify(E.orig);
@@ -777,7 +777,7 @@
       <div class="ee-ajout-rar"><span>Rareté des cartes ajoutées</span><span data-pts></span></div>
       <div data-zone class="ee-ajout-zone"></div>`, true, async () => { if(etat.ajoutes){ await chargerCartes(); dessinerCartes(); } });
     const zone = $('[data-zone]', f.corps);
-    const dessinerPts = () => { $('[data-pts]', f.corps).innerHTML = pts(etat.r, 'data-pr'); };
+    const dessinerPts = () => { $('[data-pts]', f.corps).innerHTML = pts(etat.r, 'data-pr', nbRar(E.cid)); };
     const ligneArtiste = (a, i, action) => `
       <div class="ee-res">
         <img class="ee-photo" src="${esc(api.safeUrl(a.photo))}" alt="" loading="lazy">
@@ -996,7 +996,7 @@
   // ---------------------------------------------------------------------
 
   // ---------------------------------------------------------------------
-  // Morceau et clip d'une carte Mythique (sql/cartes-son-artiste.sql)
+  // Morceau et clip d'une carte Spécial (sql/cartes-son-artiste.sql)
   // ---------------------------------------------------------------------
 
   // L'identifiant d'une vidéo YouTube depuis un lien collé (watch, youtu.be, shorts, embed, live) ou l'identifiant seul.
@@ -1027,7 +1027,7 @@
     const fen = api.fenetre(`
       <div class="ee-fen-son">
         <h2>Clip de ${esc(c.nom || 'l\'artiste')}</h2>
-        <p class="ee-aide">Quand cette carte sort en Mythique, ce clip YouTube passe en plein écran derrière elle, avec son son, en boucle tant que la carte n'est pas passée. Sans clip, c'est la fanfare du jeu.</p>
+        <p class="ee-aide">Quand cette carte sort en Spécial, ce clip YouTube passe en plein écran derrière elle, avec son son, en boucle tant que la carte n'est pas passée. Sans clip, c'est la fanfare du jeu.</p>
         <section class="ee-bloc">
           <label class="ee-champ"><span>Lien YouTube</span>
             <input type="url" inputmode="url" placeholder="https://www.youtube.com/watch?v=…" data-clip value="${esc(clipTexte)}"></label>
@@ -1076,7 +1076,7 @@
       try{
         const v = await api.appel('jeu_equipe_carte_son', { p_booster: E.cid, p_artiste: artistId, p_titre: null, p_nom: null, p_debut: 0, p_clip: id, p_clip_debut: id ? dep : 0, p_clip_son: !!id });
         Object.assign(c, v);
-        api.toast(v.clip_id ? 'Clip enregistré : il passera à la prochaine Mythique de ' + (c.nom || 'l\'artiste') + '.' : 'Clip retiré.');
+        api.toast(v.clip_id ? 'Clip enregistré : il passera à la prochaine carte Spécial de ' + (c.nom || 'l\'artiste') + '.' : 'Clip retiré.');
         fen.fermer();
         dessinerCartes();
       }catch(e){
