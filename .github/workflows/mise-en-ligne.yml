@@ -38,6 +38,8 @@ on:
       - outils.js
       - confort.js
       - sw.js
+      - partage.php
+      - feed.php
       - modeles/**
       - decor/**
       - logos/**

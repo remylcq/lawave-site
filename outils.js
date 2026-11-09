@@ -33,6 +33,10 @@ window.Outils = (function(){
   const lienLancement = (num) => location.origin + location.pathname + '#lancement/' + num;
   const lienVisite = (handle) => location.origin + location.pathname + '#visite/' + encodeURIComponent(handle);
 
+  // Les liens à partager passent par partage.php : ils s'affichent avec la pochette et le titre dans les messageries et les réseaux.
+  const partageLancement = (num) => location.origin + '/partage.php?s=' + num + '&p=lancement';
+  const partageVisite = (handle) => location.origin + '/partage.php?v=' + encodeURIComponent(handle);
+
   function annoncer(titre, detail){
     if(typeof notifier === 'function') notifier(titre, { detail: detail || '' });
   }
@@ -157,7 +161,7 @@ window.Outils = (function(){
       const act = b.dataset.l;
 
       if(act === 'partager'){
-        partager(s.titre + ' — ' + s.artiste, aVenir ? 'Bientôt sur La Wave : ' + s.titre : s.titre + ' sur La Wave', lienLancement(s.num));
+        partager(s.titre + ' — ' + s.artiste, aVenir ? 'Bientôt sur La Wave : ' + s.titre : s.titre + ' sur La Wave', partageLancement(s.num));
       } else if(act === 'fiche'){
         if(typeof ouvrirSortieParNumero === 'function') ouvrirSortieParNumero(String(s.num), false);
       } else if(act === 'agenda'){
@@ -297,7 +301,7 @@ window.Outils = (function(){
       </article>`;
 
     const b = corps.querySelector('#visPartager');
-    if(b) b.onclick = () => partager(nom + ' sur La Wave', 'Tous les liens de ' + nom, lienVisite(handle));
+    if(b) b.onclick = () => partager(nom + ' sur La Wave', 'Tous les liens de ' + nom, partageVisite(handle));
   }
 
   // ------------------------------------------------------------------
@@ -744,7 +748,7 @@ window.Outils = (function(){
   }
 
   return {
-    rendre, affiche, copierLancement: (n) => copier(lienLancement(n), 'Lien de la page de lancement copié'),
+    rendre, affiche, copierLancement: (n) => copier(partageLancement(n), 'Lien de la page de lancement copié'),
     listerPhotosAccred, deposerPhotos, retirerPhoto, voirPhotosEquipe
   };
 
