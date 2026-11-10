@@ -52,7 +52,12 @@
   .tr-g{display:grid; gap:2px; padding:8px 12px; border-radius:12px; border:1px solid var(--ct-trait); background:var(--ct-surface); font-size:11.5px; color:var(--muted); text-align:center; min-width:84px;}
   .tr-g b{font-size:15px; color:var(--ink);}
   .tr-g.fait{border-color:rgba(91,224,166,.5); background:rgba(91,224,166,.08);} .tr-g.fait b{color:#5BE0A6;}
-  .tr-slots{display:grid; grid-template-columns:repeat(var(--n, 3), minmax(0, 1fr)); gap:12px; max-width:600px; margin:6px 0 14px;}
+  .tr-slots{display:grid; grid-template-columns:repeat(var(--n, 3), minmax(0, 1fr)); gap:12px; max-width:440px; margin:4px 0 12px;}
+  .tr-slot-carte{position:relative;}
+  .tr-x{all:unset; box-sizing:border-box; cursor:pointer; position:absolute; top:-8px; right:-8px; z-index:5; width:26px; height:26px; display:grid; place-items:center; border-radius:50%; font-size:12px; font-weight:800; color:#fff; background:rgba(12,17,25,.92); border:1px solid rgba(255,255,255,.28); box-shadow:0 4px 10px rgba(0,0,0,.5);}
+  .tr-x:hover{background:#c4313c;} .tr-x:focus-visible{outline:2px solid var(--ct-accent);}
+  .tr-mini-stats{display:flex; justify-content:center; flex-wrap:wrap; gap:1px 8px; margin-top:6px; font-size:10.5px; color:var(--muted); font-variant-numeric:tabular-nums; line-height:1.35;}
+  .tr-mini-stats b{color:var(--ink); font-weight:700;}
   .tr-slot{position:relative; display:grid; gap:8px; align-content:start;}
   .tr-slot-n{display:flex; align-items:center; justify-content:center; gap:6px; font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
   .tr-slot-n i{display:grid; place-items:center; width:20px; height:20px; border-radius:50%; font-style:normal; font-size:11px; color:#05070a; background:#F4F5F6;}
@@ -62,7 +67,7 @@
   .tr-mini:hover:not(:disabled){background:rgba(255,255,255,.12);}
   .tr-mini:disabled{opacity:.3; cursor:default;}
   .tr-mini:focus-visible{outline:2px solid var(--ct-accent);}
-  .tr-vide{cursor:default;}
+  .tr-vide{cursor:default; font-size:22px; font-weight:800; color:rgba(255,255,255,.25);}
   /* Le sélecteur d'équipe : même grille que la Collection */
   .tr-sel{display:grid; grid-template-columns:minmax(0, 1fr); gap:14px;}
   .tr-sel > *{min-width:0;}
@@ -215,6 +220,7 @@
   const score = (c) => c.pv * .3 + c.pui + c.def * .8 + c.vit * .5;
   const carte = (c) => A.carteHtml({ nom: c.nom, titre: c.titre, rarete: c.rarete, numero: c.numero, photo: c.photo, holo: c.holo, classeur: c.booster }, { niv: (c.niveau > 1 || c.etoiles > 0) ? { niveau: c.niveau, etoiles: c.etoiles } : null });
   const sansAccent = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  const statsMini = (c) => `<div class="tr-mini-stats"><span>PV <b>${nf(c.pv_max || c.pv)}</b></span><span>PUI <b>${nf(c.pui)}</b></span><span>DÉF <b>${nf(c.def)}</b></span><span>VIT <b>${nf(c.vit)}</b></span></div>`;
   const statsHtml = (c) => `<div class="tr-stats"><span>PV <b>${nf(c.pv_max || c.pv)}</b></span><span>PUI <b>${nf(c.pui)}</b></span><span>DÉF <b>${nf(c.def)}</b></span><span>VIT <b>${nf(c.vit)}</b></span></div>${c.role_nom ? `<div class="tr-role" title="${esc(c.role_resume || '')}">${esc(c.role_nom)}</div>` : ''}`;
 
   // ---------------------------------------------------------------------
@@ -258,7 +264,7 @@
           <h2>La Tour</h2>
           <p class="sous" style="margin:4px 0 0">${nf(acc.etages)} étages, un gardien tous les 10. Compose une équipe de ${n} cartes et pose-la : le combat se joue tout seul, en quelques secondes.</p>
           <div class="tr-progres">
-            <div class="tr-progres-l"><span><b>${nf(acc.etage_max)}</b> / ${nf(acc.etages)} étages</span><span>${pluriel(acc.victoires, 'victoire', 'victoires')} · ${pluriel(acc.defaites, 'défaite', 'défaites')}</span></div>
+            <div class="tr-progres-l"><span><b>${nf(acc.etage_max)}</b> / ${nf(acc.etages)} étages</span></div>
             <div class="tr-barre" title="${pct} %"><i style="width:${Math.max(pct, acc.etage_max ? 1 : 0)}%"></i></div>
           </div>
         </div>
@@ -268,14 +274,14 @@
         <div class="ct-panneau tr-etage" style="margin-top:16px">
           <div class="tr-etage-t"><h3>${esc(p.nom)}</h3>${p.gardien ? '<span class="tr-puce or">Gardien</span>' : ''}<span class="tr-puce">Adversaires ${p.bonus >= 0 ? '+' : ''}${p.bonus} %</span><span class="tr-puce">Puissance ${nf(pe)}</span>
             <span class="tr-puce">Récompense : ${esc(recompense(p.recompense))}</span></div>
-          <div class="tr-rang" style="--n:${n}">${p.crew.map((u) => `<div class="tr-u">${carte(u)}${statsHtml(u)}</div>`).join('')}</div>
+          <div class="tr-rang" style="--n:${n}">${p.crew.map((u) => `<div class="tr-u">${carte(u)}${statsMini(u)}</div>`).join('')}</div>
         </div>
 
         <div class="ct-panneau" style="margin-top:16px">
           <div class="tr-etage-t" style="margin-bottom:4px"><h3 style="margin:0">Mon équipe</h3>${verdict}</div>
           <p class="sous" style="margin:0 0 12px">Chaque carte attaque celle d'en face : la 1<sup>re</sup> affronte la 1<sup>re</sup> carte adverse, et ainsi de suite.</p>
           <div class="tr-slots" style="--n:${n}">${Array.from({ length: n }, (_, i) => S.equipe[i]
-            ? `<div class="tr-slot"><div class="tr-slot-n"><i>${i + 1}</i></div>${carte(S.equipe[i])}${statsHtml(S.equipe[i])}</div>`
+            ? `<div class="tr-slot"><div class="tr-slot-n"><i>${i + 1}</i></div>${carte(S.equipe[i])}${statsMini(S.equipe[i])}</div>`
             : `<div class="tr-slot"><div class="tr-slot-n"><i>${i + 1}</i></div><div class="tr-vide">Libre</div></div>`).join('')}</div>
           <div class="tr-actions">
             <button type="button" class="ct-btn" data-equipe>${S.equipe.length ? 'Changer mon équipe' : 'Choisir mon équipe'}</button>
@@ -342,16 +348,11 @@
     function emplacements(){
       const zone = ed.querySelector('[data-slots]');
       zone.innerHTML = Array.from({ length: n }, (_, i) => choix[i]
-        ? `<div class="tr-slot"><div class="tr-slot-n"><i>${i + 1}</i></div>${carte(choix[i])}${statsHtml(choix[i])}<div class="tr-slot-act">
-            <button type="button" class="tr-mini" data-gauche="${i}" aria-label="Avancer d'une place" ${i === 0 ? 'disabled' : ''}>←</button>
-            <button type="button" class="tr-mini" data-retirer="${i}" aria-label="Retirer ${esc(choix[i].nom)}">✕</button>
-            <button type="button" class="tr-mini" data-droite="${i}" aria-label="Reculer d'une place" ${i === choix.length - 1 ? 'disabled' : ''}>→</button></div></div>`
-        : `<div class="tr-slot"><div class="tr-slot-n"><i>${i + 1}</i></div><div class="tr-vide">Libre</div></div>`).join('');
+        ? `<div class="tr-slot"><div class="tr-slot-carte">${carte(choix[i])}<button type="button" class="tr-x" data-retirer="${i}" aria-label="Retirer ${esc(choix[i].nom)}">✕</button></div>${statsMini(choix[i])}</div>`
+        : `<div class="tr-slot"><div class="tr-vide">${i + 1}</div></div>`).join('');
       ed.querySelector('[data-ok]').disabled = choix.length !== n;
       ed.querySelector('[data-compte]').textContent = choix.length + ' / ' + n + ' cartes choisies';
       zone.querySelectorAll('[data-retirer]').forEach((b) => b.addEventListener('click', () => { choix.splice(Number(b.dataset.retirer), 1); tout(); }));
-      zone.querySelectorAll('[data-gauche]').forEach((b) => b.addEventListener('click', () => { const i = Number(b.dataset.gauche); [choix[i - 1], choix[i]] = [choix[i], choix[i - 1]]; tout(); }));
-      zone.querySelectorAll('[data-droite]').forEach((b) => b.addEventListener('click', () => { const i = Number(b.dataset.droite); [choix[i + 1], choix[i]] = [choix[i], choix[i + 1]]; tout(); }));
     }
 
     function grille(){
@@ -362,7 +363,7 @@
       zone.innerHTML = `<div class="ct-grille">${liste.slice(0, nb).map((c) => {
         const r = rang(c);
         return `<button type="button" class="ct-case tr-case${r >= 0 ? ' choisie' : ''}" data-c="${esc(cle(c))}" aria-pressed="${r >= 0}" aria-label="${esc(c.nom)}${r >= 0 ? ', place ' + (r + 1) : ''}">
-          ${r >= 0 ? `<span class="tr-rang-n">${r + 1}</span>` : ''}${carte(c)}${statsHtml(c)}</button>`;
+          ${r >= 0 ? `<span class="tr-rang-n">${r + 1}</span>` : ''}${carte(c)}${statsMini(c)}</button>`;
       }).join('')}</div>${liste.length > nb ? `<div class="tr-actions" style="justify-content:center; margin-top:16px"><button type="button" class="ct-btn petit" data-plus>Afficher plus (${liste.length - nb})</button></div>` : ''}`;
       zone.querySelectorAll('[data-c]').forEach((b) => b.addEventListener('click', () => {
         const c = S.cartes.find((x) => cle(x) === b.dataset.c);
@@ -383,7 +384,7 @@
       <div class="tr-sel">
         <div class="tr-sel-haut">
           <h2 style="margin:0 0 2px">Mon équipe</h2>
-          <p class="sous" style="margin:0 0 6px">Touche des cartes pour les ajouter, dans l'ordre : la 1<sup>re</sup> affronte la 1<sup>re</sup> carte adverse.</p>
+          <p class="sous" style="margin:0 0 10px">Touche ${n} cartes pour composer ton équipe.</p>
           <div class="tr-slots" style="--n:${n}" data-slots></div>
           <div class="tr-actions"><button type="button" class="ct-btn petit" data-auto>Meilleure équipe</button>
             <button type="button" class="ct-btn petit" data-vider>Vider</button></div>
@@ -519,7 +520,7 @@
       if(ev.t === 'tour'){ ordre.querySelectorAll('.on').forEach((x) => x.classList.remove('on')); return; }
       if(ev.a){ ordre.querySelectorAll('.on').forEach((x) => x.classList.remove('on')); const x = puceOrdre(ev.a[0], ev.a[1]); if(x) x.classList.add('on'); }
       if(ev.t === 'att'){
-        ligne(`<span class="${cl(ev.a[0])}">${esc(nomDe(ev.a[0], ev.a[1]))}</span> → <span class="${cl(ev.c[0])}">${esc(nomDe(ev.c[0], ev.c[1]))}</span> · ${esc(ev.n)} <b>−${nf(ev.d)}</b>${ev.k ? ' <span class="k">CRITIQUE</span>' : ''}`);
+        ligne(`<span class="${cl(ev.a[0])}">${esc(nomDe(ev.a[0], ev.a[1]))}</span> → <span class="${cl(ev.c[0])}">${esc(nomDe(ev.c[0], ev.c[1]))}</span> <b>−${nf(ev.d)}</b>${ev.k ? ' <span class="k">CRITIQUE</span>' : ''}`);
         if(ev.a[0] === 0){
           stats.degats[ev.a[1] - 1] += ev.d;
           if(ev.k) stats.crits++;
@@ -527,7 +528,7 @@
         }
       }else if(ev.t === 'zone'){
         const tot = ev.x.reduce((t, h) => t + h.d, 0);
-        ligne(`<span class="${cl(ev.a[0])}">${esc(nomDe(ev.a[0], ev.a[1]))}</span> · ${esc(ev.n)} <b>−${nf(tot)}</b> sur toute l'équipe${ev.x.some((h) => h.k) ? ' <span class="k">CRITIQUE</span>' : ''}`);
+        ligne(`<span class="${cl(ev.a[0])}">${esc(nomDe(ev.a[0], ev.a[1]))}</span> <b>−${nf(tot)}</b> sur toute l'équipe${ev.x.some((h) => h.k) ? ' <span class="k">CRITIQUE</span>' : ''}`);
         if(ev.a[0] === 0){
           stats.degats[ev.a[1] - 1] += tot;
           stats.crits += ev.x.filter((h) => h.k).length;
@@ -600,6 +601,7 @@
       setTimeout(() => d.remove(), 1000);
     };
     const bulle = (c, p, texte, cl) => {
+      if(!texte) return;
       const u = el(c, p); if(!u || sc.passer) return;
       const d = document.createElement('div');
       d.className = 'tr-titre ' + (cl || '');
@@ -1058,7 +1060,7 @@
       setTimeout(() => d.remove(), duree);
     };
     const popup = (f, texte, cl) => etiquette(f, texte, cl, 2.0, 'tr3-pop', 1100);
-    const banniere = (f, texte, cl) => etiquette(f, texte, cl, 2.6, 'tr3-ban', 950);
+    const banniere = (f, texte, cl) => { if(texte) etiquette(f, texte, cl, 2.6, 'tr3-ban', 950); };
     const majHud = (f) => {
       const pct = Math.max(0, f.pv / f.pvmax * 100);
       f.hud.querySelector('.pv i').style.width = pct + '%';
@@ -1296,15 +1298,16 @@
       const mi = stats.degats.indexOf(Math.max(...stats.degats));
       const mvp = mi >= 0 && stats.degats[mi] > 0 ? r.a[mi] : null;
       bilan = `<div class="tr-bilan"><div><b>${nf(tot)}</b>Dégâts</div><div><b>${stats.crits}</b>Critique${stats.crits > 1 ? 's' : ''}</div><div><b>${nf(stats.meilleur.d)}</b>Meilleur coup</div></div>`
-        + (mvp ? `<div class="tr-mvp"><img src="${esc(A.safeUrl(mvp.photo))}" alt=""><span><b>MVP</b> · ${esc(mvp.nom)} : ${nf(stats.degats[mi])} dégâts${stats.meilleur.nom ? ' · meilleur coup « ' + esc(stats.meilleur.titre) + ' »' : ''}</span></div>` : '');
+        + (mvp ? `<div class="tr-mvp"><img src="${esc(A.safeUrl(mvp.photo))}" alt=""><span><b>MVP</b> · ${esc(mvp.nom)} : ${nf(stats.degats[mi])} dégâts</span></div>` : '');
     }
     fin.innerHTML = `
       <div class="tr-fin-c ${r.victoire ? 'v' : 'd'}">
         <h2>${r.victoire ? 'Victoire !' : 'Défaite'}</h2>
         <p class="sous" style="margin:0">${esc(r.nom)} · ${pluriel(r.tours, 'tour', 'tours')}</p>
         ${bilan}
-        ${r.premiere ? `<div class="tr-gains">${g.wc ? `<span class="tr-puce or">+${nf(g.wc)} Wave Coins</span>` : ''}${g.vinyles ? `<span class="tr-puce or">+${nf(g.vinyles)} vinyle${g.vinyles > 1 ? 's' : ''}</span>` : ''}<span class="tr-puce">Étage ${r.etage_max} atteint</span></div>`
-          : (r.victoire ? '<p class="sous" style="margin:0">Étage déjà franchi : pas de récompense, mais c\'est la classe.</p>' : '<p class="sous" style="margin:0">Change l\'ordre ou les cartes de ton équipe, puis réessaie.</p>')}
+        ${r.victoire
+          ? `<div class="tr-gains">${g.vinyles ? `<span class="tr-puce or">+${nf(g.vinyles)} vinyle${g.vinyles > 1 ? 's' : ''}</span>` : ''}${g.wc ? `<span class="tr-puce or">+${nf(g.wc)} Wave Coins</span>` : ''}${r.premiere ? `<span class="tr-puce">Étage ${r.etage_max} atteint</span>` : ''}</div>${!g.vinyles && !r.premiere ? '<p class="sous" style="margin:0">Limite de vinyles du jour atteinte pour les étages déjà franchis. Avance dans la Tour pour en gagner encore.</p>' : ''}`
+          : '<p class="sous" style="margin:0">Change tes cartes, puis réessaie.</p>'}
         <div class="tr-actions" style="justify-content:center">
           ${suite ? '<button type="button" class="ct-btn principal" data-suite>Étage suivant</button>' : ''}
           <button type="button" class="ct-btn${suite ? '' : ' principal'}" data-rejouer>Rejouer</button>
@@ -1342,7 +1345,6 @@
             <div class="cb-pvgros"><small>PV</small>${nf(c.pv)}</div></div>
           ${c.role_resume ? `<p class="cb-cap" style="margin:0">${esc(c.role_resume)}</p>` : ''}
           <div class="cb-stats">${[['pui', 'Puissance'], ['def', 'Défense'], ['vit', 'Vitesse']].map(([k, l]) => `<div class="cb-st"><span>${l}</span><b>${nf(c[k])}</b><i style="--w:${pct(c[k], mx[k])}%"></i></div>`).join('')}</div>
-          <div class="cb-atts">${(c.titres || []).map((t, i) => `<div class="cb-att"><span>${i + 1}</span>${esc(t.nom)}<small>${i === 2 ? 'signature · ' : ''}×${String(t.mult).replace('.', ',')}</small></div>`).join('')}</div>
           ${c.capacite ? `<div class="cb-cap"><b>Passif · ${esc(c.capacite.nom)}</b> — ${esc(c.capacite.description)}</div>` : ''}
         </div>`;
     }catch(e){
@@ -1409,7 +1411,6 @@
       hote.innerHTML = `<div class="cb-fiche">
         <div class="cb-fiche-t"><div class="cb-roles">${e.role_nom ? `<span class="cb-role">${esc(e.role_nom)}</span>` : ''}</div><div class="cb-pvgros"><small>PV</small>${nf(e.pv)}</div></div>
         <div class="cb-stats">${[['pui', 'Puissance'], ['def', 'Défense'], ['vit', 'Vitesse']].map(([k, l]) => `<div class="cb-st"><span>${l}</span><b>${nf(e[k])}</b></div>`).join('')}</div>
-        <div class="cb-atts">${(e.titres || []).map((t, i) => `<div class="cb-att"><span>${i + 1}</span>${esc(t.nom)}<small>×${String(t.mult).replace('.', ',')}</small></div>`).join('')}</div>
         ${e.capacite ? `<div class="cb-cap"><b>Passif · ${esc(e.capacite.nom)}</b> — ${esc(e.capacite.description)}</div>` : ''}
         <p class="cb-cap" style="margin:0">Statistiques de base. Les attaques sont les titres de l'album lié à la carte.</p></div>`;
     }catch(err){

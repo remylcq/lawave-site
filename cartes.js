@@ -406,15 +406,15 @@
   .ct-c-nom{max-width:100%; font-family:'Anton', 'Bebas Neue', Impact, 'Arial Narrow', sans-serif; font-size:calc(var(--nf, 1) * 15.5cqw); font-weight:400; text-transform:uppercase; line-height:.98; padding-top:.5cqw; letter-spacing:.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .ct-c-reflet{position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .3s;}
   .ct-carte.r4 .ct-c-reflet, .ct-carte.r5 .ct-c-reflet, .ct-carte.r6 .ct-c-reflet{opacity:1; background:linear-gradient(115deg, transparent 38%, rgba(255,255,255,.22) 48%, transparent 58%); background-size:300% 100%; background-position:var(--ct-lum, 120%) 0;}
-  .ct-carte.holo .ct-c-reflet{opacity:.55; mix-blend-mode:color-dodge;
-    background:linear-gradient(115deg, transparent 15%, rgba(255,60,190,.65) 30%, rgba(60,255,255,.6) 42%, rgba(255,255,90,.6) 54%, rgba(120,90,255,.6) 66%, transparent 80%);
-    background-size:260% 260%; background-position:var(--hx, 50%) var(--hy, 50%);}
-  .ct-carte.holo .ct-c-in::after{content:''; position:absolute; inset:0; pointer-events:none; opacity:.35; mix-blend-mode:overlay;
-    background-image:radial-gradient(circle at 20% 30%, #fff 0 1px, transparent 1.5px), radial-gradient(circle at 70% 60%, #fff 0 1px, transparent 1.5px), radial-gradient(circle at 40% 80%, #fff 0 1px, transparent 1.5px);
-    background-size:23px 23px, 31px 31px, 17px 17px;}
-  .ct-carte.vivante.r4, .ct-carte.r4:hover{box-shadow:0 0 0 1px rgba(242,193,78,.35), 0 0 34px -6px rgba(242,193,78,.55), 0 14px 30px -14px rgba(0,0,0,.8);}
-  .ct-carte.vivante.r5, .ct-carte.r5:hover{box-shadow:0 0 40px -6px rgba(255,92,138,.55), 0 14px 30px -14px rgba(0,0,0,.8);}
-  .ct-carte.vivante.r6, .ct-carte.r6:hover{box-shadow:0 0 0 1px rgba(255,150,150,.5), 0 0 46px -4px rgba(255,59,71,.7), 0 14px 30px -14px rgba(0,0,0,.8);}
+  /* Holographique : un reflet de feuille doux (pastel, qui glisse avec le pointeur) et un liseré fin ; pas de grain ni de couleurs saturées */
+  .ct-carte.holo .ct-c-reflet{opacity:.5; mix-blend-mode:soft-light;
+    background:linear-gradient(112deg, transparent 18%, rgba(255,205,232,.7) 34%, rgba(196,236,255,.7) 47%, rgba(255,246,196,.65) 60%, transparent 76%);
+    background-size:240% 100%; background-position:var(--hx, 40%) 50%;}
+  .ct-carte.holo .ct-c-in{box-shadow:inset 0 0 0 1px rgba(255,255,255,.28);}
+  .ct-carte.holo.vivante .ct-c-reflet{animation:ctLum 4.8s ease-in-out infinite;}
+  .ct-carte.vivante.r4, .ct-carte.r4:hover{box-shadow:0 0 0 1px rgba(242,193,78,.3), 0 0 16px -8px rgba(242,193,78,.35), 0 14px 30px -14px rgba(0,0,0,.8);}
+  .ct-carte.vivante.r5, .ct-carte.r5:hover{box-shadow:0 0 18px -8px rgba(255,92,138,.35), 0 14px 30px -14px rgba(0,0,0,.8);}
+  .ct-carte.vivante.r6, .ct-carte.r6:hover{box-shadow:0 0 0 1px rgba(255,120,120,.4), 0 0 18px -8px rgba(255,59,71,.45), 0 14px 30px -14px rgba(0,0,0,.8);}
   .ct-carte.vivante.r4 .ct-c-reflet, .ct-carte.vivante.r5 .ct-c-reflet, .ct-carte.vivante.r6 .ct-c-reflet{animation:ctLum 3.6s ease-in-out infinite;}
   @media (hover:hover){
     .ct-carte.r4:hover .ct-c-reflet, .ct-carte.r5:hover .ct-c-reflet, .ct-carte.r6:hover .ct-c-reflet{animation:ctLum 2.4s ease-in-out infinite;}
@@ -570,7 +570,7 @@
 
   /* ---------- le pack (booster) ---------- */
   .ct-pack{--pk-w:210px; position:relative; width:var(--pk-w); aspect-ratio:.66; transform-style:preserve-3d; user-select:none; -webkit-user-select:none; touch-action:none; --teinte:#4FB4FF;
-    filter:drop-shadow(0 28px 36px rgba(0,0,0,.55)) drop-shadow(0 0 38px color-mix(in srgb, var(--teinte) 30%, transparent));}
+    filter:drop-shadow(0 28px 36px rgba(0,0,0,.55)) drop-shadow(0 0 16px color-mix(in srgb, var(--teinte) 16%, transparent));}
   ${PACKS_CSS}
   .ct-pk-haut, .ct-pk-corps{position:absolute; left:0; right:0; overflow:hidden; background:var(--pk-fond);}
   .ct-pk-haut{top:0; height:14%; border-radius:12px 12px 3px 3px; background-size:100% 714.3%; background-position:50% 0;}
@@ -601,7 +601,7 @@
 
   /* ---------- la scène d'ouverture ---------- */
   .ct-scene{position:fixed; inset:0; z-index:500; display:flex; flex-direction:column; color:#fff; overflow:hidden; touch-action:manipulation; animation:ctFondu .3s ease both;}
-  .ct-scene-fond{position:absolute; inset:0; background:radial-gradient(60% 55% at 50% 45%, color-mix(in srgb, var(--teinte, #1489DE) 22%, #070a10) 0%, #030407 72%); transition:background .8s ease;}
+  .ct-scene-fond{position:absolute; inset:0; background:radial-gradient(60% 55% at 50% 45%, color-mix(in srgb, var(--teinte, #1489DE) 9%, #070a10) 0%, #030407 72%); transition:background .8s ease;}
   .ct-scene-fond::after{content:''; position:absolute; inset:0; background:radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,.7) 100%);}
   .ct-scene canvas{position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:6;}
   .ct-scene-x{all:unset; position:absolute; z-index:8; top:max(14px, env(safe-area-inset-top)); right:14px; width:42px; height:42px; display:grid; place-items:center; border-radius:12px; cursor:pointer; color:rgba(255,255,255,.8); background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12);}
@@ -710,7 +710,7 @@
     animation:ctLettre .8s cubic-bezier(.2,1.4,.3,1) forwards; animation-delay:calc(var(--i) * 80ms);}
   .ct-halo.special{background:conic-gradient(from 0deg, #ffffff, #ff6670, #ff3b47, #ffffff, #ff8a8a, #ffe1e1, #ffffff);}
   /* Plus de bandes de couleur, de halo irisé ni d'ondes de choc pendant l'ouverture : seule la carte compte. */
-  .ct-rayons, .ct-halo, .ct-onde{display:none !important;}
+  .ct-rayons, .ct-halo, .ct-onde, .ct-flash{display:none !important;}
   .ct-titre-rar.special span{background:linear-gradient(180deg, #fff, #ffd7d7 45%, var(--teinte)); -webkit-background-clip:text; background-clip:text;}
   @keyframes ctLettre{from{opacity:0; transform:translateY(40px) scale(2.2) rotateX(70deg);} to{opacity:1; transform:none;}}
   @keyframes ctTitreMythe{0%,82%{opacity:1;} 100%{opacity:0;}}
@@ -804,9 +804,40 @@
   .ct-gain.w{color:#FFE9A8; background:rgba(242,193,78,.14);} .ct-gain.w .ct-ico{color:#F2C14E;}
   /* Le badge de niveau d'une carte améliorée */
   .ct-c-niv{position:absolute; z-index:3; top:-7px; left:-7px; height:22px; padding:0 8px; border-radius:99px; display:inline-flex; align-items:center; gap:4px; font-size:11px; font-weight:800; letter-spacing:.02em; color:#1a1200; background:linear-gradient(90deg, #ffd76a, #ffb547); box-shadow:0 4px 12px rgba(0,0,0,.45); font-variant-numeric:tabular-nums;}
+  .ct-fiche-tete{display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;}
+  .ct-fiche-tete .ct-fiche-num{margin:0;}
+  .ct-fiche-tete .ct-fiche-rar{margin:0; padding:3px 10px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--rc); background:color-mix(in srgb, var(--rc) 14%, transparent);}
+  .ct-fiche-coll{padding:3px 10px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#1a1200; background:linear-gradient(90deg, #ffd76a, #ffb547);}
+  .ct-fiche-dbl{display:inline-flex; align-items:baseline; gap:8px; margin:4px 0 6px; padding:8px 14px; border-radius:12px; background:var(--ct-surface); border:1px solid var(--ct-trait); font-size:13px; color:var(--muted);}
+  .ct-fiche-dbl b{font-size:20px; color:var(--ink); font-variant-numeric:tabular-nums;}
   .ct-fiche-titre{margin:2px 0 8px; font-size:17px; font-weight:700; color:var(--ink-soft);} .ct-fiche-titre small{font-size:13px; font-weight:600; color:var(--muted);}
+  .ct-ouvrir{display:flex !important; justify-content:center; gap:10px; flex-wrap:nowrap;}
+  .ct-ouv{all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:9px; min-width:92px; height:50px; padding:0 20px; border-radius:15px; border:1px solid var(--ct-trait-fort); background:rgba(255,255,255,.04); color:var(--ink); font-size:18px; transition:transform .15s, background .2s, border-color .2s;}
+  .ct-ouv b{font-weight:800; letter-spacing:.01em;} .ct-ouv .ct-ico{color:#F2C14E;}
+  .ct-ouv:hover:not(:disabled){background:rgba(255,255,255,.09); transform:translateY(-2px);}
+  .ct-ouv:active:not(:disabled){transform:scale(.97);}
+  .ct-ouv.principal{border-color:transparent; background:linear-gradient(135deg, #2f8fff, #4FB4FF); color:#04121f; box-shadow:0 8px 22px -10px rgba(47,143,255,.8);} .ct-ouv.principal .ct-ico{color:#04121f;}
+  .ct-ouv:disabled{opacity:.4; cursor:default;}
+  .ct-ouv:focus-visible{outline:2px solid var(--ct-accent); outline-offset:3px;}
   .ct-c-niv i{font-style:normal; font-size:10px; letter-spacing:-.05em;}
   /* Le bandeau d'un événement en cours, sous le pack */
+  .ct-evt{all:unset; box-sizing:border-box; cursor:pointer; position:relative; display:flex; align-items:center; gap:18px; width:min(720px, 100%); margin:0 auto 22px; padding:16px 20px; border-radius:22px; overflow:hidden;
+    border:1px solid color-mix(in srgb, var(--acc, #8FD3FF) 65%, transparent); background:linear-gradient(110deg, color-mix(in srgb, var(--acc, #8FD3FF) 30%, #0b1018), color-mix(in srgb, var(--acc, #8FD3FF) 8%, #0b1018) 70%); box-shadow:0 0 0 1px rgba(255,255,255,.04), 0 18px 40px -22px var(--acc, #8FD3FF); transition:transform .2s, box-shadow .2s;}
+  .ct-evt::after{content:''; position:absolute; inset:0; background:linear-gradient(105deg, transparent 35%, rgba(255,255,255,.16) 50%, transparent 65%); transform:translateX(-120%); animation:ctEvtBrille 5s ease-in-out infinite; pointer-events:none;}
+  .ct-evt:hover{transform:translateY(-3px);} .ct-evt:focus-visible{outline:2px solid #fff; outline-offset:3px;}
+  .ct-evt-img{flex:none; width:96px; height:96px; border-radius:18px; overflow:hidden; display:grid; place-items:center; background:rgba(0,0,0,.35); box-shadow:0 10px 24px -10px rgba(0,0,0,.7);}
+  .ct-evt-img img{width:100%; height:100%; object-fit:cover;} .ct-evt-img .vide{width:56%; color:#fff;}
+  .ct-evt-tx{position:relative; z-index:1; flex:1; min-width:0; display:grid; gap:5px; text-align:left;}
+  .ct-evt-badge{display:inline-flex; align-items:center; gap:8px; justify-self:start; padding:4px 12px; border-radius:99px; font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#04121f; background:#fff;}
+  .ct-evt-badge i{width:8px; height:8px; border-radius:50%; background:#ff3b47; animation:ctEvtPoint 1.4s ease-in-out infinite;}
+  .ct-evt-tx > b{font-size:clamp(22px, 4vw, 30px); line-height:1.05; letter-spacing:-.01em;}
+  .ct-evt-sous{font-size:13px; color:rgba(255,255,255,.82); line-height:1.4;}
+  .ct-evt-barre{display:block; height:6px; border-radius:99px; background:rgba(255,255,255,.15); overflow:hidden; max-width:320px;} .ct-evt-barre i{display:block; height:100%; border-radius:99px; background:#fff;}
+  .ct-evt-prog{font-size:12px; font-weight:700; color:rgba(255,255,255,.9); font-variant-numeric:tabular-nums;}
+  @keyframes ctEvtBrille{0%,60%{transform:translateX(-120%);} 100%{transform:translateX(120%);}}
+  @keyframes ctEvtPoint{0%,100%{opacity:1;} 50%{opacity:.35;}}
+  @media (max-width:560px){ .ct-evt{padding:12px 14px; gap:12px;} .ct-evt-img{width:64px; height:64px; border-radius:14px;} }
+  @media (prefers-reduced-motion: reduce){ .ct-evt::after, .ct-evt-badge i{animation:none;} }
   .ct-evenement{all:unset; box-sizing:border-box; cursor:pointer; display:flex; align-items:center; gap:14px; width:min(560px, 100%); margin:14px auto 0; padding:10px 14px; border-radius:16px; border:1px solid color-mix(in srgb, var(--acc, #8FD3FF) 55%, transparent); background:linear-gradient(110deg, color-mix(in srgb, var(--acc, #8FD3FF) 20%, transparent), rgba(255,255,255,.03)); transition:transform .2s, border-color .2s;}
   .ct-evenement:hover{transform:translateY(-2px); border-color:var(--acc, #8FD3FF);}
   .ct-evenement:focus-visible{outline:2px solid var(--ct-accent); outline-offset:2px;}
@@ -1693,6 +1724,22 @@
 
     S.corps.innerHTML = `
       <section class="ct-vitrine">
+        ${evenements.map((ev2) => {
+          const ci = classeursInfo.find((x) => x.id === ev2.id) || {};
+          const jours = ev2.fin ? Math.max(0, Math.ceil((new Date(ev2.fin + 'T23:59:59') - new Date()) / 86400000)) : null;
+          const fin2 = ev2.fin ? new Date(ev2.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : '';
+          const img = visuelOk(ev2.visuel) ? `<img src="${esc(ev2.visuel)}" alt="" loading="lazy" decoding="async">` : `<span class="vide">${EMBLEMES[theme(ev2.theme)]}</span>`;
+          const pctE = ci.total ? Math.round((ci.possedees || 0) / ci.total * 100) : 0;
+          return `<button type="button" class="ct-evt" data-classeur="${esc(ev2.id)}" style="--acc:${couleurOk(ev2.accent)}" aria-label="Événement ${esc(ev2.nom)} : voir les cartes collector">
+            <span class="ct-evt-img">${img}</span>
+            <span class="ct-evt-tx">
+              <span class="ct-evt-badge"><i></i>Événement en cours${jours !== null ? ' · ' + (jours > 1 ? 'encore ' + jours + ' jours' : (jours === 1 ? 'dernier jour' : 'dernières heures')) : ''}</span>
+              <b>${esc(ev2.nom)}</b>
+              <span class="ct-evt-sous">${nf(ev2.nb_cartes)} cartes collector mélangées à tes packs${fin2 ? ' jusqu\'au ' + esc(fin2) : ''}${ev2.melange ? ' · ' + String(Math.round(ev2.melange * 10) / 10).replace('.', ',') + ' % des cartes' : ''}</span>
+              ${ci.total ? `<span class="ct-evt-barre"><i style="width:${Math.max(pctE, ci.possedees ? 3 : 0)}%"></i></span><span class="ct-evt-prog">${nf(ci.possedees || 0)} / ${nf(ci.total)} obtenues</span>` : ''}
+            </span>
+            ${ico('fleche', 22)}</button>`;
+        }).join('')}
         <div class="ct-car" tabindex="0" role="group" aria-roledescription="carrousel" aria-label="Choisis un booster">
           <div class="ct-car-piste">
             ${boosters.map((b, i) => `<div class="ct-car-item" data-i="${i}" role="group" aria-label="${esc(b.nom)}">${packHtml({ booster: b })}</div>`).join('')}
@@ -1703,16 +1750,6 @@
         <div class="ct-vit-info" data-info></div>
         <div class="ct-ouvrir" data-zone-ouvrir></div>
         <div class="ct-hero-note">${ico('vinyle', 15)}1 vinyle = 1 pack.<button type="button" class="ct-lien" data-echange>Échanger des Wave Coins</button></div>
-        ${evenements.map((ev2) => {
-          const ci = classeursInfo.find((x) => x.id === ev2.id) || {};
-          const fin2 = ev2.fin ? new Date(ev2.fin + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : '';
-          const img = visuelOk(ev2.visuel) ? `<img src="${esc(ev2.visuel)}" alt="" loading="lazy" decoding="async">` : `<span class="vide">${EMBLEMES[theme(ev2.theme)]}</span>`;
-          return `<button type="button" class="ct-evenement" data-classeur="${esc(ev2.id)}" style="--acc:${couleurOk(ev2.accent)}" aria-label="Événement ${esc(ev2.nom)} : voir les cartes collector">
-            <span class="img">${img}</span>
-            <span class="tx"><small>Événement en cours${fin2 ? ' · jusqu\'au ' + esc(fin2) : ''}</small><b>${esc(ev2.nom)}</b>
-              <span>${ci.total ? nf(ci.possedees || 0) + ' / ' + nf(ci.total) + ' cartes collector obtenues' : nf(ev2.nb_cartes) + ' cartes collector'} · mélangées à tes packs</span></span>
-            ${ico('fleche', 18)}</button>`;
-        }).join('')}
       </section>
 
       ${attente ? `<button type="button" class="ct-attente" data-aller="missions">${ico('cadeau', 22)}<div><b>${pluriel(attente, 'récompense')} à récupérer</b><span>${[e.cadeau_pret ? 'cadeau du jour' : '', e.roue_prete ? 'roue' : '', e.coffres_prets ? 'coffre' : '', e.missions_pretes ? 'missions' : ''].filter(Boolean).join(' · ')}</span></div>${ico('fleche', 18)}</button>` : ''}
@@ -1735,7 +1772,7 @@
           ${b.classeur ? `<button type="button" class="ct-lien ct-voir" data-voir>Voir ma collection · ${nf(b.nb_cartes)} cartes${ico('fleche', 14)}</button>` : ''}
         </div>`;
       const cout = Number(b.cout || 1);
-      zoneOuvrir.innerHTML = [1, 5, 10].map(n => `<button type="button" class="ct-btn ${n === 1 ? 'principal ' : ''}grand" data-ouvrir="${n}" ${e.vinyles < n * cout ? 'disabled' : ''}>${n > 1 ? n + ' packs' : 'Ouvrir un pack'}<span class="cout">${ico('vinyle', 12)}${n * cout}</span></button>`).join('');
+      zoneOuvrir.innerHTML = [1, 5, 10].map(n => `<button type="button" class="ct-ouv${n === 1 ? ' principal' : ''}" data-ouvrir="${n}" ${e.vinyles < n * cout ? 'disabled' : ''} aria-label="Ouvrir ${n} pack${n > 1 ? 's' : ''} (${n * cout} vinyle${n * cout > 1 ? 's' : ''})"><b>×${n}</b>${ico('vinyle', 17)}</button>`).join('');
     }
 
     function poser(){
@@ -2181,6 +2218,7 @@
           p.insertAdjacentHTML('afterbegin', `<div class="ct-halo${r === 6 ? ' special' : ''}"></div>`);
         }
 
+        if(r >= 3) teinte(RAR[r].c);
         if(r >= 3 && !calme()){
           // L'attente : la carte vibre, la lumière se rassemble.
           p.classList.add('charge');
@@ -2387,23 +2425,14 @@
       <div class="ct-fiche" style="--rc:${rar(r).c}">
         <div class="ct-fiche-carte">${carteHtml(c, { verrou: !possede, vivante: possede, eager: true })}</div>
         <div>
-          <span class="ct-fiche-num">${numero(c.numero)}</span>
+          <div class="ct-fiche-tete"><span class="ct-fiche-num">${numero(c.numero)}</span><span class="ct-fiche-rar">${esc(rar(r).nom)}${c.holos > 0 ? ' · Holo' : ''}</span>${classeur && classeur !== 'principal' ? '<span class="ct-fiche-coll">Collector</span>' : ''}</div>
           <h2>${esc(c.nom)}</h2>
           ${c.titre ? `<p class="ct-fiche-titre">${esc(c.titre)}<small>${c.type_sortie ? ' · ' + esc(c.type_sortie) : ''}</small></p>` : ''}
-          <div class="ct-fiche-rar">${esc(rar(r).nom)}${c.holos > 0 ? ' · Holo obtenue' : ''}</div>
-          <div class="ct-stats">
-            <div class="ct-stat"><b>${c.fans ? esc(court(c.fans)) : '—'}</b><span>fans Deezer</span></div>
-            <div class="ct-stat"><b>${nf(c.sorties)}</b><span>${c.sorties > 1 ? 'sorties' : 'sortie'} sur La Wave</span></div>
-            <div class="ct-stat"><b>${possede ? '×' + c.quantite : '—'}</b><span>${possede ? 'en ta possession' : 'pas encore obtenue'}</span></div>
-          </div>
-          ${c.album ? `<div class="ct-album"><img src="${esc(safeUrl(c.cover))}" alt=""><div><small>Album</small><b>${esc(c.album)}</b>${c.type_nom ? `<span class="ct-type-puce" style="--tc:${couleurOk(c.couleur)}" data-type="${esc(c.type_nom)}" title="Forces et faiblesses">${esc(c.type_nom)}</span>` : ''}</div></div>` : ''}
+          <div class="ct-fiche-dbl${possede ? '' : ' vide'}">${possede ? `<b>${nf(Math.max(0, c.quantite - 1))}</b><span>doublon${c.quantite - 1 > 1 ? 's' : ''}</span>` : '<span>Pas encore obtenue</span>'}</div>
           ${classeur && possede ? '<div data-amelio></div>' : ''}
           ${classeur ? '<div data-combat></div>' : ''}
-          ${c.ville ? `<p class="sous" style="margin-top:12px">${esc(c.ville)}</p>` : ''}${classeur && possede ? `<div class="ct-actions" style="margin-top:12px"><button type="button" class="ct-btn petit" data-vendre>${ico('marche', 15)}Vendre sur le marché</button></div>` : ''}
-          ${(c.sorties_liste || []).length ? `
-            <div class="ct-titre-sec" style="margin:22px 0 10px"><h3>Dernières sorties</h3></div>
-            <div class="ct-pochettes">${c.sorties_liste.map((s, i) => `<button type="button" class="ct-pochette" data-s="${i}" title="${esc(s.titre)} · ${esc(date(s.date))}"><img src="${esc(safeUrl(s.cover))}" alt="${esc(s.titre)}" loading="lazy"></button>`).join('')}</div>` : ''}
-          ${c.handle && typeof ouvrirPageArtiste === 'function' ? `<div class="ct-actions"><button type="button" class="ct-btn petit" data-artiste>Voir la page de l'artiste${ico('fleche', 14)}</button></div>` : ''}
+          ${classeur && possede ? `<div class="ct-actions" style="margin-top:14px"><button type="button" class="ct-btn petit" data-vendre>${ico('marche', 15)}Vendre sur le marché</button></div>` : ''}
+          ${c.handle && typeof ouvrirPageArtiste === 'function' ? `<div class="ct-actions"><button type="button" class="ct-lien" data-artiste>Voir la page de l'artiste${ico('fleche', 14)}</button></div>` : ''}
           ${!possede && classeur ? `<p class="sous" style="margin-top:14px">Cette carte ne sort que du booster « ${esc((S.boosters || []).find(b => b.id === classeur)?.nom || 'de la collection')} ».</p>` : ''}
           ${!possede && !classeur ? `
             <div class="ct-ligne-act">
@@ -2434,10 +2463,6 @@
     const za = f.corps.querySelector('[data-amelio]');
     if(za) ameliorer(za, c, classeur, f.corps.querySelector('.ct-fiche-carte'), fichesCombat);
 
-    f.corps.querySelectorAll('[data-s]').forEach((b) => b.addEventListener('click', () => {
-      const s = c.sorties_liste[Number(b.dataset.s)];
-      if(s && s.numero && typeof ouvrirSortieParNumero === 'function'){ fermerTout(); ouvrirSortieParNumero(s.numero); }
-    }));
     const ar = f.corps.querySelector('[data-artiste]');
     if(ar) ar.addEventListener('click', () => { fermerTout(); ouvrirPageArtiste(c.handle); });
 
