@@ -777,6 +777,10 @@
   .ct-segment button:hover{color:var(--ink);}
   .ct-segment button.actif{color:var(--ink); background:rgba(255,255,255,.1);}
   .ct-segment button:focus-visible{outline:2px solid var(--ct-accent); outline-offset:-2px;}
+  /* Les menus déroulants (tri, quantité…) : liste sombre et texte clair, lisibles sur tous les navigateurs */
+  .ct select, .ct-fen select, .ct-select, .ee-champ select, select.ee-rar, #page-admin select{color-scheme:dark;}
+  .ct select option, .ct-fen select option, .ct-select option, .ee-champ select option, select.ee-rar option, #page-admin select option{background:#10151d; color:#f4f5f6;}
+  .ct select option:checked, .ct-fen select option:checked, .ct-select option:checked, .ee-champ select option:checked, select.ee-rar option:checked, #page-admin select option:checked{background:#2a6df4; color:#fff;}
   .ct-select{height:40px; padding:0 10px; border-radius:11px; border:1px solid var(--ct-trait-fort); background:rgba(255,255,255,.04); color:var(--ink); font:inherit; font-size:13.5px;}
   .ct-pages{display:flex; align-items:center; justify-content:center; gap:14px; margin-top:28px; font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums;}
 
