@@ -429,6 +429,37 @@
     .ct-c-num{font-size:6.6cqw;}
     .ct-c-nom{font-size:calc(var(--nf, 1) * 13cqw); white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
   }
+  /* ---------- l'habillage des cartes « Vague Glaciale » ---------- */
+  /* Le même modèle de carte, pris dans la glace : un cadre givré à la place du cadre noir, des éclats de glace dans les coins, la neige qui tombe,
+     le bas de la carte en bleu nuit, le nom en lettres de glace et l'étiquette de la collection (la plaque bleue de sa pochette). */
+  .ct-carte.glace{background:linear-gradient(152deg, #f4fbff 0%, #a9daf7 16%, #3f78ad 38%, #dff3ff 52%, #6ea9d6 70%, #eefaff 88%, #9cd0f2 100%);
+    box-shadow:0 0 0 1px rgba(200,236,255,.3), 0 0 20px -8px rgba(120,200,255,.6), 0 14px 30px -14px rgba(0,0,0,.8);}
+  .ct-carte.glace .ct-c-in{inset:1.5cqw; border-radius:3.7cqw; background:#081a30;}
+  .ct-carte.glace:not(.verrou) .ct-c-photo{filter:saturate(.86) contrast(1.05) brightness(1.04);}
+  .ct-carte.glace .ct-c-voile{background:linear-gradient(180deg, rgba(10,40,84,.5) 0%, rgba(40,110,190,.14) 20%, transparent 44%, rgba(8,30,60,.55) 66%, rgba(6,24,50,.94) 86%, #05172e 100%);}
+  .ct-c-givre{position:absolute; inset:0; pointer-events:none; border-radius:inherit; overflow:hidden;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 125' preserveAspectRatio='none'%3E%3Cg fill='%23fff' stroke='%23fff' stroke-width='.25' stroke-opacity='.55' stroke-linejoin='round'%3E%3Cpath fill-opacity='.2' d='M100 0H70l9 5 8 3 6 9 7 14z'/%3E%3Cpath fill-opacity='.12' d='M100 0 87 8l6 9z'/%3E%3Cpath fill-opacity='.3' d='M70 0l9 5 8 3 13-8z'/%3E%3Cpath fill-opacity='.1' d='M100 31l-5-10-2-4 7-17z'/%3E%3Cpath fill-opacity='.2' d='M0 125V98l4 9 6 7 9 6 11 5z'/%3E%3Cpath fill-opacity='.32' d='M0 125l10-11 9 6z'/%3E%3Cpath fill-opacity='.1' d='M0 98l4 9 6 7L0 125z'/%3E%3Cpath fill-opacity='.14' d='M19 120l11 5H0z'/%3E%3Cpath fill-opacity='.14' d='M0 0h17l-8 4-5 6-4 11z'/%3E%3Cpath fill-opacity='.24' d='M0 0l9 4-5 6z'/%3E%3Cpath fill-opacity='.14' d='M100 125V106l-4 8-7 6-10 5z'/%3E%3Cpath fill-opacity='.24' d='M100 125l-11-5 7-6z'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
+    box-shadow:inset 0 0 0 .4cqw rgba(8,28,54,.85), inset 0 0 0 .75cqw rgba(214,240,255,.6), inset 0 0 8cqw rgba(150,210,255,.3);}
+  .ct-c-neige{position:absolute; inset:0; pointer-events:none; overflow:hidden;
+    -webkit-mask-image:linear-gradient(180deg, #000 0 50%, rgba(0,0,0,.3) 72%, transparent 90%); mask-image:linear-gradient(180deg, #000 0 50%, rgba(0,0,0,.3) 72%, transparent 90%);}
+  .ct-c-neige::before{content:''; position:absolute; left:0; right:0; top:-100%; height:200%; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 125'%3E%3Cg fill='%23fff'%3E%3Ccircle cx='45.4' cy='70.0' r='0.7' fill-opacity='1'/%3E%3Ccircle cx='50.8' cy='73.4' r='0.45' fill-opacity='1'/%3E%3Ccircle cx='62.5' cy='99.1' r='0.35' fill-opacity='1'/%3E%3Ccircle cx='31.1' cy='11.3' r='1.2' fill-opacity='0.55'/%3E%3Ccircle cx='59.2' cy='49.5' r='0.7' fill-opacity='0.7'/%3E%3Ccircle cx='61.8' cy='104.0' r='0.35' fill-opacity='0.55'/%3E%3Ccircle cx='5.4' cy='109.9' r='0.9' fill-opacity='0.55'/%3E%3Ccircle cx='76.7' cy='40.8' r='0.9' fill-opacity='0.7'/%3E%3Ccircle cx='51.8' cy='80.0' r='0.7' fill-opacity='0.55'/%3E%3Ccircle cx='65.6' cy='57.2' r='0.55' fill-opacity='1'/%3E%3Ccircle cx='97.8' cy='124.5' r='0.35' fill-opacity='0.85'/%3E%3Ccircle cx='32.3' cy='28.7' r='0.55' fill-opacity='0.55'/%3E%3Ccircle cx='8.7' cy='95.8' r='0.7' fill-opacity='0.55'/%3E%3Ccircle cx='83.3' cy='48.3' r='0.35' fill-opacity='0.55'/%3E%3Ccircle cx='22.5' cy='115.9' r='0.35' fill-opacity='1'/%3E%3Ccircle cx='38.0' cy='88.6' r='0.7' fill-opacity='0.55'/%3E%3Ccircle cx='56.4' cy='24.8' r='1.2' fill-opacity='0.85'/%3E%3Ccircle cx='34.3' cy='38.9' r='0.35' fill-opacity='1'/%3E%3Ccircle cx='74.8' cy='14.7' r='0.45' fill-opacity='0.55'/%3E%3Ccircle cx='3.1' cy='58.1' r='0.7' fill-opacity='0.7'/%3E%3Ccircle cx='67.5' cy='23.5' r='0.9' fill-opacity='0.7'/%3E%3Ccircle cx='96.6' cy='96.2' r='0.7' fill-opacity='1'/%3E%3Ccircle cx='13.2' cy='52.6' r='0.45' fill-opacity='0.55'/%3E%3Ccircle cx='27.9' cy='121.4' r='0.9' fill-opacity='0.85'/%3E%3Ccircle cx='97.8' cy='2.5' r='0.45' fill-opacity='1'/%3E%3Ccircle cx='97.6' cy='75.3' r='0.9' fill-opacity='0.55'/%3E%3Ccircle cx='6.0' cy='18.3' r='0.7' fill-opacity='0.85'/%3E%3Ccircle cx='2.9' cy='76.3' r='0.55' fill-opacity='1'/%3E%3Ccircle cx='9.0' cy='11.3' r='0.9' fill-opacity='0.7'/%3E%3Ccircle cx='3.5' cy='46.1' r='0.9' fill-opacity='1'/%3E%3Ccircle cx='14.2' cy='73.4' r='0.9' fill-opacity='0.7'/%3E%3Ccircle cx='85.2' cy='22.9' r='0.45' fill-opacity='0.85'/%3E%3Ccircle cx='89.2' cy='102.2' r='0.45' fill-opacity='0.7'/%3E%3Ccircle cx='17.2' cy='78.6' r='0.9' fill-opacity='0.7'/%3E%3Ccircle cx='67.9' cy='48.5' r='0.7' fill-opacity='0.55'/%3E%3Ccircle cx='42.5' cy='13.0' r='0.35' fill-opacity='0.85'/%3E%3Ccircle cx='24.9' cy='88.1' r='0.55' fill-opacity='1'/%3E%3Ccircle cx='81.1' cy='74.6' r='0.55' fill-opacity='0.7'/%3E%3Ccircle cx='91.2' cy='122.1' r='0.45' fill-opacity='0.7'/%3E%3Ccircle cx='48.0' cy='81.7' r='0.9' fill-opacity='0.55'/%3E%3Ccircle cx='28.9' cy='114.7' r='0.45' fill-opacity='0.55'/%3E%3Ccircle cx='8.6' cy='51.4' r='0.45' fill-opacity='0.55'/%3E%3Ccircle cx='6.5' cy='35.2' r='0.9' fill-opacity='0.7'/%3E%3Ccircle cx='10.9' cy='17.3' r='0.7' fill-opacity='0.85'/%3E%3Ccircle cx='65.1' cy='86.4' r='0.9' fill-opacity='0.7'/%3E%3Ccircle cx='58.6' cy='115.4' r='0.7' fill-opacity='0.85'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 100% 50% repeat-y;}
+  .ct-carte.glace.vivante .ct-c-neige::before{animation:ctNeige 11s linear infinite; will-change:transform;}
+  @keyframes ctNeige{to{transform:translate3d(0, 50%, 0);}}
+  @media (prefers-reduced-motion:reduce){ .ct-carte.glace.vivante .ct-c-neige::before{animation:none;} }
+  .ct-c-col{position:absolute; top:4.9cqw; left:50%; transform:translateX(-50%); display:inline-flex; align-items:center; gap:1.3cqw; height:6.2cqw; padding:0 1.8cqw 0 2.1cqw; white-space:nowrap;
+    font-family:'Anton', 'Bebas Neue', Impact, 'Arial Narrow', sans-serif; font-size:max(5px, 3.5cqw); line-height:1; letter-spacing:.09em; text-transform:uppercase; color:#cdeaff;
+    background:#1b4679; border:.35cqw solid #bfe3fb; box-shadow:0 .6cqw 2.4cqw rgba(0,10,30,.45);}
+  .ct-c-col i{width:3.4cqw; height:3.5cqw; background:repeating-linear-gradient(90deg, #cdeaff 0 .28cqw, transparent .28cqw .56cqw, #cdeaff .56cqw .7cqw, transparent .7cqw 1.1cqw);}
+  .ct-carte.glace .ct-c-num{color:#eaf7ff; text-shadow:0 1px 8px rgba(0,20,50,.7);}
+  .ct-carte.glace .ct-c-nom{color:transparent; background:linear-gradient(180deg, #fff 28%, #cfecff 58%, #7cc2f1 100%); -webkit-background-clip:text; background-clip:text; filter:drop-shadow(0 .4cqw 1.4cqw rgba(40,140,235,.6));}
+  .ct-carte.glace .ct-c-titre{color:rgba(214,238,255,.9);}
+  .ct-carte.glace .ct-c-reflet{opacity:1; background:linear-gradient(115deg, transparent 36%, rgba(215,242,255,.3) 47%, transparent 58%); background-size:300% 100%; background-position:var(--ct-lum, 120%) 0;}
+  .ct-carte.glace.holo .ct-c-reflet{opacity:.6; mix-blend-mode:soft-light; background:linear-gradient(112deg, transparent 18%, rgba(190,236,255,.8) 34%, rgba(255,255,255,.75) 47%, rgba(170,205,255,.7) 60%, transparent 76%); background-size:240% 100%; background-position:var(--hx, 40%) 50%;}
+  .ct-carte.glace.vivante .ct-c-reflet{animation:ctLum 4.2s ease-in-out infinite;}
+  .ct-carte.glace.verrou{background:linear-gradient(152deg, #5d6b78, #2a333d 45%, #56636f); box-shadow:none;}
+  .ct-carte.glace.verrou .ct-c-givre{opacity:.4;} .ct-carte.glace.verrou .ct-c-neige{opacity:.3;} .ct-carte.glace.verrou .ct-c-col{opacity:.55; filter:grayscale(1);} .ct-carte.glace.verrou .ct-c-reflet{opacity:0;}
+  .ct-carte.glace.verrou .ct-c-nom{background:none; color:rgba(255,255,255,.55); filter:none;}
+  @container (max-width:125px){ .ct-c-col{display:none;} }
   .ct-c-cadenas{position:absolute; left:50%; top:40%; transform:translate(-50%, -50%); width:16cqw; height:16cqw; color:rgba(255,255,255,.5); z-index:2;}
   .ct-c-cadenas svg{width:100%; height:100%;}
   .ct-c-type{position:absolute; top:13.4cqw; left:6.2cqw; width:9cqw; height:9cqw; border-radius:50%; display:grid; place-items:center; color:#06090e; background:var(--tc, #9aa4b2); box-shadow:0 2px 8px rgba(0,0,0,.5); cursor:default;}
@@ -1430,6 +1461,7 @@
   };
   const glypheType = (c) => `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">${GLYPHES_TYPE[c.icone] || GLYPHES_TYPE.etoile}</svg>`;
 
+  const HABILLAGES = { glaciale: 'glace' };
   function carteHtml(c, o){
     o = o || {};
     const r = Math.min(Math.max(Number(c.rarete) || 1, 1), 6);
@@ -1438,12 +1470,14 @@
     const lg = String(c.nom || '').length;
     // Anton est une police étroite : le nom tient sur 80 % de la largeur jusqu'à 12 lettres, puis rétrécit.
     const taille = Math.max(.42, Math.min(1, 12.5 / Math.max(lg, 1)));
+    // l'habillage propre à une collection (Vague Glaciale : la carte prise dans la glace)
+    const hab = HABILLAGES[c.classeur || o.classeur] || '';
     return `
-      <div class="ct-carte r${r}${holo ? ' holo' : ''}${verrou ? ' verrou' : ''}${o.vivante ? ' vivante' : ''}" style="--nf:${taille}">
+      <div class="ct-carte r${r}${hab ? ' ' + hab : ''}${holo ? ' holo' : ''}${verrou ? ' verrou' : ''}${o.vivante ? ' vivante' : ''}" style="--nf:${taille}">
         <div class="ct-c-in">
           <img class="ct-c-photo" src="${esc(safeUrl(c.photo))}" alt="" loading="${o.eager ? 'eager' : 'lazy'}" decoding="async">
           <div class="ct-c-voile"></div>
-          
+          ${hab === 'glace' ? '<div class="ct-c-neige"></div><div class="ct-c-givre"></div><span class="ct-c-col">Vague Glaciale<i></i></span>' : ''}
           <span class="ct-c-num">${numero(c.numero)}</span>
           ${c.type_nom && !verrou ? `<span class="ct-c-type" style="--tc:${couleurOk(c.couleur)}" data-type="${esc(c.type_nom)}" title="${esc(c.type_nom)}">${glypheType(c)}</span>` : ''}
           <img class="ct-c-logo" src="img/logo-wave.png" alt="La Wave" width="380" height="204" decoding="async">
@@ -1880,7 +1914,7 @@
           </div>
         </header>
         ${b.description ? `<p class="ct-pj-desc">${esc(b.description)}</p>` : ''}
-        <div class="ct-grille" aria-label="Cartes du pack">${cartes.map((c, i) => `<button type="button" class="ct-case" data-i="${i}" aria-label="${esc(c.nom)}, ${esc(rar(c.rarete).nom)}${c.quantite ? '' : ', pas encore obtenue'}">${carteHtml(c, { quantite: true, verrou: !c.quantite })}</button>`).join('')}</div>
+        <div class="ct-grille" aria-label="Cartes du pack">${cartes.map((c, i) => `<button type="button" class="ct-case" data-i="${i}" aria-label="${esc(c.nom)}, ${esc(rar(c.rarete).nom)}${c.quantite ? '' : ', pas encore obtenue'}">${carteHtml(c, { quantite: true, verrou: !c.quantite, classeur: b.id })}</button>`).join('')}</div>
       </section>`;
 
     S.corps.querySelector('[data-retour]').addEventListener('click', () => { S.projet = null; afficherVue('accueil'); });
@@ -2423,7 +2457,7 @@
 
     const f = fenetre(`
       <div class="ct-fiche" style="--rc:${rar(r).c}">
-        <div class="ct-fiche-carte">${carteHtml(c, { verrou: !possede, vivante: possede, eager: true })}</div>
+        <div class="ct-fiche-carte">${carteHtml(c, { verrou: !possede, vivante: possede, eager: true, classeur })}</div>
         <div>
           <div class="ct-fiche-tete"><span class="ct-fiche-num">${numero(c.numero)}</span><span class="ct-fiche-rar">${esc(rar(r).nom)}${c.holos > 0 ? ' · Holo' : ''}</span>${classeur && classeur !== 'principal' ? '<span class="ct-fiche-coll">Collector</span>' : ''}</div>
           <h2>${esc(c.nom)}</h2>
@@ -2682,7 +2716,7 @@
       </div>
 
       ${r.cartes.length
-        ? `<div class="ct-grille">${r.cartes.map((c, i) => `<button type="button" class="ct-case" data-i="${i}" aria-label="${esc(c.nom)}${c.quantite ? '' : ', pas encore obtenue'}">${carteHtml(c, { quantite: true, verrou: !c.quantite, niv: nivs.get(cl.id + '|' + c.id) })}</button>`).join('')}</div>`
+        ? `<div class="ct-grille">${r.cartes.map((c, i) => `<button type="button" class="ct-case" data-i="${i}" aria-label="${esc(c.nom)}${c.quantite ? '' : ', pas encore obtenue'}">${carteHtml(c, { quantite: true, verrou: !c.quantite, niv: nivs.get(cl.id + '|' + c.id), classeur: cl.id })}</button>`).join('')}</div>`
         : `<div class="ct-panneau ct-vide">${o.q || o.rarete || o.vue !== 'toutes' ? '<b>Aucune carte</b>Rien ne correspond à ces filtres.' : '<b>Aucune carte pour l\'instant</b>Les cartes arrivent dès que les artistes sont prêts.'}</div>`}
       ${r.pages > 1 ? `<div class="ct-pages"><button type="button" class="ct-btn petit" data-page="-1" ${o.page <= 1 ? 'disabled' : ''}>Précédente</button><span>Page ${r.page} sur ${r.pages}</span><button type="button" class="ct-btn petit" data-page="1" ${o.page >= r.pages ? 'disabled' : ''}>Suivante</button></div>` : ''}`;
 

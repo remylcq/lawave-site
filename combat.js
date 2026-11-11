@@ -972,7 +972,13 @@
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d');
     const rc = A.rar(u.rarete).c;
-    g.fillStyle = '#000'; rectRond(g, 0, 0, W, H, 34); g.fill();
+    const glace = u.booster === 'glaciale';   // Vague Glaciale : la carte prise dans la glace, comme dans la collection
+    if(glace){
+      const cg = g.createLinearGradient(0, 0, W, H);
+      [[0, '#f4fbff'], [.16, '#a9daf7'], [.38, '#3f78ad'], [.52, '#dff3ff'], [.7, '#6ea9d6'], [.88, '#eefaff'], [1, '#9cd0f2']].forEach((s) => cg.addColorStop(s[0], s[1]));
+      g.fillStyle = cg;
+    }else g.fillStyle = '#000';
+    rectRond(g, 0, 0, W, H, 34); g.fill();
     g.save(); rectRond(g, 12, 12, W - 24, H - 24, 24); g.clip();
     const img = await chargerImage(u.photo);
     if(img){
@@ -981,15 +987,42 @@
     }else{
       const gr = g.createLinearGradient(0, 0, W, H); gr.addColorStop(0, '#16314f'); gr.addColorStop(1, '#0a0d18'); g.fillStyle = gr; g.fillRect(12, 12, W - 24, H - 24);
     }
-    const v = g.createLinearGradient(0, H * .5, 0, H - 12); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(.6, 'rgba(0,0,0,.88)'); v.addColorStop(1, '#000');
+    const v = g.createLinearGradient(0, H * .5, 0, H - 12);
+    if(glace){ v.addColorStop(0, 'rgba(8,30,60,0)'); v.addColorStop(.6, 'rgba(6,24,50,.9)'); v.addColorStop(1, '#05172e'); }
+    else{ v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(.6, 'rgba(0,0,0,.88)'); v.addColorStop(1, '#000'); }
     g.fillStyle = v; g.fillRect(12, H * .48, W - 24, H * .52);
+    if(glace){
+      // le voile froid, la neige (toujours la même pour une carte donnée) et les éclats de glace dans les coins
+      const fr = g.createLinearGradient(0, 0, 0, H * .5); fr.addColorStop(0, 'rgba(10,40,84,.5)'); fr.addColorStop(.45, 'rgba(40,110,190,.14)'); fr.addColorStop(1, 'rgba(40,110,190,0)');
+      g.fillStyle = fr; g.fillRect(12, 12, W - 24, H * .5);
+      let sd = (Number(u.numero) || 7) * 9301 + 49297;
+      const al = () => { sd = (sd * 9301 + 49297) % 233280; return sd / 233280; };
+      for(let i = 0; i < 70; i++){
+        const y = 12 + al() * (H * .78), x = 12 + al() * (W - 24), ry = .8 + al() * 3.4;
+        g.fillStyle = 'rgba(255,255,255,' + ((.45 + al() * .5) * Math.min(1, (H * .86 - y) / (H * .3))).toFixed(2) + ')';
+        g.beginPath(); g.arc(x, y, ry, 0, 6.3); g.fill();
+      }
+      const eclat = (pts, a) => { g.fillStyle = 'rgba(255,255,255,' + a + ')'; g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 1.2; g.beginPath(); pts.forEach((p, i) => (i ? g.lineTo(p[0] * W / 100, p[1] * H / 125) : g.moveTo(p[0] * W / 100, p[1] * H / 125))); g.closePath(); g.fill(); g.stroke(); };
+      eclat([[100, 0], [70, 0], [79, 5], [87, 8], [93, 17], [100, 31]], .2); eclat([[70, 0], [79, 5], [87, 8], [100, 0]], .28);
+      eclat([[0, 125], [0, 98], [4, 107], [10, 114], [19, 120], [30, 125]], .2); eclat([[0, 125], [10, 114], [19, 120]], .3);
+      eclat([[0, 0], [17, 0], [9, 4], [4, 10], [0, 21]], .16); eclat([[100, 125], [100, 106], [96, 114], [89, 120], [79, 125]], .16);
+    }
     if(u.holo){
       const h = g.createLinearGradient(0, 0, W, H);
       ['rgba(255,120,200,.22)', 'rgba(120,255,255,.22)', 'rgba(255,250,150,.22)', 'rgba(190,150,255,.22)'].forEach((col, i) => h.addColorStop(i / 3, col));
       g.globalCompositeOperation = 'screen'; g.fillStyle = h; g.fillRect(12, 12, W - 24, H - 24); g.globalCompositeOperation = 'source-over';
     }
     g.restore();
-    g.strokeStyle = rc; g.lineWidth = 7; rectRond(g, 8.5, 8.5, W - 17, H - 17, 28); g.stroke();
+    if(glace){
+      g.strokeStyle = 'rgba(8,28,54,.9)'; g.lineWidth = 3; rectRond(g, 12, 12, W - 24, H - 24, 24); g.stroke();
+      g.strokeStyle = 'rgba(214,240,255,.7)'; g.lineWidth = 2; rectRond(g, 15, 15, W - 30, H - 30, 21); g.stroke();
+      // l'étiquette de la collection : la plaque bleue de sa pochette
+      g.font = '19px Anton, Impact, "Arial Narrow", sans-serif'; g.textAlign = 'center';
+      const et = 'VAGUE GLACIALE'.split('').join(String.fromCharCode(8202)), le = g.measureText(et).width + 46;
+      g.fillStyle = '#1b4679'; g.fillRect(W / 2 - le / 2, 28, le, 32); g.strokeStyle = '#bfe3fb'; g.lineWidth = 2; g.strokeRect(W / 2 - le / 2, 28, le, 32);
+      g.fillStyle = '#cdeaff'; g.fillText(et, W / 2 - 9, 51);
+      for(let i = 0; i < 6; i++) g.fillRect(W / 2 + le / 2 - 26 + i * 3, 35, i % 3 === 1 ? 1 : 2, 18);
+    }else{ g.strokeStyle = rc; g.lineWidth = 7; rectRond(g, 8.5, 8.5, W - 17, H - 17, 28); g.stroke(); }
     g.fillStyle = 'rgba(255,255,255,.92)'; g.textAlign = 'left'; g.font = 'italic 300 24px Inter, Arial, sans-serif';
     g.fillText('#' + String(u.numero || 0).padStart(3, '0'), 40, 58);
     if(logo) g.drawImage(logo, W - 40 - 94, 32, 94, 94 * logo.height / logo.width);
@@ -997,7 +1030,8 @@
     const ajuste = (texte, taille, mini, police) => { g.font = taille + 'px ' + police; while(g.measureText(texte).width > W - 90 && taille > mini){ taille -= 2; g.font = taille + 'px ' + police; } };
     const nom = String(u.nom || '').toUpperCase(), titre = String(u.titre || '');
     ajuste(nom, 84, 30, 'Anton, Impact, "Arial Narrow", sans-serif');
-    g.fillText(nom, W / 2, H - (titre ? 92 : 78));
+    if(glace){ const ng = g.createLinearGradient(0, H - 170, 0, H - 78); ng.addColorStop(.3, '#fff'); ng.addColorStop(.65, '#cfecff'); ng.addColorStop(1, '#7cc2f1'); g.fillStyle = ng; g.shadowColor = 'rgba(40,140,235,.6)'; g.shadowBlur = 14; }
+    g.fillText(nom, W / 2, H - (titre ? 92 : 78)); g.shadowBlur = 0;
     if(titre){
       g.fillStyle = 'rgba(255,255,255,.86)';
       ajuste(titre, 26, 16, 'Inter, Arial, sans-serif');
