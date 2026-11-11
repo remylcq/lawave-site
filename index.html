@@ -4607,6 +4607,39 @@
   #page-admin .attente-lot .attente-nb{color:var(--ink); font-variant-numeric:tabular-nums;}
   #page-admin .attente-lot .inline-actions{margin:0; margin-left:auto;}
   #page-admin .attente-lot-confirm{flex-basis:100%; margin:0;}
+  /* Une sortie automatique se coche en cliquant n'importe où sur son encadré. */
+  #page-admin .admin-row-main.cochable{cursor:pointer; transition:background .15s, box-shadow .15s; border-radius:14px;}
+  #page-admin .admin-row-main.cochable:hover{background:rgba(79,180,255,0.05);}
+  #page-admin .admin-row-main.cochable.choisie{background:rgba(79,180,255,0.12); box-shadow:inset 0 0 0 1.5px rgba(79,180,255,0.65);}
+  #page-admin .att-cover{position:relative; flex:none; width:90px; height:90px; padding:0; border:0; border-radius:10px; overflow:hidden; background:none; cursor:zoom-in;}
+  #page-admin .att-cover img{width:100%; height:100%; object-fit:cover; display:block;}
+  #page-admin .att-cover i{position:absolute; right:5px; bottom:5px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,.7); display:grid; place-items:center; font-style:normal; font-size:11px; color:#fff; opacity:.9;}
+  /* La visionneuse : pochette en grand, extraits, passage d'une sortie à l'autre. */
+  .vis-att{position:fixed; inset:0; z-index:500; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(3,6,12,.86); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);}
+  .vis-att[hidden]{display:none;}
+  .vis-att-boite{position:relative; width:min(880px, 100%); max-height:100%; overflow:auto; display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1fr); gap:22px; padding:20px; border-radius:22px; background:#0d1118; border:1px solid rgba(255,255,255,.14); box-shadow:0 40px 100px -30px rgba(0,0,0,.9);}
+  .vis-att-pochette{position:relative; align-self:start; aspect-ratio:1; border-radius:14px; overflow:hidden; background:#151a23;}
+  .vis-att-pochette img{width:100%; height:100%; object-fit:cover; display:block;}
+  .vis-att-jouer{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:72px; height:72px; border-radius:50%; border:0; background:rgba(0,0,0,.62); color:#fff; font-size:26px; cursor:pointer; display:grid; place-items:center; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
+  .vis-att-jouer:hover{background:var(--blue-bright,#4fb4ff); color:#04121f;}
+  .vis-att-texte{display:flex; flex-direction:column; gap:6px; min-width:0;}
+  .vis-att-texte h3{margin:0; font-size:22px; line-height:1.15;}
+  .vis-att-texte p{margin:0; color:var(--ink-soft,#b9c0cc); font-size:14px;}
+  .vis-att-pistes{list-style:none; margin:10px 0 0; padding:0; display:flex; flex-direction:column; gap:4px; max-height:240px; overflow:auto;}
+  .vis-att-pistes button{width:100%; display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,.08); background:rgba(255,255,255,.03); color:inherit; font:inherit; text-align:left; cursor:pointer;}
+  .vis-att-pistes button:hover{background:rgba(255,255,255,.07);}
+  .vis-att-pistes button.jouant{border-color:rgba(79,180,255,.7); background:rgba(79,180,255,.14);}
+  .vis-att-pistes button[disabled]{opacity:.5; cursor:default;}
+  .vis-att-pistes b{flex:none; width:22px; text-align:center; font-weight:600; color:var(--muted,#8b93a1);}
+  .vis-att-pistes span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .vis-att-barre{display:flex; flex-wrap:wrap; gap:8px; margin-top:auto; padding-top:12px;}
+  .vis-att-barre .btn,.vis-att-barre button{padding:9px 16px;}
+  .vis-att-nav{display:flex; align-items:center; gap:8px; justify-content:space-between; color:var(--muted,#8b93a1); font-size:13px;}
+  .vis-att-nav button{width:38px; height:38px; border-radius:50%; border:1px solid rgba(255,255,255,.16); background:rgba(255,255,255,.05); color:#fff; cursor:pointer; font-size:16px;}
+  .vis-att-nav button:disabled{opacity:.35; cursor:default;}
+  .vis-att-fermer{position:absolute; right:12px; top:10px; width:34px; height:34px; border-radius:50%; border:0; background:rgba(255,255,255,.1); color:#fff; cursor:pointer; font-size:16px; z-index:2;}
+  .vis-att-aide{font-size:12px; color:var(--muted,#8b93a1);}
+  @media (max-width:700px){ .vis-att-boite{grid-template-columns:1fr; gap:14px; padding:14px;} .vis-att-pochette{max-width:360px; margin:0 auto; width:100%;} }
   #page-admin .attente-case{width:18px; height:18px; margin:2px 12px 0 0; flex:none; accent-color:var(--blue-bright); cursor:pointer;}
   #page-admin .attente-pager{display:flex; align-items:center; justify-content:center; gap:14px; margin-top:18px; font-size:13px; color:var(--muted);}
   #page-admin .attente-pager:empty{display:none;}
@@ -26119,7 +26152,28 @@ function cocherAttente(id, coche){
   if(coche) attente.choisies.add(id);
   else attente.choisies.delete(id);
 
+  marquerLigneAttente(id);
   renderAttenteLot();
+}
+
+
+// L'encadré d'une sortie automatique : un clic n'importe où (hors boutons, liens et champs) la coche ou la décoche.
+function clicLigneAttente(e, id){
+
+  if(e.target.closest('button, a, input, select, textarea, label, .listen-row, [data-zoom]')) return;
+  if(window.getSelection && String(window.getSelection()).length) return;
+
+  cocherAttente(id, !attente.choisies.has(id));
+
+  const laCase = document.querySelector('#submission-' + CSS.escape(id) + ' .attente-case');
+  if(laCase) laCase.checked = attente.choisies.has(id);
+}
+
+
+function marquerLigneAttente(id){
+
+  const ligne = document.querySelector('#submission-' + CSS.escape(id) + ' .admin-row-main');
+  if(ligne) ligne.classList.toggle('choisie', attente.choisies.has(id));
 }
 
 
@@ -26131,6 +26185,7 @@ function cocherToutAttente(coche){
   });
 
   document.querySelectorAll('#artistSubmissionsList .attente-case').forEach(c => { c.checked = coche; });
+  document.querySelectorAll('#artistSubmissionsList .admin-row-main.cochable').forEach(l => l.classList.toggle('choisie', coche));
 
   renderAttenteLot();
 }
@@ -26207,6 +26262,207 @@ async function refuserLot(){
 }
 
 
+
+// ---- La visionneuse : pochette en grand, extraits, passage d'une sortie à l'autre ----
+
+var visAtt = { id: null, audio: null, piste: -1, pistes: [], caches: {}, lire: false };
+
+function pochetteGrande(url){
+  const u = safeUrl(url);
+  return /dzcdn\.net/.test(u) ? u.replace(/\/\d+x\d+-[0-9a-f]{6}-\d+-\d+-\d+\.jpg/, '/1000x1000-000000-80-0-0.jpg') : u;
+}
+
+function arreterExtraitAttente(){
+  if(visAtt.audio){ try{ visAtt.audio.pause(); }catch(e){} visAtt.audio.src = ''; visAtt.audio = null; }
+  visAtt.piste = -1;
+  document.querySelectorAll('#visAtt .vis-att-pistes button.jouant').forEach(b => b.classList.remove('jouant'));
+  const g = document.getElementById('visAttJouer');
+  if(g) g.textContent = '▶';
+}
+
+function ouvrirVisionneuseAttente(id){
+
+  if(!attente.data.some(s => s.id === id)) return;
+
+  let boite = document.getElementById('visAtt');
+
+  if(!boite){
+    boite = document.createElement('div');
+    boite.id = 'visAtt';
+    boite.className = 'vis-att';
+    boite.setAttribute('role', 'dialog');
+    boite.setAttribute('aria-modal', 'true');
+    boite.setAttribute('aria-label', 'Pochette et extrait');
+    boite.addEventListener('click', e => { if(e.target === boite) fermerVisionneuseAttente(); });
+    document.body.appendChild(boite);
+    document.addEventListener('keydown', clavierVisionneuseAttente);
+  }
+
+  boite.hidden = false;
+  visAtt.id = id;
+  rendreVisionneuseAttente();
+}
+
+function fermerVisionneuseAttente(){
+  arreterExtraitAttente();
+  visAtt.lire = false;
+  const boite = document.getElementById('visAtt');
+  if(boite) boite.hidden = true;
+}
+
+function clavierVisionneuseAttente(e){
+
+  const boite = document.getElementById('visAtt');
+  if(!boite || boite.hidden) return;
+  if(e.target && /^(input|textarea|select)$/i.test(e.target.tagName)) return;
+
+  if(e.key === 'Escape'){ e.preventDefault(); fermerVisionneuseAttente(); }
+  else if(e.key === 'ArrowRight'){ e.preventDefault(); naviguerVisionneuseAttente(1); }
+  else if(e.key === 'ArrowLeft'){ e.preventDefault(); naviguerVisionneuseAttente(-1); }
+  else if(e.key === 's' || e.key === 'S'){ e.preventDefault(); basculerSelectionVisionneuse(); }
+}
+
+function naviguerVisionneuseAttente(sens){
+
+  const i = attente.data.findIndex(s => s.id === visAtt.id);
+  const j = i + sens;
+  if(i < 0 || j < 0 || j >= attente.data.length) return;
+
+  visAtt.lire = !!visAtt.audio;   // si un extrait jouait, celui de la suivante démarre tout seul
+  arreterExtraitAttente();
+  visAtt.id = attente.data[j].id;
+  rendreVisionneuseAttente();
+}
+
+function basculerSelectionVisionneuse(){
+
+  const sortie = attente.data.find(s => s.id === visAtt.id);
+  if(!sortie || !sortie.source) return;
+
+  cocherAttente(sortie.id, !attente.choisies.has(sortie.id));
+
+  const laCase = document.querySelector('#submission-' + CSS.escape(sortie.id) + ' .attente-case');
+  if(laCase) laCase.checked = attente.choisies.has(sortie.id);
+
+  const b = document.getElementById('visAttSel');
+  if(b) b.textContent = attente.choisies.has(sortie.id) ? 'Retirer de la sélection' : 'Sélectionner';
+}
+
+function decisionVisionneuseAttente(quoi){
+
+  const id = visAtt.id;
+  fermerVisionneuseAttente();
+
+  if(quoi === 'valider') askApproveSubmission(id);
+  else askRejectSubmission(id);
+
+  const ligne = document.getElementById('submission-' + id);
+  if(ligne) ligne.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function rendreVisionneuseAttente(){
+
+  const boite = document.getElementById('visAtt');
+  const i = attente.data.findIndex(s => s.id === visAtt.id);
+  if(!boite || i < 0) return;
+
+  const s = attente.data[i];
+  const id = s.id;
+  const choisie = attente.choisies.has(id);
+  const date = s.release_date
+    ? new Date(s.release_date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+
+  boite.innerHTML = `
+    <div class="vis-att-boite">
+      <button type="button" class="vis-att-fermer" aria-label="Fermer" onclick="fermerVisionneuseAttente()">✕</button>
+      <div class="vis-att-pochette">
+        <img src="${escapeAttribute(pochetteGrande(s.cover_url))}" alt="${escapeAttribute(s.track_title)}"
+             onerror="this.onerror=null; this.src='${escapeAttribute(safeUrl(s.cover_url))}'">
+        <button type="button" class="vis-att-jouer" id="visAttJouer" aria-label="Écouter un extrait" onclick="jouerExtraitAttente(0)">▶</button>
+      </div>
+      <div class="vis-att-texte">
+        <div class="vis-att-nav">
+          <button type="button" aria-label="Sortie précédente" ${i === 0 ? 'disabled' : ''} onclick="naviguerVisionneuseAttente(-1)">←</button>
+          <span>${i + 1} sur ${attente.data.length} (cette page)</span>
+          <button type="button" aria-label="Sortie suivante" ${i >= attente.data.length - 1 ? 'disabled' : ''} onclick="naviguerVisionneuseAttente(1)">→</button>
+        </div>
+        ${originePastille(s)}
+        <h3>${escapeHtml(s.track_title)}${s.release_type ? ` <small style="font-weight:500; color:var(--muted);">— ${escapeHtml(s.release_type)}</small>` : ''}</h3>
+        <p>${escapeHtml(s.artist_name)}${date ? ' · sortie le ' + escapeHtml(date) : ''}</p>
+        ${featsResumeHtml(s)}
+        <ul class="vis-att-pistes" id="visAttPistes" aria-label="Extraits"><li style="color:var(--muted); font-size:13px;">Chargement des extraits…</li></ul>
+        <div class="vis-att-barre">
+          ${s.source ? `<button type="button" class="btn btn-ghost" id="visAttSel" onclick="basculerSelectionVisionneuse()">${choisie ? 'Retirer de la sélection' : 'Sélectionner'}</button>` : ''}
+          <button type="button" class="btn btn-primary" onclick="decisionVisionneuseAttente('valider')">Valider</button>
+          <button type="button" class="reject" onclick="decisionVisionneuseAttente('refuser')">Refuser</button>
+        </div>
+        <span class="vis-att-aide">← → pour changer de sortie · S pour sélectionner · Échap pour fermer</span>
+      </div>
+    </div>`;
+
+  // Les extraits : adresses valables un quart d'heure, relues si besoin.
+  let pistes = visAtt.caches[id] && Date.now() - visAtt.caches[id].at < 8 * 60 * 1000 ? visAtt.caches[id].pistes : null;
+
+  if(!pistes){
+    try{
+      const { data, error } = await supabaseClient.rpc('attente_pistes', { p_id: id });
+      if(error) throw error;
+      pistes = Array.isArray(data) ? data : [];
+      visAtt.caches[id] = { at: Date.now(), pistes };
+    }catch(erreur){
+      pistes = [];
+    }
+  }
+
+  if(visAtt.id !== id) return;   // on est passé à une autre sortie pendant le chargement
+
+  visAtt.pistes = pistes;
+
+  const liste = document.getElementById('visAttPistes');
+  if(!liste) return;
+
+  liste.innerHTML = pistes.length
+    ? pistes.map((p, n) => `
+        <li><button type="button" ${p.apercu ? '' : 'disabled'} onclick="jouerExtraitAttente(${n})">
+          <b>${n + 1}</b><span>${escapeHtml(p.titre)}</span><em style="font-style:normal; font-size:12px; color:var(--muted);">${p.apercu ? '▶ 30 s' : 'pas d\'extrait'}</em>
+        </button></li>`).join('')
+    : '<li style="color:var(--muted); font-size:13px;">Aucun extrait disponible pour cette sortie.</li>';
+
+  if(visAtt.lire){
+    visAtt.lire = false;
+    jouerExtraitAttente(Math.max(0, pistes.findIndex(p => p.apercu)));
+  }
+}
+
+function jouerExtraitAttente(n){
+
+  const p = visAtt.pistes[n];
+
+  // Un second clic sur le morceau qui joue le met en pause.
+  if(visAtt.audio && visAtt.piste === n){ arreterExtraitAttente(); return; }
+
+  if(!p || !p.apercu){
+    // Pistes pas encore chargées : l'extrait démarrera dès qu'elles le sont.
+    if(!visAtt.pistes.length) visAtt.lire = true;
+    return;
+  }
+
+  arreterExtraitAttente();
+
+  const audio = new Audio(p.apercu);
+  visAtt.audio = audio;
+  visAtt.piste = n;
+
+  audio.addEventListener('ended', () => { if(visAtt.audio === audio) arreterExtraitAttente(); });
+  audio.play().catch(() => { if(visAtt.audio === audio) arreterExtraitAttente(); });
+
+  document.querySelectorAll('#visAttPistes button').forEach((b, k) => b.classList.toggle('jouant', k === n));
+  const g = document.getElementById('visAttJouer');
+  if(g) g.textContent = '❚❚';
+}
+
+
 function sortieEnAttenteHtml(submission){
 
   const auto = !!submission.source;
@@ -26236,7 +26492,8 @@ function sortieEnAttenteHtml(submission){
 
     <div class="admin-row stacked" id="submission-${id}">
 
-     <div class="admin-row-main">
+     <div class="admin-row-main${auto ? ' cochable' : ''}${auto && attente.choisies.has(id) ? ' choisie' : ''}"
+          ${auto ? `onclick="clicLigneAttente(event, '${id}')"` : ''}>
 
       ${
         auto
@@ -26248,11 +26505,12 @@ function sortieEnAttenteHtml(submission){
 
       <!-- COVER -->
 
-      <img
-        src="${escapeAttribute(safeUrl(submission.cover_url))}"
-        alt="${escapeHtml(submission.track_title)}"
-        style="width:90px; height:90px; flex-shrink:0; object-fit:cover;"
-      >
+      <button type="button" class="att-cover" data-zoom title="Agrandir la pochette et écouter un extrait"
+              aria-label="Agrandir la pochette de ${escapeAttribute(submission.track_title)} et écouter un extrait"
+              onclick="ouvrirVisionneuseAttente('${id}')">
+        <img src="${escapeAttribute(safeUrl(submission.cover_url))}" alt="">
+        <i aria-hidden="true">▶</i>
+      </button>
 
 
       <!-- INFORMATIONS -->
