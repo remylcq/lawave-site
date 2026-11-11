@@ -4282,6 +4282,7 @@
   .footer-liens a:hover, .footer-liens a:focus-visible, .footer-prive a:hover, .footer-prive a:focus-visible{color:var(--ink);}
   .footer-liens a:hover::after, .footer-liens a:focus-visible::after,
   .footer-prive a:hover::after, .footer-prive a:focus-visible::after{transform:scaleX(1);}
+  .footer-liens .langue{margin-left:4px;}
   .footer-liens .footer-aide{color:var(--ink-soft);}
   .footer-liens .footer-aide span{display:inline-block; transition:transform .25s var(--ease);}
   .footer-liens .footer-aide:hover span{transform:translateX(4px);}
@@ -7494,12 +7495,12 @@
         <a href="#mentions" onclick="goTo('mentions'); return false;">Mentions légales</a>
         <a href="#confidentialite" onclick="goTo('confidentialite'); return false;">Confidentialité</a>
         <a class="footer-aide" href="#aide" onclick="goTo('aide'); return false;">Aide et informations<span aria-hidden="true">→</span></a>
-      </nav>
-      <div class="footer-confort">
         <span class="taille-texte langue" role="group" aria-label="Langue" data-i18n-skip>
           <button type="button" data-l="fr" onclick="reglerLangue('fr')" aria-pressed="false" aria-label="Français">FR</button>
           <button type="button" data-l="en" onclick="reglerLangue('en')" aria-pressed="false" aria-label="English">EN</button>
         </span>
+      </nav>
+      <div class="footer-confort">
         <button type="button" id="installerApp" class="installer-app" hidden onclick="installerApplication()">Installer l'application</button>
       </div>
       <!-- Les deux espaces réservés : photographes (accréditations) et équipe. -->
