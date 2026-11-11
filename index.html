@@ -19038,14 +19038,45 @@ function villesDuPays(cle){
 
   const villes = {};
 
+  // Filtre « Concerts ce mois-ci » : les artistes sont placés là où ils jouent, pas chez eux.
+  if(carteConcerts){
+
+    const parMinuscules = {};
+    Object.values(artistsByHandle).forEach(p => { parMinuscules[String(p.instagram_handle || '').toLowerCase()] = p; });
+
+    carteConcerts.forEach((liste, handle) => {
+
+      const profil = parMinuscules[handle];
+      if(!profil) return;
+
+      liste.forEach(c => {
+
+        const lat = Number(c.lat), lon = Number(c.lon);
+        // La carte ne couvre que la France, l'outre-mer, la Belgique et la Suisse : un concert ailleurs n'y a pas de place.
+        if(!['FR','BE','CH','GP','MQ','RE','GF','YT','NC','PF','PM','WF','BL','MF'].includes(String(c.pays || '').toUpperCase())) return;
+        if(!isFinite(lat) || !isFinite(lon) || paysDuLieu(lat, lon) !== cle) return;
+
+        const clePoint = String(c.ville).toLowerCase() + '|' + lat.toFixed(3) + '|' + lon.toFixed(3);
+
+        if(!villes[clePoint]){
+          villes[clePoint] = { cle: clePoint, nom: c.ville, lat, lon, pays: cle, artistes: [] };
+        }
+
+        villes[clePoint].artistes.push(Object.assign({}, profil, { _concert: c }));
+      });
+    });
+
+    return Object.values(villes).sort((a, b) =>
+      b.artistes.length - a.artistes.length ||
+      a.nom.localeCompare(b.nom)
+    );
+  }
+
   Object.values(artistsByHandle).forEach(profil => {
 
     const lieu = lieuDuProfil(profil);
 
     if(!lieu || paysDuLieu(lieu.lat, lieu.lon) !== cle) return;
-
-    // Le filtre « Concerts ce mois-ci » ne laisse que les artistes qui jouent bientôt.
-    if(carteConcerts && !carteConcerts.has(String(profil.instagram_handle || '').toLowerCase())) return;
 
     const { lat, lon } = lieu;
     const clePoint = profil.ville.toLowerCase() + '|' + lat.toFixed(3) + '|' + lon.toFixed(3);
@@ -19100,7 +19131,7 @@ function artistesLocalises(){
 var carteComptesSorties = null;
 var carteComptesLuLe = 0;
 
-// « Concerts ce mois-ci » : quand le filtre est actif, les artistes qui jouent dans les 30 jours (handle en minuscules -> prochain concert).
+// « Concerts ce mois-ci » : quand le filtre est actif, les concerts des 30 jours (handle en minuscules -> ses concerts, avec lieu et position).
 var carteConcerts = null;
 
 function sortiesParArtisteCarte(){
@@ -19269,7 +19300,7 @@ async function basculerConcertsCarte(){
 
   try{
 
-    const { data, error } = await supabaseClient.rpc('concerts_a_venir', { p_jours: 30 });
+    const { data, error } = await supabaseClient.rpc('concerts_carte', { p_jours: 30 });
 
     if(error) throw error;
 
@@ -19280,10 +19311,15 @@ async function basculerConcertsCarte(){
       return;
     }
 
-    carteConcerts = new Map(liste.map(c => [String(c.handle).toLowerCase(), c]));
+    carteConcerts = new Map();
+    liste.forEach(c => {
+      const h = String(c.handle).toLowerCase();
+      if(!carteConcerts.has(h)) carteConcerts.set(h, []);
+      carteConcerts.get(h).push(c);
+    });
     bouton.setAttribute('aria-pressed', 'true');
     bouton.classList.add('on');
-    messageActionsCarte(liste.length + ' artiste' + (liste.length > 1 ? 's' : '') + ' en concert dans les 30 prochains jours.');
+    messageActionsCarte(liste.length + ' concert' + (liste.length > 1 ? 's' : '') + ' dans les 30 prochains jours : les artistes sont placés là où ils jouent.');
     afficherPaysCarte(true, false);
 
   }catch(e){
@@ -20000,10 +20036,10 @@ function ligneArtisteCarte(profil, rang, handleTrouve){
   const trouve = handleTrouve && profil.instagram_handle === handleTrouve;
 
   // Avec le filtre des concerts, la ligne dit où et quand l'artiste joue.
-  const concert = carteConcerts && carteConcerts.get(String(profil.instagram_handle || '').toLowerCase());
+  const concert = profil._concert;
   const sous = concert
-    ? 'Concert le ' + new Date(concert.date + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) +
-      ' · ' + concert.ville
+    ? new Date(concert.date + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) +
+      ' · ' + (concert.salle || concert.ville)
     : libelleSortiesCarte(profil.instagram_handle).replace(' sur La Wave', '');
 
   return `
