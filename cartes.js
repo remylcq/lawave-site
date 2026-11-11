@@ -672,8 +672,8 @@
   .ct-dos[data-r="2"]{box-shadow:0 0 0 1px rgba(79,180,255,.5), 0 0 26px -2px rgba(79,180,255,.55), 0 18px 40px -16px rgba(0,0,0,.9);}
   .ct-dos[data-r="3"]{box-shadow:0 0 0 1px rgba(168,121,255,.6), 0 0 34px 0 rgba(168,121,255,.6), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls 1.6s ease-in-out infinite; --pc:rgba(168,121,255,.75);}
   .ct-dos[data-r="4"]{box-shadow:0 0 0 1px rgba(242,193,78,.7), 0 0 42px 2px rgba(242,193,78,.65), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls 1.1s ease-in-out infinite; --pc:rgba(242,193,78,.85);}
-  .ct-dos[data-r="5"]{box-shadow:0 0 0 1px rgba(255,92,138,.8), 0 0 50px 4px rgba(255,92,138,.7), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls .8s ease-in-out infinite; --pc:rgba(255,120,180,.95);}
-  .ct-dos[data-r="6"]{box-shadow:0 0 0 1px rgba(210,248,255,.95), 0 0 60px 6px rgba(143,239,255,.8), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls .65s ease-in-out infinite; --pc:rgba(190,246,255,1);}
+  .ct-dos[data-r="5"]{box-shadow:0 0 0 1px rgba(242,193,78,.8), 0 0 46px 3px rgba(242,193,78,.7), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls 1s ease-in-out infinite; --pc:rgba(242,193,78,.9);}
+  .ct-dos[data-r="6"]{box-shadow:0 0 0 1px rgba(255,90,100,.95), 0 0 52px 4px rgba(255,59,71,.75), 0 18px 40px -16px rgba(0,0,0,.9); animation:ctPouls .75s ease-in-out infinite; --pc:rgba(255,80,90,.95);}
   .ct-place.charge .ct-volte{animation:ctCharge .09s linear infinite;}
   .ct-place.charge .ct-dos{filter:brightness(1.35);}
   .ct-etiq{position:absolute; left:50%; top:calc(100% + 12px); transform:translateX(-50%); z-index:4; white-space:nowrap; pointer-events:none;

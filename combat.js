@@ -100,8 +100,8 @@
   .cbt-canvas{position:absolute; inset:0; width:100%; height:100%; display:block;}
   .cbt-couche{position:absolute; inset:0; pointer-events:none; overflow:hidden;}
   .cbt-vig{position:absolute; inset:0; pointer-events:none; background:radial-gradient(ellipse at 50% 56%, rgba(0,0,0,0) 55%, rgba(3,5,10,.5) 100%);}
-  .cbt-nuit{position:absolute; inset:0; pointer-events:none; opacity:0; background:radial-gradient(ellipse at 50% 56%, rgba(4,6,14,.1) 25%, rgba(3,4,10,.78) 100%);}
-  .cbt-rouge{position:absolute; inset:0; pointer-events:none; opacity:0; background:radial-gradient(ellipse at center, rgba(255,40,40,0) 46%, rgba(255,30,30,.62) 100%);}
+  .cbt-nuit{position:absolute; inset:0; pointer-events:none; opacity:0; visibility:hidden; background:radial-gradient(ellipse at 50% 56%, rgba(4,6,14,.1) 25%, rgba(3,4,10,.78) 100%);}
+  .cbt-rouge{position:absolute; inset:0; pointer-events:none; opacity:0; visibility:hidden; background:radial-gradient(ellipse at center, rgba(255,40,40,0) 46%, rgba(255,30,30,.62) 100%);}
   /* en haut : les deux jauges d'équipe, comme dans un jeu de combat */
   .cbt-haut{position:absolute; left:0; right:0; top:0; display:grid; grid-template-columns:minmax(0, 1fr) auto minmax(0, 1fr); align-items:start; gap:12px; padding:calc(12px + env(safe-area-inset-top, 0px)) 18px 30px; background:linear-gradient(180deg, rgba(3,5,10,.86), rgba(3,5,10,0)); pointer-events:none;}
   .cbt-camp{display:grid; gap:6px; min-width:0;}
@@ -131,7 +131,7 @@
   @keyframes cbtLog{0%{opacity:0;} 6%{opacity:1;} 80%{opacity:1;} 100%{opacity:0;}}
   /* les commandes */
   .cbt-bas{position:absolute; right:14px; bottom:calc(14px + env(safe-area-inset-bottom, 0px)); display:flex; gap:8px; z-index:6;}
-  .cbt-btn{all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:46px; height:42px; padding:0 15px; border-radius:12px; font-size:13px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:#fff; background:rgba(8,11,18,.74); border:1px solid rgba(255,255,255,.24); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
+  .cbt-btn{all:unset; box-sizing:border-box; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:46px; height:42px; padding:0 15px; border-radius:12px; font-size:13px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:#fff; background:rgba(8,11,18,.74); border:1px solid rgba(255,255,255,.24);}
   .cbt-btn:hover{background:rgba(34,42,62,.9);} .cbt-btn:active{transform:scale(.96);} .cbt-btn:focus-visible{outline:2px solid #4FB4FF; outline-offset:2px;}
   .cbt-btn.principal{background:linear-gradient(180deg, #2C9BEF, #1478C9); border-color:rgba(255,255,255,.3); box-shadow:0 8px 24px -10px rgba(20,137,222,.9);}
   .cbt-btn.principal:hover{background:linear-gradient(180deg, #3AA6F5, #1A83D6);}
@@ -177,8 +177,8 @@
   .cbt-vs-p.ennemi{right:0; padding-left:calc(21% + 10px); background:linear-gradient(315deg, #1f040a, #8a0f33 72%, #e6396f); clip-path:polygon(33% 0, 100% 0, 100% 100%, 0 100%);}
   .cbt-vs-p small{font-size:12px; font-weight:800; letter-spacing:.22em; text-transform:uppercase; color:rgba(255,255,255,.82);}
   .cbt-vs-p b{font-family:var(--cbt-titre); font-weight:400; font-size:clamp(20px, 3.4vw, 40px); line-height:1.05; text-transform:uppercase; text-align:center; max-width:100%; overflow-wrap:anywhere; text-shadow:0 3px 0 rgba(0,0,0,.5);}
-  .cbt-vs-l{display:flex; flex-wrap:wrap; justify-content:center; gap:10px; max-width:360px;}
-  .cbt-vs-l span{width:clamp(50px, 8.5vw, 96px); aspect-ratio:4 / 5; border-radius:8px; background:#111 50% 20% / cover; box-shadow:0 0 0 2px #fff, 0 8px 22px rgba(0,0,0,.5);}
+  .cbt-vs-l{display:flex; flex-wrap:wrap; justify-content:center; gap:14px; max-width:600px;}
+  .cbt-vs-l span{width:clamp(64px, 10vw, 170px); aspect-ratio:4 / 5; border-radius:8px; background:#111 50% 20% / cover; box-shadow:0 0 0 2px #fff, 0 8px 22px rgba(0,0,0,.5);}
   .cbt-vs-c{position:absolute; left:50%; top:50%; font-family:var(--cbt-titre); font-style:italic; font-size:clamp(70px, 15vw, 160px); line-height:1; color:#fff; -webkit-text-stroke:10px #0a0c12; paint-order:stroke fill; text-shadow:0 7px 0 #0a0c12, 0 0 44px rgba(255,215,106,.9);}
   .cbt-vs-e{position:absolute; left:0; right:0; bottom:8%; text-align:center; font-size:13px; font-weight:800; letter-spacing:.24em; text-transform:uppercase; color:#ffd76a; text-shadow:0 2px 8px #000;}
   .cbt-titre{position:absolute; left:0; right:0; top:32%; text-align:center;}
@@ -230,7 +230,10 @@
     .cbt-nb{font-size:30px; -webkit-text-stroke-width:4px;} .cbt-nb.sig{font-size:38px;} .cbt-nb.crit{font-size:44px;} .cbt-nb.bou, .cbt-nb.ref{font-size:22px;}
     .cbt-ruban{height:48px;} .cbt-ruban span{font-size:26px;} .cbt-ruban.go{height:64px;} .cbt-ruban.go span{font-size:38px;}
     .cbt-cut{height:76px; gap:12px;} .cbt-cut-img{width:92px; height:115px;} .cbt-cut-t b{font-size:28px;} .cbt-cut-t small{font-size:10px;}
-    .cbt-vs-p{gap:10px;} .cbt-vs-p small{font-size:10px; letter-spacing:.16em;} .cbt-vs-c, .cbt-titre b{-webkit-text-stroke-width:6px;}
+    .cbt-vs-p{gap:10px; left:0; right:0; width:auto;} .cbt-vs-p small{font-size:10px; letter-spacing:.16em;}
+    .cbt-vs-p.ennemi{bottom:46%; padding:74px 16px 12%; clip-path:polygon(0 0, 100% 0, 100% 80%, 0 100%); background:linear-gradient(200deg, #1f040a, #8a0f33 72%, #e6396f);}
+    .cbt-vs-p.ami{top:40%; padding:22% 16px 96px; clip-path:none; background:linear-gradient(20deg, #04101f, #0f4c8a 72%, #2f8fe6);}
+    .cbt-vs-l{gap:10px;} .cbt-vs-l span{width:clamp(60px, 24vw, 120px);} .cbt-vs-c{top:47%;} .cbt-vs-e{bottom:calc(64px + env(safe-area-inset-bottom, 0px));} .cbt-vs-c, .cbt-titre b{-webkit-text-stroke-width:6px;}
     .cbt-fin-t h2{font-size:42px;}
     .tr-uc{width:min(104px, 100%);} .tr-ligne{gap:8px;} .tr-terrain{inset:104px 0 64px;}
   }
@@ -496,6 +499,11 @@
   const vitesseSauvee = () => { try{ const v = Number(localStorage.getItem(VITESSE_CLE)); return v >= 1 && v <= 3 ? v : 1; }catch(e){ return 1; } };
   const sauverVitesse = (v) => { try{ localStorage.setItem(VITESSE_CLE, String(v)); }catch(e){ /* sans mémoire */ } };
 
+  // La qualité de la scène 3D : une machine qui a peiné démarre allégée les fois suivantes (retenu une semaine).
+  const QUALITE_CLE = 'wc-combat-qualite';
+  const qualiteBasse = () => { try{ const d = Number(localStorage.getItem(QUALITE_CLE)); return d > 0 && Date.now() - d < 7 * 864e5; }catch(e){ return false; } };
+  const noterQualiteBasse = () => { try{ localStorage.setItem(QUALITE_CLE, String(Date.now())); }catch(e){ /* sans mémoire */ } };
+
   const webglOk = () => { try{ const c = document.createElement('canvas'); return !!(c.getContext('webgl2') || c.getContext('webgl')); }catch(e){ return false; } };
   const chargerImage = (url) => new Promise((ok) => {
     if(!url) return ok(null);
@@ -719,8 +727,8 @@
       jauges[0].image(v, sc.passer); jauges[1].image(v, sc.passer);
       nuitA += (nuitC - nuitA) * Math.min(1, brut * 9);
       const s = nuitA < .01 ? '0' : nuitA.toFixed(2);
-      if(s !== nuitS){ nuitS = s; nuit.style.opacity = s; }
-      if(rougeA > 0){ rougeA = Math.max(0, rougeA - brut * 2.4); rouge.style.opacity = rougeA.toFixed(2); }
+      if(s !== nuitS){ nuitS = s; nuit.style.opacity = s; nuit.style.visibility = s === '0' ? 'hidden' : 'visible'; }   // un voile éteint ne coûte plus rien à composer
+      if(rougeA > 0){ rougeA = Math.max(0, rougeA - brut * 2.4); rouge.style.opacity = rougeA.toFixed(2); if(rougeA <= 0) rouge.style.visibility = 'hidden'; }
     });
 
     // l'ordre de jeu (par Vitesse), le journal des derniers coups et le bilan du combat
@@ -781,7 +789,7 @@
       finOrdre: eteindre,
       pv(c, p, valeur){ pv[c][p - 1] = valeur; majTotal(c); },
       assombrir(x){ nuitC = x; },
-      eclatRouge(){ if(!sc.passer) rougeA = 1; },
+      eclatRouge(){ if(!sc.passer){ rougeA = 1; rouge.style.visibility = 'visible'; } },
       // un nombre qui jaillit d'une carte (dégâts, soins, bouclier) ; xy() donne sa place à l'écran à chaque image
       nombre(xy, html, classe){
         const dx = (Math.random() - .5) * 40, sens = Math.random() < .5 ? -1 : 1, gros = classe === 'crit';
@@ -1012,9 +1020,11 @@
 
     const M = sc.moteur, V3 = THREE.Vector3;
     const mobile = window.innerWidth < 700;
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2));
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // la qualité : une image nette sans calculer plus de points que nécessaire ; allégée d'office si la machine a peiné la dernière fois
+    let palier = qualiteBasse() ? 2 : 0;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, palier ? 1 : 1.5));
+    renderer.shadowMap.enabled = !palier;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.0;
     const canvas = renderer.domElement;
@@ -1051,7 +1061,7 @@
     scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x9a968a, 1.1));
     const clef = new THREE.DirectionalLight(0xfff1d6, 2.6);
     clef.position.set(-4, 11, 7); clef.target.position.set(0, 0, 0);
-    clef.castShadow = true; clef.shadow.mapSize.set(mobile ? 1024 : 2048, mobile ? 1024 : 2048);
+    clef.castShadow = true; clef.shadow.mapSize.set(1024, 1024);
     clef.shadow.camera.left = -9; clef.shadow.camera.right = 9; clef.shadow.camera.top = 9; clef.shadow.camera.bottom = -9; clef.shadow.camera.far = 30; clef.shadow.bias = -.0004;
     scene.add(clef, clef.target);
     const spots = [];
@@ -1752,7 +1762,23 @@
     };
 
     // --- chaque image : l'ambiance, les cartes, les particules, la caméra, les jauges, le rendu
-    let tFrames = 0, nFrames = 0, adapte = false;
+    // tout préparer pendant l'écran de présentation : textures envoyées à la carte graphique, programmes compilés.
+    // Sans cela, le premier éclat, la première entaille, le premier K.O. feraient chacun un à-coup.
+    try{
+      jetables.forEach((t) => renderer.initTexture(t)); tous.forEach((f) => renderer.initTexture(f.tex)); if(dos) renderer.initTexture(dos);
+      const chauffe = new THREE.Group();
+      chauffe.add(lutin(texDoux, 0xffffff, true), lutin(texDoux, 0xffffff, false), new THREE.Mesh(geoPlan, matFx(texAnneau, 0xffffff, true)), new THREE.Mesh(geoPlan, matFx(texAnneau, 0xffffff, false)),
+        new THREE.Mesh(geoFace, new THREE.MeshBasicMaterial({ map: tous[0].tex, transparent: true, depthWrite: false, fog: false })),
+        new THREE.Mesh(geoFace, new THREE.MeshBasicMaterial({ map: tous[0].tex, transparent: true, side: THREE.DoubleSide, fog: false })));
+      chauffe.position.set(0, -60, 0); scene.add(chauffe);
+      tous.forEach((f) => { f.pivot.visible = true; f.base.visible = true; f.bulle.visible = true; });
+      camera.position.copy(accueil.pos); camera.lookAt(accueil.look); camera.updateMatrixWorld(true);
+      renderer.compile(scene, camera);
+      tous.forEach((f) => { f.pivot.visible = false; f.base.visible = false; f.bulle.visible = false; });
+      scene.remove(chauffe); libere(chauffe);
+    }catch(e){ /* la scène se préparera au fil de l'eau */ }
+    if(palier) poussiere.pts.visible = false;
+    let tFrames = 0, nFrames = -40;   // les 40 premières images (mise en route) ne comptent pas
     tous.forEach(majPlaque);
     M.surImage((brut, v) => {
       if(mort) return;
@@ -1765,8 +1791,8 @@
       clef.intensity = lum.clef * (.22 + .78 * am);
       flash.intensity *= Math.pow(.0009, brut);
       if(cielM) cielM.rotation.y += brut * .004;
-      for(let i = 0; i < poussiere.N; i++){ let y = poussiere.pos[i * 3 + 1] + poussiere.vit[i] * brut; if(y > 9) y = 0; poussiere.pos[i * 3 + 1] = y; poussiere.pos[i * 3] += Math.sin(t + i) * .1 * brut; }
-      poussiere.pts.geometry.attributes.position.needsUpdate = true;
+      if(poussiere.pts.visible){ for(let i = 0; i < poussiere.N; i++){ let y = poussiere.pos[i * 3 + 1] + poussiere.vit[i] * brut; if(y > 9) y = 0; poussiere.pos[i * 3 + 1] = y; poussiere.pos[i * 3] += Math.sin(t + i) * .1 * brut; }
+      poussiere.pts.geometry.attributes.position.needsUpdate = true; }
 
       for(let i = 0; i < NP; i++){
         if(part.vie[i] <= 0){ if(part.taille[i] !== 0){ part.alpha[i] = 0; part.taille[i] = 0; } continue; }
@@ -1819,7 +1845,8 @@
         }
         f.jauge.image(v, sc.passer);
         const pe = f.c === 0 ? ecran(f.home.x, .02, f.home.z + .6) : ecran(f.home.x, YC + CH / 2 + .3, f.home.z);
-        f.plaque.style.transform = `translate3d(${pe.x.toFixed(1)}px, ${pe.y.toFixed(1)}px, 0)`;
+        const px2 = Math.round(pe.x * 2) / 2, py2 = Math.round(pe.y * 2) / 2;
+        if(px2 !== f.plX || py2 !== f.plY){ f.plX = px2; f.plY = py2; f.plaque.style.transform = `translate3d(${px2}px, ${py2}px, 0)`; }
       }
       if(enJeu && enJeu.vivant && !sc.passer){
         const pf = ecran(enJeu.home.x + enJeu.dep.x, YC + CH / 2 + (enJeu.c === 0 ? .25 : .75) + enJeu.o.y, enJeu.home.z + enJeu.dep.z);
@@ -1828,10 +1855,17 @@
         fleche.style.transform = `translate3d(${pf.x.toFixed(1)}px, ${(pf.y - 8 + Math.sin(t * 9) * 4).toFixed(1)}px, 0)`;
       }else if(fleche.style.opacity !== '0') fleche.style.opacity = '0';
       renderer.render(scene, camera);
-      tFrames += brut; nFrames++;
-      if(!adapte && nFrames === 50){   // si la machine peine, on allège (résolution, ombres)
-        adapte = true;
-        if(tFrames / nFrames > .03 && !sc.manuel){ renderer.setPixelRatio(1); renderer.shadowMap.enabled = false; scene.traverse((x) => { if(x.material) x.material.needsUpdate = true; }); cadrer(); }
+      // si la machine peine (moins de 45 images par seconde en moyenne), on allège par paliers : la résolution, puis les ombres et la poussière
+      nFrames++; if(nFrames > 0) tFrames += brut;
+      if(nFrames >= 50 && palier < 2 && !sc.manuel){
+        const moy = tFrames / nFrames; tFrames = 0; nFrames = 0;
+        if(moy > .022){
+          if(palier === 0 && renderer.getPixelRatio() > 1){ palier = 1; renderer.setPixelRatio(1); cadrer(); }
+          else{
+            palier = 2; renderer.shadowMap.enabled = false; poussiere.pts.visible = false; noterQualiteBasse();
+            scene.traverse((x) => { if(x.material && x.material.isMeshStandardMaterial) x.material.needsUpdate = true; });
+          }
+        }
       }
     });
 
