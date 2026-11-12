@@ -23,7 +23,7 @@ begin
     select s.artist_handle, max(s.artist_name), count(*)::integer, coalesce(max(a.deezer_fans), 0)::integer
       from public.submissions s
       left join public.artists a on a.instagram_handle = s.artist_handle
-     where s.status = 'pending' and s.source is not null and not s.banni and not s.hors_langue
+     where s.status = 'pending' and s.source is not null and not s.banni and not s.hors_langue and not coalesce(a.banni, false)
        and (v_q is null or s.artist_name ilike '%' || v_q || '%' or s.artist_handle ilike '%' || v_q || '%')
      group by s.artist_handle;
 
