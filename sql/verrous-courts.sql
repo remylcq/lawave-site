@@ -254,3 +254,21 @@ begin
   select count(*) into v_restants from public.bannissements_a_appliquer;
   return jsonb_build_object('bans', v_n, 'featurings', v_feats, 'abandonnes', v_abandon, 'restants', v_restants);
 end $$;
+
+-- Nettoyage du 2026-11-12 : 16 970 artistes à 0 sortie publiée bannis (par pseudo et page Deezer, sans nom normalisé, pour ne
+-- pas masquer d'homonymes) puis supprimés, avec les sorties qui restaient. La table des bannis est passée de ~5 800 à ~22 800
+-- lignes : artiste_banni (appelée à chaque ajout de sortie ou de profil) devenait trop lente (0,5 s) -> index + réécriture
+-- par recherches indexées (6 ms). RETRAIT : drop index artistes_bannis_*_idx ; remettre l'ancienne artiste_banni (via ban_correspond).
+create index if not exists artistes_bannis_handle_idx on public.artistes_bannis (instagram_handle) where instagram_handle is not null;
+create index if not exists artistes_bannis_deezer_idx on public.artistes_bannis (deezer_artist_id) where deezer_artist_id is not null;
+create index if not exists artistes_bannis_deezer_ids_idx on public.artistes_bannis using gin (deezer_ids);
+create index if not exists artistes_bannis_norme_idx on public.artistes_bannis (nom_norme) where nom_norme is not null;
+
+create or replace function public.artiste_banni(p_handle text, p_nom text, p_deezer bigint) returns boolean
+language sql stable as $$
+  select exists (select 1 from public.artistes_bannis b where coalesce(p_handle, '') <> '' and b.instagram_handle = p_handle)
+      or exists (select 1 from public.artistes_bannis b where p_deezer is not null and (b.deezer_artist_id = p_deezer or b.deezer_ids @> array[p_deezer]))
+      or exists (select 1 from public.artistes_bannis b
+                  where b.nom_norme is not null
+                    and b.nom_norme in (public.norme_artiste(p_nom), public.norme_artiste(regexp_replace(coalesce(p_handle, ''), '\.[0-9]+$', ''))));
+$$;
