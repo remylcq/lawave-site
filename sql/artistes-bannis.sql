@@ -665,3 +665,30 @@ commit;
 --   alter table public.artists     drop column if exists banni;
 --   alter table public.submissions drop column if exists banni;
 -- ---------------------------------------------------------------------
+
+-- Recherche « Ajouter un artiste » (espace équipe) : parmi des résultats Deezer, ceux qui sont bannis (page Deezer ou nom),
+-- avec l'identifiant du bannissement pour proposer « Débannir et ajouter ». (Passé en production le 2026-11-12.)
+-- RETRAIT : drop function public.bans_pour_deezer(bigint[], text[]);
+create or replace function public.bans_pour_deezer(p_ids bigint[], p_noms text[])
+returns jsonb
+language plpgsql stable security definer set search_path to 'public' as $$
+declare v_res jsonb := '[]'::jsonb; v_ban record; i integer; v_norme text;
+begin
+  if auth.uid() is null or not public.est_equipe() then
+    raise exception 'Réservé à l''équipe.';
+  end if;
+  for i in 1 .. coalesce(cardinality(p_ids), 0) loop
+    v_norme := nullif(public.norme_artiste(p_noms[i]), '');
+    select b.id, b.nom, b.raison into v_ban
+      from public.artistes_bannis b
+     where b.deezer_artist_id = p_ids[i] or b.deezer_ids @> array[p_ids[i]]
+        or (v_norme is not null and b.nom_norme = v_norme)
+     limit 1;
+    if found then
+      v_res := v_res || jsonb_build_object('deezer_id', p_ids[i], 'ban_id', v_ban.id, 'nom', v_ban.nom, 'raison', v_ban.raison);
+    end if;
+  end loop;
+  return v_res;
+end $$;
+revoke all on function public.bans_pour_deezer(bigint[], text[]) from public, anon;
+grant execute on function public.bans_pour_deezer(bigint[], text[]) to authenticated;

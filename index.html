@@ -8179,6 +8179,11 @@ const BD = {
     return supabaseClient.rpc('retablir_artiste', { p_id: id });
   },
 
+  // Parmi des résultats Deezer, ceux qui sont bannis (par page Deezer ou par nom), avec l'identifiant du bannissement.
+  bansPourDeezer(ids, noms){
+    return supabaseClient.rpc('bans_pour_deezer', { p_ids: ids, p_noms: noms });
+  },
+
   artistesBannis(){
     return supabaseClient.rpc('bannis_liste');
   },
@@ -30218,6 +30223,21 @@ async function rechercherArtisteDeezer(){
 
   artisteAjoutResultats = Array.isArray(data) ? data : [];
 
+  // Lesquels sont bannis (et par quel bannissement) : lu côté base, la liste des bannis est trop longue pour le navigateur.
+  if(artisteAjoutResultats.length){
+    const { data: bans } = await BD.bansPourDeezer(
+      artisteAjoutResultats.map(r => Number(r.id)),
+      artisteAjoutResultats.map(r => r.nom || '')
+    );
+
+    if(jeton !== artisteAjoutJeton) return;
+
+    (bans || []).forEach(b => {
+      const r = artisteAjoutResultats.find(x => Number(x.id) === Number(b.deezer_id));
+      if(r){ r.ban_id = b.ban_id; r.ban_raison = b.raison || ''; }
+    });
+  }
+
   if(!artisteAjoutResultats.length){
     zone.innerHTML =
       '<div class="empty-state">Aucun artiste trouvé sur Deezer.</div>';
@@ -30241,7 +30261,15 @@ function resultatArtisteDeezerHtml(resultat, i){
 
   let action;
 
-  if(artisteResultatBanni(resultat)){
+  if(resultat.ban_id){
+
+    action = `
+      <span class="release-badge" style="color:var(--danger); border-color:var(--danger);"
+            title="${escapeAttribute(resultat.ban_raison || 'Banni')}">banni</span>
+      <button type="button" class="btn btn-primary"
+              onclick="debannirEtAjouterArtisteDeezer(${i})">Débannir et ajouter</button>`;
+
+  } else if(artisteResultatBanni(resultat)){
 
     action = '<span class="release-badge">banni</span>';
 
@@ -30443,6 +30471,30 @@ async function appliquerChangementDeezer(i, retirer){
     " Ses sorties arriveront au prochain passage de l'import (toutes les 20 " +
     'minutes). La liste est réduite à son nom : vide la recherche pour tout revoir.'
   );
+}
+
+
+// Lève le bannissement de cet artiste, puis l'ajoute comme d'habitude.
+async function debannirEtAjouterArtisteDeezer(i){
+
+  const resultat = artisteAjoutResultats[i];
+
+  if(!resultat || !resultat.ban_id || !isAdmin) return;
+
+  setRowMessage('artistsActionMsg', 'Bannissement levé…', 'ok');
+
+  const { error } = await BD.retablirArtiste(resultat.ban_id);
+
+  if(error){
+    setRowMessage('artistsActionMsg', 'Impossible de débannir : ' + messageSqlDeezer(error), 'err');
+    return;
+  }
+
+  resultat.ban_id = null;
+
+  if(artistesBannis) chargerBannis();
+
+  return choisirArtisteDeezer(i);
 }
 
 
