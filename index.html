@@ -4598,6 +4598,18 @@
   #page-admin .attente-puce:hover{background:rgba(255,255,255,0.09);}
   #page-admin .attente-puce.actif{color:var(--ink); background:rgba(255,255,255,0.12); border-color:var(--line-strong);}
   #page-admin .attente-puce:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+  #page-admin .attente-vues{display:inline-flex; gap:4px; padding:3px; border-radius:999px; background:rgba(255,255,255,0.05); border:1px solid var(--line);}
+  #page-admin .attente-vues .attente-puce{border-color:transparent;}
+  #page-admin .att-art{display:flex; align-items:center; gap:14px; flex-wrap:wrap; padding:12px 14px; border-radius:14px; background:rgba(255,255,255,0.03); border:1px solid var(--line);}
+  #page-admin .att-art-img{width:56px; height:56px; border-radius:10px; object-fit:cover; flex:none; background:rgba(255,255,255,0.06);}
+  #page-admin .att-art-infos{flex:1 1 220px; min-width:0;}
+  #page-admin .att-art-nom{font-weight:600; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  #page-admin .att-art-nom b{margin-left:8px; font-weight:600; color:var(--blue-bright); font-variant-numeric:tabular-nums;}
+  #page-admin .att-art-titres{font-size:.85rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  #page-admin .att-art-actions{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+  #page-admin .att-art{margin-bottom:8px; overflow:hidden;}
+  #page-admin .att-art.replie{max-height:0 !important; opacity:0; padding-top:0; padding-bottom:0; margin-bottom:0; border-width:0; pointer-events:none; transition:max-height .28s var(--ease), opacity .2s var(--ease), padding .28s var(--ease), margin .28s var(--ease);}
+  #page-admin .att-art-confirm{flex-basis:100%; display:flex; flex-wrap:wrap; gap:8px; align-items:center; color:var(--ink);}
   #page-admin .attente-champ{
     flex:1; min-width:200px; box-sizing:border-box; padding:9px 13px; border-radius:99px; font:inherit; font-size:14px;
     color:var(--ink); background:rgba(255,255,255,0.05); border:1px solid var(--eq-trait-2);
@@ -7973,6 +7985,15 @@ const BD = {
       compter(r => r.is('source', null))
     ]);
     return { auto: auto.count || 0, membre: membre.count || 0 };
+  },
+
+  // Vue « par artiste » : une ligne par artiste (sorties automatiques en attente), et une décision pour toutes ses sorties.
+  attenteArtistes({ texte = '', page = 0, taille = 25, tri = 'fans' } = {}){
+    return supabaseClient.rpc('attente_artistes', { p_texte: texte, p_page: page, p_taille: taille, p_tri: tri });
+  },
+
+  attenteArtisteTraiter(handle, valider, motif){
+    return supabaseClient.rpc('attente_artiste_traiter', { p_handle: handle, p_valider: valider, p_motif: motif || '' });
   },
 
   // La sortie qu'on vient d'ajouter à la main, retrouvée parmi celles en attente.
@@ -26032,7 +26053,10 @@ const attente = {
   comptes: { auto: 0, membre: 0 },
   data: [],
   choisies: new Set(),
-  minuteur: null
+  minuteur: null,
+  vue: 'sorties',      // 'sorties' (une ligne par sortie) ou 'artistes' (une ligne par artiste)
+  artistes: [],
+  totalArtistes: 0
 };
 
 // Ce que l'équipe a traité depuis l'ouverture de la page (pour suivre sa progression).
@@ -26095,17 +26119,22 @@ function renderAttenteBarres(){
     const puce = (cle, libelle, n) => `
       <button type="button" class="attente-puce${attente.origine === cle ? ' actif' : ''}"
               onclick="filtrerAttente('${cle}')">${libelle}<b>${n}</b></button>`;
+    const vue = (cle, libelle) => `
+      <button type="button" class="attente-puce${attente.vue === cle ? ' actif' : ''}"
+              onclick="changerVueAttente('${cle}')">${libelle}</button>`;
     puces.innerHTML =
-      puce('', 'Toutes', c.auto + c.membre) +
-      puce('auto', 'Automatiques', c.auto) +
-      puce('membre', 'Membres', c.membre) +
+      `<span class="attente-vues" title="Une ligne par sortie, ou une ligne par artiste avec une décision pour toutes ses sorties">${vue('artistes', 'Par artiste')}${vue('sorties', 'Par sortie')}</span>` +
+      (attente.vue === 'artistes' ? '' :
+        puce('', 'Toutes', c.auto + c.membre) +
+        puce('auto', 'Automatiques', c.auto) +
+        puce('membre', 'Membres', c.membre)) +
       `<span class="attente-progres" title="Sorties encore à traiter, et ce que tu as traité depuis l'ouverture de la page">${escapeHtml(progresAttenteTexte())}</span>`;
   }
 
   const pager = document.getElementById('attentePager');
 
   if(pager){
-    const pages = Math.max(1, Math.ceil(attente.total / attente.taille));
+    const pages = Math.max(1, Math.ceil((attente.vue === 'artistes' ? attente.totalArtistes : attente.total) / attente.taille));
     pager.innerHTML = pages <= 1 ? '' : `
       <button type="button" class="btn btn-ghost" ${attente.page === 0 ? 'disabled' : ''} onclick="pageAttente(-1)">Précédentes</button>
       <span>Page ${attente.page + 1} sur ${pages}</span>
@@ -26122,7 +26151,7 @@ function renderAttenteLot(confirmation){
   const lot = document.getElementById('attenteLot');
   if(!lot) return;
 
-  const autos = attente.data.filter(s => s.source);
+  const autos = attente.vue === 'artistes' ? [] : attente.data.filter(s => s.source);
 
   if(!autos.length){
     lot.hidden = true;
@@ -26339,6 +26368,164 @@ async function refuserLot(){
   }
 }
 
+
+
+// ---- Vue « par artiste » : une ligne par artiste, une décision pour toutes ses sorties automatiques en attente ----
+
+function changerVueAttente(vue){
+  if(attente.vue === vue) return;
+  attente.vue = vue;
+  attente.page = 0;
+  attente.choisies.clear();
+  loadArtistSubmissions({ garderMessage: true });
+}
+
+function fansCourt(n){
+  n = Number(n) || 0;
+  if(n >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '').replace('.', ',') + ' M fans';
+  if(n >= 1e3) return Math.round(n / 1e3) + ' k fans';
+  return n ? n + ' fans' : '';
+}
+
+function artisteAttenteHtml(a, i){
+
+  const image = safeUrl(a.cover || a.photo || '');
+  const fans = fansCourt(a.fans);
+  const titres = (a.titres || []).join(' · ') + (a.n > (a.titres || []).length ? ' …' : '');
+
+  return `
+    <div class="att-art" id="att-art-${i}">
+      ${image ? `<img class="att-art-img" src="${escapeHtml(image)}" alt="" loading="lazy">` : '<div class="att-art-img"></div>'}
+      <div class="att-art-infos">
+        <div class="att-art-nom">${escapeHtml(a.nom || a.handle)}<b>${a.n} sortie${a.n > 1 ? 's' : ''}</b></div>
+        <div class="att-art-titres">${fans ? escapeHtml(fans) + ' — ' : ''}${escapeHtml(titres)}</div>
+      </div>
+      <div class="att-art-actions" id="att-art-actions-${i}">
+        <button type="button" class="btn btn-ghost" onclick="voirSortiesArtisteAttente(${i})">Voir les sorties</button>
+        <button type="button" class="btn btn-primary" onclick="demanderArtisteAttente(${i}, true)">Tout valider</button>
+        <button type="button" class="reject" onclick="demanderArtisteAttente(${i}, false)">Tout refuser</button>
+      </div>
+    </div>`;
+}
+
+async function chargerAttenteArtistes(list){
+
+  const [{ data, error }, comptes] = await Promise.all([
+    BD.attenteArtistes({ texte: attente.texte, page: attente.page, taille: attente.taille, tri: 'fans' }),
+    BD.sortiesEnAttenteComptes()
+  ]);
+
+  if(error) throw error;
+
+  const artistes = (data && data.artistes) || [];
+
+  if(!artistes.length && attente.page > 0 && data && data.total > 0){
+    attente.page -= 1;
+    return loadArtistSubmissions({ garderMessage: true });
+  }
+
+  attente.artistes = artistes;
+  attente.totalArtistes = (data && data.total) || 0;
+  attente.comptes = comptes;
+  attente.data = [];
+
+  setAdminTabCount('submissions', comptes.auto + comptes.membre);
+  renderAttenteBarres();
+
+  if(!artistes.length){
+    list.innerHTML = `<div class="empty-state">${attente.texte ? 'Aucun artiste en attente ne correspond.' : 'Aucune sortie automatique en attente.'}</div>`;
+    return;
+  }
+
+  list.innerHTML = artistes.map(artisteAttenteHtml).join('');
+}
+
+function demanderArtisteAttente(i, valider){
+
+  const a = attente.artistes[i];
+  const zone = document.getElementById('att-art-actions-' + i);
+  if(!a || !zone) return;
+
+  zone.innerHTML = `
+    <span class="att-art-confirm">${valider ? 'Publier' : 'Refuser'} les ${a.n} sortie${a.n > 1 ? 's' : ''} de ${escapeHtml(a.nom || a.handle)} ?
+      <button type="button" class="${valider ? 'btn btn-primary' : 'reject'}" onclick="traiterArtisteAttente(${i}, ${valider})">Oui, ${valider ? 'valider' : 'refuser'}</button>
+      <button type="button" class="btn btn-ghost" onclick="annulerArtisteAttente(${i})">Annuler</button>
+    </span>`;
+}
+
+function annulerArtisteAttente(i){
+
+  const a = attente.artistes[i];
+  const zone = document.getElementById('att-art-actions-' + i);
+  if(!a || !zone) return;
+
+  zone.innerHTML = `
+    <button type="button" class="btn btn-ghost" onclick="voirSortiesArtisteAttente(${i})">Voir les sorties</button>
+    <button type="button" class="btn btn-primary" onclick="demanderArtisteAttente(${i}, true)">Tout valider</button>
+    <button type="button" class="reject" onclick="demanderArtisteAttente(${i}, false)">Tout refuser</button>`;
+}
+
+function voirSortiesArtisteAttente(i){
+
+  const a = attente.artistes[i];
+  if(!a) return;
+
+  attente.vue = 'sorties';
+  attente.origine = 'auto';
+  attente.texte = a.nom || a.handle;
+  attente.page = 0;
+  attente.choisies.clear();
+
+  const champ = document.getElementById('attenteRecherche');
+  if(champ) champ.value = attente.texte;
+
+  loadArtistSubmissions({ garderMessage: true });
+}
+
+async function traiterArtisteAttente(i, valider){
+
+  if(!isAdmin) return;
+
+  const a = attente.artistes[i];
+  const el = document.getElementById('att-art-' + i);
+  if(!a || !el) return;
+
+  // Instantané : la carte se replie tout de suite ; si la base refuse, elle revient.
+  el.style.maxHeight = el.offsetHeight + 'px';
+  void el.offsetHeight;
+  el.classList.add('replie');
+
+  try{
+
+    const { data, error } = await BD.attenteArtisteTraiter(a.handle, valider, '');
+    if(error) throw error;
+
+    const n = Number(data) || 0;
+
+    attente.comptes.auto = Math.max(0, (attente.comptes.auto || 0) - n);
+    attente.totalArtistes = Math.max(0, attente.totalArtistes - 1);
+    attente.artistes[i] = null;
+
+    if(valider){ attenteStats.validees += n; rafraichirCatalogueEnFond(); }
+    else attenteStats.refusees += n;
+
+    setTimeout(() => el.remove(), 320);
+    setAdminTabCount('submissions', (attente.comptes.auto || 0) + (attente.comptes.membre || 0));
+    renderAttenteBarres();
+
+    setRowMessage('adminActionMsg',
+      (valider ? '✅ ' : '❌ ') + n + ' sortie' + (n > 1 ? 's' : '') + (valider ? ' publiée' : ' refusée') + (n > 1 ? 's' : '') + ' (' + (a.nom || a.handle) + ').', 'ok');
+
+    if(attente.artistes.every(x => !x)) loadArtistSubmissions({ garderMessage: true });
+
+  }catch(erreur){
+    console.error('❌ Erreur décision par artiste :', erreur);
+    el.classList.remove('replie');
+    el.style.maxHeight = '';
+    annulerArtisteAttente(i);
+    setRowMessage('adminActionMsg', 'Impossible de traiter ' + (a.nom || a.handle) + ' : ' + (erreur.message || erreur), 'err');
+  }
+}
 
 
 // ---- La visionneuse : pochette en grand, extraits, passage d'une sortie à l'autre ----
@@ -26986,6 +27173,8 @@ async function loadArtistSubmissions(options){
 
     // Les vignettes d'artiste viennent des profils (une lecture partagée quand l'espace équipe s'ouvre).
     await (artistesPartages || loadArtists());
+
+    if(attente.vue === 'artistes') return await chargerAttenteArtistes(list);
 
     const [{ data, error, count }, comptes] = await Promise.all([
       BD.sortiesEnAttente({
