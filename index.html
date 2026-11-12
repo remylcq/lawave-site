@@ -4611,7 +4611,8 @@
   #page-admin .attente-lot .reject:hover:not(:disabled), #page-admin .att-art .reject:hover, #page-admin .att-art .att-bannir:hover{background:var(--eq-danger,#e5695c); color:#fff; border-color:transparent;}
   #page-admin .attente-lot .reject:disabled{opacity:.45; cursor:not-allowed;}
   #page-admin .att-art .att-bannir{background:transparent;}
-  #page-admin .att-art{margin-bottom:8px; overflow:hidden;}
+  #page-admin .att-art{margin-bottom:8px; overflow:hidden; cursor:pointer;}
+  #page-admin .att-art.choisie{background:rgba(120,160,255,0.10); border-color:var(--blue-bright);}
   #page-admin .att-art.replie{max-height:0 !important; opacity:0; padding-top:0; padding-bottom:0; margin-bottom:0; border-width:0; pointer-events:none; transition:max-height .28s var(--ease), opacity .2s var(--ease), padding .28s var(--ease), margin .28s var(--ease);}
   #page-admin .att-art-confirm{flex-basis:100%; display:flex; flex-wrap:wrap; gap:8px; align-items:center; color:var(--ink);}
   #page-admin .attente-champ{
@@ -26060,6 +26061,7 @@ const attente = {
   minuteur: null,
   vue: 'sorties',      // 'sorties' (une ligne par sortie) ou 'artistes' (une ligne par artiste)
   artistes: [],
+  artistesChoisis: new Set(),   // indices (dans attente.artistes) des cartes cochees
   totalArtistes: 0,
   tri: 'fans'          // 'fans' (les plus écoutés d'abord) ou 'nombre' (le plus de sorties en attente d'abord)
 };
@@ -26158,6 +26160,8 @@ function renderAttenteLot(confirmation){
 
   const lot = document.getElementById('attenteLot');
   if(!lot) return;
+
+  if(attente.vue === 'artistes') return renderLotArtistes(lot, confirmation);
 
   const autos = attente.vue === 'artistes' ? [] : attente.data.filter(s => s.source);
 
@@ -26409,7 +26413,8 @@ function artisteAttenteHtml(a, i){
   const titres = (a.titres || []).join(' · ') + (a.n > (a.titres || []).length ? ' …' : '');
 
   return `
-    <div class="att-art" id="att-art-${i}">
+    <div class="att-art${attente.artistesChoisis.has(i) ? ' choisie' : ''}" id="att-art-${i}" onclick="clicCarteArtiste(event, ${i})">
+      <input type="checkbox" class="attente-case" aria-label="Sélectionner ${escapeHtml(a.nom || a.handle)}" ${attente.artistesChoisis.has(i) ? 'checked' : ''} onchange="cocherArtisteAttente(${i}, this.checked)">
       ${image ? `<img class="att-art-img" src="${escapeHtml(image)}" alt="" loading="lazy">` : '<div class="att-art-img"></div>'}
       <div class="att-art-infos">
         <div class="att-art-nom">${escapeHtml(a.nom || a.handle)}<b>${a.n} sortie${a.n > 1 ? 's' : ''}</b></div>
@@ -26441,6 +26446,7 @@ async function chargerAttenteArtistes(list){
   }
 
   attente.artistes = artistes;
+  attente.artistesChoisis.clear();
   attente.totalArtistes = (data && data.total) || 0;
   attente.comptes = comptes;
   attente.data = [];
@@ -26454,6 +26460,117 @@ async function chargerAttenteArtistes(list){
   }
 
   list.innerHTML = artistes.map(artisteAttenteHtml).join('');
+}
+
+// Cliquer sur l'encadré d'un artiste (hors boutons) le coche ou le décoche.
+function clicCarteArtiste(e, i){
+
+  if(e.target.closest('button, a, input, select, textarea, label')) return;
+  if(window.getSelection && String(window.getSelection()).length) return;
+  if(!attente.artistes[i]) return;
+
+  cocherArtisteAttente(i, !attente.artistesChoisis.has(i));
+}
+
+function cocherArtisteAttente(i, coche){
+
+  if(!attente.artistes[i]) return;
+  if(coche) attente.artistesChoisis.add(i); else attente.artistesChoisis.delete(i);
+
+  const el = document.getElementById('att-art-' + i);
+  if(el){
+    el.classList.toggle('choisie', coche);
+    const c = el.querySelector('.attente-case');
+    if(c) c.checked = coche;
+  }
+
+  renderAttenteLot();
+}
+
+function cocherToutArtistesAttente(coche){
+
+  attente.artistes.forEach((a, i) => {
+    if(!a) return;
+    if(coche) attente.artistesChoisis.add(i); else attente.artistesChoisis.delete(i);
+    const el = document.getElementById('att-art-' + i);
+    if(el){ el.classList.toggle('choisie', coche); const c = el.querySelector('.attente-case'); if(c) c.checked = coche; }
+  });
+
+  renderAttenteLot();
+}
+
+// La barre de sélection de la vue par artiste : bannir, valider ou refuser plusieurs artistes d'un coup.
+function renderLotArtistes(lot, confirmation){
+
+  const restants = attente.artistes.filter(Boolean);
+
+  if(!restants.length){
+    lot.hidden = true;
+    lot.innerHTML = '';
+    return;
+  }
+
+  const choisis = Array.from(attente.artistesChoisis).filter(i => attente.artistes[i]);
+  const n = choisis.length;
+  const sorties = choisis.reduce((t, i) => t + attente.artistes[i].n, 0);
+  const toutes = n === restants.length;
+  const qui = n + ' artiste' + (n > 1 ? 's' : '') + ' (' + sorties.toLocaleString('fr-FR') + ' sortie' + (sorties > 1 ? 's' : '') + ')';
+
+  const textes = {
+    bannir:  ['Bannir ' + qui + ' ? Profils et sorties masqués, plus jamais importés.', 'Oui, bannir', 'reject'],
+    valider: ['Publier les sorties de ' + qui + ' ?', 'Oui, valider', 'btn btn-primary'],
+    refuser: ['Refuser les sorties de ' + qui + ' ?', 'Oui, refuser', 'reject']
+  };
+
+  lot.hidden = false;
+  lot.innerHTML = `
+    <label>
+      <input type="checkbox" class="attente-case" style="margin:0" ${toutes ? 'checked' : ''} onchange="cocherToutArtistesAttente(this.checked)">
+      Tout cocher (${restants.length} artiste${restants.length > 1 ? 's' : ''} sur cette page)
+    </label>
+    <span class="attente-nb">${n} coché${n > 1 ? 's' : ''}</span>
+    <div class="inline-actions">
+      <button type="button" class="btn btn-primary" ${n ? '' : 'disabled'} onclick="renderAttenteLot('valider')">Tout valider</button>
+      <button type="button" class="reject" ${n ? '' : 'disabled'} onclick="renderAttenteLot('refuser')">Tout refuser</button>
+      <button type="button" class="reject" ${n ? '' : 'disabled'} onclick="renderAttenteLot('bannir')">Bannir la sélection</button>
+    </div>
+    ${confirmation && textes[confirmation] && n ? `
+      <div class="confirm-panel ${confirmation === 'valider' ? '' : 'danger '}open attente-lot-confirm">
+        <p>${escapeHtml(textes[confirmation][0])}</p>
+        <div class="inline-actions">
+          <button type="button" class="${textes[confirmation][2]}" onclick="traiterSelectionArtistes('${confirmation}')">${textes[confirmation][1]}</button>
+          <button type="button" class="btn btn-ghost" onclick="renderAttenteLot()">Annuler</button>
+        </div>
+      </div>` : ''}`;
+}
+
+async function traiterSelectionArtistes(action){
+
+  if(!isAdmin) return;
+
+  const choisis = Array.from(attente.artistesChoisis).filter(i => attente.artistes[i]).sort((a, b) => a - b);
+  if(!choisis.length) return;
+
+  const valider = action === 'bannir' ? 'bannir' : action === 'valider';
+  let faits = 0, echecs = 0, sorties = 0;
+
+  setRowMessage('adminActionMsg', (action === 'bannir' ? 'Bannissement' : 'Traitement') + ' en cours...', 'ok');
+  renderAttenteLot();
+
+  for(const i of choisis){
+    const n = attente.artistes[i] ? attente.artistes[i].n : 0;
+    if(await traiterArtisteAttente(i, valider, true)){ faits++; sorties += n; } else echecs++;
+  }
+
+  setRowMessage('adminActionMsg',
+    (action === 'bannir' ? '🚫 ' : action === 'valider' ? '✅ ' : '❌ ') + faits + ' artiste' + (faits > 1 ? 's' : '') +
+    (action === 'bannir' ? ' banni' : action === 'valider' ? ' validé' : ' refusé') + (faits > 1 ? 's' : '') +
+    ' (' + sorties.toLocaleString('fr-FR') + ' sortie' + (sorties > 1 ? 's' : '') + ').' +
+    (echecs ? ' ' + echecs + ' non traité' + (echecs > 1 ? 's' : '') + ' (réessaie).' : ''),
+    echecs ? 'err' : 'ok');
+
+  if(attente.artistes.every(x => !x)) loadArtistSubmissions({ garderMessage: true });
+  else renderAttenteLot();
 }
 
 function demanderArtisteAttente(i, valider){
@@ -26499,13 +26616,15 @@ function voirSortiesArtisteAttente(i){
   loadArtistSubmissions({ garderMessage: true });
 }
 
-async function traiterArtisteAttente(i, valider){
+async function traiterArtisteAttente(i, valider, silencieux){
 
-  if(!isAdmin) return;
+  if(!isAdmin) return false;
 
   const a = attente.artistes[i];
   const el = document.getElementById('att-art-' + i);
-  if(!a || !el) return;
+  if(!a || !el) return false;
+
+  attente.artistesChoisis.delete(i);
 
   // Instantané : la carte se replie tout de suite ; si la base refuse, elle revient.
   el.style.maxHeight = el.offsetHeight + 'px';
@@ -26539,12 +26658,15 @@ async function traiterArtisteAttente(i, valider){
     setAdminTabCount('submissions', (attente.comptes.auto || 0) + (attente.comptes.membre || 0));
     renderAttenteBarres();
 
-    setRowMessage('adminActionMsg',
+    if(!silencieux) setRowMessage('adminActionMsg',
       valider === 'bannir'
         ? '🚫 ' + (a.nom || a.handle) + ' est banni (' + n + ' sortie' + (n > 1 ? 's' : '') + ' masquée' + (n > 1 ? 's' : '') + ').'
         : (valider ? '✅ ' : '❌ ') + n + ' sortie' + (n > 1 ? 's' : '') + (valider ? ' publiée' : ' refusée') + (n > 1 ? 's' : '') + ' (' + (a.nom || a.handle) + ').', 'ok');
 
-    if(attente.artistes.every(x => !x)) loadArtistSubmissions({ garderMessage: true });
+    if(!silencieux && attente.artistes.every(x => !x)) loadArtistSubmissions({ garderMessage: true });
+    else if(!silencieux) renderAttenteLot();
+
+    return true;
 
   }catch(erreur){
     console.error('❌ Erreur décision par artiste :', erreur);
@@ -26552,6 +26674,7 @@ async function traiterArtisteAttente(i, valider){
     el.style.maxHeight = '';
     annulerArtisteAttente(i);
     setRowMessage('adminActionMsg', 'Impossible de traiter ' + (a.nom || a.handle) + ' : ' + (erreur.message || erreur), 'err');
+    return false;
   }
 }
 
