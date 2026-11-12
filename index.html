@@ -3384,6 +3384,10 @@
   .bannir-choix-texte{flex:1; min-width:0; font-size:13px; color:var(--ink-soft);}
   .bannir-choix-texte b{display:block; font-size:14px; color:var(--ink);}
   .artiste-bannir-form .btn{height:46px;}
+  /* Une ligne d'artiste supprimée se replie au lieu de disparaître d'un coup. */
+  #page-admin .att-suppr-artiste{align-self:center; margin-top:2px; padding:2px 6px; background:none; border:0; font:inherit; font-size:12px; color:var(--muted); text-decoration:underline; cursor:pointer;}
+  #page-admin .att-suppr-artiste:hover{color:var(--danger);}
+  #page-admin .admin-row.replie{max-height:0 !important; opacity:0; overflow:hidden; padding-top:0; padding-bottom:0; margin-top:0; margin-bottom:0; border-width:0; pointer-events:none; transition:max-height .28s var(--ease), opacity .2s var(--ease), padding .28s var(--ease), margin .28s var(--ease);}
   @media (max-width:720px){ .artiste-bannir-form{grid-template-columns:1fr;} }
   .lien-bouton{
     padding:0; border:0; background:none; cursor:pointer;
@@ -26486,6 +26490,7 @@ function decisionVisionneuseAttente(quoi){
   fermerVisionneuseAttente();
 
   if(quoi === 'valider') askApproveSubmission(id);
+  else if(quoi === 'supprimer-artiste') openConfirmPanel('artist-del-' + id);
   else askRejectSubmission(id);
 
   const ligne = document.getElementById('submission-' + id);
@@ -26529,6 +26534,7 @@ async function rendreVisionneuseAttente(){
           <button type="button" class="reject" onclick="traiterVisionneuseAttente('refuser')">Refuser (R)</button>
           ${visAtt.derniere ? '<button type="button" class="btn btn-ghost" onclick="annulerVisionneuseAttente()">Annuler (Z)</button>' : ''}
         </div>
+        ${s.artist_handle ? `<button type="button" class="att-suppr-artiste" style="align-self:flex-start; background:none; border:0; padding:2px 0; font:inherit; font-size:12px; color:var(--muted); text-decoration:underline; cursor:pointer;" onclick="decisionVisionneuseAttente('supprimer-artiste')">Supprimer l'artiste et toutes ses sorties…</button>` : ''}
         <div class="vis-att-msg" id="visAttMsg">${escapeHtml(visAtt.msg || '')}</div>
         <span class="vis-att-prog">${escapeHtml(progresAttenteTexte())}</span>
         <span class="vis-att-aide">V valide et R refuse tout de suite (sorties automatiques) puis passe à la suivante · Z annule · ← → naviguer · S sélectionner · Échap fermer</span>
@@ -26758,9 +26764,36 @@ function sortieEnAttenteHtml(submission){
           Refuser
         </button>
 
+        ${
+          submission.artist_handle
+            ? `<button type="button" class="att-suppr-artiste"
+                       title="Supprimer l'artiste et toutes ses sorties"
+                       onclick="openConfirmPanel('artist-del-${id}')">Supprimer l'artiste</button>`
+            : ''
+        }
+
       </div>
 
      </div>
+
+
+      <!-- ---------- SUPPRESSION DE L'ARTISTE ET DE TOUTES SES SORTIES ---------- -->
+
+      <div class="confirm-panel danger" id="artist-del-${id}">
+
+        <p>
+          Supprimer <strong>${escapeHtml(submission.artist_name)}</strong> et
+          <strong>toutes ses sorties</strong> (catalogue compris) ? Ce n'est pas réversible.
+          « Supprimer et bannir » l'empêche aussi de revenir par l'import Deezer.
+        </p>
+
+        <div class="inline-actions">
+          <button type="button" class="btn btn-primary" onclick="supprimerArtisteDepuisSoumission('${id}', true)">Supprimer et bannir</button>
+          <button type="button" class="btn btn-ghost" onclick="supprimerArtisteDepuisSoumission('${id}', false)">Supprimer sans bannir</button>
+          <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('artist-del-${id}')">Annuler</button>
+        </div>
+
+      </div>
 
 
       <!-- ---------- CONFIRMATION DE VALIDATION ---------- -->
@@ -30896,7 +30929,9 @@ async function supprimerProfilArtiste(handle, avecSorties, definitif){
   const deezerAvantSuppression = profil ? profil.deezer_artist_id : null;
 
   closeConfirmPanel('artist-delete-' + handle);
-  setRowMessage(msgId, 'Suppression en cours...', 'ok');
+
+  // Instantané : la ligne se replie tout de suite, la suppression se fait derrière. Si elle échoue, la ligne revient.
+  replierLigneArtiste(handle);
 
   try{
 
@@ -30930,6 +30965,7 @@ async function supprimerProfilArtiste(handle, avecSorties, definitif){
     if(error) throw error;
 
     if(!data || data.length === 0){
+      deplierLigneArtiste(handle);
       setRowMessage(
         msgId,
         sortiesEffacees
@@ -30962,7 +30998,15 @@ async function supprimerProfilArtiste(handle, avecSorties, definitif){
       }
     }
 
-    await refreshAfterArtistChange();
+    // Pas de rechargement de la page : seule la ligne part, les comptes suivent, et le reste se met à jour derrière.
+    retirerArtisteDeLaListe(handle);
+
+    if(sortiesEffacees || definitif){
+      Promise.resolve().then(async () => {
+        await loadApprovedReleases();
+        await renderCatalogue();
+      }).catch(() => {});
+    }
 
     setRowMessage(
       'artistsActionMsg',
@@ -30978,7 +31022,136 @@ async function supprimerProfilArtiste(handle, avecSorties, definitif){
 
   } catch(error){
     console.error('❌ Suppression du profil artiste :', error);
+    deplierLigneArtiste(handle);
     setRowMessage(msgId, 'Impossible de supprimer : ' + (error.message || error), 'err');
+  }
+}
+
+
+// La ligne se replie (animation courte) pendant que la suppression se fait.
+function replierLigneArtiste(handle){
+
+  const ligne = document.getElementById('artist-' + handle);
+  if(!ligne) return;
+
+  ligne.style.maxHeight = ligne.offsetHeight + 'px';
+  void ligne.offsetHeight;
+  ligne.classList.add('replie');
+}
+
+function deplierLigneArtiste(handle){
+
+  const ligne = document.getElementById('artist-' + handle);
+  if(!ligne) return;
+
+  ligne.classList.remove('replie');
+  ligne.style.maxHeight = '';
+}
+
+// Le profil est parti de la base : il sort des listes en mémoire, de la ligne affichée et des comptes.
+function retirerArtisteDeLaListe(handle){
+
+  artistProfilesData = artistProfilesData.filter(a => a.instagram_handle !== handle);
+  delete artistsByHandle[handle];
+  delete artistProfilesComptes[handle];
+
+  setAdminTabCount('artists', artistProfilesData.length);
+
+  const barre = document.getElementById('artistesFiltres');
+  if(barre) barre.innerHTML = artistesFiltresHtml();
+
+  const ligne = document.getElementById('artist-' + handle);
+  if(ligne) setTimeout(() => ligne.remove(), 320);
+}
+
+
+// Depuis Soumissions : l'artiste, toutes ses sorties (en attente et publiées) et, au choix, son bannissement.
+// Les lignes de cet artiste se replient tout de suite, sans recharger la liste ; si ça échoue, elles reviennent.
+async function supprimerArtisteDepuisSoumission(submissionId, definitif){
+
+  if(!isAdmin) return;
+
+  const s = attente.data.find(x => x.id === submissionId);
+  if(!s || !s.artist_handle) return;
+
+  const handle = s.artist_handle;
+  const lignes = attente.data.filter(x => x.artist_handle === handle);
+  const profil = artistProfilesData.find(a => a.instagram_handle === handle) || artistsByHandle[handle] || null;
+  const nom = (profil && profil.display_name) || s.artist_name || handle;
+  const idDeezer = profil ? profil.deezer_artist_id : null;
+
+  closeConfirmPanel('artist-del-' + submissionId);
+
+  const replier = (oui) => lignes.forEach(x => {
+    const el = document.getElementById('submission-' + x.id);
+    if(!el) return;
+    if(oui){ el.style.maxHeight = el.offsetHeight + 'px'; void el.offsetHeight; el.classList.add('replie'); }
+    else { el.classList.remove('replie'); el.style.maxHeight = ''; }
+  });
+
+  replier(true);
+
+  try{
+
+    const { data: sorties, error: erreurSorties } = await BD.supprimerSortiesDArtiste(handle);
+    if(erreurSorties) throw erreurSorties;
+
+    const effacees = (sorties || []).length;
+
+    if(effacees){
+      await Fichiers.supprimerParUrl.apply(null, sorties.map(x => x.cover_url));
+    }
+
+    const { data: supprime, error: erreurProfil } = await BD.supprimerArtiste(handle);
+    if(erreurProfil) throw erreurProfil;
+
+    if((!supprime || !supprime.length) && profil){
+      throw new Error(effacees ? "les sorties sont supprimées, mais le profil a résisté : droits équipe requis" : 'droits équipe requis');
+    }
+
+    if(profil) await Fichiers.supprimerParUrl(profil.photo_url);
+
+    let avertissement = '';
+
+    if(definitif){
+      const { error: erreurBan } = await BD.bannirArtiste(nom, null, idDeezer, 'Supprimé depuis les soumissions');
+      if(erreurBan && !/déjà banni/i.test(erreurBan.message || '')){
+        avertissement = " Mais il n'a pas pu être banni (" + (erreurBan.message || erreurBan) + ') : il pourrait revenir.';
+      }
+    }
+
+    // La liste suit sans rechargement.
+    const ids = new Set(lignes.map(x => x.id));
+    lignes.forEach(x => {
+      if(x.source) attente.comptes.auto = Math.max(0, (attente.comptes.auto || 0) - 1);
+      else attente.comptes.membre = Math.max(0, (attente.comptes.membre || 0) - 1);
+      attente.choisies.delete(x.id);
+    });
+    attente.total = Math.max(0, attente.total - lignes.length);
+
+    const visAvant = typeof visAtt !== 'undefined' ? attente.data.findIndex(x => x.id === visAtt.id) : -1;
+    attente.data = attente.data.filter(x => !ids.has(x.id));
+    setTimeout(() => lignes.forEach(x => { const el = document.getElementById('submission-' + x.id); if(el) el.remove(); }), 320);
+
+    setAdminTabCount('submissions', (attente.comptes.auto || 0) + (attente.comptes.membre || 0));
+    renderAttenteBarres();
+    retirerArtisteDeLaListe(handle);
+
+    Promise.resolve().then(async () => { await loadApprovedReleases(); await renderCatalogue(); }).catch(() => {});
+
+    if(!attente.data.length) loadArtistSubmissions({ garderMessage: true });
+
+    setRowMessage(
+      'adminActionMsg',
+      '🗑 ' + nom + ' supprimé' + (effacees ? ', avec ses ' + effacees + ' sortie' + (effacees > 1 ? 's' : '') : '') + '.' +
+      (definitif && !avertissement ? ' Il est aussi banni : il ne reviendra pas.' : '') + avertissement,
+      avertissement ? 'err' : 'ok'
+    );
+
+  }catch(erreur){
+    console.error('❌ Suppression de l\'artiste depuis les soumissions :', erreur);
+    replier(false);
+    setRowMessage('adminActionMsg', 'Impossible de supprimer ' + nom + ' : ' + (erreur.message || erreur), 'err');
   }
 }
 
