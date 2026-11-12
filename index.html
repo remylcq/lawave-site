@@ -4613,15 +4613,19 @@
   #page-admin .admin-row-main.cochable.choisie{background:rgba(79,180,255,0.12); box-shadow:inset 0 0 0 1.5px rgba(79,180,255,0.65);}
   #page-admin .att-cover{position:relative; flex:none; width:90px; height:90px; padding:0; border:0; border-radius:10px; overflow:hidden; background:none; cursor:zoom-in;}
   #page-admin .att-cover img{width:100%; height:100%; object-fit:cover; display:block;}
-  #page-admin .att-cover i{position:absolute; right:5px; bottom:5px; width:24px; height:24px; border-radius:50%; background:rgba(0,0,0,.7); display:grid; place-items:center; font-style:normal; font-size:11px; color:#fff; opacity:.9;}
+  #page-admin .att-cover i{position:absolute; right:5px; bottom:5px; width:22px; height:22px; border-radius:50%; background:rgba(0,0,0,.7); display:grid; place-items:center; color:#fff; opacity:.9;}
+  #page-admin .att-cover i svg{width:10px; height:10px; fill:currentColor; margin-left:1px;}
+  #page-admin .attente-progres{margin-left:auto; align-self:center; font-size:12.5px; color:var(--muted); font-variant-numeric:tabular-nums;}
   /* La visionneuse : pochette en grand, extraits, passage d'une sortie à l'autre. */
   .vis-att{position:fixed; inset:0; z-index:500; display:flex; align-items:center; justify-content:center; padding:16px; background:rgba(3,6,12,.86); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);}
   .vis-att[hidden]{display:none;}
   .vis-att-boite{position:relative; width:min(880px, 100%); max-height:100%; overflow:auto; display:grid; grid-template-columns:minmax(0,1.05fr) minmax(0,1fr); gap:22px; padding:20px; border-radius:22px; background:#0d1118; border:1px solid rgba(255,255,255,.14); box-shadow:0 40px 100px -30px rgba(0,0,0,.9);}
   .vis-att-pochette{position:relative; align-self:start; aspect-ratio:1; border-radius:14px; overflow:hidden; background:#151a23;}
   .vis-att-pochette img{width:100%; height:100%; object-fit:cover; display:block;}
-  .vis-att-jouer{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:72px; height:72px; border-radius:50%; border:0; background:rgba(0,0,0,.62); color:#fff; font-size:26px; cursor:pointer; display:grid; place-items:center; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
-  .vis-att-jouer:hover{background:var(--blue-bright,#4fb4ff); color:#04121f;}
+  .vis-att-pochette.ecoutable{cursor:pointer;}
+  .vis-att-msg{min-height:20px; font-size:13px; color:var(--ink-soft,#b9c0cc);}
+  .vis-att-msg button{background:none; border:0; padding:0; font:inherit; color:var(--blue-bright,#4fb4ff); text-decoration:underline; cursor:pointer;}
+  .vis-att-prog{font-size:12.5px; color:var(--muted,#8b93a1); font-variant-numeric:tabular-nums;}
   .vis-att-texte{display:flex; flex-direction:column; gap:6px; min-width:0;}
   .vis-att-texte h3{margin:0; font-size:22px; line-height:1.15;}
   .vis-att-texte p{margin:0; color:var(--ink-soft,#b9c0cc); font-size:14px;}
@@ -26027,6 +26031,17 @@ const attente = {
   minuteur: null
 };
 
+// Ce que l'équipe a traité depuis l'ouverture de la page (pour suivre sa progression).
+const attenteStats = { validees: 0, refusees: 0 };
+
+function progresAttenteTexte(){
+  const restantes = (attente.comptes.auto || 0) + (attente.comptes.membre || 0);
+  const parts = [restantes.toLocaleString('fr-FR') + ' restante' + (restantes > 1 ? 's' : '')];
+  if(attenteStats.validees) parts.push(attenteStats.validees.toLocaleString('fr-FR') + ' validée' + (attenteStats.validees > 1 ? 's' : ''));
+  if(attenteStats.refusees) parts.push(attenteStats.refusees.toLocaleString('fr-FR') + ' refusée' + (attenteStats.refusees > 1 ? 's' : ''));
+  return parts.join(' · ') + (attenteStats.validees || attenteStats.refusees ? ' (cette session)' : '');
+}
+
 
 // La pastille qui dit d'où vient la sortie.
 function originePastille(submission){
@@ -26079,7 +26094,8 @@ function renderAttenteBarres(){
     puces.innerHTML =
       puce('', 'Toutes', c.auto + c.membre) +
       puce('auto', 'Automatiques', c.auto) +
-      puce('membre', 'Membres', c.membre);
+      puce('membre', 'Membres', c.membre) +
+      `<span class="attente-progres" title="Sorties encore à traiter, et ce que tu as traité depuis l'ouverture de la page">${escapeHtml(progresAttenteTexte())}</span>`;
   }
 
   const pager = document.getElementById('attentePager');
@@ -26210,6 +26226,7 @@ async function validerLot(){
 
     if(error) throw error;
 
+    attenteStats.validees += ids.length;
     attente.choisies.clear();
 
     await loadArtistSubmissions({ garderMessage: true });
@@ -26248,6 +26265,7 @@ async function refuserLot(){
 
     if(error) throw error;
 
+    attenteStats.refusees += ids.length;
     attente.choisies.clear();
 
     await loadArtistSubmissions({ garderMessage: true });
@@ -26276,8 +26294,6 @@ function arreterExtraitAttente(){
   if(visAtt.audio){ try{ visAtt.audio.pause(); }catch(e){} visAtt.audio.src = ''; visAtt.audio = null; }
   visAtt.piste = -1;
   document.querySelectorAll('#visAtt .vis-att-pistes button.jouant').forEach(b => b.classList.remove('jouant'));
-  const g = document.getElementById('visAttJouer');
-  if(g) g.textContent = '▶';
 }
 
 function ouvrirVisionneuseAttente(id){
@@ -26300,6 +26316,8 @@ function ouvrirVisionneuseAttente(id){
 
   boite.hidden = false;
   visAtt.id = id;
+  visAtt.msg = '';
+  visAtt.derniere = null;
   rendreVisionneuseAttente();
 }
 
@@ -26308,6 +26326,12 @@ function fermerVisionneuseAttente(){
   visAtt.lire = false;
   const boite = document.getElementById('visAtt');
   if(boite) boite.hidden = true;
+
+  // Des sorties ont été publiées ou reprises depuis la visionneuse : le catalogue se met à jour une seule fois, à la fermeture.
+  if(visAtt.sale){
+    visAtt.sale = false;
+    Promise.resolve().then(async () => { await loadApprovedReleases(); await renderCatalogue(); }).catch(() => {});
+  }
 }
 
 function clavierVisionneuseAttente(e){
@@ -26320,6 +26344,114 @@ function clavierVisionneuseAttente(e){
   else if(e.key === 'ArrowRight'){ e.preventDefault(); naviguerVisionneuseAttente(1); }
   else if(e.key === 'ArrowLeft'){ e.preventDefault(); naviguerVisionneuseAttente(-1); }
   else if(e.key === 's' || e.key === 'S'){ e.preventDefault(); basculerSelectionVisionneuse(); }
+  else if((e.key === 'v' || e.key === 'V') && !e.repeat && !e.ctrlKey && !e.metaKey){ e.preventDefault(); traiterVisionneuseAttente('valider'); }
+  else if((e.key === 'r' || e.key === 'R') && !e.repeat && !e.ctrlKey && !e.metaKey){ e.preventDefault(); traiterVisionneuseAttente('refuser'); }
+  else if((e.key === 'z' || e.key === 'Z') && !e.repeat && !e.ctrlKey && !e.metaKey){ e.preventDefault(); annulerVisionneuseAttente(); }
+}
+
+// Valider (V) ou refuser (R) tout de suite et passer à la suivante, sans recharger la liste.
+// Une sortie envoyée par un membre garde sa confirmation (numéro de catalogue, photo proposée).
+async function traiterVisionneuseAttente(quoi){
+
+  if(!isAdmin || visAtt.occupe) return;
+
+  const i = attente.data.findIndex(s => s.id === visAtt.id);
+  if(i < 0) return;
+
+  const s = attente.data[i];
+
+  if(!s.source){ decisionVisionneuseAttente(quoi); return; }
+
+  visAtt.occupe = true;
+
+  try{
+
+    const champs = quoi === 'valider'
+      ? { status: 'approved', validated_at: new Date().toISOString(), validated_by: null }
+      : { status: 'rejected', rejection_reason: '', validated_at: new Date().toISOString() };
+
+    const { error } = await BD.majSortie(s.id, champs);
+    if(error) throw error;
+
+    // La liste suit sans rechargement : la ligne disparaît, les compteurs baissent.
+    attente.data.splice(i, 1);
+    attente.total = Math.max(0, attente.total - 1);
+    attente.comptes.auto = Math.max(0, (attente.comptes.auto || 0) - 1);
+    attente.choisies.delete(s.id);
+    const ligne = document.getElementById('submission-' + s.id);
+    if(ligne) ligne.remove();
+
+    if(quoi === 'valider'){ attenteStats.validees++; visAtt.sale = true; } else attenteStats.refusees++;
+
+    visAtt.derniere = { id: s.id, quoi, titre: s.track_title };
+    visAtt.msg = (quoi === 'valider' ? 'Validée : ' : 'Refusée : ') + s.track_title;
+
+    setAdminTabCount('submissions', (attente.comptes.auto || 0) + (attente.comptes.membre || 0));
+    renderAttenteBarres();
+
+    const suivante = attente.data[i] || attente.data[i - 1];
+
+    if(!suivante){
+      fermerVisionneuseAttente();
+      loadArtistSubmissions({ garderMessage: true });
+      return;
+    }
+
+    visAtt.lire = !!visAtt.audio;
+    arreterExtraitAttente();
+    visAtt.id = suivante.id;
+    rendreVisionneuseAttente();
+
+  }catch(erreur){
+    visAtt.msg = 'Impossible : ' + (erreur.message || erreur);
+    const m = document.getElementById('visAttMsg');
+    if(m) m.textContent = visAtt.msg;
+  }finally{
+    visAtt.occupe = false;
+  }
+}
+
+// Z : remet la dernière sortie traitée en attente.
+async function annulerVisionneuseAttente(){
+
+  const d = visAtt.derniere;
+  if(!isAdmin || visAtt.occupe || !d) return;
+
+  visAtt.occupe = true;
+
+  try{
+
+    const { error } = await BD.majSortie(d.id, { status: 'pending', validated_at: null, rejection_reason: null });
+    if(error) throw error;
+
+    if(d.quoi === 'valider'){ attenteStats.validees = Math.max(0, attenteStats.validees - 1); visAtt.sale = true; }
+    else attenteStats.refusees = Math.max(0, attenteStats.refusees - 1);
+
+    visAtt.derniere = null;
+    visAtt.msg = 'Remise en attente : ' + d.titre;
+
+    await loadArtistSubmissions({ garderMessage: true });
+
+    if(attente.data.some(s => s.id === d.id)){
+      visAtt.lire = !!visAtt.audio;
+      arreterExtraitAttente();
+      visAtt.id = d.id;
+      rendreVisionneuseAttente();
+    }else if(attente.data.length){
+      // Elle est sur une autre page : on reste sur la sortie courante, ou la première de la page.
+      if(!attente.data.some(s => s.id === visAtt.id)) visAtt.id = attente.data[0].id;
+      rendreVisionneuseAttente();
+    }else{
+      fermerVisionneuseAttente();
+    }
+
+  }catch(erreur){
+    visAtt.msg = 'Impossible d\'annuler : ' + (erreur.message || erreur);
+    const m = document.getElementById('visAttMsg');
+    if(m) m.textContent = visAtt.msg;
+  }finally{
+    visAtt.occupe = false;
+  }
 }
 
 function naviguerVisionneuseAttente(sens){
@@ -26376,10 +26508,9 @@ async function rendreVisionneuseAttente(){
   boite.innerHTML = `
     <div class="vis-att-boite">
       <button type="button" class="vis-att-fermer" aria-label="Fermer" onclick="fermerVisionneuseAttente()">✕</button>
-      <div class="vis-att-pochette">
+      <div class="vis-att-pochette ecoutable" title="Cliquer pour écouter ou mettre en pause" onclick="jouerExtraitAttente(Math.max(0, visAtt.pistes.findIndex(p => p.apercu)))">
         <img src="${escapeAttribute(pochetteGrande(s.cover_url))}" alt="${escapeAttribute(s.track_title)}"
              onerror="this.onerror=null; this.src='${escapeAttribute(safeUrl(s.cover_url))}'">
-        <button type="button" class="vis-att-jouer" id="visAttJouer" aria-label="Écouter un extrait" onclick="jouerExtraitAttente(0)">▶</button>
       </div>
       <div class="vis-att-texte">
         <div class="vis-att-nav">
@@ -26394,10 +26525,13 @@ async function rendreVisionneuseAttente(){
         <ul class="vis-att-pistes" id="visAttPistes" aria-label="Extraits"><li style="color:var(--muted); font-size:13px;">Chargement des extraits…</li></ul>
         <div class="vis-att-barre">
           ${s.source ? `<button type="button" class="btn btn-ghost" id="visAttSel" onclick="basculerSelectionVisionneuse()">${choisie ? 'Retirer de la sélection' : 'Sélectionner'}</button>` : ''}
-          <button type="button" class="btn btn-primary" onclick="decisionVisionneuseAttente('valider')">Valider</button>
-          <button type="button" class="reject" onclick="decisionVisionneuseAttente('refuser')">Refuser</button>
+          <button type="button" class="btn btn-primary" onclick="traiterVisionneuseAttente('valider')">Valider (V)</button>
+          <button type="button" class="reject" onclick="traiterVisionneuseAttente('refuser')">Refuser (R)</button>
+          ${visAtt.derniere ? '<button type="button" class="btn btn-ghost" onclick="annulerVisionneuseAttente()">Annuler (Z)</button>' : ''}
         </div>
-        <span class="vis-att-aide">← → pour changer de sortie · S pour sélectionner · Échap pour fermer</span>
+        <div class="vis-att-msg" id="visAttMsg">${escapeHtml(visAtt.msg || '')}</div>
+        <span class="vis-att-prog">${escapeHtml(progresAttenteTexte())}</span>
+        <span class="vis-att-aide">V valide et R refuse tout de suite (sorties automatiques) puis passe à la suivante · Z annule · ← → naviguer · S sélectionner · Échap fermer</span>
       </div>
     </div>`;
 
@@ -26425,7 +26559,7 @@ async function rendreVisionneuseAttente(){
   liste.innerHTML = pistes.length
     ? pistes.map((p, n) => `
         <li><button type="button" ${p.apercu ? '' : 'disabled'} onclick="jouerExtraitAttente(${n})">
-          <b>${n + 1}</b><span>${escapeHtml(p.titre)}</span><em style="font-style:normal; font-size:12px; color:var(--muted);">${p.apercu ? '▶ 30 s' : 'pas d\'extrait'}</em>
+          <b>${n + 1}</b><span>${escapeHtml(p.titre)}</span><em style="font-style:normal; font-size:12px; color:var(--muted);">${p.apercu ? '30 s' : 'pas d\'extrait'}</em>
         </button></li>`).join('')
     : '<li style="color:var(--muted); font-size:13px;">Aucun extrait disponible pour cette sortie.</li>';
 
@@ -26458,8 +26592,6 @@ function jouerExtraitAttente(n){
   audio.play().catch(() => { if(visAtt.audio === audio) arreterExtraitAttente(); });
 
   document.querySelectorAll('#visAttPistes button').forEach((b, k) => b.classList.toggle('jouant', k === n));
-  const g = document.getElementById('visAttJouer');
-  if(g) g.textContent = '❚❚';
 }
 
 
@@ -26509,7 +26641,7 @@ function sortieEnAttenteHtml(submission){
               aria-label="Agrandir la pochette de ${escapeAttribute(submission.track_title)} et écouter un extrait"
               onclick="ouvrirVisionneuseAttente('${id}')">
         <img src="${escapeAttribute(safeUrl(submission.cover_url))}" alt="">
-        <i aria-hidden="true">▶</i>
+        <i aria-hidden="true"><svg viewBox="0 0 10 10"><path d="M1 0.5v9l8-4.5z"/></svg></i>
       </button>
 
 
@@ -26992,6 +27124,8 @@ async function approveSubmission(submissionId){
     // 4. RAFRAÎCHIR LES SOUMISSIONS ADMIN
     // ==========================================
 
+    attenteStats.validees++;
+
     await loadArtistSubmissions();
 
     await loadApprovedReleases();
@@ -27098,6 +27232,8 @@ async function rejectSubmission(submissionId){
       data
     );
 
+
+    attenteStats.refusees++;
 
     await loadArtistSubmissions();
 
