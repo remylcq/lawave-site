@@ -26059,6 +26059,7 @@ const attente = {
   texte: '',
   page: 0,
   taille: 25,
+  tailleArtistes: 100,   // la vue par artiste montre 100 artistes par page (maximum côté base)
   total: 0,
   comptes: { auto: 0, membre: 0 },
   data: [],
@@ -26149,7 +26150,7 @@ function renderAttenteBarres(){
   const pager = document.getElementById('attentePager');
 
   if(pager){
-    const pages = Math.max(1, Math.ceil((attente.vue === 'artistes' ? attente.totalArtistes : attente.total) / attente.taille));
+    const pages = Math.max(1, Math.ceil((attente.vue === 'artistes' ? attente.totalArtistes / attente.tailleArtistes : attente.total / attente.taille)));
     pager.innerHTML = pages <= 1 ? '' : `
       <button type="button" class="btn btn-ghost" ${attente.page === 0 ? 'disabled' : ''} onclick="pageAttente(-1)">Précédentes</button>
       <span>Page ${attente.page + 1} sur ${pages}</span>
@@ -26437,7 +26438,7 @@ function artisteAttenteHtml(a, i){
 async function chargerAttenteArtistes(list){
 
   const [{ data, error }, comptes] = await Promise.all([
-    BD.attenteArtistes({ texte: attente.texte, page: attente.page, taille: attente.taille, tri: attente.tri }),
+    BD.attenteArtistes({ texte: attente.texte, page: attente.page, taille: attente.tailleArtistes, tri: attente.tri }),
     BD.sortiesEnAttenteComptes()
   ]);
 
