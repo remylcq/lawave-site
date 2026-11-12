@@ -31095,30 +31095,27 @@ function featsDeLaSortie(sortie){
 // Un artiste : toutes ses sorties (en attente et publiées, covers comprises), son profil et, au choix, son bannissement.
 async function supprimerUnArtisteEtSorties(cible, definitif){
 
-  const handle = cible.handle || null;
-  const profil = handle ? (artistProfilesData.find(a => a.instagram_handle === handle) || artistsByHandle[handle] || null) : null;
+  // Un featuring n'a pas toujours de pseudo dans la sortie : on le retrouve par son nom parmi les profils.
+  const memeNom = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  const profilParNom = cible.handle ? null : (
+    artistProfilesData.find(a => memeNom(a.display_name, cible.nom)) ||
+    Object.values(artistsByHandle).find(a => memeNom(a.display_name, cible.nom)) || null
+  );
+
+  const handle = cible.handle || (profilParNom && profilParNom.instagram_handle) || null;
+  const profil = handle ? (artistProfilesData.find(a => a.instagram_handle === handle) || artistsByHandle[handle] || profilParNom || null) : null;
   const nom = (profil && profil.display_name) || cible.nom || handle;
   const idDeezer = profil ? profil.deezer_artist_id : null;
-  let effacees = 0;
 
-  if(handle){
+  // Côté base : toutes ses sorties, y compris celles que le site masque (artiste non francophone ou banni, que les
+  // droits de lecture cachent même à l'équipe), puis son profil. Sans cela, ces sorties restaient en base.
+  const { data: res, error: erreurSup } = await supabaseClient.rpc('supprimer_artiste_complet', { p_handle: handle, p_nom: nom });
+  if(erreurSup) throw erreurSup;
 
-    const { data: sorties, error: erreurSorties } = await BD.supprimerSortiesDArtiste(handle);
-    if(erreurSorties) throw erreurSorties;
+  const effacees = (res && res.sorties) || 0;
 
-    effacees = (sorties || []).length;
-
-    if(effacees) await Fichiers.supprimerParUrl.apply(null, sorties.map(x => x.cover_url));
-
-    const { data: supprime, error: erreurProfil } = await BD.supprimerArtiste(handle);
-    if(erreurProfil) throw erreurProfil;
-
-    if((!supprime || !supprime.length) && profil){
-      throw new Error(effacees ? 'les sorties sont supprimées, mais le profil a résisté : droits équipe requis' : 'droits équipe requis');
-    }
-
-    if(profil) await Fichiers.supprimerParUrl(profil.photo_url);
-  }
+  if(res && res.covers && res.covers.length) await Fichiers.supprimerParUrl.apply(null, res.covers);
+  if(res && res.photo) await Fichiers.supprimerParUrl(res.photo);
 
   let avertissement = '';
 
@@ -31153,8 +31150,10 @@ async function supprimerArtisteDepuisSoumission(submissionId, definitif, avecFea
     });
   }
 
-  const handles = cibles.map(c => c.handle).filter(Boolean);
-  const lignesDe = (liste) => attente.data.filter(x => liste.includes(x.artist_handle));
+  // Les lignes d'un artiste : son pseudo, ou exactement son nom (un featuring sans profil n'a pas de pseudo).
+  const memeNom = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+  const lignesDe = (liste) => attente.data.filter(x => liste.some(c =>
+    (c.handle && c.handle === x.artist_handle) || (c.nom && memeNom(c.nom, x.artist_name))));
 
   closeConfirmPanel('artist-del-' + submissionId);
 
@@ -31165,7 +31164,7 @@ async function supprimerArtisteDepuisSoumission(submissionId, definitif, avecFea
     else { el.classList.remove('replie'); el.style.maxHeight = ''; }
   });
 
-  replier(handles, true);
+  replier(cibles, true);
 
   const faits = [];
   const avertissements = [];
@@ -31175,26 +31174,25 @@ async function supprimerArtisteDepuisSoumission(submissionId, definitif, avecFea
   for(const cible of cibles){
     try{
       const r = await supprimerUnArtisteEtSorties(cible, definitif);
-      faits.push({ nom: r.nom, handle: cible.handle });
+      faits.push({ nom: r.nom, cible });
       totalEffacees += r.effacees;
       if(r.avertissement) avertissements.push(r.avertissement);
     }catch(erreur){
       console.error('❌ Suppression de l\'artiste depuis les soumissions :', erreur);
       if(cible === cibles[0]){ erreurPrincipale = erreur; break; }
       avertissements.push((cible.nom || 'Un featuring') + ' n\'a pas pu être supprimé (' + (erreur.message || erreur) + ').');
-      if(cible.handle) replier([cible.handle], false);
+      replier([cible], false);
     }
   }
 
   if(erreurPrincipale){
-    replier(handles, false);
+    replier(cibles, false);
     setRowMessage('adminActionMsg', 'Impossible de supprimer ' + cibles[0].nom + ' : ' + (erreurPrincipale.message || erreurPrincipale), 'err');
     return;
   }
 
   // La liste suit sans rechargement : les lignes partent, les compteurs baissent.
-  const supprimes = faits.map(f => f.handle).filter(Boolean);
-  const retirees = lignesDe(supprimes);
+  const retirees = lignesDe(faits.map(f => f.cible));
   const ids = new Set(retirees.map(x => x.id));
 
   retirees.forEach(x => {
