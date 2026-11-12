@@ -4607,6 +4607,10 @@
   #page-admin .att-art-nom b{margin-left:8px; font-weight:600; color:var(--blue-bright); font-variant-numeric:tabular-nums;}
   #page-admin .att-art-titres{font-size:.85rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
   #page-admin .att-art-actions{display:flex; flex-wrap:wrap; gap:8px; align-items:center;}
+  #page-admin .attente-lot .reject, #page-admin .att-art .reject, #page-admin .att-art .att-bannir{padding:9px 16px; border-radius:12px; border:1px solid rgba(229,105,92,0.55); background:rgba(229,105,92,0.12); font:inherit; font-size:14px; font-weight:600; color:#ff8f84; cursor:pointer; white-space:nowrap;}
+  #page-admin .attente-lot .reject:hover:not(:disabled), #page-admin .att-art .reject:hover, #page-admin .att-art .att-bannir:hover{background:var(--eq-danger,#e5695c); color:#fff; border-color:transparent;}
+  #page-admin .attente-lot .reject:disabled{opacity:.45; cursor:not-allowed;}
+  #page-admin .att-art .att-bannir{background:transparent;}
   #page-admin .att-art{margin-bottom:8px; overflow:hidden;}
   #page-admin .att-art.replie{max-height:0 !important; opacity:0; padding-top:0; padding-bottom:0; margin-bottom:0; border-width:0; pointer-events:none; transition:max-height .28s var(--ease), opacity .2s var(--ease), padding .28s var(--ease), margin .28s var(--ease);}
   #page-admin .att-art-confirm{flex-basis:100%; display:flex; flex-wrap:wrap; gap:8px; align-items:center; color:var(--ink);}
@@ -26056,7 +26060,8 @@ const attente = {
   minuteur: null,
   vue: 'sorties',      // 'sorties' (une ligne par sortie) ou 'artistes' (une ligne par artiste)
   artistes: [],
-  totalArtistes: 0
+  totalArtistes: 0,
+  tri: 'fans'          // 'fans' (les plus écoutés d'abord) ou 'nombre' (le plus de sorties en attente d'abord)
 };
 
 // Ce que l'équipe a traité depuis l'ouverture de la page (pour suivre sa progression).
@@ -26119,12 +26124,15 @@ function renderAttenteBarres(){
     const puce = (cle, libelle, n) => `
       <button type="button" class="attente-puce${attente.origine === cle ? ' actif' : ''}"
               onclick="filtrerAttente('${cle}')">${libelle}<b>${n}</b></button>`;
+    const triPuce = (cle, libelle) => `
+      <button type="button" class="attente-puce${attente.tri === cle ? ' actif' : ''}"
+              onclick="changerTriAttente('${cle}')">${libelle}</button>`;
     const vue = (cle, libelle) => `
       <button type="button" class="attente-puce${attente.vue === cle ? ' actif' : ''}"
               onclick="changerVueAttente('${cle}')">${libelle}</button>`;
     puces.innerHTML =
       `<span class="attente-vues" title="Une ligne par sortie, ou une ligne par artiste avec une décision pour toutes ses sorties">${vue('artistes', 'Par artiste')}${vue('sorties', 'Par sortie')}</span>` +
-      (attente.vue === 'artistes' ? '' :
+      (attente.vue === 'artistes' ? `<span class="attente-vues" title="Ordre des artistes">${triPuce('nombre', 'Plus de sorties')}${triPuce('fans', 'Plus de fans')}</span>` :
         puce('', 'Toutes', c.auto + c.membre) +
         puce('auto', 'Automatiques', c.auto) +
         puce('membre', 'Membres', c.membre)) +
@@ -26380,6 +26388,13 @@ function changerVueAttente(vue){
   loadArtistSubmissions({ garderMessage: true });
 }
 
+function changerTriAttente(tri){
+  if(attente.tri === tri) return;
+  attente.tri = tri;
+  attente.page = 0;
+  loadArtistSubmissions({ garderMessage: true });
+}
+
 function fansCourt(n){
   n = Number(n) || 0;
   if(n >= 1e6) return (n / 1e6).toFixed(1).replace('.0', '').replace('.', ',') + ' M fans';
@@ -26404,6 +26419,7 @@ function artisteAttenteHtml(a, i){
         <button type="button" class="btn btn-ghost" onclick="voirSortiesArtisteAttente(${i})">Voir les sorties</button>
         <button type="button" class="btn btn-primary" onclick="demanderArtisteAttente(${i}, true)">Tout valider</button>
         <button type="button" class="reject" onclick="demanderArtisteAttente(${i}, false)">Tout refuser</button>
+        <button type="button" class="att-bannir" onclick="demanderArtisteAttente(${i}, 'bannir')">Bannir</button>
       </div>
     </div>`;
 }
@@ -26411,7 +26427,7 @@ function artisteAttenteHtml(a, i){
 async function chargerAttenteArtistes(list){
 
   const [{ data, error }, comptes] = await Promise.all([
-    BD.attenteArtistes({ texte: attente.texte, page: attente.page, taille: attente.taille, tri: 'fans' }),
+    BD.attenteArtistes({ texte: attente.texte, page: attente.page, taille: attente.taille, tri: attente.tri }),
     BD.sortiesEnAttenteComptes()
   ]);
 
@@ -26447,8 +26463,8 @@ function demanderArtisteAttente(i, valider){
   if(!a || !zone) return;
 
   zone.innerHTML = `
-    <span class="att-art-confirm">${valider ? 'Publier' : 'Refuser'} les ${a.n} sortie${a.n > 1 ? 's' : ''} de ${escapeHtml(a.nom || a.handle)} ?
-      <button type="button" class="${valider ? 'btn btn-primary' : 'reject'}" onclick="traiterArtisteAttente(${i}, ${valider})">Oui, ${valider ? 'valider' : 'refuser'}</button>
+    <span class="att-art-confirm">${valider === 'bannir' ? 'Bannir ' + escapeHtml(a.nom || a.handle) + ' (profil et ' + a.n + ' sortie' + (a.n > 1 ? 's' : '') + ' masqués, plus jamais importé)' : (valider ? 'Publier' : 'Refuser') + ' les ' + a.n + ' sortie' + (a.n > 1 ? 's' : '') + ' de ' + escapeHtml(a.nom || a.handle)} ?
+      <button type="button" class="${valider === true ? 'btn btn-primary' : 'reject'}" onclick="traiterArtisteAttente(${i}, ${valider === 'bannir' ? "'bannir'" : valider})">Oui, ${valider === 'bannir' ? 'bannir' : (valider ? 'valider' : 'refuser')}</button>
       <button type="button" class="btn btn-ghost" onclick="annulerArtisteAttente(${i})">Annuler</button>
     </span>`;
 }
@@ -26462,7 +26478,8 @@ function annulerArtisteAttente(i){
   zone.innerHTML = `
     <button type="button" class="btn btn-ghost" onclick="voirSortiesArtisteAttente(${i})">Voir les sorties</button>
     <button type="button" class="btn btn-primary" onclick="demanderArtisteAttente(${i}, true)">Tout valider</button>
-    <button type="button" class="reject" onclick="demanderArtisteAttente(${i}, false)">Tout refuser</button>`;
+    <button type="button" class="reject" onclick="demanderArtisteAttente(${i}, false)">Tout refuser</button>
+    <button type="button" class="att-bannir" onclick="demanderArtisteAttente(${i}, 'bannir')">Bannir</button>`;
 }
 
 function voirSortiesArtisteAttente(i){
@@ -26497,24 +26514,35 @@ async function traiterArtisteAttente(i, valider){
 
   try{
 
-    const { data, error } = await BD.attenteArtisteTraiter(a.handle, valider, '');
-    if(error) throw error;
+    let n;
 
-    const n = Number(data) || 0;
+    if(valider === 'bannir'){
+      const profil = artistsByHandle[a.handle];
+      const { error } = await BD.bannirArtiste(a.nom || a.handle, a.handle, profil ? profil.deezer_artist_id : null, 'Banni depuis les soumissions');
+      if(error && !/déjà banni/i.test(error.message || '')) throw error;
+      n = a.n;
+      retirerArtisteDeLaListe(a.handle);
+    }else{
+      const { data, error } = await BD.attenteArtisteTraiter(a.handle, valider, '');
+      if(error) throw error;
+      n = Number(data) || 0;
+    }
 
     attente.comptes.auto = Math.max(0, (attente.comptes.auto || 0) - n);
     attente.totalArtistes = Math.max(0, attente.totalArtistes - 1);
     attente.artistes[i] = null;
 
-    if(valider){ attenteStats.validees += n; rafraichirCatalogueEnFond(); }
-    else attenteStats.refusees += n;
+    if(valider === true){ attenteStats.validees += n; rafraichirCatalogueEnFond(); }
+    else if(valider === false) attenteStats.refusees += n;
 
     setTimeout(() => el.remove(), 320);
     setAdminTabCount('submissions', (attente.comptes.auto || 0) + (attente.comptes.membre || 0));
     renderAttenteBarres();
 
     setRowMessage('adminActionMsg',
-      (valider ? '✅ ' : '❌ ') + n + ' sortie' + (n > 1 ? 's' : '') + (valider ? ' publiée' : ' refusée') + (n > 1 ? 's' : '') + ' (' + (a.nom || a.handle) + ').', 'ok');
+      valider === 'bannir'
+        ? '🚫 ' + (a.nom || a.handle) + ' est banni (' + n + ' sortie' + (n > 1 ? 's' : '') + ' masquée' + (n > 1 ? 's' : '') + ').'
+        : (valider ? '✅ ' : '❌ ') + n + ' sortie' + (n > 1 ? 's' : '') + (valider ? ' publiée' : ' refusée') + (n > 1 ? 's' : '') + ' (' + (a.nom || a.handle) + ').', 'ok');
 
     if(attente.artistes.every(x => !x)) loadArtistSubmissions({ garderMessage: true });
 
