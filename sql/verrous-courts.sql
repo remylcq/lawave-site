@@ -197,3 +197,26 @@ begin
   get diagnostics v_n = row_count;
   return v_n;
 end $$;
+
+-- Pseudo sans profil (profil supprimé, sorties restées) : bannir par pseudo répondait « Profil introuvable » et ne masquait
+-- rien. Le site bannit alors par le nom, puis masque les sorties du pseudo avec cette fonction (lignes tenues par l'import
+-- laissées, le rattrapage termine). RETRAIT : drop function public.attente_artiste_masquer(text);
+create or replace function public.attente_artiste_masquer(p_handle text)
+returns integer
+language plpgsql security definer set search_path to 'public' as $$
+declare v_n integer;
+begin
+  if auth.uid() is null or not public.est_equipe() then
+    raise exception 'Réservé à l''équipe.';
+  end if;
+  if nullif(btrim(coalesce(p_handle, '')), '') is null then
+    raise exception 'Indique l''artiste.';
+  end if;
+
+  update public.submissions set banni = true
+   where id in (select x.id from public.submissions x where x.artist_handle = p_handle and not x.banni for update skip locked);
+  get diagnostics v_n = row_count;
+  return v_n;
+end $$;
+revoke all on function public.attente_artiste_masquer(text) from public, anon;
+grant execute on function public.attente_artiste_masquer(text) to authenticated;

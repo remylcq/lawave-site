@@ -7997,6 +7997,11 @@ const BD = {
     return supabaseClient.rpc('attente_artistes', { p_texte: texte, p_page: page, p_taille: taille, p_tri: tri });
   },
 
+  // Masque toutes les sorties d'un pseudo (sans profil, ou déjà banni par son nom) ; les lignes tenues par l'import sont laissées.
+  attenteArtisteMasquer(handle){
+    return supabaseClient.rpc('attente_artiste_masquer', { p_handle: handle });
+  },
+
   attenteArtisteTraiter(handle, valider, motif){
     return supabaseClient.rpc('attente_artiste_traiter', { p_handle: handle, p_valider: valider, p_motif: motif || '' });
   },
@@ -26553,6 +26558,7 @@ async function traiterSelectionArtistes(action){
 
   const valider = action === 'bannir' ? 'bannir' : action === 'valider';
   let faits = 0, echecs = 0, sorties = 0;
+  attente.derniereErreur = '';
 
   setRowMessage('adminActionMsg', (action === 'bannir' ? 'Bannissement' : 'Traitement') + ' en cours...', 'ok');
   renderAttenteLot();
@@ -26566,7 +26572,7 @@ async function traiterSelectionArtistes(action){
     (action === 'bannir' ? '🚫 ' : action === 'valider' ? '✅ ' : '❌ ') + faits + ' artiste' + (faits > 1 ? 's' : '') +
     (action === 'bannir' ? ' banni' : action === 'valider' ? ' validé' : ' refusé') + (faits > 1 ? 's' : '') +
     ' (' + sorties.toLocaleString('fr-FR') + ' sortie' + (sorties > 1 ? 's' : '') + ').' +
-    (echecs ? ' ' + echecs + ' non traité' + (echecs > 1 ? 's' : '') + ' (réessaie).' : ''),
+    (echecs ? ' ' + echecs + ' non traité' + (echecs > 1 ? 's' : '') + ' (' + (attente.derniereErreur || 'réessaie') + ').' : ''),
     echecs ? 'err' : 'ok');
 
   if(attente.artistes.every(x => !x)) loadArtistSubmissions({ garderMessage: true });
@@ -26636,9 +26642,15 @@ async function traiterArtisteAttente(i, valider, silencieux){
     let n;
 
     if(valider === 'bannir'){
+      // Un pseudo sans profil (profil supprimé, sorties restées) se bannit par son nom ; un nom déjà banni suffit de masquer.
       const profil = artistsByHandle[a.handle];
-      const { error } = await BD.bannirArtiste(a.nom || a.handle, a.handle, profil ? profil.deezer_artist_id : null, 'Banni depuis les soumissions');
+      let { error } = await BD.bannirArtiste(a.nom || a.handle, profil ? a.handle : null, profil ? profil.deezer_artist_id : null, 'Banni depuis les soumissions');
+      if(error && /profil introuvable/i.test(error.message || '')){
+        ({ error } = await BD.bannirArtiste(a.nom || a.handle, null, null, 'Banni depuis les soumissions'));
+      }
       if(error && !/déjà banni/i.test(error.message || '')) throw error;
+      // Dans tous les cas, les sorties sont masquées tout de suite (sans attendre le rattrapage).
+      await BD.attenteArtisteMasquer(a.handle);
       n = a.n;
       retirerArtisteDeLaListe(a.handle);
     }else{
@@ -26670,6 +26682,7 @@ async function traiterArtisteAttente(i, valider, silencieux){
 
   }catch(erreur){
     console.error('❌ Erreur décision par artiste :', erreur);
+    attente.derniereErreur = (a.nom || a.handle) + ' : ' + (erreur.message || erreur);
     el.classList.remove('replie');
     el.style.maxHeight = '';
     annulerArtisteAttente(i);
