@@ -26211,6 +26211,64 @@ function cocherToutAttente(coche){
 }
 
 
+// Des sorties quittent la liste d'attente (validées, refusées…) : les lignes se replient puis partent, les compteurs
+// baissent, sans recharger la liste. Si la page se vide, la suivante est relue.
+function sortirSortiesDeLAttente(ids){
+
+  const set = new Set(ids);
+  const retirees = attente.data.filter(x => set.has(x.id));
+
+  retirees.forEach(x => {
+    if(x.source) attente.comptes.auto = Math.max(0, (attente.comptes.auto || 0) - 1);
+    else attente.comptes.membre = Math.max(0, (attente.comptes.membre || 0) - 1);
+    attente.choisies.delete(x.id);
+
+    const el = document.getElementById('submission-' + x.id);
+    if(el){
+      el.style.maxHeight = el.offsetHeight + 'px';
+      void el.offsetHeight;
+      el.classList.add('replie');
+    }
+  });
+
+  attente.total = Math.max(0, attente.total - retirees.length);
+  attente.data = attente.data.filter(x => !set.has(x.id));
+
+  setTimeout(() => retirees.forEach(x => { const el = document.getElementById('submission-' + x.id); if(el) el.remove(); }), 320);
+
+  setAdminTabCount('submissions', (attente.comptes.auto || 0) + (attente.comptes.membre || 0));
+  renderAttenteBarres();
+
+  if(!attente.data.length) loadArtistSubmissions({ garderMessage: true });
+}
+
+function replierSortieAttente(id, oui){
+
+  const el = document.getElementById('submission-' + id);
+  if(!el) return;
+
+  if(oui){ el.style.maxHeight = el.offsetHeight + 'px'; void el.offsetHeight; el.classList.add('replie'); }
+  else { el.classList.remove('replie'); el.style.maxHeight = ''; }
+}
+
+// Le catalogue se relit derrière, une fois, même si on enchaîne les validations.
+let catalogueEnFondMinuteur = null;
+
+function rafraichirCatalogueEnFond(){
+
+  clearTimeout(catalogueEnFondMinuteur);
+
+  catalogueEnFondMinuteur = setTimeout(async () => {
+    try{
+      await loadApprovedReleases();
+      await renderCatalogue();
+    }catch(erreur){
+      console.error('❌ Rafraîchissement du catalogue :', erreur);
+    }
+  }, 1500);
+}
+
+
 async function validerLot(){
 
   if(!isAdmin) return;
@@ -26231,11 +26289,10 @@ async function validerLot(){
     if(error) throw error;
 
     attenteStats.validees += ids.length;
-    attente.choisies.clear();
 
-    await loadArtistSubmissions({ garderMessage: true });
-    await loadApprovedReleases();
-    await renderCatalogue();
+    // Sans recharger la page : les lignes partent, les compteurs baissent, le catalogue se met à jour derrière.
+    sortirSortiesDeLAttente(ids);
+    rafraichirCatalogueEnFond();
 
     const n = (data || []).length;
     setRowMessage('adminActionMsg', '✅ ' + n + ' sortie' + (n > 1 ? 's' : '') + ' validée' + (n > 1 ? 's' : '') + ' et publiée' + (n > 1 ? 's' : '') + '.', 'ok');
@@ -26270,9 +26327,8 @@ async function refuserLot(){
     if(error) throw error;
 
     attenteStats.refusees += ids.length;
-    attente.choisies.clear();
 
-    await loadArtistSubmissions({ garderMessage: true });
+    sortirSortiesDeLAttente(ids);
 
     const n = (data || []).length;
     setRowMessage('adminActionMsg', '❌ ' + n + ' sortie' + (n > 1 ? 's' : '') + ' refusée' + (n > 1 ? 's' : '') + '.', 'ok');
@@ -27084,7 +27140,8 @@ async function approveSubmission(submissionId){
 
   closeConfirmPanel('approve-confirm-' + submissionId);
 
-  setRowMessage(msgId, 'Validation en cours...', 'ok');
+  // Instantané : la ligne se replie tout de suite ; si la publication échoue, elle revient.
+  replierSortieAttente(submissionId, true);
 
   try{
 
@@ -27170,16 +27227,9 @@ async function approveSubmission(submissionId){
 
     attenteStats.validees++;
 
-    await loadArtistSubmissions();
-
-    await loadApprovedReleases();
-
-
-    // ==========================================
-    // 5. RAFRAÎCHIR LE CATALOGUE
-    // ==========================================
-
-    await renderCatalogue();
+    // Sans recharger la page : la ligne part, les compteurs baissent, le catalogue se relit derrière.
+    sortirSortiesDeLAttente([submissionId]);
+    rafraichirCatalogueEnFond();
 
 
     const scheduledFor =
@@ -27208,6 +27258,8 @@ async function approveSubmission(submissionId){
       '❌ Erreur publication :',
       error
     );
+
+    replierSortieAttente(submissionId, false);
 
     setRowMessage(
       msgId,
@@ -27254,7 +27306,8 @@ async function rejectSubmission(submissionId){
 
   closeConfirmPanel('reject-confirm-' + submissionId);
 
-  setRowMessage(msgId, 'Refus en cours...', 'ok');
+  // Instantané : la ligne se replie tout de suite ; si le refus échoue, elle revient.
+  replierSortieAttente(submissionId, true);
 
 
   try{
@@ -27279,7 +27332,7 @@ async function rejectSubmission(submissionId){
 
     attenteStats.refusees++;
 
-    await loadArtistSubmissions();
+    sortirSortiesDeLAttente([submissionId]);
 
     setRowMessage(
       'adminActionMsg',
@@ -27294,6 +27347,8 @@ async function rejectSubmission(submissionId){
       '❌ Erreur refus :',
       error
     );
+
+    replierSortieAttente(submissionId, false);
 
     setRowMessage(
       msgId,
