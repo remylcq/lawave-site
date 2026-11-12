@@ -3385,8 +3385,8 @@
   .bannir-choix-texte b{display:block; font-size:14px; color:var(--ink);}
   .artiste-bannir-form .btn{height:46px;}
   /* Une ligne d'artiste supprimée se replie au lieu de disparaître d'un coup. */
-  #page-admin .att-suppr-artiste{align-self:center; margin-top:2px; padding:2px 6px; background:none; border:0; font:inherit; font-size:12px; color:var(--muted); text-decoration:underline; cursor:pointer;}
-  #page-admin .att-suppr-artiste:hover{color:var(--danger);}
+  #page-admin .att-suppr-artiste{align-self:flex-start; margin-left:auto; flex:none; padding:7px 12px; border-radius:10px; border:1px solid var(--danger); background:rgba(255,80,80,0.1); font:inherit; font-size:12.5px; font-weight:600; color:var(--danger); cursor:pointer; white-space:nowrap;}
+  #page-admin .att-suppr-artiste:hover{background:var(--danger); color:#fff;}
   #page-admin .admin-row.replie{max-height:0 !important; opacity:0; overflow:hidden; padding-top:0; padding-bottom:0; margin-top:0; margin-bottom:0; border-width:0; pointer-events:none; transition:max-height .28s var(--ease), opacity .2s var(--ease), padding .28s var(--ease), margin .28s var(--ease);}
   @media (max-width:720px){ .artiste-bannir-form{grid-template-columns:1fr;} }
   .lien-bouton{
@@ -26534,7 +26534,7 @@ async function rendreVisionneuseAttente(){
           <button type="button" class="reject" onclick="traiterVisionneuseAttente('refuser')">Refuser (R)</button>
           ${visAtt.derniere ? '<button type="button" class="btn btn-ghost" onclick="annulerVisionneuseAttente()">Annuler (Z)</button>' : ''}
         </div>
-        ${s.artist_handle ? `<button type="button" class="att-suppr-artiste" style="align-self:flex-start; background:none; border:0; padding:2px 0; font:inherit; font-size:12px; color:var(--muted); text-decoration:underline; cursor:pointer;" onclick="decisionVisionneuseAttente('supprimer-artiste')">Supprimer l'artiste et toutes ses sorties…</button>` : ''}
+        ${s.artist_handle ? `<button type="button" class="att-suppr-artiste" style="align-self:flex-start; margin-left:0;" onclick="decisionVisionneuseAttente('supprimer-artiste')">Supprimer l'artiste…</button>` : ''}
         <div class="vis-att-msg" id="visAttMsg">${escapeHtml(visAtt.msg || '')}</div>
         <span class="vis-att-prog">${escapeHtml(progresAttenteTexte())}</span>
         <span class="vis-att-aide">V valide et R refuse tout de suite (sorties automatiques) puis passe à la suivante · Z annule · ← → naviguer · S sélectionner · Échap fermer</span>
@@ -26764,15 +26764,15 @@ function sortieEnAttenteHtml(submission){
           Refuser
         </button>
 
-        ${
-          submission.artist_handle
-            ? `<button type="button" class="att-suppr-artiste"
-                       title="Supprimer l'artiste et toutes ses sorties"
-                       onclick="openConfirmPanel('artist-del-${id}')">Supprimer l'artiste</button>`
-            : ''
-        }
-
       </div>
+
+      ${
+        submission.artist_handle
+          ? `<button type="button" class="att-suppr-artiste"
+                     title="Supprimer l'artiste et toutes ses sorties"
+                     onclick="openConfirmPanel('artist-del-${id}')">Supprimer l'artiste</button>`
+          : ''
+      }
 
      </div>
 
@@ -26785,10 +26785,21 @@ function sortieEnAttenteHtml(submission){
           Supprimer <strong>${escapeHtml(submission.artist_name)}</strong> et
           <strong>toutes ses sorties</strong> (catalogue compris) ? Ce n'est pas réversible.
           « Supprimer et bannir » l'empêche aussi de revenir par l'import Deezer.
+          ${
+            featsDeLaSortie(submission).length
+              ? `Cette sortie a des featurings : <strong>${featsDeLaSortie(submission).map(f => escapeHtml(f.nom || f.handle)).join(', ')}</strong>.`
+              : ''
+          }
         </p>
 
         <div class="inline-actions">
           <button type="button" class="btn btn-primary" onclick="supprimerArtisteDepuisSoumission('${id}', true)">Supprimer et bannir</button>
+          ${
+            featsDeLaSortie(submission).length
+              ? `<button type="button" class="btn btn-primary" onclick="supprimerArtisteDepuisSoumission('${id}', true, true)">Supprimer et bannir avec ${featsDeLaSortie(submission).length > 1 ? 'ses featurings' : 'son featuring'}</button>
+                 <button type="button" class="btn btn-ghost" onclick="supprimerArtisteDepuisSoumission('${id}', false, true)">Supprimer avec ${featsDeLaSortie(submission).length > 1 ? 'ses featurings' : 'son featuring'}, sans bannir</button>`
+              : ''
+          }
           <button type="button" class="btn btn-ghost" onclick="supprimerArtisteDepuisSoumission('${id}', false)">Supprimer sans bannir</button>
           <button type="button" class="btn btn-ghost" onclick="closeConfirmPanel('artist-del-${id}')">Annuler</button>
         </div>
@@ -29609,17 +29620,23 @@ async function executerBannissement(nom, handle, idDeezer, raison){
   artistesBannisOccupe = true;
   setRowMessage('artistsActionMsg', '');
 
+  // Instantané : depuis la ligne d'un artiste, elle se replie tout de suite ; si le bannissement échoue, elle revient.
+  if(handle) replierLigneArtiste(handle);
+
   try{
 
     const { data, error } = await BD.bannirArtiste(nom, handle, idDeezer, raison);
 
     if(error){
+      if(handle) deplierLigneArtiste(handle);
       setRowMessage('artistsActionMsg', messageSqlDeezer(error), 'err');
       return false;
     }
 
-    // Le profil disparaît de la liste : on la recharge.
-    await loadArtistProfiles();
+    // Le profil sort de la liste sans qu'on la recharge. Un bannissement par le nom (sans ligne) ne sait pas quels
+    // profils sont masqués : seul celui-là relit la liste.
+    if(handle) retirerArtisteDeLaListe(handle);
+    else if(data && data.profils) await loadArtistProfiles();
 
     const profils = (data && data.profils) || 0;
     const sorties = (data && data.sorties) || 0;
@@ -29640,6 +29657,11 @@ async function executerBannissement(nom, handle, idDeezer, raison){
     );
 
     return true;
+
+  }catch(erreur){
+
+    if(handle) deplierLigneArtiste(handle);
+    throw erreur;
 
   }finally{
 
@@ -31065,94 +31087,142 @@ function retirerArtisteDeLaListe(handle){
 }
 
 
-// Depuis Soumissions : l'artiste, toutes ses sorties (en attente et publiées) et, au choix, son bannissement.
-// Les lignes de cet artiste se replient tout de suite, sans recharger la liste ; si ça échoue, elles reviennent.
-async function supprimerArtisteDepuisSoumission(submissionId, definitif){
+// Les featurings d'une sortie en attente : [{ nom, handle }].
+function featsDeLaSortie(sortie){
+  return (Array.isArray(sortie && sortie.featuring) ? sortie.featuring : []).filter(f => f && (f.nom || f.handle));
+}
+
+// Un artiste : toutes ses sorties (en attente et publiées, covers comprises), son profil et, au choix, son bannissement.
+async function supprimerUnArtisteEtSorties(cible, definitif){
+
+  const handle = cible.handle || null;
+  const profil = handle ? (artistProfilesData.find(a => a.instagram_handle === handle) || artistsByHandle[handle] || null) : null;
+  const nom = (profil && profil.display_name) || cible.nom || handle;
+  const idDeezer = profil ? profil.deezer_artist_id : null;
+  let effacees = 0;
+
+  if(handle){
+
+    const { data: sorties, error: erreurSorties } = await BD.supprimerSortiesDArtiste(handle);
+    if(erreurSorties) throw erreurSorties;
+
+    effacees = (sorties || []).length;
+
+    if(effacees) await Fichiers.supprimerParUrl.apply(null, sorties.map(x => x.cover_url));
+
+    const { data: supprime, error: erreurProfil } = await BD.supprimerArtiste(handle);
+    if(erreurProfil) throw erreurProfil;
+
+    if((!supprime || !supprime.length) && profil){
+      throw new Error(effacees ? 'les sorties sont supprimées, mais le profil a résisté : droits équipe requis' : 'droits équipe requis');
+    }
+
+    if(profil) await Fichiers.supprimerParUrl(profil.photo_url);
+  }
+
+  let avertissement = '';
+
+  if(definitif){
+    const { error: erreurBan } = await BD.bannirArtiste(nom, null, idDeezer, 'Supprimé depuis les soumissions');
+    if(erreurBan && !/déjà banni/i.test(erreurBan.message || '')){
+      avertissement = nom + " n'a pas pu être banni (" + (erreurBan.message || erreurBan) + ') : il pourrait revenir.';
+    }
+  }
+
+  if(handle) retirerArtisteDeLaListe(handle);
+
+  return { nom, effacees, avertissement };
+}
+
+
+// Depuis Soumissions : l'artiste et toutes ses sorties, avec ou sans bannissement, et au choix ses featurings.
+// Les lignes concernées se replient tout de suite, sans recharger la liste ; si ça échoue, elles reviennent.
+async function supprimerArtisteDepuisSoumission(submissionId, definitif, avecFeats){
 
   if(!isAdmin) return;
 
   const s = attente.data.find(x => x.id === submissionId);
   if(!s || !s.artist_handle) return;
 
-  const handle = s.artist_handle;
-  const lignes = attente.data.filter(x => x.artist_handle === handle);
-  const profil = artistProfilesData.find(a => a.instagram_handle === handle) || artistsByHandle[handle] || null;
-  const nom = (profil && profil.display_name) || s.artist_name || handle;
-  const idDeezer = profil ? profil.deezer_artist_id : null;
+  const cibles = [{ handle: s.artist_handle, nom: s.artist_name }];
+
+  if(avecFeats){
+    featsDeLaSortie(s).forEach(f => {
+      if(f.handle && cibles.some(c => c.handle === f.handle)) return;
+      cibles.push({ handle: f.handle || null, nom: f.nom || f.handle });
+    });
+  }
+
+  const handles = cibles.map(c => c.handle).filter(Boolean);
+  const lignesDe = (liste) => attente.data.filter(x => liste.includes(x.artist_handle));
 
   closeConfirmPanel('artist-del-' + submissionId);
 
-  const replier = (oui) => lignes.forEach(x => {
+  const replier = (liste, oui) => lignesDe(liste).forEach(x => {
     const el = document.getElementById('submission-' + x.id);
     if(!el) return;
     if(oui){ el.style.maxHeight = el.offsetHeight + 'px'; void el.offsetHeight; el.classList.add('replie'); }
     else { el.classList.remove('replie'); el.style.maxHeight = ''; }
   });
 
-  replier(true);
+  replier(handles, true);
 
-  try{
+  const faits = [];
+  const avertissements = [];
+  let totalEffacees = 0;
+  let erreurPrincipale = null;
 
-    const { data: sorties, error: erreurSorties } = await BD.supprimerSortiesDArtiste(handle);
-    if(erreurSorties) throw erreurSorties;
-
-    const effacees = (sorties || []).length;
-
-    if(effacees){
-      await Fichiers.supprimerParUrl.apply(null, sorties.map(x => x.cover_url));
+  for(const cible of cibles){
+    try{
+      const r = await supprimerUnArtisteEtSorties(cible, definitif);
+      faits.push({ nom: r.nom, handle: cible.handle });
+      totalEffacees += r.effacees;
+      if(r.avertissement) avertissements.push(r.avertissement);
+    }catch(erreur){
+      console.error('❌ Suppression de l\'artiste depuis les soumissions :', erreur);
+      if(cible === cibles[0]){ erreurPrincipale = erreur; break; }
+      avertissements.push((cible.nom || 'Un featuring') + ' n\'a pas pu être supprimé (' + (erreur.message || erreur) + ').');
+      if(cible.handle) replier([cible.handle], false);
     }
-
-    const { data: supprime, error: erreurProfil } = await BD.supprimerArtiste(handle);
-    if(erreurProfil) throw erreurProfil;
-
-    if((!supprime || !supprime.length) && profil){
-      throw new Error(effacees ? "les sorties sont supprimées, mais le profil a résisté : droits équipe requis" : 'droits équipe requis');
-    }
-
-    if(profil) await Fichiers.supprimerParUrl(profil.photo_url);
-
-    let avertissement = '';
-
-    if(definitif){
-      const { error: erreurBan } = await BD.bannirArtiste(nom, null, idDeezer, 'Supprimé depuis les soumissions');
-      if(erreurBan && !/déjà banni/i.test(erreurBan.message || '')){
-        avertissement = " Mais il n'a pas pu être banni (" + (erreurBan.message || erreurBan) + ') : il pourrait revenir.';
-      }
-    }
-
-    // La liste suit sans rechargement.
-    const ids = new Set(lignes.map(x => x.id));
-    lignes.forEach(x => {
-      if(x.source) attente.comptes.auto = Math.max(0, (attente.comptes.auto || 0) - 1);
-      else attente.comptes.membre = Math.max(0, (attente.comptes.membre || 0) - 1);
-      attente.choisies.delete(x.id);
-    });
-    attente.total = Math.max(0, attente.total - lignes.length);
-
-    const visAvant = typeof visAtt !== 'undefined' ? attente.data.findIndex(x => x.id === visAtt.id) : -1;
-    attente.data = attente.data.filter(x => !ids.has(x.id));
-    setTimeout(() => lignes.forEach(x => { const el = document.getElementById('submission-' + x.id); if(el) el.remove(); }), 320);
-
-    setAdminTabCount('submissions', (attente.comptes.auto || 0) + (attente.comptes.membre || 0));
-    renderAttenteBarres();
-    retirerArtisteDeLaListe(handle);
-
-    Promise.resolve().then(async () => { await loadApprovedReleases(); await renderCatalogue(); }).catch(() => {});
-
-    if(!attente.data.length) loadArtistSubmissions({ garderMessage: true });
-
-    setRowMessage(
-      'adminActionMsg',
-      '🗑 ' + nom + ' supprimé' + (effacees ? ', avec ses ' + effacees + ' sortie' + (effacees > 1 ? 's' : '') : '') + '.' +
-      (definitif && !avertissement ? ' Il est aussi banni : il ne reviendra pas.' : '') + avertissement,
-      avertissement ? 'err' : 'ok'
-    );
-
-  }catch(erreur){
-    console.error('❌ Suppression de l\'artiste depuis les soumissions :', erreur);
-    replier(false);
-    setRowMessage('adminActionMsg', 'Impossible de supprimer ' + nom + ' : ' + (erreur.message || erreur), 'err');
   }
+
+  if(erreurPrincipale){
+    replier(handles, false);
+    setRowMessage('adminActionMsg', 'Impossible de supprimer ' + cibles[0].nom + ' : ' + (erreurPrincipale.message || erreurPrincipale), 'err');
+    return;
+  }
+
+  // La liste suit sans rechargement : les lignes partent, les compteurs baissent.
+  const supprimes = faits.map(f => f.handle).filter(Boolean);
+  const retirees = lignesDe(supprimes);
+  const ids = new Set(retirees.map(x => x.id));
+
+  retirees.forEach(x => {
+    if(x.source) attente.comptes.auto = Math.max(0, (attente.comptes.auto || 0) - 1);
+    else attente.comptes.membre = Math.max(0, (attente.comptes.membre || 0) - 1);
+    attente.choisies.delete(x.id);
+  });
+  attente.total = Math.max(0, attente.total - retirees.length);
+  attente.data = attente.data.filter(x => !ids.has(x.id));
+  setTimeout(() => retirees.forEach(x => { const el = document.getElementById('submission-' + x.id); if(el) el.remove(); }), 320);
+
+  setAdminTabCount('submissions', (attente.comptes.auto || 0) + (attente.comptes.membre || 0));
+  renderAttenteBarres();
+
+  Promise.resolve().then(async () => { await loadApprovedReleases(); await renderCatalogue(); }).catch(() => {});
+
+  if(!attente.data.length) loadArtistSubmissions({ garderMessage: true });
+
+  const noms = faits.map(f => f.nom);
+
+  setRowMessage(
+    'adminActionMsg',
+    '🗑 ' + noms.join(', ') + ' supprimé' + (noms.length > 1 ? 's' : '') +
+    (totalEffacees ? ', avec ' + totalEffacees + ' sortie' + (totalEffacees > 1 ? 's' : '') : '') + '.' +
+    (definitif && !avertissements.length ? (noms.length > 1 ? ' Ils sont aussi bannis' : ' Il est aussi banni') + " : ça ne reviendra pas par l'import." : '') +
+    (avertissements.length ? ' ' + avertissements.join(' ') : ''),
+    avertissements.length ? 'err' : 'ok'
+  );
 }
 
 
