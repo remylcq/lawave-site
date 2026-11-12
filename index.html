@@ -26658,6 +26658,8 @@ async function traiterArtisteAttente(i, valider, silencieux){
       const { data, error } = await BD.attenteArtisteTraiter(a.handle, valider, '');
       if(error) throw error;
       n = Number(data) || 0;
+      // Rien de traité alors qu'il y avait des sorties : elles sont tenues par un travail en cours (import, bannissements).
+      if(n === 0 && a.n > 0) throw new Error('sorties occupées par un travail en cours, réessaie dans une minute');
     }
 
     attente.comptes.auto = Math.max(0, (attente.comptes.auto || 0) - n);

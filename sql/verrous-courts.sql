@@ -220,3 +220,37 @@ begin
 end $$;
 revoke all on function public.attente_artiste_masquer(text) from public, anon;
 grant execute on function public.attente_artiste_masquer(text) to authenticated;
+
+-- 3e cause (bannissements qui « reviennent », Mc Pikachu) : le rattrapage des bannissements (tâche bannissements-rattrapage,
+-- chaque minute) traitait toute la file d'un coup (2 344 bannissements) : il expirait à chaque passage, annulé en entier,
+-- sans rien faire avancer, et gardait pendant ce temps les sorties verrouillées. Il traite maintenant la file par tranches de
+-- 30 secondes (un bannissement qui échoue est retiré de la file). RETRAIT : remettre la version précédente (boucle sans limite).
+create or replace function public.bannissements_rattrapage() returns jsonb
+language plpgsql security definer set search_path to 'public' as $$
+declare v_ban uuid; v_n integer := 0; v_feats integer := 0; v_abandon integer := 0; v_debut timestamptz := clock_timestamp(); v_restants integer;
+begin
+  if not pg_try_advisory_xact_lock(hashtext('bannissements_rattrapage')) then
+    return jsonb_build_object('ignore', true);
+  end if;
+  if not exists (select 1 from public.bannissements_a_appliquer) then return jsonb_build_object('rien', true); end if;
+
+  perform set_config('statement_timeout', '60s', true);
+  perform public.bannissements_appliquer();
+
+  for v_ban in select q.ban_id from public.bannissements_a_appliquer q order by q.demande_le loop
+    exit when clock_timestamp() - v_debut > interval '40 seconds';
+    begin
+      perform set_config('statement_timeout', '8s', true);
+      v_feats := v_feats + public.bannissement_featurings(v_ban);
+    exception
+      when query_canceled then v_abandon := v_abandon + 1;   -- un bannissement trop lourd (plus de 100 s à lui seul) est abandonné
+      when others then v_abandon := v_abandon + 1;
+    end;
+    delete from public.bannissements_a_appliquer where ban_id = v_ban;
+    v_n := v_n + 1;
+  end loop;
+
+  perform set_config('statement_timeout', '60s', true);
+  select count(*) into v_restants from public.bannissements_a_appliquer;
+  return jsonb_build_object('bans', v_n, 'featurings', v_feats, 'abandonnes', v_abandon, 'restants', v_restants);
+end $$;
