@@ -9010,6 +9010,54 @@ window.addEventListener('hashchange', lireAdresse);
 document.querySelectorAll('.navlink').forEach(btn=>{
   btn.addEventListener('click', ()=> goTo(btn.dataset.page));
 });
+// Ouvrir dans un nouvel onglet : clic molette (ou Ctrl / Cmd + clic) sur un bouton qui mène à une page
+// (« Voir sa page », menu, accès à une page, page d'un artiste). Les boutons n'étant pas de vrais liens,
+// l'adresse est déduite de ce qu'ils appellent ; ceux qui font autre chose gardent leur comportement.
+function adresseDuBouton(el){
+
+  const bouton = el && el.closest ? el.closest('button, [onclick]') : null;
+  if(!bouton) return null;
+
+  if(bouton.classList.contains('navlink') && bouton.dataset.page){
+    return bouton.dataset.page === 'home' ? location.pathname + location.search : '#' + bouton.dataset.page;
+  }
+
+  const code = bouton.getAttribute('onclick') || '';
+  let m;
+
+  if((m = code.match(/^\s*(?:voirPageArtiste|ouvrirPageArtiste)\(\s*'([^']+)'/))){
+    return '#artiste/' + encodeURIComponent(m[1]);
+  }
+
+  if((m = code.match(/^\s*goTo\(\s*'([a-z-]+)'\s*(?:,[^)]*)?\)\s*;?\s*$/))){
+    return m[1] === 'home' ? location.pathname + location.search : '#' + m[1];
+  }
+
+  return null;
+}
+
+document.addEventListener('mousedown', e => {
+  // Évite le curseur de défilement automatique du clic molette sur ces boutons.
+  if(e.button === 1 && adresseDuBouton(e.target)) e.preventDefault();
+});
+
+document.addEventListener('auxclick', e => {
+  if(e.button !== 1) return;
+  const adresse = adresseDuBouton(e.target);
+  if(!adresse) return;
+  e.preventDefault();
+  window.open(adresse, '_blank');
+});
+
+document.addEventListener('click', e => {
+  if(!(e.ctrlKey || e.metaKey) || e.button !== 0) return;
+  const adresse = adresseDuBouton(e.target);
+  if(!adresse) return;
+  e.preventDefault();
+  e.stopPropagation();
+  window.open(adresse, '_blank');
+}, true);
+
 document.getElementById('burgerBtn').addEventListener('click', ()=>{
   document.getElementById('navLinks').classList.toggle('open');
 });
