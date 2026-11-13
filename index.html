@@ -7997,6 +7997,15 @@ const BD = {
     return supabaseClient.rpc('attente_artistes', { p_texte: texte, p_page: page, p_taille: taille, p_tri: tri });
   },
 
+  // Profils d'artistes proposés par l'import (invités d'une sortie sans page) : à valider avant création.
+  propositionsListe({ texte = '', page = 0, taille = 50 } = {}){
+    return supabaseClient.rpc('propositions_liste', { p_texte: texte, p_page: page, p_taille: taille });
+  },
+
+  propositionsDecider(ids, valider){
+    return supabaseClient.rpc('proposition_decider', { p_ids: ids, p_valider: valider });
+  },
+
   // Masque toutes les sorties d'un pseudo (sans profil, ou déjà banni par son nom) ; les lignes tenues par l'import sont laissées.
   attenteArtisteMasquer(handle){
     return supabaseClient.rpc('attente_artiste_masquer', { p_handle: handle });
@@ -14939,6 +14948,18 @@ function featNormalise(feat){
 }
 
 
+// Pour l'affichage seulement : un featuring dont le profil n'existe pas (encore) garde son nom, sans pseudo ni lien.
+// (featNormalise, lui, sert aux formulaires et exige un pseudo.)
+function featAffichable(feat){
+
+  const complet = featNormalise(feat);
+  if(complet) return complet;
+
+  const nom = String((feat && feat.nom) || '').trim();
+  return nom ? { nom, handle: null } : null;
+}
+
+
 // Le nom affiché suit le profil : si l'équipe renomme un artiste, ses
 // featurings se corrigent partout sans qu'on ait à réécrire les
 // sorties déjà enregistrées.
@@ -14953,7 +14974,7 @@ function nomAfficheDuFeat(feat){
 function featsResumeHtml(submission){
 
   const feats = (Array.isArray(submission.featuring) ? submission.featuring : [])
-    .map(featNormalise)
+    .map(featAffichable)
     .filter(Boolean);
 
   if(!feats.length) return '';
@@ -15729,7 +15750,7 @@ function sortieDepuisLigne(submission){
 
     featuring:
       (Array.isArray(submission.featuring) ? submission.featuring : [])
-        .map(featNormalise)
+        .map(featAffichable)
         .filter(Boolean),
 
     // Vide pour les sorties choisies par La Wave, renseigné pour
@@ -22465,10 +22486,12 @@ async function openCatalogueModal(id){
     // se verrait juste avant la virgule.
     featEl.innerHTML =
       'feat. ' +
-      feats.map(feat =>
-        `<button type="button" onclick="closeCatalogueModal(true); ` +
-        `ouvrirPageArtiste('${handleSain(feat.handle)}')">` +
-        `${escapeHtml(nomAfficheDuFeat(feat))}</button>`
+      feats.map(feat => feat.handle
+        ? `<button type="button" onclick="closeCatalogueModal(true); ` +
+          `ouvrirPageArtiste('${handleSain(feat.handle)}')">` +
+          `${escapeHtml(nomAfficheDuFeat(feat))}</button>`
+        // Pas de page pour cet artiste : le nom seul, sans lien.
+        : `<span>${escapeHtml(feat.nom)}</span>`
       ).join(', ');
   } else {
     featEl.style.display = 'none';
@@ -26119,6 +26142,11 @@ const attente = {
   choisies: new Set(),
   minuteur: null,
   vue: 'sorties',      // 'sorties' (une ligne par sortie) ou 'artistes' (une ligne par artiste)
+  profils: [],                 // vue « Nouveaux artistes » : profils proposés par l'import (featurings)
+  profilsChoisis: new Set(),
+  totalProfils: 0,
+  tailleProfils: 50,
+  nbProfils: 0,
   artistes: [],
   artistesChoisis: new Set(),   // indices (dans attente.artistes) des cartes cochees
   totalArtistes: 0,
@@ -26192,8 +26220,8 @@ function renderAttenteBarres(){
       <button type="button" class="attente-puce${attente.vue === cle ? ' actif' : ''}"
               onclick="changerVueAttente('${cle}')">${libelle}</button>`;
     puces.innerHTML =
-      `<span class="attente-vues" title="Une ligne par sortie, ou une ligne par artiste avec une décision pour toutes ses sorties">${vue('artistes', 'Par artiste')}${vue('sorties', 'Par sortie')}</span>` +
-      (attente.vue === 'artistes' ? `<span class="attente-vues" title="Ordre des artistes">${triPuce('nombre', 'Plus de sorties')}${triPuce('fans', 'Plus de fans')}</span>` :
+      `<span class="attente-vues" title="Une ligne par sortie, ou une ligne par artiste avec une décision pour toutes ses sorties">${vue('artistes', 'Par artiste')}${vue('sorties', 'Par sortie')}${vue('profils', 'Nouveaux artistes' + (attente.nbProfils ? ' (' + attente.nbProfils.toLocaleString('fr-FR') + ')' : ''))}</span>` +
+      (attente.vue === 'profils' ? '' : attente.vue === 'artistes' ? `<span class="attente-vues" title="Ordre des artistes">${triPuce('nombre', 'Plus de sorties')}${triPuce('fans', 'Plus de fans')}</span>` :
         puce('', 'Toutes', c.auto + c.membre) +
         puce('auto', 'Automatiques', c.auto) +
         puce('membre', 'Membres', c.membre)) +
@@ -26203,7 +26231,7 @@ function renderAttenteBarres(){
   const pager = document.getElementById('attentePager');
 
   if(pager){
-    const pages = Math.max(1, Math.ceil((attente.vue === 'artistes' ? attente.totalArtistes / attente.tailleArtistes : attente.total / attente.taille)));
+    const pages = Math.max(1, Math.ceil((attente.vue === 'profils' ? attente.totalProfils / attente.tailleProfils : attente.vue === 'artistes' ? attente.totalArtistes / attente.tailleArtistes : attente.total / attente.taille)));
     pager.innerHTML = pages <= 1 ? '' : `
       <button type="button" class="btn btn-ghost" ${attente.page === 0 ? 'disabled' : ''} onclick="pageAttente(-1)">Précédentes</button>
       <span>Page ${attente.page + 1} sur ${pages}</span>
@@ -26220,6 +26248,7 @@ function renderAttenteLot(confirmation){
   const lot = document.getElementById('attenteLot');
   if(!lot) return;
 
+  if(attente.vue === 'profils') return renderLotProfils(lot, confirmation);
   if(attente.vue === 'artistes') return renderLotArtistes(lot, confirmation);
 
   const autos = attente.vue === 'artistes' ? [] : attente.data.filter(s => s.source);
@@ -26520,6 +26549,202 @@ async function chargerAttenteArtistes(list){
 
   list.innerHTML = artistes.map(artisteAttenteHtml).join('');
 }
+
+// ---- Vue « Nouveaux artistes » : les invités (featurings) sans profil, proposés par l'import, à valider ----
+
+async function chargerNbProfils(){
+
+  try{
+    const { data } = await BD.propositionsListe({ taille: 1 });
+    const n = (data && data.total) || 0;
+    if(n !== attente.nbProfils){ attente.nbProfils = n; renderAttenteBarres(); }
+  }catch(e){ /* la pastille se mettra à jour au prochain chargement */ }
+}
+
+function profilAttenteHtml(a, i){
+
+  const photo = safeUrl(a.photo || '');
+  const choisi = attente.profilsChoisis.has(i);
+  const detail = (a.titre ? 'Invité sur « ' + a.titre + ' »' + (a.par ? ' de ' + a.par : '') : 'Invité sur une sortie');
+
+  return `
+    <div class="att-art${choisi ? ' choisie' : ''}" id="att-pro-${i}" onclick="clicProfilAttente(event, ${i})">
+      <input type="checkbox" class="attente-case" aria-label="Sélectionner ${escapeHtml(a.nom)}" ${choisi ? 'checked' : ''} onchange="cocherProfilAttente(${i}, this.checked)">
+      ${photo ? `<img class="att-art-img" src="${escapeHtml(photo)}" alt="" loading="lazy">` : '<div class="att-art-img"></div>'}
+      <div class="att-art-infos">
+        <div class="att-art-nom">${escapeHtml(a.nom)}<b>${a.n} sortie${a.n > 1 ? 's' : ''}</b></div>
+        <div class="att-art-titres">${escapeHtml(detail)}</div>
+      </div>
+      <div class="att-art-actions">
+        <button type="button" class="btn btn-primary" onclick="decisionProfilAttente([${i}], true)">Créer le profil</button>
+        <button type="button" class="reject" onclick="decisionProfilAttente([${i}], false)">Refuser</button>
+      </div>
+    </div>`;
+}
+
+async function chargerAttenteProfils(list){
+
+  const [{ data, error }, comptes] = await Promise.all([
+    BD.propositionsListe({ texte: attente.texte, page: attente.page, taille: attente.tailleProfils }),
+    BD.sortiesEnAttenteComptes()
+  ]);
+
+  if(error) throw error;
+
+  const items = (data && data.items) || [];
+
+  if(!items.length && attente.page > 0 && data && data.total > 0){
+    attente.page -= 1;
+    return loadArtistSubmissions({ garderMessage: true });
+  }
+
+  attente.profils = items;
+  attente.profilsChoisis.clear();
+  attente.totalProfils = (data && data.total) || 0;
+  attente.nbProfils = attente.totalProfils;
+  attente.comptes = comptes;
+  attente.data = [];
+
+  setAdminTabCount('submissions', comptes.auto + comptes.membre);
+  renderAttenteBarres();
+
+  if(!items.length){
+    list.innerHTML = `<div class="empty-state">${attente.texte ? 'Aucun artiste proposé ne correspond.' : "Aucun nouvel artiste à valider : l'import n'en a pas proposé."}</div>`;
+    return;
+  }
+
+  list.innerHTML = `
+    <p class="field-hint" style="margin:0 0 10px;">Artistes invités (feat.) sur des sorties importées, sans page sur La Wave. « Créer le profil » les ajoute et les suit ; en attendant, leur nom s'affiche sur la sortie, sans lien.</p>` +
+    items.map(profilAttenteHtml).join('');
+}
+
+function clicProfilAttente(e, i){
+
+  if(e.target.closest('button, a, input, select, textarea, label')) return;
+  if(window.getSelection && String(window.getSelection()).length) return;
+  if(!attente.profils[i]) return;
+
+  cocherProfilAttente(i, !attente.profilsChoisis.has(i));
+}
+
+function cocherProfilAttente(i, coche){
+
+  if(!attente.profils[i]) return;
+  if(coche) attente.profilsChoisis.add(i); else attente.profilsChoisis.delete(i);
+
+  const el = document.getElementById('att-pro-' + i);
+  if(el){
+    el.classList.toggle('choisie', coche);
+    const c = el.querySelector('.attente-case');
+    if(c) c.checked = coche;
+  }
+
+  renderAttenteLot();
+}
+
+function cocherToutProfilsAttente(coche){
+
+  attente.profils.forEach((a, i) => {
+    if(!a) return;
+    if(coche) attente.profilsChoisis.add(i); else attente.profilsChoisis.delete(i);
+    const el = document.getElementById('att-pro-' + i);
+    if(el){ el.classList.toggle('choisie', coche); const c = el.querySelector('.attente-case'); if(c) c.checked = coche; }
+  });
+
+  renderAttenteLot();
+}
+
+function renderLotProfils(lot, confirmation){
+
+  const restants = attente.profils.filter(Boolean);
+
+  if(!restants.length){
+    lot.hidden = true;
+    lot.innerHTML = '';
+    return;
+  }
+
+  const n = Array.from(attente.profilsChoisis).filter(i => attente.profils[i]).length;
+  const toutes = n === restants.length;
+
+  lot.hidden = false;
+  lot.innerHTML = `
+    <label>
+      <input type="checkbox" class="attente-case" style="margin:0" ${toutes ? 'checked' : ''} onchange="cocherToutProfilsAttente(this.checked)">
+      Tout cocher (${restants.length} artiste${restants.length > 1 ? 's' : ''} sur cette page)
+    </label>
+    <span class="attente-nb">${n} coché${n > 1 ? 's' : ''}</span>
+    <div class="inline-actions">
+      <button type="button" class="btn btn-primary" ${n ? '' : 'disabled'} onclick="renderAttenteLot('valider')">Créer les profils</button>
+      <button type="button" class="reject" ${n ? '' : 'disabled'} onclick="renderAttenteLot('refuser')">Refuser la sélection</button>
+    </div>
+    ${confirmation && n ? `
+      <div class="confirm-panel ${confirmation === 'valider' ? '' : 'danger '}open attente-lot-confirm">
+        <p>${confirmation === 'valider' ? 'Créer le profil de ' + n + ' artiste' + (n > 1 ? 's' : '') + ' et le' + (n > 1 ? 's' : '') + ' suivre ?' : 'Refuser ' + n + ' artiste' + (n > 1 ? 's' : '') + " ? Leur nom restera affiché sur les sorties, sans page."}</p>
+        <div class="inline-actions">
+          <button type="button" class="${confirmation === 'valider' ? 'btn btn-primary' : 'reject'}" onclick="decisionProfilAttente(null, ${confirmation === 'valider'})">Oui</button>
+          <button type="button" class="btn btn-ghost" onclick="renderAttenteLot()">Annuler</button>
+        </div>
+      </div>` : ''}`;
+}
+
+// indices : une carte précise, ou null pour toute la sélection.
+async function decisionProfilAttente(indices, valider){
+
+  if(!isAdmin) return;
+
+  const liste = (indices || Array.from(attente.profilsChoisis)).filter(i => attente.profils[i]);
+  if(!liste.length) return;
+
+  const ids = liste.map(i => attente.profils[i].id);
+
+  // Instantané : les cartes se replient ; si la base refuse, elles reviennent.
+  liste.forEach(i => {
+    const el = document.getElementById('att-pro-' + i);
+    if(el){ el.style.maxHeight = el.offsetHeight + 'px'; void el.offsetHeight; el.classList.add('replie'); }
+    attente.profilsChoisis.delete(i);
+  });
+  renderAttenteLot();
+
+  try{
+
+    const { data, error } = await BD.propositionsDecider(ids, valider);
+    if(error) throw error;
+
+    const ok = (data && (valider ? data.valides : data.refuses)) || 0;
+    const autres = (data && (valider ? data.refuses : data.valides)) || 0;
+
+    liste.forEach(i => {
+      const el = document.getElementById('att-pro-' + i);
+      if(el) setTimeout(() => el.remove(), 320);
+      attente.profils[i] = null;
+    });
+
+    attente.totalProfils = Math.max(0, attente.totalProfils - liste.length);
+    attente.nbProfils = Math.max(0, attente.nbProfils - liste.length);
+    renderAttenteBarres();
+
+    if(valider) loadArtists();
+
+    setRowMessage('adminActionMsg',
+      (valider ? '✅ ' : '❌ ') + ok + (valider ? ' profil' + (ok > 1 ? 's' : '') + ' créé' + (ok > 1 ? 's' : '') : ' artiste' + (ok > 1 ? 's' : '') + ' refusé' + (ok > 1 ? 's' : '')) + '.' +
+      (autres ? ' ' + autres + ' non créé' + (autres > 1 ? 's' : '') + ' (artiste banni).' : ''), 'ok');
+
+    if(attente.profils.every(x => !x)) loadArtistSubmissions({ garderMessage: true });
+
+  }catch(erreur){
+
+    console.error('❌ Erreur décision sur les profils proposés :', erreur);
+
+    liste.forEach(i => {
+      const el = document.getElementById('att-pro-' + i);
+      if(el){ el.classList.remove('replie'); el.style.maxHeight = ''; }
+    });
+
+    setRowMessage('adminActionMsg', 'Impossible de traiter : ' + (erreur.message || erreur), 'err');
+  }
+}
+
 
 // Cliquer sur l'encadré d'un artiste (hors boutons) le coche ou le décoche.
 function clicCarteArtiste(e, i){
@@ -27394,6 +27619,9 @@ async function loadArtistSubmissions(options){
     // Les vignettes d'artiste viennent des profils (une lecture partagée quand l'espace équipe s'ouvre).
     await (artistesPartages || loadArtists());
 
+    chargerNbProfils();
+
+    if(attente.vue === 'profils') return await chargerAttenteProfils(list);
     if(attente.vue === 'artistes') return await chargerAttenteArtistes(list);
 
     const [{ data, error, count }, comptes] = await Promise.all([
