@@ -29420,7 +29420,11 @@ function renderArtistProfilesList(options){
     artistesFiltres().find(f => f.cle === artistesFiltre) ||
     artistesFiltres()[0];
 
-  const base = artistProfilesData.filter(filtre.garde);
+  let base = artistProfilesData.filter(filtre.garde);
+
+  if(filtre.cle === 'recents'){
+    base = base.slice().sort((a, b) => Date.parse(b.created_at || '') - Date.parse(a.created_at || ''));
+  }
 
   // Le texte cherché de chaque profil est mis en minuscules une fois (et gardé sur l'objet), pas à chaque frappe.
   const trouves = requete
@@ -29474,6 +29478,9 @@ function artistesFiltres(){
   return [
     { cle: 'tous',      libelle: 'Tous',
       garde: () => true },
+    // Les profils créés ces 7 derniers jours, le plus récent en premier.
+    { cle: 'recents',   libelle: 'Derniers ajoutés',
+      garde: p => Date.parse(p.created_at || '') > Date.now() - 7 * 86400000 },
     { cle: 'auto',      libelle: 'Ajoutés automatiquement',
       garde: p => p.source === 'deezer-auto' },
     { cle: 'sans',      libelle: 'Pas reliés à Deezer',
