@@ -8181,12 +8181,15 @@ const BD = {
   // Bannir un artiste : masqué partout, plus importé, impossible à
   // rajouter ; le rétablir le remet tel quel. sql/artistes-bannis.sql,
   // réservé à l'équipe.
-  bannirArtiste(nom, handle, idDeezer, raison){
+  // parNom : false = bannir seulement ce profil / cette page Deezer, sans masquer les homonymes (le nom ne sert alors
+  // que si on n'a ni pseudo ni page Deezer).
+  bannirArtiste(nom, handle, idDeezer, raison, parNom){
     return supabaseClient.rpc('bannir_artiste', {
       p_nom: nom || null,
       p_handle: handle || null,
       p_deezer_id: idDeezer || null,
-      p_raison: raison || null
+      p_raison: raison || null,
+      p_par_nom: parNom !== false
     });
   },
 
@@ -27049,7 +27052,7 @@ async function traiterArtisteAttente(i, valider, silencieux){
     if(valider === 'bannir'){
       // Un pseudo sans profil (profil supprimé, sorties restées) se bannit par son nom ; un nom déjà banni suffit de masquer.
       const profil = artistsByHandle[a.handle];
-      let { error } = await BD.bannirArtiste(a.nom || a.handle, profil ? a.handle : null, profil ? profil.deezer_artist_id : null, 'Banni depuis les soumissions');
+      let { error } = await BD.bannirArtiste(a.nom || a.handle, profil ? a.handle : null, profil ? profil.deezer_artist_id : null, 'Banni depuis les soumissions', false);
       if(error && /profil introuvable/i.test(error.message || '')){
         ({ error } = await BD.bannirArtiste(a.nom || a.handle, null, null, 'Banni depuis les soumissions'));
       }
@@ -31883,7 +31886,7 @@ async function supprimerProfilArtiste(handle, avecSorties, definitif){
     if(definitif){
 
       const { error: erreurBan } = await BD.bannirArtiste(
-        nomAvantSuppression, null, deezerAvantSuppression, 'Supprimé depuis l’espace équipe'
+        nomAvantSuppression, null, deezerAvantSuppression, 'Supprimé depuis l’espace équipe', false
       );
 
       // « Déjà banni » est le résultat voulu, pas une erreur.
@@ -31993,7 +31996,7 @@ async function supprimerUnArtisteEtSorties(cible, definitif){
   let avertissement = '';
 
   if(definitif){
-    const { error: erreurBan } = await BD.bannirArtiste(nom, null, idDeezer, 'Supprimé depuis les soumissions');
+    const { error: erreurBan } = await BD.bannirArtiste(nom, null, idDeezer, 'Supprimé depuis les soumissions', false);
     if(erreurBan && !/déjà banni/i.test(erreurBan.message || '')){
       avertissement = nom + " n'a pas pu être banni (" + (erreurBan.message || erreurBan) + ') : il pourrait revenir.';
     }
