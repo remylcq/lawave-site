@@ -7523,6 +7523,9 @@
   <div class="note-moyenne" id="modalNoteMoyenne"></div>
   <div id="modalNoteBloc"></div>
 
+  <!-- Équipe : déplacer la sortie vers un autre profil (sortie publiée sur un mauvais compte). Rempli par rendreDeplacementSortie. -->
+  <div class="fiche-equipe-deplacer" id="modalDeplacer" hidden></div>
+
   <!-- Partager : une icône discrète en bas à droite. Le lien s'affiche avec la pochette et le titre dans les messageries (partage.php). -->
   <div class="fiche-pied">
     <button type="button" class="icone-discrete" id="modalPartager" onclick="partagerSortie()" aria-label="Partager cette sortie" title="Partager cette sortie">
@@ -8185,6 +8188,11 @@ const BD = {
       p_deezer_id: idDeezer || null,
       p_raison: raison || null
     });
+  },
+
+  // Équipe : une sortie publiée sur un mauvais profil passe sur le bon.
+  deplacerSortie(id, handle){
+    return supabaseClient.rpc('sortie_deplacer', { p_sortie: id, p_handle: handle });
   },
 
   retablirArtiste(id){
@@ -22420,6 +22428,89 @@ function lancerClip(bouton, videoId){
 }
 
 
+// ---- Équipe : déplacer une sortie vers un autre profil ----
+
+let deplacementSortieId = null;
+
+function rendreDeplacementSortie(item){
+
+  const zone = document.getElementById('modalDeplacer');
+  if(!zone) return;
+
+  deplacementSortieId = item ? item.id : null;
+
+  if(!isAdmin || !item){
+    zone.hidden = true;
+    zone.innerHTML = '';
+    return;
+  }
+
+  zone.hidden = false;
+  zone.innerHTML = `
+    <button type="button" class="btn btn-ghost" onclick="ouvrirDeplacementSortie()">Équipe : déplacer vers un autre profil</button>
+    <div id="deplacerCorps" hidden></div>`;
+}
+
+function ouvrirDeplacementSortie(){
+
+  const corps = document.getElementById('deplacerCorps');
+  if(!corps) return;
+
+  corps.hidden = false;
+  corps.innerHTML = `
+    <p class="field-hint" style="margin:10px 0 6px;">Cherche le bon artiste : la sortie passera sur son profil et quittera celui-ci.</p>
+    <input type="search" id="deplacerRecherche" class="attente-champ" placeholder="Nom ou pseudo de l'artiste" autocomplete="off" oninput="chercherProfilDeplacement(this.value)">
+    <div id="deplacerResultats" style="margin-top:8px;"></div>
+    <div class="form-msg" id="deplacerMsg"></div>`;
+
+  const champ = document.getElementById('deplacerRecherche');
+  if(champ) champ.focus();
+}
+
+function chercherProfilDeplacement(texte){
+
+  const zone = document.getElementById('deplacerResultats');
+  if(!zone) return;
+
+  const q = String(texte || '').trim().toLowerCase();
+  if(q.length < 2){ zone.innerHTML = ''; return; }
+
+  const profils = Object.values(artistsByHandle || {})
+    .filter(a => a && !a.banni && ((a.display_name || '').toLowerCase().includes(q) || (a.instagram_handle || '').toLowerCase().includes(q)))
+    .slice(0, 8);
+
+  zone.innerHTML = profils.length
+    ? profils.map(a => `
+        <button type="button" class="btn btn-ghost" style="display:block; margin:0 0 6px;"
+                onclick="deplacerSortieVers('${escapeAttribute(a.instagram_handle)}', '${escapeAttribute(a.display_name || a.instagram_handle)}')">
+          ${escapeHtml(a.display_name || a.instagram_handle)} <span style="color:var(--muted);">@${escapeHtml(a.instagram_handle)}${a.deezer_fans ? ' · ' + Number(a.deezer_fans).toLocaleString('fr-FR') + ' fans' : ''}</span>
+        </button>`).join('')
+    : '<div class="empty-state">Aucun profil ne correspond.</div>';
+}
+
+async function deplacerSortieVers(handle, nom){
+
+  if(!isAdmin || !deplacementSortieId) return;
+
+  if(!confirm('Déplacer cette sortie sur le profil de « ' + nom + ' » ?')) return;
+
+  const msg = document.getElementById('deplacerMsg');
+  if(msg){ msg.className = 'form-msg ok'; msg.textContent = 'Déplacement…'; }
+
+  const { error } = await BD.deplacerSortie(deplacementSortieId, handle);
+
+  if(error){
+    if(msg){ msg.className = 'form-msg err'; msg.textContent = 'Impossible de déplacer : ' + (error.message || error); }
+    return;
+  }
+
+  // Le catalogue se relit : la sortie apparaît chez son nouvel artiste.
+  closeCatalogueModal(true);
+  try{ await loadApprovedReleases(); await renderCatalogue(); }catch(e){ console.error(e); }
+  alert('Sortie déplacée sur le profil de ' + nom + '.');
+}
+
+
 async function openCatalogueModal(id){
   let item = catalogueData.find(c=>c.id===id);
 
@@ -22430,6 +22521,8 @@ async function openCatalogueModal(id){
   }
 
   if(!item) return;
+
+  rendreDeplacementSortie(item);
 
   const zoneClip = document.getElementById('modalClip');
   const videoId = idYouTube(item.clip);
