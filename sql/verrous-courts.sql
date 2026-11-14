@@ -272,3 +272,29 @@ language sql stable as $$
                   where b.nom_norme is not null
                     and b.nom_norme in (public.norme_artiste(p_nom), public.norme_artiste(regexp_replace(coalesce(p_handle, ''), '\.[0-9]+$', ''))));
 $$;
+
+-- Déplacer une sortie vers un autre profil (équipe) : sortie publiée sur un mauvais compte d'artiste. (Passé en production le 2026-11-15.)
+-- Change artist_handle / artist_name, et retire le nouvel artiste principal des featurings de la même sortie.
+-- RETRAIT : drop function public.sortie_deplacer(uuid, text);
+create or replace function public.sortie_deplacer(p_sortie uuid, p_handle text)
+returns jsonb
+language plpgsql security definer set search_path to 'public' as $$
+declare v_s public.submissions; v_a public.artists;
+begin
+  if auth.uid() is null or not public.est_equipe() then raise exception 'Réservé à l''équipe.'; end if;
+  select * into v_s from public.submissions where id = p_sortie;
+  if not found then raise exception 'Sortie introuvable.'; end if;
+  select * into v_a from public.artists where instagram_handle = p_handle;
+  if not found then raise exception 'Profil introuvable.'; end if;
+  if coalesce(v_a.banni, false) then raise exception 'Ce profil est banni.'; end if;
+  update public.submissions
+     set artist_handle = v_a.instagram_handle,
+         artist_name   = coalesce(nullif(btrim(v_a.display_name), ''), v_a.instagram_handle),
+         instagram_url = coalesce(nullif(v_a.instagram_url, ''), instagram_url),
+         featuring     = coalesce((select jsonb_agg(e.value order by e.ord) from jsonb_array_elements(featuring) with ordinality e(value, ord)
+                                    where e.value->>'handle' is distinct from v_a.instagram_handle), '[]'::jsonb)
+   where id = p_sortie;
+  return jsonb_build_object('ancien', v_s.artist_handle, 'nouveau', v_a.instagram_handle, 'titre', v_s.track_title);
+end $$;
+revoke all on function public.sortie_deplacer(uuid, text) from public, anon;
+grant execute on function public.sortie_deplacer(uuid, text) to authenticated;
