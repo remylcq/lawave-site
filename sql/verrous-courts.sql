@@ -298,3 +298,8 @@ begin
 end $$;
 revoke all on function public.sortie_deplacer(uuid, text) from public, anon;
 grant execute on function public.sortie_deplacer(uuid, text) to authenticated;
+
+-- Bannir sans masquer les homonymes : bannir_artiste(..., p_par_nom boolean default true). Avec p_par_nom = false (suppression depuis
+-- l'espace équipe / Soumissions), le bannissement ne porte que sur le pseudo et la page Deezer, pas sur le nom normalisé
+-- (le nom ne sert que si on n'a ni pseudo ni page Deezer). Cause : la suppression de la mauvaise page « SDM » avait masqué le vrai SDM.
+-- (Passé en production le 2026-11-15 ; l'ancienne signature à 4 paramètres est remplacée.)
