@@ -4611,6 +4611,8 @@
   #page-admin .attente-lot .reject:hover:not(:disabled), #page-admin .att-art .reject:hover, #page-admin .att-art .att-bannir:hover{background:var(--eq-danger,#e5695c); color:#fff; border-color:transparent;}
   #page-admin .attente-lot .reject:disabled{opacity:.45; cursor:not-allowed;}
   #page-admin .att-art .att-bannir{background:transparent;}
+  #page-admin .release-badge.spotify-absente{color:#ffb45a; border-color:rgba(255,180,90,0.55); background:rgba(255,180,90,0.10);}
+  #page-admin .release-badge.spotify-ok{color:#6fd49a; border-color:rgba(111,212,154,0.45);}
   #page-admin .att-art{margin-bottom:8px; overflow:hidden; cursor:pointer;}
   #page-admin .att-art.choisie{background:rgba(120,160,255,0.10); border-color:var(--blue-bright);}
   #page-admin .att-art.replie{max-height:0 !important; opacity:0; padding-top:0; padding-bottom:0; margin-bottom:0; border-width:0; pointer-events:none; transition:max-height .28s var(--ease), opacity .2s var(--ease), padding .28s var(--ease), margin .28s var(--ease);}
@@ -7967,10 +7969,11 @@ const BD = {
 
   // Les sorties à valider, par pages : celles que les membres envoient et celles que l'import Deezer dépose
   // (colonne source renseignée). Origine : '' toutes, 'auto' ou 'membre'.
-  sortiesEnAttente({ origine = '', texte = '', page = 0, taille = 25 } = {}){
+  sortiesEnAttente({ origine = '', texte = '', page = 0, taille = 25, spotify = '' } = {}){
     let requete = supabaseClient.from('submissions')
       .select('*', { count: 'exact' })
       .eq('status', 'pending');
+    if(spotify === 'absente') requete = requete.eq('spotify_statut', 'absente');
     if(origine === 'auto') requete = requete.not('source', 'is', null);
     if(origine === 'membre') requete = requete.is('source', null);
     const q = String(texte || '').replace(/[%,()*\\]/g, ' ').trim().slice(0, 60);
@@ -26132,6 +26135,7 @@ function setRowMessage(messageId, texte, type){
 // Une sortie vient soit d'un membre (Soumettre une sortie), soit de l'import Deezer (source renseignée).
 const attente = {
   origine: '',
+  spotify: '',        // '' ou 'absente' : seulement les sorties absentes de Spotify
   texte: '',
   page: 0,
   taille: 25,
@@ -26168,9 +26172,37 @@ function progresAttenteTexte(){
 // La pastille qui dit d'où vient la sortie.
 function originePastille(submission){
 
+  return originePastilleBase(submission) + spotifyPastille(submission);
+}
+
+// Recoupement Spotify (tâche spotify-verifier) : « absente » = l'album est sur Deezer mais pas chez cet artiste sur Spotify
+// (souvent un album placé sur le mauvais compte) ; « trouvée » = confirmé ; pas de verdict si l'artiste est introuvable.
+function spotifyPastille(submission){
+
+  if(submission.spotify_statut === 'absente'){
+    return ` <span class="release-badge spotify-absente" title="Cet album n'apparaît pas chez cet artiste sur Spotify : à vérifier (peut être sur le mauvais compte)">Absente de Spotify</span>`;
+  }
+
+  if(submission.spotify_statut === 'trouvee'){
+    return ` <span class="release-badge spotify-ok" title="Retrouvée chez cet artiste sur Spotify">Spotify ✓</span>`;
+  }
+
+  return '';
+}
+
+function originePastilleBase(submission){
+
   return submission.source
     ? `<span class="release-badge auto" title="Repérée automatiquement sur Deezer">Automatique</span>`
     : `<span class="release-badge membre" title="Envoyée avec « Soumettre une sortie »">Membre</span>`;
+}
+
+
+function filtrerSpotifyAttente(){
+  attente.spotify = attente.spotify === 'absente' ? '' : 'absente';
+  attente.page = 0;
+  attente.choisies.clear();
+  loadArtistSubmissions({ garderMessage: true });
 }
 
 
@@ -26224,7 +26256,8 @@ function renderAttenteBarres(){
       (attente.vue === 'profils' ? '' : attente.vue === 'artistes' ? `<span class="attente-vues" title="Ordre des artistes">${triPuce('nombre', 'Plus de sorties')}${triPuce('fans', 'Plus de fans')}</span>` :
         puce('', 'Toutes', c.auto + c.membre) +
         puce('auto', 'Automatiques', c.auto) +
-        puce('membre', 'Membres', c.membre)) +
+        puce('membre', 'Membres', c.membre) +
+        `<button type="button" class="attente-puce${attente.spotify === 'absente' ? ' actif' : ''}" title="Les sorties dont l'album est absent chez cet artiste sur Spotify : les plus suspectes" onclick="filtrerSpotifyAttente()">Absentes de Spotify</button>`) +
       `<span class="attente-progres" title="Sorties encore à traiter, et ce que tu as traité depuis l'ouverture de la page">${escapeHtml(progresAttenteTexte())}</span>`;
   }
 
@@ -26506,7 +26539,7 @@ function artisteAttenteHtml(a, i){
       ${image ? `<img class="att-art-img" src="${escapeHtml(image)}" alt="" loading="lazy">` : '<div class="att-art-img"></div>'}
       <div class="att-art-infos">
         <div class="att-art-nom">${escapeHtml(a.nom || a.handle)}<b>${a.n} sortie${a.n > 1 ? 's' : ''}</b></div>
-        <div class="att-art-titres">${fans ? escapeHtml(fans) + ' — ' : ''}${escapeHtml(titres)}</div>
+        <div class="att-art-titres">${fans ? escapeHtml(fans) + ' — ' : ''}${escapeHtml(titres)}${a.absentes ? ` <span class="release-badge spotify-absente" title="Sorties absentes chez cet artiste sur Spotify : à vérifier">${a.absentes} absente${a.absentes > 1 ? 's' : ''} de Spotify</span>` : ''}</div>
       </div>
       <div class="att-art-actions" id="att-art-actions-${i}">
         <button type="button" class="btn btn-ghost" onclick="voirSortiesArtisteAttente(${i})">Voir les sorties</button>
@@ -27627,6 +27660,7 @@ async function loadArtistSubmissions(options){
     const [{ data, error, count }, comptes] = await Promise.all([
       BD.sortiesEnAttente({
         origine: attente.origine,
+        spotify: attente.spotify,
         texte: attente.texte,
         page: attente.page,
         taille: attente.taille
