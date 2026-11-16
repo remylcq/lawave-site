@@ -596,6 +596,9 @@ const BD = {
   studioAvisRetirer: (id) => rpc('com_studio_avis_retirer', { p_id: id }),
   studiosAValider: () => rpc('com_studios_a_valider'),
   studioTraiter:   (id, action) => rpc('com_studio_traiter', { p_id: id, p_action: action }),
+  studiosMes:      () => rpc('com_studios_mes'),
+  studioModifier:  (id, donnees) => rpc('com_studio_modifier', { p_id: id, p: donnees }),
+  studioGerant:    (id, pseudo) => rpc('com_studio_gerant_definir', { p_id: id, p_pseudo: pseudo }),
   lire:            (id)     => rpc('com_lire', { p_conversation: id }),
 
   publier:     (a)   => rpc('com_publier', a),
@@ -5069,19 +5072,45 @@ function etoilesHtml(note){
   return `<span class="com-etoiles" aria-hidden="true">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? 'on' : ''}">${icone('etoileP', 14)}</i>`).join('')}</span>`;
 }
 
+// Le logo du studio, ou à défaut son initiale.
+function logoStudioHtml(s, classe){
+  const c = 'com-studio-logo' + (classe ? ' ' + classe : '');
+  return s.logo_url
+    ? `<img class="${c}" src="${attr(s.logo_url)}" alt="" loading="lazy" decoding="async">`
+    : `<span class="${c} com-studio-logo-vide" aria-hidden="true">${esc(String(s.nom || '?').trim().charAt(0).toUpperCase())}</span>`;
+}
+
+function promoTexte(promo){
+  if(!promo) return '';
+  const fin = promo.fin ? new Date(promo.fin).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : '';
+  return (promo.texte ? promo.texte + ' · ' : 'Promotion · ') + '−' + promo.pct + ' %' + (fin ? " jusqu'au " + fin : '');
+}
+
+// « dès 35 €/h », ou le prix barré et le prix remisé quand une promotion est en cours.
+function tarifHeureHtml(s){
+  if(!s.tarif_heure) return '';
+  return s.tarif_heure_promo != null
+    ? `<span class="com-studio-tarif">dès <s>${s.tarif_heure}</s> ${s.tarif_heure_promo} €/h</span>`
+    : `<span class="com-studio-tarif">dès ${s.tarif_heure} €/h</span>`;
+}
+
 function studioCarteHtml(s){
 
   return `
-    <button type="button" class="com-studio" data-act="studio-ouvrir" data-id="${attr(s.id)}">
+    <button type="button" class="com-studio${s.promo ? ' com-studio-en-promo' : ''}" data-act="studio-ouvrir" data-id="${attr(s.id)}">
       <span class="com-studio-haut">
-        <b>${esc(s.nom)}</b>
+        ${logoStudioHtml(s)}
+        <span class="com-studio-titre">
+          <b>${esc(s.nom)}</b>
+          <span class="com-studio-ville">${esc(s.ville)}</span>
+        </span>
+        ${s.promo ? `<span class="com-studio-promo" title="${attr(promoTexte(s.promo))}">−${s.promo.pct} %</span>` : ''}
         ${s.statut === 'en_attente' ? '<span class="com-studio-attente">En attente de validation</span>' : ''}
       </span>
-      <span class="com-studio-ville">${esc(s.ville)}</span>
       <span class="com-studio-note">${s.nb_avis ? etoilesHtml(s.note) + ' <em>' + esc(String(s.note).replace('.', ',')) + '</em> <small>(' + s.nb_avis + ' avis)</small>' : '<small>Pas encore d\'avis</small>'}</span>
       ${s.description ? `<span class="com-studio-desc">${esc(s.description)}</span>` : ''}
       <span class="com-studio-pied">
-        ${s.tarif_heure ? `<span class="com-studio-tarif">dès ${s.tarif_heure} €/h</span>` : ''}
+        ${tarifHeureHtml(s)}
         ${(s.services || []).slice(0, 4).map(x => `<span class="com-puce">${esc(x)}</span>`).join('')}
       </span>
     </button>`;
@@ -5112,15 +5141,58 @@ VUES.studios = {
         </label>
         <select data-st="ville" aria-label="Filtrer par ville"><option value="">Toutes les villes</option></select>
       </div>
+      <div data-st-mes></div>
       <div data-st-avalider></div>
       <div class="com-studios-liste" data-st-liste>${squeletteMembre(3)}</div>`;
 
-    V.hotes = { liste: $('[data-st-liste]', V.el), avalider: $('[data-st-avalider]', V.el), ville: $('select[data-st="ville"]', V.el) };
+    V.hotes = { liste: $('[data-st-liste]', V.el), avalider: $('[data-st-avalider]', V.el), mes: $('[data-st-mes]', V.el), ville: $('select[data-st="ville"]', V.el) };
   },
 
-  montrer(V){
+  montrer(V, route){
     VUES.studios.charger(V);
     VUES.studios.chargerAValider(V);
+    VUES.studios.chargerMes(V);
+    VUES.studios.ouvrirParAdresse(V, route);
+  },
+
+  // #community/studios/<identifiant> : la fiche du studio s'ouvre (lien depuis la carte, ou partagé).
+  surMemeCle(V, route){
+    VUES.studios.ouvrirParAdresse(V, route);
+  },
+
+  ouvrirParAdresse(V, route){
+    const id = route && route.param;
+    if(!id || V.ouvertParAdresse === id) return;
+    V.ouvertParAdresse = id;
+    setTimeout(() => VUES.studios.ouvrir(V, id).finally(() => {
+      V.ouvertParAdresse = null;
+      if(location.hash === '#community/studios/' + id) history.replaceState(history.state, '', '#community/studios');
+    }), 150);
+  },
+
+  // Les studios que je gère : un accès direct à la modification de leur page.
+  async chargerMes(V){
+
+    if(!moi()){ V.hotes.mes.innerHTML = ''; return; }
+
+    try{
+
+      const liste = await BD.studiosMes();
+
+      V.hotes.mes.innerHTML = (liste || []).length ? `
+        <section class="com-carte com-studios-mes" aria-label="Mes studios">
+          <h3>Mes studios <span>${liste.length}</span></h3>
+          ${liste.map(s => `
+            <div class="com-studio-mien">
+              ${logoStudioHtml(s, 'petit')}
+              <div><b>${esc(s.nom)}</b> · ${esc(s.ville)}${s.statut === 'en_attente' ? ' <span class="com-studio-attente">En attente de validation</span>' : ''}</div>
+              <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="studio-modifier" data-id="${attr(s.id)}">Modifier ma page</button>
+            </div>`).join('')}
+        </section>` : '';
+
+    }catch(e){
+      V.hotes.mes.innerHTML = '';
+    }
   },
 
   saisir(V, c){
@@ -5280,15 +5352,41 @@ VUES.studios = {
 
     const u = moi();
     const mien = (s.avis || []).find(a => a.mien);
+    const photos = s.photos || [];
+
+    const tarifsHtml = (s.tarifs || []).length ? `
+      <div class="com-studio-tarifs">
+        <h4>Tarifs</h4>
+        ${s.tarifs.map(t => `
+          <div class="com-studio-un-tarif">
+            <div>
+              <b>${esc(t.libelle)}</b>
+              <small>${t.duree_h > 1 ? 'Séance de ' + t.duree_h + ' h minimum' : 'À l\'heure'} · ${t.ingenieur ? 'avec ingénieur du son' : 'sans ingénieur du son'}${t.note ? ' · ' + esc(t.note) : ''}</small>
+            </div>
+            <span>${t.prix_promo != null ? `<s>${t.prix} €</s> <strong>${t.prix_promo} €</strong>` : `<strong>${t.prix} €</strong>`}</span>
+          </div>`).join('')}
+      </div>` : (s.tarif_heure ? `<p class="com-studio-ville">Dès ${s.tarif_heure_promo != null ? `<s>${s.tarif_heure}</s> ${s.tarif_heure_promo}` : s.tarif_heure} €/h</p>` : '');
 
     const r = await ouvrirDialogue({
       titre: s.nom,
       corps: `
-        <p class="com-studio-ville">${esc(s.ville)}${s.tarif_heure ? ' · dès ' + s.tarif_heure + ' €/h' : ''}</p>
-        <p class="com-studio-note">${s.nb_avis ? etoilesHtml(s.note) + ' <em>' + esc(String(s.note).replace('.', ',')) + '</em> <small>(' + s.nb_avis + ' avis)</small>' : '<small>Pas encore d\'avis</small>'}</p>
+        <div class="com-studio-entete">
+          ${logoStudioHtml(s, 'grand')}
+          <div>
+            <p class="com-studio-ville">${esc(s.ville)}${s.adresse ? ' · ' + esc(s.adresse) : ''}</p>
+            <p class="com-studio-note">${s.nb_avis ? etoilesHtml(s.note) + ' <em>' + esc(String(s.note).replace('.', ',')) + '</em> <small>(' + s.nb_avis + ' avis)</small>' : '<small>Pas encore d\'avis</small>'}</p>
+          </div>
+        </div>
+        ${s.promo ? `<p class="com-studio-bandeau-promo">${esc(promoTexte(s.promo))}</p>` : ''}
+        ${photos.length ? `
+          <div class="com-studio-photos" data-d="photos">
+            ${photos.map((url, i) => `<button type="button" class="com-studio-photo" data-i="${i}" aria-label="Agrandir la photo ${i + 1}"><img src="${attr(url)}" alt="" loading="lazy" decoding="async"></button>`).join('')}
+          </div>` : ''}
+        ${tarifsHtml}
         ${s.description ? `<p class="com-dialogue-texte">${esc(s.description)}</p>` : ''}
         ${(s.services || []).length ? `<p class="com-studio-pied">${s.services.map(x => `<span class="com-puce">${esc(x)}</span>`).join('')}</p>` : ''}
         ${s.lien ? `<p><a class="com-lien-ext" href="${attr(s.lien)}" target="_blank" rel="noopener noreferrer">Site du studio</a></p>` : ''}
+        ${s.peut_modifier ? `<p><button type="button" class="com-btn com-btn-fantome com-btn-petit" data-valeur="modifier">Modifier la page du studio</button></p>` : ''}
         <div class="com-studio-avis">
           <h4>Avis</h4>
           ${(s.avis || []).length ? s.avis.map(a => `
@@ -5311,7 +5409,14 @@ VUES.studios = {
         { libelle: 'Fermer', valeur: 'non' },
         ...(u && s.statut === 'publie' ? [{ libelle: mien ? 'Mettre à jour' : 'Publier mon avis', valeur: 'ok', primaire: true }] : [])
       ],
+      surOuverture: (boite) => {
+        // Les photos ne se voient qu'ici : un clic les agrandit.
+        $$('.com-studio-photo', boite).forEach(b => b.addEventListener('click', () => {
+          ouvrirVisionneuse(photos, Number(b.dataset.i), $('img', b));
+        }));
+      },
       lire: (boite, valeur) => {
+        if(valeur === 'modifier') return 'modifier';
         if(valeur !== 'ok') return null;
         const choisi = $('input[name="com-note"]:checked', boite);
         if(!choisi){ $('[data-d="erreur"]', boite).hidden = false; return false; }
@@ -5319,12 +5424,210 @@ VUES.studios = {
       }
     });
 
+    if(r === 'modifier'){ VUES.studios.modifier(V, s); return; }
+
     if(!r || !r.note) return;
 
     try{
       await BD.studioNoter(id, r.note, r.avis);
       toast('Merci pour ton avis', { duree: 2000 });
       if(V && V.nom === 'studios') VUES.studios.charger(V);
+    }catch(e){
+      toastErreur(e);
+    }
+  },
+
+  // La page du studio, modifiable par son gérant (et l'équipe) : logo, photos, tarifs, promotion.
+  async modifier(V, s){
+
+    if(!s || typeof s === 'string'){
+      try{ s = await BD.studio(s); }catch(e){ toastErreur(e); return; }
+    }
+
+    if(!s || !s.peut_modifier){ toast('Tu ne gères pas ce studio.', { type: 'erreur' }); return; }
+
+    const etat = {
+      logo: s.logo_url || null,
+      photos: (s.photos || []).slice(),
+      tarifs: (s.tarifs || []).map(t => ({ libelle: t.libelle, prix: t.prix, duree_h: t.duree_h, ingenieur: t.ingenieur, note: t.note || '' })),
+      envois: 0
+    };
+
+    if(!etat.tarifs.length) etat.tarifs.push({ libelle: '', prix: '', duree_h: 1, ingenieur: true, note: '' });
+
+    const promo = s.promo_reglage || {};
+    const dateChamp = (iso) => iso ? new Date(iso).toLocaleDateString('sv-SE') : '';
+
+    const r = await ouvrirDialogue({
+      titre: 'Page du studio',
+      corps: `
+        <div class="com-champ"><span>Logo <i>(visible sur l'encadré de l'annonce)</i></span>
+          <div class="com-studio-logo-edition" data-d="logo-zone"></div></div>
+        <div class="com-grille-champs">
+          <label class="com-champ"><span>Nom du studio</span><input type="text" data-d="nom" maxlength="80" value="${attr(s.nom)}"></label>
+          <label class="com-champ"><span>Ville</span><input type="text" data-d="ville" maxlength="60" value="${attr(s.ville)}"></label>
+          <label class="com-champ"><span>Pays</span>
+            <select data-d="pays">${[['FR', 'France'], ['BE', 'Belgique'], ['CH', 'Suisse'], ['GP', 'Guadeloupe'], ['MQ', 'Martinique'], ['RE', 'La Réunion'], ['GF', 'Guyane'], ['YT', 'Mayotte'], ['NC', 'Nouvelle-Calédonie'], ['PF', 'Polynésie française']]
+              .map(([c, n]) => `<option value="${c}"${s.pays === c ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+          <label class="com-champ"><span>Adresse <i>(facultatif)</i></span><input type="text" data-d="adresse" maxlength="160" value="${attr(s.adresse || '')}"></label>
+          <label class="com-champ"><span>Lien <i>(facultatif)</i></span><input type="url" data-d="lien" maxlength="300" placeholder="https://…" value="${attr(s.lien || '')}"></label>
+        </div>
+        <label class="com-champ"><span>Présentation</span><textarea data-d="description" rows="3" maxlength="1500">${esc(s.description || '')}</textarea></label>
+        <div class="com-radios com-services">
+          ${SERVICES_STUDIO.map(x => `<label class="com-radio"><input type="checkbox" name="com-service" value="${attr(x)}"${(s.services || []).includes(x) ? ' checked' : ''}><span>${esc(x)}</span></label>`).join('')}
+        </div>
+
+        <div class="com-champ"><span>Photos <i>(visibles quand on ouvre le studio, 8 au plus)</i></span>
+          <div class="com-studio-photos-edition" data-d="photos-zone"></div></div>
+
+        <div class="com-champ"><span>Tarifs <i>(une ligne par formule : séance de 2 h minimum, avec ou sans ingénieur du son…)</i></span>
+          <div data-d="tarifs-zone" class="com-studio-tarifs-edition"></div>
+          <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-d="tarif-ajout">+ Ajouter un tarif</button></div>
+
+        <div class="com-champ"><span>Promotion <i>(le studio passe en haut de la liste pendant la promotion)</i></span>
+          <div class="com-grille-champs">
+            <label class="com-champ"><span>Remise en %</span><input type="number" data-d="promo-pct" min="1" max="90" inputmode="numeric" value="${attr(promo.pct || '')}"></label>
+            <label class="com-champ"><span>Intitulé <i>(facultatif)</i></span><input type="text" data-d="promo-texte" maxlength="80" placeholder="Offre de rentrée" value="${attr(promo.texte || '')}"></label>
+            <label class="com-champ"><span>Début <i>(facultatif)</i></span><input type="date" data-d="promo-debut" value="${attr(dateChamp(promo.debut))}"></label>
+            <label class="com-champ"><span>Fin</span><input type="date" data-d="promo-fin" value="${attr(dateChamp(promo.fin))}"></label>
+          </div>
+          <small>Laisse la remise vide pour ne pas avoir de promotion.</small></div>
+
+        ${s.equipe ? `<label class="com-champ"><span>Gérant du studio <i>(équipe : pseudo du membre qui peut modifier cette page)</i></span>
+          <input type="text" data-d="gerant" maxlength="40" placeholder="pseudo" value="${attr(s.gerant || '')}"></label>` : ''}
+        <p class="com-dialogue-erreur" data-d="erreur" hidden></p>`,
+      boutons: [
+        { libelle: 'Annuler', valeur: 'non' },
+        { libelle: 'Enregistrer', valeur: 'ok', primaire: true }
+      ],
+      focus: '[data-d="nom"]',
+      surOuverture: (boite) => {
+
+        const nomFichier = () => 'studio-' + s.id + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7) + '.jpg';
+        const message = (t) => { const e = $('[data-d="erreur"]', boite); e.textContent = t; e.hidden = !t; };
+
+        const envoyer = async (fichier) => {
+          const blob = await preparerImage(fichier);
+          return Fichiers.envoyer(blob, nomFichier(), 'image/jpeg');
+        };
+
+        const dessinerLogo = () => {
+          $('[data-d="logo-zone"]', boite).innerHTML = `
+            ${etat.logo ? `<img class="com-studio-logo grand" src="${attr(etat.logo)}" alt="">` : '<span class="com-studio-logo grand com-studio-logo-vide">?</span>'}
+            <label class="com-btn com-btn-fantome com-btn-petit">Choisir un logo<input type="file" accept="image/jpeg,image/png,image/webp" data-d="logo-fichier" hidden></label>
+            ${etat.logo ? '<button type="button" class="com-btn com-btn-fantome com-btn-petit" data-d="logo-retirer">Retirer</button>' : ''}`;
+        };
+
+        const dessinerPhotos = () => {
+          $('[data-d="photos-zone"]', boite).innerHTML = `
+            ${etat.photos.map((u, i) => `<span class="com-studio-photo-edit"><img src="${attr(u)}" alt=""><button type="button" data-retirer="${i}" aria-label="Retirer cette photo">×</button></span>`).join('')}
+            ${etat.photos.length < 8 ? `<label class="com-studio-photo-ajout">+ Ajouter<input type="file" accept="image/jpeg,image/png,image/webp" multiple data-d="photos-fichiers" hidden></label>` : ''}`;
+        };
+
+        const dessinerTarifs = () => {
+          $('[data-d="tarifs-zone"]', boite).innerHTML = etat.tarifs.map((t, i) => `
+            <div class="com-studio-tarif-edit" data-i="${i}">
+              <input type="text" data-t="libelle" maxlength="60" placeholder="Intitulé (ex. Session avec ingé son)" value="${attr(t.libelle)}">
+              <input type="number" data-t="prix" min="0" max="5000" inputmode="numeric" placeholder="Prix €" value="${attr(t.prix)}">
+              <select data-t="duree_h" aria-label="Durée de la séance">${[1, 2, 3, 4, 5, 6, 8, 10, 12].map(h => `<option value="${h}"${Number(t.duree_h) === h ? ' selected' : ''}>${h} h${h === 1 ? '' : ' minimum'}</option>`).join('')}</select>
+              <select data-t="ingenieur" aria-label="Ingénieur du son"><option value="1"${t.ingenieur ? ' selected' : ''}>Avec ingé son</option><option value="0"${!t.ingenieur ? ' selected' : ''}>Sans ingé son</option></select>
+              <input type="text" data-t="note" maxlength="120" placeholder="Précision (facultatif)" value="${attr(t.note)}">
+              <button type="button" class="com-icone-btn" data-retirer-tarif="${i}" aria-label="Retirer ce tarif">${icone('croix', 16)}</button>
+            </div>`).join('');
+        };
+
+        dessinerLogo(); dessinerPhotos(); dessinerTarifs();
+
+        const lireTarifs = () => $$('.com-studio-tarif-edit', boite).forEach((ligne) => {
+          const t = etat.tarifs[Number(ligne.dataset.i)];
+          if(!t) return;
+          t.libelle = $('[data-t="libelle"]', ligne).value;
+          t.prix = $('[data-t="prix"]', ligne).value;
+          t.duree_h = Number($('[data-t="duree_h"]', ligne).value);
+          t.ingenieur = $('[data-t="ingenieur"]', ligne).value === '1';
+          t.note = $('[data-t="note"]', ligne).value;
+        });
+        boite._lireTarifs = lireTarifs;
+
+        boite.addEventListener('change', async (e) => {
+
+          const c = e.target;
+
+          if(c.matches('[data-d="logo-fichier"]') && c.files[0]){
+            try{ message(''); etat.envois++; etat.logo = await envoyer(c.files[0]); dessinerLogo(); }
+            catch(err){ message(err.message || String(err)); }
+            finally{ etat.envois--; }
+          }
+
+          if(c.matches('[data-d="photos-fichiers"]')){
+            const fichiers = Array.from(c.files).slice(0, 8 - etat.photos.length);
+            message('');
+            for(const f of fichiers){
+              try{ etat.envois++; etat.photos.push(await envoyer(f)); dessinerPhotos(); }
+              catch(err){ message(err.message || String(err)); }
+              finally{ etat.envois--; }
+            }
+          }
+        });
+
+        boite.addEventListener('click', (e) => {
+
+          const b = e.target.closest('button');
+          if(!b) return;
+
+          if(b.dataset.retirer !== undefined){ etat.photos.splice(Number(b.dataset.retirer), 1); dessinerPhotos(); }
+          if(b.matches('[data-d="logo-retirer"]')){ etat.logo = null; dessinerLogo(); }
+          if(b.dataset.retirerTarif !== undefined){ lireTarifs(); etat.tarifs.splice(Number(b.dataset.retirerTarif), 1); dessinerTarifs(); }
+          if(b.matches('[data-d="tarif-ajout"]')){
+            lireTarifs();
+            if(etat.tarifs.length >= 10){ message('Dix tarifs au plus.'); return; }
+            etat.tarifs.push({ libelle: '', prix: '', duree_h: 1, ingenieur: true, note: '' });
+            dessinerTarifs();
+          }
+        });
+      },
+      lire: (boite, valeur) => {
+
+        if(valeur !== 'ok') return null;
+
+        const message = (t) => { const e = $('[data-d="erreur"]', boite); e.textContent = t; e.hidden = false; return false; };
+        const lire = (k) => $('[data-d="' + k + '"]', boite).value.trim();
+
+        if(etat.envois > 0) return message('Une image est encore en cours d\'envoi : attends un instant.');
+        if(lire('nom').length < 2 || lire('ville').length < 2) return message('Donne au moins le nom et la ville du studio.');
+
+        if(boite._lireTarifs) boite._lireTarifs();
+
+        const tarifs = etat.tarifs.filter(t => String(t.libelle).trim() || String(t.prix).trim());
+        if(tarifs.some(t => !String(t.libelle).trim() || t.prix === '' || isNaN(Number(t.prix)))) return message('Chaque tarif a besoin d\'un intitulé et d\'un prix.');
+
+        const pct = lire('promo-pct');
+        const fin = lire('promo-fin'), debut = lire('promo-debut');
+        if(pct && !fin) return message('Indique la date de fin de la promotion.');
+
+        return {
+          donnees: {
+            nom: lire('nom'), ville: lire('ville'), pays: lire('pays'), adresse: lire('adresse'), lien: lire('lien'), description: lire('description'),
+            services: $$('input[name="com-service"]:checked', boite).map(i => i.value),
+            logo_url: etat.logo || '', photos: etat.photos,
+            tarifs: tarifs.map(t => ({ libelle: String(t.libelle).trim(), prix: Number(t.prix), duree_h: Number(t.duree_h), ingenieur: !!t.ingenieur, note: String(t.note || '').trim() })),
+            promo: pct
+              ? { pct: Number(pct), texte: lire('promo-texte'), debut: debut ? new Date(debut + 'T00:00:00').toISOString() : '', fin: new Date(fin + 'T23:59:59').toISOString() }
+              : { pct: '', texte: '', debut: '', fin: '' }
+          },
+          gerant: s.equipe ? lire('gerant') : null
+        };
+      }
+    });
+
+    if(!r || !r.donnees) return;
+
+    try{
+      await BD.studioModifier(s.id, r.donnees);
+      if(r.gerant && r.gerant !== (s.gerant || '')) await BD.studioGerant(s.id, r.gerant);
+      toast('Page du studio enregistrée', { duree: 2200 });
+      const V2 = V && V.nom === 'studios' ? V : null;
+      if(V2){ VUES.studios.charger(V2); VUES.studios.chargerMes(V2); }
     }catch(e){
       toastErreur(e);
     }
@@ -8226,6 +8529,10 @@ function agir(act, cible, e){
       VUES.studios.ouvrir(V, cible.dataset.id);
       return;
 
+    case 'studio-modifier':
+      VUES.studios.modifier(V, cible.dataset.id);
+      return;
+
     case 'studio-traiter':
       VUES.studios.traiter(V, cible.dataset.id, cible.dataset.action);
       return;
@@ -9590,6 +9897,40 @@ const FEUILLE = String.raw`
 .com-studio-desc{font-size:13.5px; line-height:1.45; color:var(--ink-soft); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
 .com-studio-pied{display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0;}
 .com-studio-tarif{font-size:13px; font-weight:700; color:var(--blue-bright); margin-right:4px;}
+.com-studio-tarif s{color:var(--muted); font-weight:500;}
+.com-studio-haut{align-items:flex-start;}
+.com-studio-titre{display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;}
+.com-studio-logo{width:44px; height:44px; flex:none; border-radius:12px; object-fit:cover; background:rgba(255,255,255,0.06);}
+.com-studio-logo.petit{width:34px; height:34px; border-radius:9px;}
+.com-studio-logo.grand{width:64px; height:64px; border-radius:16px;}
+.com-studio-logo-vide{display:inline-flex; align-items:center; justify-content:center; font-weight:700; color:var(--ink-soft); border:1px solid var(--line);}
+.com-studio-promo{flex:none; padding:2px 9px; border-radius:99px; font-size:11.5px; font-weight:700; background:rgba(90,200,140,0.16); color:#6fd49a; border:1px solid rgba(111,212,154,0.4);}
+.com-studio-en-promo{border-color:rgba(111,212,154,0.3);}
+.com-studio-entete{display:flex; align-items:center; gap:14px;}
+.com-studio-entete p{margin:0;}
+.com-studio-bandeau-promo{margin:0; padding:9px 13px; border-radius:12px; font-size:13.5px; font-weight:600; background:rgba(90,200,140,0.12); color:#6fd49a; border:1px solid rgba(111,212,154,0.3);}
+.com-studio-photos{display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px;}
+.com-studio-photo{padding:0; border:0; border-radius:12px; overflow:hidden; aspect-ratio:4/3; cursor:zoom-in; background:rgba(255,255,255,0.05);}
+.com-studio-photo img{width:100%; height:100%; object-fit:cover; display:block;}
+.com-studio-tarifs h4{margin:4px 0 6px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
+.com-studio-un-tarif{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:9px 0; border-top:1px solid var(--line);}
+.com-studio-un-tarif small{display:block; margin-top:2px; color:var(--muted); font-size:12.5px;}
+.com-studio-un-tarif strong{font-size:16px; color:var(--ink);}
+.com-studio-un-tarif s{color:var(--muted);}
+.com-studios-mes{margin-bottom:14px;}
+.com-studio-mien{display:flex; align-items:center; gap:12px; padding:8px 0; border-top:1px solid var(--line);}
+.com-studio-mien > div{flex:1; min-width:0;}
+.com-studio-logo-edition{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+.com-studio-photos-edition{display:flex; flex-wrap:wrap; gap:8px;}
+.com-studio-photo-edit{position:relative; width:88px; height:66px; border-radius:10px; overflow:hidden;}
+.com-studio-photo-edit img{width:100%; height:100%; object-fit:cover;}
+.com-studio-photo-edit button{position:absolute; top:3px; right:3px; width:22px; height:22px; border:0; border-radius:99px; background:rgba(0,0,0,0.7); color:#fff; cursor:pointer; line-height:1;}
+.com-studio-photo-ajout{display:inline-flex; align-items:center; justify-content:center; width:88px; height:66px; border:1px dashed var(--line); border-radius:10px; font-size:13px; color:var(--ink-soft); cursor:pointer;}
+.com-studio-tarifs-edition{display:flex; flex-direction:column; gap:8px;}
+.com-studio-tarif-edit{display:grid; grid-template-columns:2fr 90px 130px 140px; gap:6px; align-items:center; padding:8px; border:1px solid var(--line); border-radius:12px;}
+.com-studio-tarif-edit input[data-t="note"]{grid-column:1 / 4;}
+.com-studio-tarif-edit .com-icone-btn{justify-self:end;}
+@media (max-width:640px){ .com-studio-tarif-edit{grid-template-columns:1fr 1fr;} .com-studio-tarif-edit input[data-t="libelle"], .com-studio-tarif-edit input[data-t="note"]{grid-column:1 / -1;} }
 .com-studio-avis h4, .com-studio-noter h4{margin:14px 0 6px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
 .com-studio-un-avis{padding:8px 0; border-top:1px solid var(--line); font-size:13.5px;}
 .com-studio-un-avis p{margin:4px 0 0; color:var(--ink-soft); line-height:1.45;}

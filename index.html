@@ -5252,6 +5252,7 @@
       <!-- Deux raccourcis : les artistes qui jouent bientôt, et ceux qui sont près de soi. -->
       <div class="carte-actions" role="group" aria-label="Filtres de la carte">
         <button type="button" class="cat-puce" id="carteConcertsBtn" aria-pressed="false" onclick="basculerConcertsCarte()">Concerts ce mois-ci</button>
+        <button type="button" class="cat-puce" id="carteStudiosBtn" aria-pressed="false" onclick="basculerStudiosCarte()">Studios</button>
         <button type="button" class="cat-puce carte-autour" id="carteAutourBtn" onclick="autourDeMoiCarte()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
           Autour de moi
@@ -13832,7 +13833,7 @@ function renderChallenges(){
 // la page (bouton flottant, volet) : ils sont remis à jour ici.
 // Le numéro change à chaque transfert de communaute.js : sans cela, un navigateur
 // qui a déjà l'ancien fichier en cache le garderait avec le nouvel index.html.
-const COMMUNAUTE_FICHIER = 'communaute.js?v=3';
+const COMMUNAUTE_FICHIER = 'communaute.js?v=4';
 let communauteChargement = null;
 
 function chargerCommunaute(){
@@ -19194,12 +19195,35 @@ function brancherCarte(){
 // Regroupe les artistes d'un pays par ville : plusieurs artistes d'une
 // même commune partagent un seul point, sinon leurs marqueurs se
 // recouvriraient exactement.
-function villesDuPays(cle){
+function villesDuPays(cle, ignorerFiltres){
 
   const villes = {};
 
+  // Filtre « Studios » : chaque studio est placé dans sa ville, comme un artiste.
+  if(carteStudios && !ignorerFiltres){
+
+    carteStudios.forEach(st => {
+
+      const lat = Number(st.lat), lon = Number(st.lon);
+      if(!isFinite(lat) || !isFinite(lon) || paysDuLieu(lat, lon) !== cle) return;
+
+      const clePoint = String(st.ville).toLowerCase() + '|' + lat.toFixed(3) + '|' + lon.toFixed(3);
+
+      if(!villes[clePoint]){
+        villes[clePoint] = { cle: clePoint, nom: st.ville, lat, lon, pays: cle, artistes: [] };
+      }
+
+      villes[clePoint].artistes.push({ instagram_handle: 'studio:' + st.id, display_name: st.nom, photo_url: st.logo_url, _studio: st });
+    });
+
+    return Object.values(villes).sort((a, b) =>
+      b.artistes.length - a.artistes.length ||
+      a.nom.localeCompare(b.nom)
+    );
+  }
+
   // Filtre « Concerts ce mois-ci » : les artistes sont placés là où ils jouent, pas chez eux.
-  if(carteConcerts){
+  if(carteConcerts && !ignorerFiltres){
 
     const parMinuscules = {};
     Object.values(artistsByHandle).forEach(p => { parMinuscules[String(p.instagram_handle || '').toLowerCase()] = p; });
@@ -19293,6 +19317,14 @@ var carteComptesLuLe = 0;
 
 // « Concerts ce mois-ci » : quand le filtre est actif, les concerts des 30 jours (handle en minuscules -> ses concerts, avec lieu et position).
 var carteConcerts = null;
+
+// « Studios » : quand le filtre est actif, les studios de l'annuaire (publiés, avec leur ville localisée) remplacent les artistes sur la carte.
+var carteStudios = null;
+
+// Le mot du panneau : « artiste » ou « studio » selon le filtre.
+function motCarte(n){
+  return (carteStudios ? 'studio' : 'artiste') + (n > 1 ? 's' : '');
+}
 
 function sortiesParArtisteCarte(){
   return carteComptesSorties || new Map();
@@ -19456,6 +19488,9 @@ async function basculerConcertsCarte(){
     return;
   }
 
+  // Un seul filtre à la fois : les concerts remplacent les studios.
+  if(carteStudios) await basculerStudiosCarte();
+
   bouton.disabled = true;
 
   try{
@@ -19487,6 +19522,58 @@ async function basculerConcertsCarte(){
   }finally{
     bouton.disabled = false;
   }
+}
+
+// « Studios » : les studios de l'annuaire, placés dans leur ville.
+async function basculerStudiosCarte(){
+
+  const bouton = document.getElementById('carteStudiosBtn');
+
+  if(!bouton || bouton.disabled) return;
+
+  if(carteStudios){
+    carteStudios = null;
+    bouton.setAttribute('aria-pressed', 'false');
+    bouton.classList.remove('on');
+    messageActionsCarte('');
+    afficherPaysCarte(true, false);
+    return;
+  }
+
+  // Un seul filtre à la fois : les studios remplacent les concerts.
+  if(carteConcerts) await basculerConcertsCarte();
+
+  bouton.disabled = true;
+
+  try{
+
+    const { data, error } = await supabaseClient.rpc('studios_carte');
+
+    if(error) throw error;
+
+    const liste = Array.isArray(data) ? data : [];
+
+    if(!liste.length){
+      messageActionsCarte("Aucun studio n'est encore localisé sur la carte.");
+      return;
+    }
+
+    carteStudios = liste;
+    bouton.setAttribute('aria-pressed', 'true');
+    bouton.classList.add('on');
+    messageActionsCarte(liste.length + ' studio' + (liste.length > 1 ? 's' : '') + ' : place-toi sur une ville pour les voir, un clic ouvre sa fiche.');
+    afficherPaysCarte(true, false);
+
+  }catch(e){
+    messageActionsCarte('Les studios ne sont pas disponibles pour le moment.');
+  }finally{
+    bouton.disabled = false;
+  }
+}
+
+// Depuis la carte : la fiche du studio s'ouvre dans la communauté (annuaire des studios).
+function ouvrirStudioDepuisCarte(id){
+  location.hash = '#community/studios/' + encodeURIComponent(id);
 }
 
 // La distance à vol d'oiseau entre deux points, en kilomètres.
@@ -19838,7 +19925,7 @@ function panneauToutesLesVilles(){
     v.innerHTML = `
       <h3 class="carte-titre">
         <span class="carte-chiffre">${carteDernierTotal || tous.length}</span>
-        artiste${tous.length > 1 ? 's' : ''}
+        ${motCarte(tous.length)}
       </h3>
       <span class="carte-compte">
         ${carteVilles.length} ville${carteVilles.length > 1 ? 's' : ''} en ${escapeHtml(nomPays)}
@@ -20016,7 +20103,9 @@ function carteDefileCarteHtml(entree){
   bouton.dataset.handle = profil.instagram_handle;
   bouton.setAttribute(
     'onclick',
-    `ouvrirPageArtiste('${handleSain(profil.instagram_handle)}', false, 'carte')`
+    profil._studio
+      ? `ouvrirStudioDepuisCarte('${escapeAttribute(profil._studio.id)}')`
+      : `ouvrirPageArtiste('${handleSain(profil.instagram_handle)}', false, 'carte')`
   );
 
   bouton.innerHTML = `
@@ -20029,8 +20118,10 @@ function carteDefileCarteHtml(entree){
     </span>
     <strong class="carte-vedette-nom">${escapeHtml(nom)}</strong>
     <span class="carte-vedette-lieu">${ICONE_PIN_CARTE}${escapeHtml(entree.ville.nom)}</span>
-    <span class="carte-vedette-sorties">${libelleSortiesCarte(profil.instagram_handle)}</span>
-    <span class="carte-vedette-voir">Voir sa page →</span>`;
+    <span class="carte-vedette-sorties">${profil._studio
+      ? escapeHtml(profil._studio.tarif_heure_promo != null ? 'dès ' + profil._studio.tarif_heure_promo + ' €/h (−' + profil._studio.promo_pct + ' %)' : profil._studio.tarif_heure ? 'dès ' + profil._studio.tarif_heure + ' €/h' : 'Studio')
+      : libelleSortiesCarte(profil.instagram_handle)}</span>
+    <span class="carte-vedette-voir">${profil._studio ? 'Voir le studio →' : 'Voir sa page →'}</span>`;
 
   return bouton;
 }
@@ -20087,7 +20178,7 @@ function selectionnerVilleCarte(index){
   ouvrirVilleCarte(index);
 
   annoncerCarte(ville.nom + ' : ' + ville.artistes.length +
-    ' artiste' + (ville.artistes.length > 1 ? 's' : '') + '.');
+    ' ' + motCarte(ville.artistes.length) + '.');
 }
 
 
@@ -20118,10 +20209,10 @@ function ouvrirVilleCarte(index, options){
     vue.classList.add('carte-vue-liste');
     vue.innerHTML = `
       <button type="button" class="carte-retour" onclick="fermerSelectionCarte()">
-        ${ICONE_RETOUR_CARTE} Tous les artistes
+        ${ICONE_RETOUR_CARTE} Tous les ${carteStudios ? 'studios' : 'artistes'}
       </button>
       <h3 class="carte-titre">${escapeHtml(ville.nom)}</h3>
-      <span class="carte-compte">${n} artiste${n > 1 ? 's' : ''}</span>
+      <span class="carte-compte">${n} ${motCarte(n)}</span>
       <div class="carte-liste">
         ${ordonnerArtistesCarte(ville.artistes, handle)
             .map((profil, i) => ligneArtisteCarte(profil, i, handle)).join('')}
@@ -20167,11 +20258,11 @@ function ouvrirGroupeCarte(indices, options){
     vue.classList.add('carte-vue-liste');
     vue.innerHTML = `
       <button type="button" class="carte-retour" onclick="fermerSelectionCarte()">
-        ${ICONE_RETOUR_CARTE} Tous les artistes
+        ${ICONE_RETOUR_CARTE} Tous les ${carteStudios ? 'studios' : 'artistes'}
       </button>
       <h3 class="carte-titre">${escapeHtml(titre)}</h3>
       <span class="carte-compte">
-        ${total} artiste${total > 1 ? 's' : ''}${villes.length > 1 ? ' · ' + villes.length + ' villes' : ''}
+        ${total} ${motCarte(total)}${villes.length > 1 ? ' · ' + villes.length + ' villes' : ''}
       </span>
       <div class="carte-liste">
         ${
@@ -20194,6 +20285,27 @@ function ligneArtisteCarte(profil, rang, handleTrouve){
   const nom = profil.display_name || profil.instagram_handle;
   const photo = safeUrl(profil.photo_url);
   const trouve = handleTrouve && profil.instagram_handle === handleTrouve;
+
+  // Filtre « Studios » : la ligne ouvre la fiche du studio, avec son tarif et sa promotion.
+  if(profil._studio){
+
+    const st = profil._studio;
+    const sousStudio = (st.tarif_heure_promo != null ? 'dès ' + st.tarif_heure_promo + ' €/h (−' + st.promo_pct + ' %)' : st.tarif_heure ? 'dès ' + st.tarif_heure + ' €/h' : 'Tarifs sur la fiche')
+      + (st.nb_avis ? ' · ' + String(st.note).replace('.', ',') + ' ★ (' + st.nb_avis + ')' : '');
+
+    return `
+      <button type="button" class="carte-artiste" style="--i:${Math.min(rang, 14)}"
+              onclick="ouvrirStudioDepuisCarte('${escapeAttribute(st.id)}')">
+        <span class="carte-vignette">
+          ${photo ? `<img src="${escapeAttribute(photo)}" alt="" loading="lazy" decoding="async">` : escapeHtml(artistInitial(nom))}
+        </span>
+        <span class="carte-artiste-texte">
+          ${escapeHtml(nom)}
+          <span class="carte-sorties">${escapeHtml(sousStudio)}</span>
+        </span>
+        <span class="carte-artiste-fleche" aria-hidden="true">→</span>
+      </button>`;
+  }
 
   // Avec le filtre des concerts, la ligne dit où et quand l'artiste joue.
   const concert = profil._concert;
@@ -20263,7 +20375,7 @@ function indexCarte(){
 
   Object.keys(CARTES_PAYS).forEach(pays => {
 
-    villesDuPays(pays).forEach(ville => {
+    villesDuPays(pays, true).forEach(ville => {
 
       const nu = texteNu(ville.nom);
       const cle = pays + '|' + nu;
