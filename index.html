@@ -20290,8 +20290,7 @@ function ligneArtisteCarte(profil, rang, handleTrouve){
   if(profil._studio){
 
     const st = profil._studio;
-    const sousStudio = (st.tarif_heure_promo != null ? 'dès ' + st.tarif_heure_promo + ' €/h (−' + st.promo_pct + ' %)' : st.tarif_heure ? 'dès ' + st.tarif_heure + ' €/h' : 'Tarifs sur la fiche')
-      + (st.nb_avis ? ' · ' + String(st.note).replace('.', ',') + ' ★ (' + st.nb_avis + ')' : '');
+    const sousStudio = (st.tarif_heure_promo != null ? 'dès ' + st.tarif_heure_promo + ' €/h (−' + st.promo_pct + ' %)' : st.tarif_heure ? 'dès ' + st.tarif_heure + ' €/h' : 'Tarifs sur la fiche');
 
     return `
       <button type="button" class="carte-artiste" style="--i:${Math.min(rang, 14)}"
