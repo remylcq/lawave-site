@@ -5073,6 +5073,7 @@ VUES.explorer = {
 const SERVICES_STUDIO = ['Enregistrement', 'Mixage', 'Mastering', 'Production', 'Répétition', 'Clip vidéo', 'Ingé son'];
 
 Object.assign(ICONES, {
+  stFiltre:    '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/>',
   stListe:     '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
   stCarte:     '<path d="M9 4 3 6.5V20l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>',
   stCalendrier:'<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M8 3v4M16 3v4M3.5 10.5h17"/>',
@@ -5130,6 +5131,7 @@ function prixStudioHtml(s){
 function studioCarteHtml(s, i){
 
   const services = s.services || [];
+  const restant = s.promo ? promoRestant(s.promo) : '';
 
   return `
     <button type="button" class="st-card${s.promo ? ' en-promo' : ''}" data-act="studio-ouvrir" data-id="${attr(s.id)}" style="--i:${Math.min(i || 0, 12)}">
@@ -5137,20 +5139,15 @@ function studioCarteHtml(s, i){
         ${logoStudioHtml(s)}
         <span class="st-card-titre">
           <b>${esc(s.nom)}</b>
-          <span class="st-ville">${icone('stPin', 13)}${esc(s.ville)}</span>
+          <span class="st-ville">${esc(s.ville)}</span>
         </span>
         ${s.promo ? `<span class="st-badge-promo" title="${attr(promoTexte(s.promo))}">−${s.promo.pct} %</span>` : ''}
       </span>
       ${s.description ? `<span class="st-desc">${esc(s.description)}</span>` : ''}
-      ${s.statut === 'en_attente' ? '<span class="st-attente">En attente de validation</span>' : ''}
-      <span class="st-card-pied">
-        <span class="st-services">
-          ${services.slice(0, 3).map(x => `<span class="st-puce">${esc(x)}</span>`).join('')}
-          ${services.length > 3 ? `<span class="st-puce st-puce-plus">+${services.length - 3}</span>` : ''}
-        </span>
-        <span class="st-card-bas">${prixStudioHtml(s)}<span class="st-fleche" aria-hidden="true">${icone('chevronDroite', 18)}</span></span>
+      <span class="st-card-bas">
+        ${prixStudioHtml(s)}
+        <span class="st-meta">${s.statut === 'en_attente' ? 'En attente de validation' : s.promo && restant ? esc(restant) : esc(services.slice(0, 2).join(' · ') + (services.length > 2 ? ' · +' + (services.length - 2) : ''))}</span>
       </span>
-      ${s.promo ? `<span class="st-promo-ligne">${icone('stEclair', 13)}${esc(s.promo.texte || 'Promotion en cours')}${promoRestant(s.promo) ? ' · ' + esc(promoRestant(s.promo)) : ''}</span>` : ''}
     </button>`;
 }
 
@@ -5173,7 +5170,7 @@ function fermerPop(){
   setTimeout(() => p.el.remove(), 180);
 }
 
-function ouvrirPop(bouton, html, montage){
+function ouvrirPop(bouton, html, montage, options){
 
   const deja = stPop && stPop.bouton === bouton;
 
@@ -5182,7 +5179,7 @@ function ouvrirPop(bouton, html, montage){
   if(deja) return;
 
   const el = document.createElement('div');
-  el.className = 'st-pop';
+  el.className = 'st-pop' + (options && options.classe ? ' ' + options.classe : '');
   el.innerHTML = html;
   document.body.appendChild(el);
 
@@ -5190,8 +5187,12 @@ function ouvrirPop(bouton, html, montage){
   const w = el.offsetWidth;
   const h = el.offsetHeight;
 
-  el.style.left = Math.max(12, Math.min(r.left, window.innerWidth - w - 12)) + 'px';
+  el.style.left = Math.max(12, Math.min(options && options.aDroite ? r.right - w : r.left, window.innerWidth - w - 12)) + 'px';
   el.style.top = (r.bottom + h + 16 > window.innerHeight && r.top > h + 16 ? r.top - h - 8 : r.bottom + 8) + 'px';
+
+  // Un panneau plus haut que la place disponible reste dans l'écran et défile (sur mobile, c'est une feuille en bas : la feuille de style s'en charge).
+  const haut = parseFloat(el.style.top);
+  if(window.innerWidth > 640 && haut + h > window.innerHeight - 12) el.style.maxHeight = Math.max(240, window.innerHeight - haut - 12) + 'px';
 
   bouton.setAttribute('aria-expanded', 'true');
 
@@ -5264,6 +5265,9 @@ VUES.studios = {
     V.cartes = new Map();
     V.positions = null;
     V.charge = false;
+    V.mesStudios = [];
+    V.demandes = [];
+    V.aValider = [];
 
     V.el.innerHTML = `
       <div class="st-page">
@@ -5271,35 +5275,31 @@ VUES.studios = {
         <header class="st-tete">
           <div class="st-tete-texte">
             <h2>Studios</h2>
-            <p data-st="sous">Les studios de la communauté : tarifs, services et contact direct.</p>
+            <p data-st="sous">&nbsp;</p>
           </div>
-          <button type="button" class="com-btn com-btn-plein st-proposer" data-act="studio-proposer">${icone('plus', 16)}<span>Proposer un studio</span></button>
+          <div class="st-tete-actions">
+            <button type="button" class="st-lien-btn" data-st-act="gerer" hidden><span>Mes studios</span><i class="st-pastille" data-st="gerer-n" hidden></i></button>
+            <button type="button" class="st-lien-btn" data-st-act="valider" hidden><span>À valider</span><i class="st-pastille orange" data-st="valider-n"></i></button>
+            <button type="button" class="com-btn com-btn-plein st-proposer" data-act="studio-proposer">${icone('plus', 16)}<span>Proposer un studio</span></button>
+          </div>
         </header>
-
-        <div data-st="mes"></div>
-        <div data-st="avalider"></div>
 
         <div class="st-barre">
           <label class="st-recherche">
             ${icone('loupe', 18)}
-            <input type="search" data-st-champ="q" placeholder="Chercher un studio, une ville, un service…" autocomplete="off" aria-label="Chercher un studio">
+            <input type="search" data-st-champ="q" placeholder="Chercher un studio, une ville…" autocomplete="off" aria-label="Chercher un studio">
           </label>
+          <button type="button" class="st-btn-filtres" data-st-act="filtres" aria-haspopup="true" aria-expanded="false">
+            ${icone('stFiltre', 17)}<span>Filtres</span><i class="st-pastille" data-st="filtres-n" hidden></i>
+          </button>
           <div class="st-bascule" role="tablist" aria-label="Affichage" data-vue="liste">
             <span class="st-bascule-fond" aria-hidden="true"></span>
-            <button type="button" role="tab" class="actif" aria-selected="true" data-st-act="vue" data-vue="liste">${icone('stListe', 16)}<span>Liste</span></button>
-            <button type="button" role="tab" aria-selected="false" data-st-act="vue" data-vue="carte">${icone('stCarte', 16)}<span>Carte</span></button>
+            <button type="button" role="tab" class="actif" aria-selected="true" aria-label="Liste" title="Liste" data-st-act="vue" data-vue="liste">${icone('stListe', 18)}</button>
+            <button type="button" role="tab" aria-selected="false" aria-label="Carte" title="Carte" data-st-act="vue" data-vue="carte">${icone('stCarte', 18)}</button>
           </div>
         </div>
 
-        <div class="st-filtres" data-st="filtres" role="group" aria-label="Filtres"></div>
-
-        <div class="st-ligne">
-          <span class="st-compte" data-st="compte" aria-live="polite"></span>
-          <span class="st-ligne-actions">
-            <button type="button" class="st-lien" data-st-act="reinit" hidden>Réinitialiser</button>
-            <button type="button" class="st-tri" data-st-act="tri" aria-haspopup="true" aria-expanded="false"><span class="st-tri-lib" data-st="tri-lib">Recommandés</span>${icone('chevronBas', 14)}</button>
-          </span>
-        </div>
+        <div class="st-actifs" data-st="actifs" hidden></div>
 
         <div class="st-contenu">
           <div class="st-pane st-liste" data-st="liste">${VUES.studios.squelette()}</div>
@@ -5313,9 +5313,10 @@ VUES.studios = {
       </div>`;
 
     V.hotes = {
-      sous: $('[data-st="sous"]', V.el), mes: $('[data-st="mes"]', V.el), avalider: $('[data-st="avalider"]', V.el),
-      filtres: $('[data-st="filtres"]', V.el), compte: $('[data-st="compte"]', V.el), reinit: $('[data-st-act="reinit"]', V.el),
-      triLib: $('[data-st="tri-lib"]', V.el), liste: $('[data-st="liste"]', V.el), carte: $('[data-st="carte"]', V.el),
+      sous: $('[data-st="sous"]', V.el), actifs: $('[data-st="actifs"]', V.el), filtresN: $('[data-st="filtres-n"]', V.el),
+      gerer: $('[data-st-act="gerer"]', V.el), gererN: $('[data-st="gerer-n"]', V.el),
+      valider: $('[data-st-act="valider"]', V.el), validerN: $('[data-st="valider-n"]', V.el),
+      liste: $('[data-st="liste"]', V.el), carte: $('[data-st="carte"]', V.el),
       zone: $('[data-st="carte-zone"]', V.el), note: $('[data-st="carte-note"]', V.el), fiche: $('[data-st="carte-fiche"]', V.el),
       bascule: $('.st-bascule', V.el)
     };
@@ -5331,8 +5332,6 @@ VUES.studios = {
       clearTimeout(V.minuteur);
       V.minuteur = setTimeout(() => VUES.studios.appliquer(V), 110);
     });
-
-    VUES.studios.dessinerFiltres(V);
   },
 
   squelette(){
@@ -5387,10 +5386,6 @@ VUES.studios = {
       V.villes = r.villes || [];
       V.charge = true;
 
-      V.hotes.sous.textContent = V.donnees.length
-        ? V.donnees.length + ' studio' + (V.donnees.length > 1 ? 's' : '') + " dans l'annuaire : tarifs, services et contact direct."
-        : 'Les studios de la communauté : tarifs, services et contact direct.';
-
       // Une carte par studio, gardée : filtrer ne fait que montrer, cacher et réordonner (rien ne clignote).
       V.cartes = new Map();
       V.hotes.liste.innerHTML = '';
@@ -5410,7 +5405,6 @@ VUES.studios = {
       V.hotes.liste.appendChild(vide);
       V.hotes.vide = vide;
 
-      VUES.studios.dessinerFiltres(V);
       VUES.studios.appliquer(V, true);
 
       if(V.etat.vue === 'carte') VUES.studios.dessinerCarte(V);
@@ -5445,9 +5439,19 @@ VUES.studios = {
     return liste;
   },
 
-  nbFiltres(V){
+  // Les filtres choisis (hors recherche), pour la pastille du bouton et les puces sous la barre.
+  filtresActifs(V){
+
     const e = V.etat;
-    return (e.q ? 1 : 0) + (e.promo ? 1 : 0) + (e.inge ? 1 : 0) + (e.budget ? 1 : 0) + (e.ville ? 1 : 0) + e.services.length;
+    const l = [];
+
+    if(e.promo) l.push({ k: 'promo', lib: 'En promo' });
+    if(e.budget) l.push({ k: 'budget', lib: "Jusqu'à " + e.budget + ' €/h' });
+    if(e.inge) l.push({ k: 'inge', lib: e.inge === 'avec' ? 'Avec ingé son' : 'Sans ingé son' });
+    if(e.ville) l.push({ k: 'ville', lib: e.ville });
+    e.services.forEach(x => l.push({ k: 'service:' + x, lib: x }));
+
+    return l;
   },
 
   appliquer(V, premier){
@@ -5481,67 +5485,36 @@ VUES.studios = {
     });
 
     const n = liste.length;
-    const actifs = VUES.studios.nbFiltres(V);
+    const total = V.donnees.length;
+    const actifs = VUES.studios.filtresActifs(V);
 
-    V.hotes.compte.textContent = V.donnees.length
-      ? (n ? n + ' studio' + (n > 1 ? 's' : '') : 'Aucun studio') + (actifs ? ' · ' + actifs + ' filtre' + (actifs > 1 ? 's' : '') : '')
+    V.hotes.sous.textContent = total
+      ? (n === total ? total + ' studio' + (total > 1 ? 's' : '') : n + ' sur ' + total + ' studios')
+      : "Aucun studio pour l'instant";
+
+    V.hotes.filtresN.hidden = !actifs.length;
+    V.hotes.filtresN.textContent = actifs.length;
+
+    // Les filtres choisis restent visibles sous la barre, retirables d'un clic.
+    V.hotes.actifs.hidden = !actifs.length;
+    V.hotes.actifs.innerHTML = actifs.length
+      ? actifs.map(f => `<button type="button" class="st-chip-actif" data-st-act="retirer" data-k="${attr(f.k)}" aria-label="Retirer le filtre ${attr(f.lib)}"><span>${esc(f.lib)}</span>${icone('croix', 12)}</button>`).join('') +
+        `<button type="button" class="st-lien" data-st-act="reinit">Tout effacer</button>`
       : '';
-
-    V.hotes.reinit.hidden = !actifs;
 
     if(!n){
       V.hotes.vide.hidden = false;
-      V.hotes.vide.innerHTML = V.donnees.length
-        ? etatVide({ icone: 'casque', titre: 'Aucun studio ne correspond', texte: 'Essaie avec moins de filtres, ou une autre ville.', bouton: { libelle: 'Réinitialiser les filtres', attrs: 'data-st-act="reinit"' } })
+      V.hotes.vide.innerHTML = total
+        ? etatVide({ icone: 'casque', titre: 'Aucun studio ne correspond', texte: 'Essaie avec moins de filtres, ou une autre ville.', bouton: { libelle: 'Tout effacer', attrs: 'data-st-act="reinit"' } })
         : etatVide({ icone: 'casque', titre: 'Pas encore de studio', texte: 'Propose le premier : ceux qui cherchent où enregistrer te diront merci.', bouton: { libelle: 'Proposer un studio', attrs: 'data-act="studio-proposer"' } });
     } else {
       V.hotes.vide.hidden = true;
     }
 
-    V.hotes.triLib.textContent = (TRIS_STUDIO.find(t => t[0] === V.etat.tri) || TRIS_STUDIO[0])[1];
-
-    VUES.studios.majFiltresEtat(V);
+    // Le panneau de filtres, s'il est ouvert, suit.
+    if(stPop && stPop.majPanneau) stPop.majPanneau(n);
 
     if(V.etat.vue === 'carte' && !premier) VUES.studios.dessinerCarte(V);
-  },
-
-  // ----- Les puces de filtre -----
-
-  dessinerFiltres(V){
-
-    const e = V.etat;
-
-    const puce = (act, libelle, actif, extra) => `
-      <button type="button" class="st-filtre${actif ? ' actif' : ''}" data-st-act="${act}"${extra || ''} aria-pressed="${actif}">${libelle}</button>`;
-
-    const menu = (act, libelle, valeur) => `
-      <button type="button" class="st-filtre st-filtre-menu${valeur ? ' actif' : ''}" data-st-act="${act}" aria-haspopup="true" aria-expanded="false">
-        <span>${libelle}${valeur ? ' · <b>' + esc(valeur) + '</b>' : ''}</span>${icone('chevronBas', 13)}
-      </button>`;
-
-    V.hotes.filtres.innerHTML = `
-      ${puce('promo', icone('stEclair', 14) + '<span>En promo</span>', e.promo)}
-      ${menu('budget', 'Budget', e.budget ? '≤ ' + e.budget + ' €/h' : '')}
-      ${menu('inge', 'Ingé son', e.inge === 'avec' ? 'Avec' : e.inge === 'sans' ? 'Sans' : '')}
-      ${V.villes.length > 1 ? menu('ville', 'Ville', e.ville) : ''}
-      <span class="st-filtres-sep" aria-hidden="true"></span>
-      ${SERVICES_STUDIO.map(x => puce('service', '<span>' + esc(x) + '</span>', e.services.includes(x), ' data-service="' + attr(x) + '"')).join('')}`;
-  },
-
-  // Seul l'état des puces change (pas leur contenu) : pas de redessin à chaque frappe.
-  majFiltresEtat(V){
-    const e = V.etat;
-    $$('.st-filtre', V.hotes.filtres).forEach(b => {
-      const act = b.dataset.stAct;
-      let actif = false;
-      if(act === 'promo') actif = e.promo;
-      else if(act === 'service') actif = e.services.includes(b.dataset.service);
-      else if(act === 'budget') actif = !!e.budget;
-      else if(act === 'inge') actif = !!e.inge;
-      else if(act === 'ville') actif = !!e.ville;
-      b.classList.toggle('actif', actif);
-      if(b.hasAttribute('aria-pressed')) b.setAttribute('aria-pressed', String(actif));
-    });
   },
 
   agir(V, b){
@@ -5549,110 +5522,155 @@ VUES.studios = {
     const e = V.etat;
     const act = b.dataset.stAct;
 
-    if(act === 'promo'){ e.promo = !e.promo; }
-    else if(act === 'service'){
-      const x = b.dataset.service;
-      e.services = e.services.includes(x) ? e.services.filter(y => y !== x) : e.services.concat([x]);
-    }
-    else if(act === 'reinit'){
-      Object.assign(V.etat, { q: '', services: [], promo: false, inge: '', budget: 0, ville: '' });
+    if(act === 'filtres'){ VUES.studios.panneauFiltres(V, b); return; }
+    if(act === 'vue'){ VUES.studios.changerVue(V, b.dataset.vue); return; }
+    if(act === 'carte-fermer'){ VUES.studios.fermerFicheCarte(V); return; }
+    if(act === 'gerer'){ VUES.studios.ouvrirMes(V); return; }
+    if(act === 'valider'){ VUES.studios.ouvrirAValider(V); return; }
+
+    if(act === 'reinit'){
+      Object.assign(e, { q: '', services: [], promo: false, inge: '', budget: 0, ville: '' });
       const champ = $('[data-st-champ="q"]', V.el);
       if(champ) champ.value = '';
-      VUES.studios.dessinerFiltres(V);
     }
-    else if(act === 'vue'){ VUES.studios.changerVue(V, b.dataset.vue); return; }
-    else if(act === 'tri'){ VUES.studios.menuTri(V, b); return; }
-    else if(act === 'budget'){ VUES.studios.menuBudget(V, b); return; }
-    else if(act === 'inge'){ VUES.studios.menuInge(V, b); return; }
-    else if(act === 'ville'){ VUES.studios.menuVille(V, b); return; }
-    else if(act === 'carte-fermer'){ VUES.studios.fermerFicheCarte(V); return; }
+    else if(act === 'retirer'){
+      const k = b.dataset.k;
+      if(k === 'promo') e.promo = false;
+      else if(k === 'budget') e.budget = 0;
+      else if(k === 'inge') e.inge = '';
+      else if(k === 'ville') e.ville = '';
+      else if(k.indexOf('service:') === 0) e.services = e.services.filter(x => x !== k.slice(8));
+    }
 
     VUES.studios.appliquer(V);
   },
 
-  menuTri(V, bouton){
-    ouvrirPop(bouton, `
-      <div class="st-pop-liste" role="menu">
-        ${TRIS_STUDIO.map(([k, lib]) => `<button type="button" role="menuitemradio" aria-checked="${V.etat.tri === k}" class="st-pop-item${V.etat.tri === k ? ' actif' : ''}" data-k="${k}">${esc(lib)}${V.etat.tri === k ? icone('stCheck', 15) : ''}</button>`).join('')}
-      </div>`, (el) => {
-        el.addEventListener('click', (ev) => {
-          const it = ev.target.closest('[data-k]');
-          if(!it) return;
-          V.etat.tri = it.dataset.k;
-          fermerPop();
-          VUES.studios.appliquer(V);
-        });
-      });
-  },
+  // ----- Le panneau de filtres : tout est là, rien d'autre sur la page -----
 
-  menuInge(V, bouton){
-    ouvrirPop(bouton, `
-      <div class="st-pop-liste" role="menu">
-        ${INGE_STUDIO.map(([k, lib]) => `<button type="button" role="menuitemradio" aria-checked="${V.etat.inge === k}" class="st-pop-item${V.etat.inge === k ? ' actif' : ''}" data-k="${k}">${esc(lib)}${V.etat.inge === k ? icone('stCheck', 15) : ''}</button>`).join('')}
-      </div>`, (el) => {
-        el.addEventListener('click', (ev) => {
-          const it = ev.target.closest('[data-k]');
-          if(!it) return;
-          V.etat.inge = it.dataset.k;
-          fermerPop();
-          VUES.studios.dessinerFiltres(V);
-          VUES.studios.appliquer(V);
-        });
-      });
-  },
+  panneauFiltres(V, bouton){
 
-  menuVille(V, bouton){
-    ouvrirPop(bouton, `
-      <div class="st-pop-liste st-pop-defile" role="menu">
-        <button type="button" role="menuitemradio" class="st-pop-item${V.etat.ville ? '' : ' actif'}" data-k="">Toutes les villes${V.etat.ville ? '' : icone('stCheck', 15)}</button>
-        ${V.villes.map(v => `<button type="button" role="menuitemradio" class="st-pop-item${V.etat.ville === v ? ' actif' : ''}" data-k="${attr(v)}">${esc(v)}${V.etat.ville === v ? icone('stCheck', 15) : ''}</button>`).join('')}
-      </div>`, (el) => {
-        el.addEventListener('click', (ev) => {
-          const it = ev.target.closest('[data-k]');
-          if(!it) return;
-          V.etat.ville = it.dataset.k;
-          fermerPop();
-          VUES.studios.dessinerFiltres(V);
-          VUES.studios.appliquer(V);
-        });
-      });
-  },
-
-  menuBudget(V, bouton){
-
+    const e = V.etat;
     const maxPrix = 150;
 
+    const seg = (groupe, options, courant) => `
+      <div class="st-fp-seg" role="radiogroup">
+        ${options.map(([k, lib]) => `<button type="button" role="radio" aria-checked="${courant === k}" class="st-fp-opt${courant === k ? ' actif' : ''}" data-fp="${groupe}" data-k="${attr(k)}">${esc(lib)}</button>`).join('')}
+      </div>`;
+
     ouvrirPop(bouton, `
-      <div class="st-pop-budget">
-        <div class="st-pop-titre">Budget maximum</div>
-        <div class="st-budget-valeur" data-valeur></div>
-        <input type="range" class="st-range" min="10" max="${maxPrix}" step="5" value="${V.etat.budget || maxPrix}" aria-label="Budget maximum par heure" data-focus>
-        <div class="st-budget-bornes"><span>10 €</span><span>Sans limite</span></div>
+      <div class="st-fp">
+        <div class="st-fp-sec">
+          <div class="st-fp-titre">Trier par</div>
+          ${seg('tri', TRIS_STUDIO, e.tri)}
+        </div>
+
+        <div class="st-fp-sec">
+          <div class="st-fp-titre">Budget <b data-fp-budget></b></div>
+          <input type="range" class="st-range" min="10" max="${maxPrix}" step="5" value="${e.budget || maxPrix}" aria-label="Budget maximum par heure" data-fp-range>
+          <div class="st-budget-bornes"><span>10 €</span><span>Sans limite</span></div>
+        </div>
+
+        <div class="st-fp-sec">
+          <div class="st-fp-titre">Ingénieur du son</div>
+          ${seg('inge', INGE_STUDIO, e.inge)}
+        </div>
+
+        ${V.villes.length > 1 ? `
+        <div class="st-fp-sec">
+          <div class="st-fp-titre">Ville</div>
+          <div class="st-fp-chips">
+            <button type="button" class="st-fp-chip${e.ville ? '' : ' actif'}" data-fp="ville" data-k="">Toutes</button>
+            ${V.villes.map(v => `<button type="button" class="st-fp-chip${e.ville === v ? ' actif' : ''}" data-fp="ville" data-k="${attr(v)}">${esc(v)}</button>`).join('')}
+          </div>
+        </div>` : ''}
+
+        <div class="st-fp-sec">
+          <div class="st-fp-titre">Services</div>
+          <div class="st-fp-chips">
+            ${SERVICES_STUDIO.map(x => `<button type="button" class="st-fp-chip${e.services.includes(x) ? ' actif' : ''}" data-fp="service" data-k="${attr(x)}" aria-pressed="${e.services.includes(x)}">${esc(x)}</button>`).join('')}
+          </div>
+        </div>
+
+        <label class="st-fp-interrupteur">
+          <span>Seulement les promotions</span>
+          <input type="checkbox" data-fp="promo"${e.promo ? ' checked' : ''}>
+          <i aria-hidden="true"></i>
+        </label>
+
+        <div class="st-fp-pied">
+          <button type="button" class="st-lien" data-fp="reinit">Tout effacer</button>
+          <button type="button" class="com-btn com-btn-plein com-btn-petit" data-fp="fermer">Voir <span data-fp-n></span></button>
+        </div>
       </div>`, (el) => {
 
-        const champ = $('input', el);
-        const affiche = $('[data-valeur]', el);
+        const champ = $('[data-fp-range]', el);
+        const valeur = $('[data-fp-budget]', el);
 
-        const maj = () => {
+        const maj = (n) => {
           const v = Number(champ.value);
           champ.style.setProperty('--p', ((v - 10) / (maxPrix - 10) * 100) + '%');
-          affiche.innerHTML = v >= maxPrix ? 'Sans limite' : "Jusqu'à <b>" + v + ' €</b> / heure';
-          V.etat.budget = v >= maxPrix ? 0 : v;
+          valeur.textContent = e.budget ? "· jusqu'à " + e.budget + ' €/h' : '· sans limite';
+
+          $$('[data-fp]', el).forEach(b => {
+            const g = b.dataset.fp;
+            let actif = null;
+            if(g === 'tri') actif = e.tri === b.dataset.k;
+            else if(g === 'inge') actif = e.inge === b.dataset.k;
+            else if(g === 'ville') actif = e.ville === b.dataset.k;
+            else if(g === 'service') actif = e.services.includes(b.dataset.k);
+            if(actif !== null){
+              b.classList.toggle('actif', actif);
+              b.setAttribute(g === 'service' ? 'aria-pressed' : 'aria-checked', String(actif));
+            }
+          });
+
+          const total = typeof n === 'number' ? n : VUES.studios.filtres(V).length;
+          $('[data-fp-n]', el).textContent = total + ' studio' + (total > 1 ? 's' : '');
         };
 
         maj();
+        stPop.majPanneau = maj;
 
         champ.addEventListener('input', () => {
-          maj();
-          cancelAnimationFrame(V.raf);
-          V.raf = requestAnimationFrame(() => {
-            VUES.studios.majFiltresEtat(V);
-            const b = $('[data-st-act="budget"]', V.hotes.filtres);
-            if(b) b.querySelector('span').innerHTML = 'Budget' + (V.etat.budget ? ' · <b>≤ ' + V.etat.budget + ' €/h</b>' : '');
-            VUES.studios.appliquer(V);
-          });
+          const v = Number(champ.value);
+          e.budget = v >= maxPrix ? 0 : v;
+          clearTimeout(V.minuteurBudget);
+          V.minuteurBudget = setTimeout(() => VUES.studios.appliquer(V), 40);
         });
-      });
+
+        el.addEventListener('click', (ev) => {
+
+          const b = ev.target.closest('[data-fp]');
+
+          if(!b || b.matches('input')) return;
+
+          const g = b.dataset.fp;
+          const k = b.dataset.k;
+
+          if(g === 'fermer'){ fermerPop(); return; }
+
+          if(g === 'tri') e.tri = k;
+          else if(g === 'inge') e.inge = e.inge === k ? '' : k;
+          else if(g === 'ville') e.ville = k;
+          else if(g === 'service') e.services = e.services.includes(k) ? e.services.filter(x => x !== k) : e.services.concat([k]);
+          else if(g === 'reinit'){
+            Object.assign(e, { q: '', services: [], promo: false, inge: '', budget: 0, ville: '' });
+            champ.value = maxPrix;
+            const promoBox = $('[data-fp="promo"]', el);
+            if(promoBox) promoBox.checked = false;
+            const recherche = $('[data-st-champ="q"]', V.el);
+            if(recherche) recherche.value = '';
+          }
+
+          VUES.studios.appliquer(V);
+        });
+
+        $('[data-fp="promo"]', el).addEventListener('change', (ev) => {
+          e.promo = ev.target.checked;
+          VUES.studios.appliquer(V);
+        });
+
+      }, { aDroite: true, classe: 'st-pop-filtres' });
   },
 
   // ----- La vue carte -----
@@ -5788,138 +5806,231 @@ VUES.studios = {
     if(V.marqueurs) V.marqueurs.forEach(m => { const el = m.getElement(); if(el) el.classList.remove('actif'); });
   },
 
-  // ----- Mes studios et les demandes reçues -----
+  // ----- Mes studios et les demandes reçues : un bouton discret en haut de la page ouvre une fenêtre -----
 
   async chargerMes(V){
 
-    if(!moi()){ V.hotes.mes.innerHTML = ''; return; }
+    if(!moi()){
+      V.hotes.gerer.hidden = true;
+      return;
+    }
 
     try{
 
       const [liste, demandes] = await Promise.all([BD.studiosMes(), BD.studiosDemandes().catch(() => [])]);
 
+      V.mesStudios = liste || [];
       V.demandes = demandes || [];
 
-      if(!(liste || []).length && !V.demandes.length){ V.hotes.mes.innerHTML = ''; return; }
+      const nouvelles = V.demandes.filter(d => d.statut === 'nouvelle').length;
 
-      const nouvelles = (id) => V.demandes.filter(d => d.studio_id === id && d.statut === 'nouvelle').length;
+      V.hotes.gerer.hidden = !V.mesStudios.length && !V.demandes.length;
+      V.hotes.gererN.hidden = !nouvelles;
+      V.hotes.gererN.textContent = nouvelles;
 
-      V.hotes.mes.innerHTML = `
-        <section class="st-mes" aria-label="Mes studios">
-          ${(liste || []).length ? `
-            <div class="st-section-tete"><h3>Mes studios</h3><span class="st-compteur">${liste.length}</span></div>
-            <div class="st-mes-liste">
-              ${liste.map(s => `
+    }catch(e){
+      V.hotes.gerer.hidden = true;
+    }
+  },
+
+  mesHtml(V){
+
+    const nouvelles = (id) => V.demandes.filter(d => d.studio_id === id && d.statut === 'nouvelle').length;
+
+    return `
+      <div class="st-gestion">
+        ${V.mesStudios.length ? `
+          <section class="st-gest-bloc">
+            <h4>Mes studios</h4>
+            <div class="st-liste-simple">
+              ${V.mesStudios.map(s => `
                 <div class="st-mien">
                   ${logoStudioHtml(s, 'petit')}
                   <div class="st-mien-texte">
                     <b>${esc(s.nom)}</b>
                     <span>${esc(s.ville)}${s.statut === 'en_attente' ? ' · <em class="st-attente-inline">En attente de validation</em>' : ''}</span>
                   </div>
-                  ${nouvelles(s.id) ? `<span class="st-pastille" title="Nouvelles demandes">${nouvelles(s.id)} nouvelle${nouvelles(s.id) > 1 ? 's' : ''}</span>` : ''}
-                  <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="studio-modifier" data-id="${attr(s.id)}">${icone('crayon', 14)}<span>Modifier</span></button>
+                  ${nouvelles(s.id) ? `<i class="st-pastille">${nouvelles(s.id)}</i>` : ''}
+                  <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-valeur="modifier:${attr(s.id)}">${icone('crayon', 14)}<span>Modifier</span></button>
                 </div>`).join('')}
-            </div>` : ''}
-          ${V.demandes.length ? VUES.studios.demandesHtml(V) : ''}
-        </section>`;
-
-      V.hotes.mes.querySelectorAll('[data-dem-act]').forEach(b => b.addEventListener('click', () => VUES.studios.actionDemande(V, b)));
-
-    }catch(e){
-      V.hotes.mes.innerHTML = '';
-    }
+            </div>
+          </section>` : ''}
+        ${V.demandes.length ? VUES.studios.demandesHtml(V) : ''}
+      </div>`;
   },
 
   demandesHtml(V){
 
     const toutes = V.demandes;
-    const montrees = V.demandesTout ? toutes : toutes.slice(0, 3);
+    const montrees = V.demandesTout ? toutes : toutes.slice(0, 4);
 
     return `
-      <div class="st-section-tete st-section-demandes"><h3>Demandes de réservation</h3><span class="st-compteur">${toutes.length}</span></div>
-      <div class="st-demandes">
-        ${montrees.map(d => `
-          <article class="st-demande${d.statut === 'nouvelle' ? ' nouvelle' : ''}" data-id="${attr(d.id)}">
-            ${avatarHtml(d.auteur || {}, 'm')}
-            <div class="st-demande-corps">
-              <div class="st-demande-haut">
-                <b>${d.auteur ? '@' + esc(d.auteur.pseudo) : 'Un membre'}</b>
-                <span>pour ${esc(d.studio)}</span>
-                <time>${esc(depuis(d.cree_le))}</time>
+      <section class="st-gest-bloc">
+        <h4>Demandes de réservation</h4>
+        <div class="st-liste-simple">
+          ${montrees.map(d => `
+            <article class="st-demande${d.statut === 'nouvelle' ? ' nouvelle' : ''}">
+              ${avatarHtml(d.auteur || {}, 'm')}
+              <div class="st-demande-corps">
+                <div class="st-demande-haut">
+                  <b>${d.auteur ? '@' + esc(d.auteur.pseudo) : 'Un membre'}</b>
+                  <span>pour ${esc(d.studio)}</span>
+                  <time>${esc(depuis(d.cree_le))}</time>
+                </div>
+                <div class="st-demande-meta">
+                  ${d.date ? `<span class="st-puce">${icone('stCalendrier', 12)}${esc(new Date(d.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }))}</span>` : ''}
+                  ${d.duree ? `<span class="st-puce">${d.duree} h</span>` : ''}
+                  ${d.besoin ? `<span class="st-puce">${esc(d.besoin)}</span>` : ''}
+                </div>
+                ${d.message ? `<p>${esc(d.message)}</p>` : ''}
+                <div class="st-demande-actions">
+                  ${d.auteur ? `<button type="button" class="com-btn com-btn-plein com-btn-petit" data-valeur="repondre:${attr(d.auteur.pseudo)}">Répondre</button>` : ''}
+                  ${d.statut !== 'traitee' ? `<button type="button" class="com-btn com-btn-fantome com-btn-petit" data-dem-act="traitee" data-id="${attr(d.id)}">Marquer comme traitée</button>` : '<span class="st-fait">Traitée</span>'}
+                  ${d.statut === 'nouvelle' ? `<button type="button" class="st-lien" data-dem-act="vue" data-id="${attr(d.id)}">Marquer comme vue</button>` : ''}
+                </div>
               </div>
-              <div class="st-demande-meta">
-                ${d.date ? `<span class="st-puce">${icone('stCalendrier', 12)}${esc(new Date(d.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }))}</span>` : ''}
-                ${d.duree ? `<span class="st-puce">${d.duree} h</span>` : ''}
-                ${d.besoin ? `<span class="st-puce">${esc(d.besoin)}</span>` : ''}
-              </div>
-              ${d.message ? `<p>${esc(d.message)}</p>` : ''}
-              <div class="st-demande-actions">
-                ${d.auteur ? `<button type="button" class="com-btn com-btn-plein com-btn-petit" data-dem-act="repondre" data-pseudo="${attr(d.auteur.pseudo)}">Répondre</button>` : ''}
-                ${d.statut !== 'traitee' ? `<button type="button" class="com-btn com-btn-fantome com-btn-petit" data-dem-act="traitee" data-id="${attr(d.id)}">Marquer comme traitée</button>` : '<span class="st-fait">Traitée</span>'}
-                ${d.statut === 'nouvelle' ? `<button type="button" class="com-btn com-btn-fantome com-btn-petit" data-dem-act="vue" data-id="${attr(d.id)}">Vue</button>` : ''}
-              </div>
-            </div>
-          </article>`).join('')}
-      </div>
-      ${toutes.length > 3 ? `<button type="button" class="st-lien st-lien-centre" data-dem-act="tout">${V.demandesTout ? 'Réduire' : 'Voir les ' + toutes.length + ' demandes'}</button>` : ''}`;
+            </article>`).join('')}
+        </div>
+        ${toutes.length > 4 ? `<button type="button" class="st-lien st-lien-centre" data-dem-act="tout">${V.demandesTout ? 'Réduire' : 'Voir les ' + toutes.length + ' demandes'}</button>` : ''}
+      </section>`;
   },
 
-  async actionDemande(V, b){
+  async ouvrirMes(V){
 
-    const act = b.dataset.demAct;
+    await VUES.studios.chargerMes(V);
 
-    if(act === 'repondre'){ aller('membre/' + encodeURIComponent(b.dataset.pseudo)); return; }
+    const r = await ouvrirDialogue({
+      titre: 'Mes studios',
+      classe: 'st-dialogue-gestion com-dialogue-sans-pied',
+      corps: VUES.studios.mesHtml(V),
+      boutons: [],
+      surOuverture: (boite) => {
 
-    if(act === 'tout'){ V.demandesTout = !V.demandesTout; VUES.studios.chargerMes(V); return; }
+        const corps = $('.com-dialogue-corps', boite);
 
-    const d = V.demandes.find(x => x.id === b.dataset.id);
-    if(!d) return;
+        corps.addEventListener('click', async (e) => {
 
-    const avant = d.statut;
-    d.statut = act === 'vue' ? 'vue' : 'traitee';
+          const b = e.target.closest('[data-dem-act]');
+          if(!b) return;
 
-    try{
-      await BD.studioDemandeStatut(d.id, d.statut);
-      VUES.studios.chargerMes(V);
-    }catch(e){
-      d.statut = avant;
-      toastErreur(e);
-    }
+          if(b.dataset.demAct === 'tout'){
+            V.demandesTout = !V.demandesTout;
+            corps.innerHTML = VUES.studios.mesHtml(V);
+            return;
+          }
+
+          const d = V.demandes.find(x => x.id === b.dataset.id);
+          if(!d) return;
+
+          const avant = d.statut;
+          d.statut = b.dataset.demAct === 'vue' ? 'vue' : 'traitee';
+          corps.innerHTML = VUES.studios.mesHtml(V);
+
+          try{
+            await BD.studioDemandeStatut(d.id, d.statut);
+          }catch(err){
+            d.statut = avant;
+            corps.innerHTML = VUES.studios.mesHtml(V);
+            toastErreur(err);
+          }
+        });
+      },
+      lire: (boite, valeur) => valeur === 'non' ? null : valeur
+    });
+
+    VUES.studios.chargerMes(V);
+
+    if(typeof r !== 'string') return;
+
+    if(r.indexOf('modifier:') === 0) VUES.studios.modifier(V, r.slice(9));
+    else if(r.indexOf('repondre:') === 0) aller('membre/' + encodeURIComponent(r.slice(9)));
   },
 
-  // L'équipe voit ici les studios proposés, à publier ou à refuser.
+  // L'équipe : les studios proposés, à publier ou à refuser.
   async chargerAValider(V){
 
     const u = moi();
 
-    if(!u || !u.isAdmin){ V.hotes.avalider.innerHTML = ''; return; }
+    if(!u || !u.isAdmin){ V.hotes.valider.hidden = true; return; }
 
     try{
 
-      const liste = await BD.studiosAValider();
+      V.aValider = (await BD.studiosAValider()) || [];
 
-      V.hotes.avalider.innerHTML = (liste || []).length ? `
-        <section class="st-valider" aria-label="Studios à valider">
-          <div class="st-section-tete"><h3>À valider</h3><span class="st-compteur st-compteur-orange">${liste.length}</span></div>
-          ${liste.map(s => `
-            <div class="st-valider-ligne">
-              <div class="st-valider-texte">
-                <b>${esc(s.nom)}</b><span class="st-ville">${icone('stPin', 13)}${esc(s.ville)}</span>
-                <small>proposé par ${s.auteur ? '@' + esc(s.auteur.pseudo) : 'un membre'}${s.tarif_heure ? ' · dès ' + s.tarif_heure + ' €/h' : ''}</small>
-                ${s.description ? `<p>${esc(s.description)}</p>` : ''}
-                ${s.lien ? `<a href="${attr(s.lien)}" target="_blank" rel="noopener noreferrer">${esc(s.lien)}</a>` : ''}
-              </div>
-              <div class="st-valider-actions">
-                <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="studio-ouvrir" data-id="${attr(s.id)}">Aperçu</button>
-                <button type="button" class="com-btn com-btn-plein com-btn-petit" data-act="studio-traiter" data-action="publier" data-id="${attr(s.id)}">Publier</button>
-                <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="studio-traiter" data-action="refuser" data-id="${attr(s.id)}">Refuser</button>
-              </div>
-            </div>`).join('')}
-        </section>` : '';
+      V.hotes.valider.hidden = !V.aValider.length;
+      V.hotes.validerN.textContent = V.aValider.length;
 
     }catch(e){
-      V.hotes.avalider.innerHTML = '';
+      V.hotes.valider.hidden = true;
     }
+  },
+
+  aValiderHtml(V){
+
+    return `
+      <div class="st-gestion">
+        <div class="st-liste-simple">
+          ${V.aValider.map(s => `
+            <div class="st-valider-ligne">
+              <div class="st-valider-texte">
+                <b>${esc(s.nom)}</b><span class="st-ville">${esc(s.ville)}</span>
+                <small>proposé par ${s.auteur ? '@' + esc(s.auteur.pseudo) : 'un membre'}${s.tarif_heure ? ' · dès ' + s.tarif_heure + ' €/h' : ''}</small>
+                ${s.description ? `<p>${esc(s.description)}</p>` : ''}
+              </div>
+              <div class="st-valider-actions">
+                <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-valeur="voir:${attr(s.id)}">Aperçu</button>
+                <button type="button" class="com-btn com-btn-plein com-btn-petit" data-vl-act="publier" data-id="${attr(s.id)}">Publier</button>
+                <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-vl-act="refuser" data-id="${attr(s.id)}">Refuser</button>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  },
+
+  async ouvrirAValider(V){
+
+    await VUES.studios.chargerAValider(V);
+
+    if(!V.aValider.length) return;
+
+    const r = await ouvrirDialogue({
+      titre: 'Studios à valider',
+      classe: 'st-dialogue-gestion com-dialogue-sans-pied',
+      corps: VUES.studios.aValiderHtml(V),
+      boutons: [],
+      surOuverture: (boite) => {
+
+        const corps = $('.com-dialogue-corps', boite);
+
+        corps.addEventListener('click', async (e) => {
+
+          const b = e.target.closest('[data-vl-act]');
+          if(!b) return;
+
+          const action = b.dataset.vlAct;
+          const id = b.dataset.id;
+
+          b.disabled = true;
+
+          try{
+            await BD.studioTraiter(id, action);
+            toast(action === 'publier' ? 'Studio publié' : 'Studio refusé', { duree: 1800 });
+            V.aValider = V.aValider.filter(x => x.id !== id);
+            if(!V.aValider.length){ fermerCalque(); return; }
+            corps.innerHTML = VUES.studios.aValiderHtml(V);
+          }catch(err){
+            b.disabled = false;
+            toastErreur(err);
+          }
+        });
+      },
+      lire: (boite, valeur) => valeur === 'non' ? null : valeur
+    });
+
+    VUES.studios.charger(V);
+    VUES.studios.chargerAValider(V);
+
+    if(typeof r === 'string' && r.indexOf('voir:') === 0) VUES.studios.ouvrir(V, r.slice(5));
   },
 
   async traiter(V, id, action){
@@ -10685,151 +10796,144 @@ const FEUILLE = String.raw`
 .st-tete p{margin:0; color:var(--ink-soft); font-size:14.5px;}
 .st-proposer{gap:8px;}
 
-/* Recherche, bascule liste / carte */
-.st-barre{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
-.st-recherche{position:relative; display:flex; align-items:center; flex:1 1 280px;}
-.st-recherche > .com-ic{position:absolute; left:17px; color:var(--muted); pointer-events:none;}
+/* En-tête */
+.st-tete{align-items:center;}
+.st-tete-actions{display:flex; align-items:center; gap:10px;}
+.st-lien-btn{display:inline-flex; align-items:center; gap:8px; padding:9px 14px; border:0; border-radius:99px; background:none; color:var(--ink-soft); font:inherit; font-size:14px; font-weight:500; cursor:pointer; transition:background .25s var(--ease), color .25s var(--ease);}
+.st-lien-btn:hover{background:rgba(255,255,255,0.07); color:var(--ink);}
+.st-lien-btn[hidden]{display:none;}
+.st-pastille{display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; border-radius:99px; font-size:11.5px; font-weight:700; font-style:normal; color:#fff; background:var(--blue);}
+.st-pastille.orange{background:#d98a14;}
+.st-pastille[hidden]{display:none;}
+
+/* Barre : recherche, filtres, affichage */
+.st-barre{display:flex; align-items:center; gap:10px;}
+.st-recherche{position:relative; display:flex; align-items:center; flex:1 1 auto; min-width:0;}
+.st-recherche > .com-ic{position:absolute; left:18px; color:var(--muted); pointer-events:none;}
 .st-recherche input{
-  width:100%; padding:13px 18px 13px 47px; border-radius:99px; border:1px solid var(--line-strong);
-  background:rgba(255,255,255,0.04); color:var(--ink); font:inherit; font-size:15px;
+  width:100%; padding:14px 18px 14px 50px; border-radius:99px; border:1px solid var(--line);
+  background:rgba(255,255,255,0.035); color:var(--ink); font:inherit; font-size:15.5px;
   transition:border-color .25s var(--ease), background .25s var(--ease), box-shadow .25s var(--ease);
 }
 .st-recherche input::placeholder{color:var(--muted);}
-.st-recherche input:focus{outline:none; border-color:var(--blue-bright); background:rgba(255,255,255,0.07); box-shadow:0 0 0 4px rgba(79,180,255,0.16);}
+.st-recherche input:focus{outline:none; border-color:var(--blue-bright); background:rgba(255,255,255,0.06); box-shadow:0 0 0 4px rgba(79,180,255,0.14);}
 .st-recherche input::-webkit-search-cancel-button{filter:invert(.6);}
 
-.st-bascule{position:relative; display:inline-grid; grid-template-columns:1fr 1fr; padding:4px; border-radius:99px; background:rgba(255,255,255,0.05); border:1px solid var(--line);}
-.st-bascule button{
-  position:relative; z-index:1; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:9px 20px;
-  border:0; border-radius:99px; background:none; color:var(--ink-soft); font:inherit; font-size:14px; font-weight:600; cursor:pointer;
-  transition:color .3s var(--ease);
-}
+.st-btn-filtres{display:inline-flex; align-items:center; gap:9px; flex:none; padding:13px 20px; border-radius:99px; border:1px solid var(--line); background:rgba(255,255,255,0.035); color:var(--ink); font:inherit; font-size:14.5px; font-weight:500; cursor:pointer; transition:background .25s var(--ease), border-color .25s var(--ease), transform .2s var(--ease);}
+.st-btn-filtres:hover{background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.22);}
+.st-btn-filtres:active{transform:scale(.97);}
+.st-btn-filtres[aria-expanded="true"]{background:rgba(79,180,255,0.12); border-color:rgba(79,180,255,0.5);}
+.st-btn-filtres:focus-visible, .st-lien-btn:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+
+.st-bascule{position:relative; display:inline-grid; grid-template-columns:1fr 1fr; flex:none; padding:4px; border-radius:99px; background:rgba(255,255,255,0.035); border:1px solid var(--line);}
+.st-bascule button{position:relative; z-index:1; display:inline-flex; align-items:center; justify-content:center; width:46px; height:38px; border:0; border-radius:99px; background:none; color:var(--ink-soft); cursor:pointer; transition:color .3s var(--ease);}
 .st-bascule button.actif{color:#fff;}
 .st-bascule button:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
 .st-bascule-fond{position:absolute; top:4px; bottom:4px; left:4px; width:calc(50% - 4px); border-radius:99px; background:var(--blue); box-shadow:var(--ombre-1); transition:transform .5s var(--ease);}
 .st-bascule[data-vue="carte"] .st-bascule-fond{transform:translateX(100%);}
 
-/* Puces de filtre */
-.st-filtres{
-  display:flex; align-items:center; gap:8px; overflow-x:auto; padding:2px 2px 8px; scrollbar-width:none;
-  -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 30px), transparent 100%);
-  mask-image:linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 30px), transparent 100%);
-}
-.st-filtres::-webkit-scrollbar{display:none;}
-.st-filtre{
-  flex:none; display:inline-flex; align-items:center; gap:7px; padding:8px 15px; border-radius:99px; border:1px solid var(--line);
-  background:rgba(255,255,255,0.03); color:var(--ink-soft); font:inherit; font-size:13.5px; font-weight:500; white-space:nowrap; cursor:pointer;
-  transition:background .25s var(--ease), border-color .25s var(--ease), color .25s var(--ease), transform .2s var(--ease);
-}
-.st-filtre:hover{background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.22); color:var(--ink);}
-.st-filtre:active{transform:scale(.95);}
-.st-filtre.actif{background:rgba(79,180,255,0.15); border-color:rgba(79,180,255,0.55); color:#fff;}
-.st-filtre b{font-weight:600; color:var(--blue-bright);}
-.st-filtre:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
-.st-filtre-menu .com-ic{opacity:.7; transition:transform .3s var(--ease);}
-.st-filtre-menu[aria-expanded="true"] .com-ic{transform:rotate(180deg);}
-.st-filtres-sep{flex:none; width:1px; height:20px; margin:0 4px; background:var(--line);}
-
-.st-ligne{display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:28px;}
-.st-compte{font-size:13.5px; color:var(--muted);}
-.st-ligne-actions{display:flex; align-items:center; gap:16px;}
+/* Filtres choisis, sous la barre */
+.st-actifs{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:-6px; animation:stPane .35s var(--ease) both;}
+.st-actifs[hidden]{display:none;}
+.st-chip-actif{display:inline-flex; align-items:center; gap:7px; padding:6px 11px 6px 13px; border-radius:99px; border:1px solid rgba(79,180,255,0.4); background:rgba(79,180,255,0.12); color:var(--ink); font:inherit; font-size:13px; font-weight:500; cursor:pointer; transition:background .25s, transform .2s var(--ease);}
+.st-chip-actif:hover{background:rgba(79,180,255,0.2);}
+.st-chip-actif:active{transform:scale(.95);}
+.st-chip-actif .com-ic{color:var(--blue-bright);}
 .st-lien{padding:0; border:0; background:none; color:var(--blue-bright); font:inherit; font-size:13.5px; cursor:pointer; transition:opacity .2s;}
 .st-lien:hover{opacity:.75;}
-.st-lien-centre{align-self:center; margin-top:4px;}
-.st-tri{display:inline-flex; align-items:center; gap:6px; padding:6px 2px; border:0; background:none; color:var(--ink-soft); font:inherit; font-size:13.5px; font-weight:500; cursor:pointer; transition:color .2s;}
-.st-tri:hover{color:var(--ink);}
-.st-tri-lib::before{content:'Trier : '; color:var(--muted); font-weight:400;}
-.st-tri .com-ic{transition:transform .3s var(--ease);}
-.st-tri[aria-expanded="true"] .com-ic{transform:rotate(180deg);}
+.st-lien-centre{align-self:center; margin-top:6px;}
 
 /* Liste */
 .st-contenu{position:relative;}
-.st-liste{display:grid; grid-template-columns:repeat(auto-fill, minmax(310px, 1fr)); gap:14px;}
+.st-liste{display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:16px;}
 .st-liste > [hidden]{display:none !important;}
 .st-vide-zone{grid-column:1 / -1;}
 .st-pane-entree{animation:stPane .5s var(--ease) both;}
 @keyframes stPane{from{opacity:0; transform:translateY(12px);} to{opacity:1; transform:none;}}
 
 .st-card{
-  position:relative; display:flex; flex-direction:column; gap:12px; padding:18px; text-align:left; color:var(--ink); font:inherit; cursor:pointer;
-  border-radius:22px; border:1px solid var(--com-bord); box-shadow:var(--reflet-int);
-  background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025));
+  position:relative; display:flex; flex-direction:column; gap:14px; padding:22px; text-align:left; color:var(--ink); font:inherit; cursor:pointer;
+  border-radius:24px; border:1px solid var(--line); background:rgba(255,255,255,0.03);
   transition:transform .4s var(--ease), border-color .3s var(--ease), background .3s var(--ease), box-shadow .4s var(--ease);
 }
-.st-card:hover{transform:translateY(-4px); border-color:rgba(255,255,255,0.24); background:linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.035)); box-shadow:0 22px 44px -22px rgba(0,0,0,0.75), var(--reflet-int);}
+.st-card:hover{transform:translateY(-4px); border-color:rgba(255,255,255,0.22); background:rgba(255,255,255,0.055); box-shadow:0 24px 46px -24px rgba(0,0,0,0.8);}
 .st-card:active{transform:translateY(-1px) scale(.992);}
 .st-card:focus-visible{outline:2px solid var(--blue-bright); outline-offset:3px;}
-.st-card.en-promo{border-color:rgba(62,207,142,0.34);}
-.st-card.en-promo::before{content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; background:radial-gradient(120% 80% at 100% 0%, rgba(62,207,142,0.13), transparent 62%);}
+.st-card.en-promo{border-color:rgba(62,207,142,0.3);}
 .st-card.entree{animation:stEntree .6s var(--ease) both; animation-delay:calc(var(--i, 0) * 45ms);}
 @keyframes stEntree{from{opacity:0; transform:translateY(18px) scale(.985);} to{opacity:1; transform:none;}}
 
-.st-card-tete{display:flex; align-items:center; gap:13px;}
+.st-card-tete{display:flex; align-items:center; gap:14px;}
 .st-card-titre{display:flex; flex-direction:column; gap:3px; flex:1; min-width:0;}
-.st-card-titre b{font-size:17px; font-weight:600; letter-spacing:-.01em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.st-ville{display:inline-flex; align-items:center; gap:5px; font-size:13px; color:var(--ink-soft);}
-.st-ville .com-ic{color:var(--muted);}
+.st-card-titre b{font-size:17.5px; font-weight:600; letter-spacing:-.015em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.st-ville{display:inline-flex; align-items:center; gap:5px; font-size:13.5px; color:var(--muted);}
 
-.st-logo{width:48px; height:48px; flex:none; border-radius:14px; object-fit:cover; background:rgba(255,255,255,0.06); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1); transition:transform .45s var(--ease);}
-.st-card:hover .st-logo{transform:scale(1.07) rotate(-2deg);}
+.st-logo{width:52px; height:52px; flex:none; border-radius:15px; object-fit:cover; background:rgba(255,255,255,0.06); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1); transition:transform .45s var(--ease);}
+.st-card:hover .st-logo{transform:scale(1.06) rotate(-2deg);}
 .st-logo.petit{width:40px; height:40px; border-radius:12px;}
 .st-logo.moyen{width:56px; height:56px; border-radius:16px;}
 .st-logo.grand{width:72px; height:72px; border-radius:20px;}
 .st-logo.immense{width:104px; height:104px; border-radius:30px; font-size:42px;}
-.st-logo-vide{display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:20px; color:#fff; background:linear-gradient(145deg, #2074bb, #143a63);}
+.st-logo-vide{display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:21px; color:#fff; background:linear-gradient(145deg, #2074bb, #143a63);}
 
-.st-badge-promo{flex:none; align-self:flex-start; padding:4px 10px; border-radius:99px; font-size:12px; font-weight:700; color:#6fe0ae; background:rgba(62,207,142,0.14); border:1px solid rgba(62,207,142,0.42);}
-.st-desc{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:14px; line-height:1.5; color:var(--ink-soft); font-weight:300;}
-.st-attente, .st-attente-inline{align-self:flex-start; padding:3px 10px; border-radius:99px; font-size:11.5px; font-weight:600; color:#ffb454; background:rgba(255,170,60,0.16); font-style:normal;}
-.st-attente-inline{padding:0; background:none;}
-.st-card-pied{display:flex; flex-direction:column; gap:14px; margin-top:auto;}
-.st-card-bas{display:flex; align-items:center; justify-content:space-between; gap:12px;}
-.st-fleche{display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; color:var(--ink-soft); background:rgba(255,255,255,0.06); transition:background .3s var(--ease), color .3s var(--ease), transform .35s var(--ease);}
-.st-card:hover .st-fleche{background:var(--blue); color:#fff; transform:translateX(3px);}
-.st-prix{display:inline-flex; align-items:baseline; gap:5px; color:var(--ink-soft);}
-.st-prix b{font-size:23px; font-weight:700; letter-spacing:-.02em; color:var(--ink);}
+.st-badge-promo{flex:none; align-self:flex-start; padding:4px 10px; border-radius:99px; font-size:12px; font-weight:700; color:#6fe0ae; background:rgba(62,207,142,0.13); border:1px solid rgba(62,207,142,0.4);}
+.st-desc{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:14.5px; line-height:1.55; color:var(--ink-soft); font-weight:300;}
+.st-card-bas{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-top:auto; padding-top:4px;}
+.st-meta{font-size:13px; color:var(--muted); text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.st-card.en-promo .st-meta{color:#6fe0ae; font-weight:500;}
+.st-prix{display:inline-flex; align-items:baseline; gap:5px; color:var(--ink-soft); flex:none;}
+.st-prix b{font-size:24px; font-weight:700; letter-spacing:-.02em; color:var(--ink);}
 .st-prix small{font-size:12.5px; color:var(--muted);}
 .st-prix s{font-size:14px; color:var(--muted);}
 .st-card.en-promo .st-prix b, .st-fiche-ligne .st-prix b{color:#6fe0ae;}
-.st-prix-vide{font-size:13px; color:var(--muted);}
+.st-prix-vide{font-size:13.5px; color:var(--muted);}
 .st-services{display:flex; flex-wrap:wrap; gap:6px;}
 .st-services.plein{justify-content:flex-start;}
 .st-puce{display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:99px; font-size:12px; font-weight:500; color:var(--ink-soft); background:rgba(255,255,255,0.06);}
-.st-puce-plus{color:var(--muted);}
-.st-promo-ligne{display:flex; align-items:center; gap:6px; padding-top:12px; border-top:1px solid rgba(62,207,142,0.22); font-size:12.5px; font-weight:600; color:#6fe0ae;}
+.st-attente, .st-attente-inline{align-self:flex-start; padding:3px 10px; border-radius:99px; font-size:11.5px; font-weight:600; color:#ffb454; background:rgba(255,170,60,0.16); font-style:normal;}
+.st-attente-inline{padding:0; background:none;}
 
 .st-squelette{pointer-events:none;}
 .st-sq{display:block; border-radius:8px; background:linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.11), rgba(255,255,255,0.05)); background-size:200% 100%; animation:stBrille 1.4s linear infinite;}
 .st-sq-l{height:14px; width:72%;}
 .st-sq-m{height:12px; width:46%;}
-.st-logo.st-sq{border-radius:14px;}
+.st-logo.st-sq{border-radius:15px;}
 @keyframes stBrille{to{background-position:-200% 0;}}
 
-/* Menus flottants */
+/* Panneau de filtres */
 .st-pop{
   position:fixed; z-index:2600; min-width:220px; max-width:min(330px, calc(100vw - 24px)); padding:8px; color-scheme:dark;
-  border-radius:18px; background:rgba(15,20,29,0.97); border:1px solid var(--line-strong); box-shadow:0 26px 64px -14px rgba(0,0,0,0.85);
+  border-radius:20px; background:rgba(15,20,29,0.97); border:1px solid var(--line-strong); box-shadow:0 26px 64px -14px rgba(0,0,0,0.85);
   -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
-  opacity:0; transform:translateY(-6px) scale(.97); transform-origin:top left;
+  opacity:0; transform:translateY(-6px) scale(.97); transform-origin:top right;
   transition:opacity .2s var(--ease), transform .3s var(--ease);
 }
 .st-pop.ouvert{opacity:1; transform:none;}
-.st-pop-liste{display:flex; flex-direction:column; gap:2px;}
-.st-pop-defile{max-height:300px; overflow-y:auto;}
-.st-pop-item{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:10px 12px; border:0; border-radius:12px; background:none; color:var(--ink-soft); font:inherit; font-size:14px; text-align:left; cursor:pointer; transition:background .2s, color .2s;}
-.st-pop-item:hover{background:rgba(255,255,255,0.07); color:var(--ink);}
-.st-pop-item.actif{color:#fff;}
-.st-pop-item .com-ic{color:var(--blue-bright);}
-.st-pop-budget{width:268px; padding:10px 12px 8px;}
-.st-pop-titre{font-size:12px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--muted);}
-.st-budget-valeur{margin:10px 0 16px; font-size:14.5px; color:var(--ink-soft);}
-.st-budget-valeur b{font-size:24px; font-weight:700; color:var(--ink);}
+.st-pop.st-pop-filtres{width:380px; max-width:calc(100vw - 24px); max-height:min(78vh, 640px); overflow-y:auto; padding:6px;}
+.st-fp{display:flex; flex-direction:column;}
+.st-fp-sec{display:flex; flex-direction:column; gap:12px; padding:16px 16px 18px; border-bottom:1px solid var(--line);}
+.st-fp-titre{font-size:13px; font-weight:600; color:var(--ink);}
+.st-fp-titre b{margin-left:6px; font-weight:400; color:var(--muted);}
+.st-fp-seg{display:flex; flex-wrap:wrap; gap:6px;}
+.st-fp-opt, .st-fp-chip{padding:8px 14px; border-radius:99px; border:1px solid var(--line); background:rgba(255,255,255,0.03); color:var(--ink-soft); font:inherit; font-size:13.5px; font-weight:500; cursor:pointer; transition:background .25s var(--ease), border-color .25s var(--ease), color .25s var(--ease), transform .2s var(--ease);}
+.st-fp-opt:hover, .st-fp-chip:hover{background:rgba(255,255,255,0.08); color:var(--ink);}
+.st-fp-opt:active, .st-fp-chip:active{transform:scale(.95);}
+.st-fp-opt.actif, .st-fp-chip.actif{background:rgba(79,180,255,0.16); border-color:rgba(79,180,255,0.55); color:#fff;}
+.st-fp-chips{display:flex; flex-wrap:wrap; gap:7px;}
+.st-fp-interrupteur{position:relative; display:flex; align-items:center; justify-content:space-between; gap:14px; padding:16px; font-size:13.5px; font-weight:500; color:var(--ink); cursor:pointer;}
+.st-fp-interrupteur input{position:absolute; opacity:0; pointer-events:none;}
+.st-fp-interrupteur i{position:relative; flex:none; width:44px; height:26px; border-radius:99px; background:rgba(255,255,255,0.14); transition:background .3s var(--ease);}
+.st-fp-interrupteur i::after{content:''; position:absolute; top:3px; left:3px; width:20px; height:20px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,0.4); transition:transform .35s var(--ease);}
+.st-fp-interrupteur input:checked + i{background:var(--blue);}
+.st-fp-interrupteur input:checked + i::after{transform:translateX(18px);}
+.st-fp-interrupteur input:focus-visible + i{outline:2px solid var(--blue-bright); outline-offset:3px;}
+.st-fp-pied{position:sticky; bottom:-6px; z-index:1; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px 14px; margin:0 -6px -6px; border-top:1px solid var(--line); border-radius:0 0 20px 20px; background:rgba(15,20,29,0.98);}
 .st-range{-webkit-appearance:none; appearance:none; width:100%; height:6px; margin:0; border-radius:99px; outline:none; cursor:pointer; background:linear-gradient(90deg, var(--blue-bright) var(--p, 100%), rgba(255,255,255,0.14) var(--p, 100%));}
 .st-range::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:22px; height:22px; border:0; border-radius:50%; background:var(--blue-bright); box-shadow:0 2px 10px rgba(0,0,0,0.5), 0 0 0 5px rgba(79,180,255,0.22); transition:transform .2s var(--ease), box-shadow .2s;}
 .st-range::-webkit-slider-thumb:hover{transform:scale(1.12); box-shadow:0 2px 10px rgba(0,0,0,0.5), 0 0 0 7px rgba(79,180,255,0.28);}
 .st-range::-moz-range-thumb{width:22px; height:22px; border:0; border-radius:50%; background:var(--blue-bright); box-shadow:0 2px 10px rgba(0,0,0,0.5), 0 0 0 5px rgba(79,180,255,0.22);}
 .st-range:focus-visible{outline:2px solid var(--blue-bright); outline-offset:6px;}
-.st-budget-bornes{display:flex; justify-content:space-between; margin-top:12px; font-size:12px; color:var(--muted);}
+.st-budget-bornes{display:flex; justify-content:space-between; font-size:12px; color:var(--muted);}
 
 /* Carte intégrée (Leaflet) */
 .st-carte{position:relative;}
@@ -10862,34 +10966,30 @@ const FEUILLE = String.raw`
 .st-fiche-x{position:absolute; top:6px; right:6px; display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border:0; border-radius:50%; background:none; color:var(--muted); cursor:pointer; transition:background .2s, color .2s;}
 .st-fiche-x:hover{background:rgba(255,255,255,0.1); color:var(--ink);}
 
-/* Mes studios, demandes, à valider */
-.st-mes, .st-valider{display:flex; flex-direction:column; gap:12px; padding:20px; border-radius:24px; border:1px solid var(--com-bord); background:var(--com-carte);}
-.st-valider{border-color:rgba(245,165,36,0.34);}
-.st-section-tete{display:flex; align-items:center; gap:10px;}
-.st-section-tete h3{font-size:16px; letter-spacing:-.01em;}
-.st-section-demandes{margin-top:10px;}
-.st-compteur{padding:2px 10px; border-radius:99px; font-size:12px; font-weight:600; color:var(--ink-soft); background:rgba(255,255,255,0.09);}
-.st-compteur-orange{color:#ffb454; background:rgba(245,165,36,0.18);}
-.st-mes-liste, .st-demandes{display:flex; flex-direction:column; gap:10px;}
-.st-mien{display:flex; align-items:center; gap:14px; padding:13px 15px; border-radius:16px; background:rgba(255,255,255,0.04); border:1px solid var(--line);}
+/* Fenêtres « Mes studios » et « À valider » */
+.com-dialogue.st-dialogue-gestion{width:min(640px, 100%); color-scheme:dark;}
+.st-gestion{display:flex; flex-direction:column; gap:26px; padding-bottom:10px;}
+.st-gest-bloc{display:flex; flex-direction:column; gap:12px; padding:0;}
+.st-gest-bloc h4{margin:0; font-size:12px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--muted);}
+.st-liste-simple{display:flex; flex-direction:column; gap:10px;}
+.st-mien{display:flex; align-items:center; gap:14px; padding:14px 16px; border-radius:18px; background:rgba(255,255,255,0.035); border:1px solid var(--line);}
 .st-mien-texte{display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;}
 .st-mien-texte b{font-size:15px;}
 .st-mien-texte span{font-size:13px; color:var(--muted);}
-.st-pastille{flex:none; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:600; color:var(--blue-bright); background:rgba(79,180,255,0.18);}
-.st-demande{display:flex; gap:13px; padding:15px; border-radius:16px; background:rgba(255,255,255,0.035); border:1px solid var(--line); transition:border-color .3s, background .3s;}
+.st-demande{display:flex; gap:14px; padding:16px; border-radius:18px; background:rgba(255,255,255,0.03); border:1px solid var(--line); transition:border-color .3s, background .3s;}
 .st-demande.nouvelle{border-color:rgba(79,180,255,0.45); background:rgba(79,180,255,0.06);}
-.st-demande-corps{display:flex; flex-direction:column; gap:8px; flex:1; min-width:0;}
+.st-demande-corps{display:flex; flex-direction:column; gap:9px; flex:1; min-width:0;}
 .st-demande-haut{display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 8px; font-size:14px;}
 .st-demande-haut span, .st-demande-haut time{font-size:13px; color:var(--muted);}
 .st-demande-meta{display:flex; flex-wrap:wrap; gap:6px;}
-.st-demande-corps p{margin:0; font-size:14px; line-height:1.5; color:var(--ink-soft); white-space:pre-line;}
-.st-demande-actions{display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+.st-demande-corps p{margin:0; font-size:14px; line-height:1.55; color:var(--ink-soft); white-space:pre-line;}
+.st-demande-actions{display:flex; flex-wrap:wrap; align-items:center; gap:10px;}
 .st-fait{font-size:13px; font-weight:600; color:var(--com-vert);}
-.st-valider-ligne{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:15px; border-radius:16px; background:rgba(255,255,255,0.035); border:1px solid var(--line);}
+.st-valider-ligne{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:16px; border-radius:18px; background:rgba(255,255,255,0.035); border:1px solid var(--line);}
 .st-valider-texte{display:flex; flex-direction:column; gap:4px; min-width:0; font-size:14px;}
+.st-valider-texte b{font-size:15.5px;}
 .st-valider-texte small{color:var(--muted);}
-.st-valider-texte p{margin:2px 0 0; color:var(--ink-soft); line-height:1.5;}
-.st-valider-texte a{color:var(--blue-bright); font-size:13px; word-break:break-all;}
+.st-valider-texte p{margin:4px 0 0; color:var(--ink-soft); line-height:1.5;}
 .st-valider-actions{display:flex; flex-wrap:wrap; gap:8px; flex:none;}
 
 /* Fenêtres : fiche, modification, demande */
@@ -10998,13 +11098,21 @@ const FEUILLE = String.raw`
   .com-dialogue-large .com-dialogue-corps{padding:6px 18px 22px;}
 }
 @media (max-width:640px){
+  .st-tete{align-items:flex-start;}
   .st-tete h2{font-size:26px;}
-  .st-proposer{width:100%;}
+  .st-tete-actions{flex-wrap:wrap; justify-content:flex-end;}
+  .st-proposer span{display:none;}
+  .st-proposer{padding:11px 14px;}
+  .st-barre{flex-wrap:wrap;}
+  .st-recherche{flex:1 1 100%;}
+  .st-btn-filtres{flex:1; justify-content:center;}
   .st-liste{grid-template-columns:1fr;}
   .st-valider-ligne, .st-mien{flex-wrap:wrap;}
   .st-valider-actions{width:100%;}
   .st-carte-fiche{flex-wrap:wrap;}
   .st-fiche-voir{width:100%;}
+  .st-pop.st-pop-filtres{left:0 !important; right:0; top:auto !important; bottom:0; width:100%; max-width:100%; max-height:82vh; border-radius:24px 24px 0 0; transform:translateY(40px); transform-origin:bottom center;}
+  .st-pop.st-pop-filtres.ouvert{transform:none;}
 }
 @media (prefers-reduced-motion:reduce){
   .st-card, .st-card.entree, .st-pane-entree, .st-pop, .st-carte-fiche, .st-bascule-fond, .st-hero img, .st-sq, .st-photo-edit, .st-tarif-edit, .st-artiste-chip, .st-artiste-resultats, .st-logo, .st-contact, .st-artiste, .st-mini{animation:none !important; transition:none !important;}
