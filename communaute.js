@@ -5107,7 +5107,6 @@ function studioCarteHtml(s){
         ${s.promo ? `<span class="com-studio-promo" title="${attr(promoTexte(s.promo))}">−${s.promo.pct} %</span>` : ''}
         ${s.statut === 'en_attente' ? '<span class="com-studio-attente">En attente de validation</span>' : ''}
       </span>
-      <span class="com-studio-note">${s.nb_avis ? etoilesHtml(s.note) + ' <em>' + esc(String(s.note).replace('.', ',')) + '</em> <small>(' + s.nb_avis + ' avis)</small>' : '<small>Pas encore d\'avis</small>'}</span>
       ${s.description ? `<span class="com-studio-desc">${esc(s.description)}</span>` : ''}
       <span class="com-studio-pied">
         ${tarifHeureHtml(s)}
@@ -5308,8 +5307,6 @@ VUES.studios = {
 
     if(!s){ toast("Ce studio n'existe plus.", { type: 'erreur' }); return; }
 
-    const u = moi();
-    const mien = (s.avis || []).find(a => a.mien);
     const photos = s.photos || [];
 
     const tarifsHtml = (s.tarifs || []).length ? `
@@ -5332,7 +5329,7 @@ VUES.studios = {
           ${logoStudioHtml(s, 'grand')}
           <div>
             <p class="com-studio-ville">${esc(s.ville)}${s.adresse ? ' · ' + esc(s.adresse) : ''}</p>
-            <p class="com-studio-note">${s.nb_avis ? etoilesHtml(s.note) + ' <em>' + esc(String(s.note).replace('.', ',')) + '</em> <small>(' + s.nb_avis + ' avis)</small>' : '<small>Pas encore d\'avis</small>'}</p>
+            ${s.statut === 'en_attente' ? '<p><span class="com-studio-attente">En attente de validation</span></p>' : ''}
           </div>
         </div>
         ${s.promo ? `<p class="com-studio-bandeau-promo">${esc(promoTexte(s.promo))}</p>` : ''}
@@ -5344,28 +5341,9 @@ VUES.studios = {
         ${s.description ? `<p class="com-dialogue-texte">${esc(s.description)}</p>` : ''}
         ${(s.services || []).length ? `<p class="com-studio-pied">${s.services.map(x => `<span class="com-puce">${esc(x)}</span>`).join('')}</p>` : ''}
         ${s.lien ? `<p><a class="com-lien-ext" href="${attr(s.lien)}" target="_blank" rel="noopener noreferrer">Site du studio</a></p>` : ''}
-        ${s.peut_modifier ? `<p><button type="button" class="com-btn com-btn-fantome com-btn-petit" data-valeur="modifier">Modifier la page du studio</button></p>` : ''}
-        <div class="com-studio-avis">
-          <h4>Avis</h4>
-          ${(s.avis || []).length ? s.avis.map(a => `
-            <div class="com-studio-un-avis">
-              <div>${etoilesHtml(a.note)} <b>${a.auteur ? '@' + esc(a.auteur.pseudo) : 'Un membre'}</b> <small>${esc(depuis(a.cree_le))}</small></div>
-              ${a.avis ? `<p>${esc(a.avis)}</p>` : ''}
-            </div>`).join('') : '<p class="com-dialogue-texte">Personne n\'a encore laissé d\'avis.</p>'}
-        </div>
-        ${s.statut === 'publie' ? `
-          <div class="com-studio-noter">
-            <h4>${mien ? 'Modifier mon avis' : 'Laisser un avis'}</h4>
-            ${u ? `
-              <div class="com-notes" role="radiogroup" aria-label="Note">
-                ${[1, 2, 3, 4, 5].map(i => `<label><input type="radio" name="com-note" value="${i}"${mien && mien.note === i ? ' checked' : ''}><span>${i} ★</span></label>`).join('')}
-              </div>
-              <textarea data-d="avis" rows="2" maxlength="500" placeholder="Ton avis (facultatif)">${esc(mien && mien.avis || '')}</textarea>
-              <p class="com-dialogue-erreur" data-d="erreur" hidden>Choisis une note.</p>` : '<p class="com-dialogue-texte">Connecte-toi pour laisser un avis.</p>'}
-          </div>` : ''}`,
+        ${s.peut_modifier ? `<p><button type="button" class="com-btn com-btn-fantome com-btn-petit" data-valeur="modifier">Modifier la page du studio</button></p>` : ''}`,
       boutons: [
-        { libelle: 'Fermer', valeur: 'non' },
-        ...(u && s.statut === 'publie' ? [{ libelle: mien ? 'Mettre à jour' : 'Publier mon avis', valeur: 'ok', primaire: true }] : [])
+        { libelle: 'Fermer', valeur: 'non' }
       ],
       surOuverture: (boite) => {
         // Les photos ne se voient qu'ici : un clic les agrandit.
@@ -5373,26 +5351,10 @@ VUES.studios = {
           ouvrirVisionneuse(photos, Number(b.dataset.i), $('img', b));
         }));
       },
-      lire: (boite, valeur) => {
-        if(valeur === 'modifier') return 'modifier';
-        if(valeur !== 'ok') return null;
-        const choisi = $('input[name="com-note"]:checked', boite);
-        if(!choisi){ $('[data-d="erreur"]', boite).hidden = false; return false; }
-        return { note: Number(choisi.value), avis: $('[data-d="avis"]', boite).value };
-      }
+      lire: (boite, valeur) => valeur === 'modifier' ? 'modifier' : null
     });
 
-    if(r === 'modifier'){ VUES.studios.modifier(V, s); return; }
-
-    if(!r || !r.note) return;
-
-    try{
-      await BD.studioNoter(id, r.note, r.avis);
-      toast('Merci pour ton avis', { duree: 2000 });
-      if(V && V.nom === 'studios') VUES.studios.charger(V);
-    }catch(e){
-      toastErreur(e);
-    }
+    if(r === 'modifier') VUES.studios.modifier(V, s);
   },
 
   // La page du studio, modifiable par son gérant (et l'équipe) : logo, photos, tarifs, promotion.
@@ -5441,13 +5403,13 @@ VUES.studios = {
               <label class="com-champ"><span>Pays</span>
                 <select data-d="pays">${[['FR', 'France'], ['BE', 'Belgique'], ['CH', 'Suisse'], ['GP', 'Guadeloupe'], ['MQ', 'Martinique'], ['RE', 'La Réunion'], ['GF', 'Guyane'], ['YT', 'Mayotte'], ['NC', 'Nouvelle-Calédonie'], ['PF', 'Polynésie française']]
                   .map(([c, n]) => `<option value="${c}"${s.pays === c ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
-              <label class="com-champ"><span>Adresse <i>(facultatif)</i></span><input type="text" data-d="adresse" maxlength="160" value="${attr(s.adresse || '')}"></label>
+              <label class="com-champ"><span>Adresse <i>(place le studio précisément sur la carte)</i></span><input type="text" data-d="adresse" maxlength="160" placeholder="12 rue de la Paix" value="${attr(s.adresse || '')}"></label>
             </div>
             <label class="com-champ"><span>Lien <i>(site, Instagram… facultatif)</i></span><input type="url" data-d="lien" maxlength="300" placeholder="https://…" value="${attr(s.lien || '')}"></label>
             <label class="com-champ"><span>Présentation</span><textarea data-d="description" rows="4" maxlength="1500">${esc(s.description || '')}</textarea></label>
-            <div class="com-champ"><span>Ce qu'on y fait</span>
-              <div class="com-radios com-services">
-                ${SERVICES_STUDIO.map(x => `<label class="com-radio"><input type="checkbox" name="com-service" value="${attr(x)}"${(s.services || []).includes(x) ? ' checked' : ''}><span>${esc(x)}</span></label>`).join('')}
+            <div class="com-champ"><span>Services</span>
+              <div class="com-services-puces">
+                ${SERVICES_STUDIO.map(x => `<label class="com-service-puce"><input type="checkbox" name="com-service" value="${attr(x)}"${(s.services || []).includes(x) ? ' checked' : ''}><span>${esc(x)}</span></label>`).join('')}
               </div></div>
           </div>
 
@@ -9916,6 +9878,15 @@ const FEUILLE = String.raw`
 .com-studio-un-tarif small{display:block; margin-top:2px; color:var(--muted); font-size:12.5px;}
 .com-studio-un-tarif strong{font-size:16px; color:var(--ink);}
 .com-studio-un-tarif s{color:var(--muted);}
+.com-services-puces{display:flex; flex-wrap:wrap; gap:8px;}
+.com-service-puce{position:relative; cursor:pointer;}
+.com-service-puce input{position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer;}
+.com-service-puce span{display:inline-flex; align-items:center; gap:8px; padding:9px 15px 9px 11px; border-radius:99px; border:1px solid var(--line); background:rgba(255,255,255,0.03); color:var(--ink-soft); font-size:13.5px; font-weight:500; transition:background .2s, border-color .2s, color .2s;}
+.com-service-puce span::before{content:''; width:16px; height:16px; flex:none; border-radius:50%; border:1.5px solid rgba(255,255,255,0.32); background-position:center; background-repeat:no-repeat; background-size:10px; transition:background-color .2s, border-color .2s;}
+.com-service-puce:hover span{background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.28);}
+.com-service-puce input:checked + span{border-color:var(--blue-bright); background:rgba(20,137,222,0.16); color:var(--ink);}
+.com-service-puce input:checked + span::before{border-color:var(--blue-bright); background-color:var(--blue-bright); background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 5.2l2 2 4-4.4' fill='none' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
+.com-service-puce input:focus-visible + span{outline:2px solid var(--blue-bright); outline-offset:2px;}
 .com-studios-mes{margin-bottom:18px; padding:18px 20px;}
 .com-studios-mes h3{margin:0 0 12px; font-size:15px;}
 .com-studios-mes h3 span{margin-left:6px; padding:1px 8px; border-radius:99px; background:rgba(255,255,255,0.08); color:var(--ink-soft); font-size:12px;}

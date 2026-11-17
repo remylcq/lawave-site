@@ -11,6 +11,10 @@
 --   com_studio_gerant_definir (équipe : confier un studio à un membre par son pseudo), studios_carte (publics, avec coordonnées),
 --   studios_geocoder (tâche studios-geocoder, toutes les 5 minutes, coordonnées de la ville via villes_geo comme pour les concerts).
 -- Le gérant d'un studio proposé est son auteur (com_studio_proposer renseigne gerant).
+-- Mise à jour du 2026-11-17 : position précise par adresse (colonnes geo_precis, geo_essai_le ; studios_geocoder cherche d'abord
+--   l'adresse : Base Adresse Nationale pour la France et l'outre-mer, Photon ailleurs, puis le centre de la ville en repli ;
+--   modifier l'adresse ou la ville remet la position à refaire) ; notation retirée (execute de com_studio_noter retiré aux
+--   membres, avis déjà laissés conservés mais non affichés).
 -- RETRAIT : désactiver la tâche studios-geocoder, retirer les fonctions ci-dessus et la table com_studios_tarifs ; les anciennes
 --   versions de com_studios_liste / com_studio sont à remettre depuis l'historique du dépôt.
 
