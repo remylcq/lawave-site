@@ -44,3 +44,12 @@ create table if not exists public.com_studios_tarifs (
 );
 alter table public.com_studios_tarifs enable row level security;
 revoke all on public.com_studios_tarifs from public, anon, authenticated;
+
+-- Refonte du 2026-11-17 : filtres / tri / carte intégrée (côté site), contact direct, artistes passés ici, demandes de réservation.
+--   com_studios : + contact_instagram, contact_tel, contact_email.
+--   com_studios_artistes (studio_id, handle, ordre) : artistes de La Wave liés au studio (12 au plus, non bannis).
+--   com_studios_demandes (studio_id, user_id, date_souhaitee, duree_h, besoin, message, statut nouvelle/vue/traitee).
+--   com_studios_liste : + cree_le, avec_inge, sans_inge ; com_studio : + contact, artistes ; com_studio_modifier : + contact, artistes.
+--   com_studio_demander (membre connecté, 2 demandes par jour et par studio au plus) prévient le gérant par une notification
+--   « studio_demande » (type ajouté à la contrainte com_notifications_type_check) ; com_studios_demandes / com_studio_demande_statut
+--   pour le gérant (et l'équipe).

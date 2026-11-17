@@ -597,6 +597,10 @@ const BD = {
   studiosAValider: () => rpc('com_studios_a_valider'),
   studioTraiter:   (id, action) => rpc('com_studio_traiter', { p_id: id, p_action: action }),
   studiosMes:      () => rpc('com_studios_mes'),
+  studiosCarte:    () => rpc('studios_carte'),
+  studioDemander:  (a) => rpc('com_studio_demander', a),
+  studiosDemandes: () => rpc('com_studios_demandes'),
+  studioDemandeStatut: (id, statut) => rpc('com_studio_demande_statut', { p_id: id, p_statut: statut }),
   studioModifier:  (id, donnees) => rpc('com_studio_modifier', { p_id: id, p: donnees }),
   studioGerant:    (id, pseudo) => rpc('com_studio_gerant_definir', { p_id: id, p_pseudo: pseudo }),
   lire:            (id)     => rpc('com_lire', { p_conversation: id }),
@@ -5061,58 +5065,191 @@ VUES.explorer = {
 // ---------------------------------------------------------------------
 // Studios : l'annuaire de la communauté
 //
-// Chacun peut proposer un studio (il est publié après un coup d'œil de l'équipe), noter ceux qu'il connaît et
-// laisser un avis. Les tarifs sont indicatifs : ils viennent de ceux qui proposent le studio.
+// Une page, deux vues (liste et carte) sur les mêmes filtres. Chacun peut proposer un studio (publié après un coup d'œil de
+// l'équipe) ; son gérant règle la page (logo, photos, tarifs, promotion, contact, artistes passés ici) et reçoit les demandes de
+// réservation. Les filtres, le tri et la recherche se font dans le navigateur : la liste (100 studios au plus) est lue une fois.
 // ---------------------------------------------------------------------
 
 const SERVICES_STUDIO = ['Enregistrement', 'Mixage', 'Mastering', 'Production', 'Répétition', 'Clip vidéo', 'Ingé son'];
 
-function etoilesHtml(note){
-  const n = Math.round(Number(note) || 0);
-  return `<span class="com-etoiles" aria-hidden="true">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? 'on' : ''}">${icone('etoileP', 14)}</i>`).join('')}</span>`;
-}
+Object.assign(ICONES, {
+  stListe:     '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
+  stCarte:     '<path d="M9 4 3 6.5V20l6-2.5 6 2.5 6-2.5V4l-6 2.5z"/><path d="M9 4v13.5M15 6.5V20"/>',
+  stCalendrier:'<rect x="3.5" y="5" width="17" height="15.5" rx="3.5"/><path d="M8 3v4M16 3v4M3.5 10.5h17"/>',
+  stTel:       '<path d="M5 4h3.4l1.7 4.1-2.1 1.4a11.5 11.5 0 0 0 5.5 5.5l1.4-2.1 4.1 1.7V18a2 2 0 0 1-2 2A15.5 15.5 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+  stMail:      '<rect x="3" y="5" width="18" height="14" rx="3.5"/><path d="m4 8 8 5.5L20 8"/>',
+  stInsta:     '<rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".9" fill="currentColor" stroke="none"/>',
+  stEclair:    '<path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/>',
+  stPin:       '<path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+  stCheck:     '<path d="m5 12.5 4.5 4.5L19 7.5"/>'
+});
+
+const stNorm = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
 // Le logo du studio, ou à défaut son initiale.
 function logoStudioHtml(s, classe){
-  const c = 'com-studio-logo' + (classe ? ' ' + classe : '');
+  const c = 'st-logo' + (classe ? ' ' + classe : '');
   return s.logo_url
     ? `<img class="${c}" src="${attr(s.logo_url)}" alt="" loading="lazy" decoding="async">`
-    : `<span class="${c} com-studio-logo-vide" aria-hidden="true">${esc(String(s.nom || '?').trim().charAt(0).toUpperCase())}</span>`;
+    : `<span class="${c} st-logo-vide" aria-hidden="true">${esc(String(s.nom || '?').trim().charAt(0).toUpperCase())}</span>`;
 }
 
 function promoTexte(promo){
   if(!promo) return '';
-  const fin = promo.fin ? new Date(promo.fin).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : '';
-  return (promo.texte ? promo.texte + ' · ' : 'Promotion · ') + '−' + promo.pct + ' %' + (fin ? " jusqu'au " + fin : '');
+  return (promo.texte ? promo.texte + ' · ' : 'Promotion · ') + '−' + promo.pct + ' %';
 }
 
-// « dès 35 €/h », ou le prix barré et le prix remisé quand une promotion est en cours.
-function tarifHeureHtml(s){
-  if(!s.tarif_heure) return '';
+// Le compte à rebours d'une promotion : « Dernières heures », « Plus que 3 jours », ou la date de fin.
+function promoRestant(promo){
+
+  if(!promo || !promo.fin) return '';
+
+  const ms = new Date(promo.fin).getTime() - Date.now();
+
+  if(!(ms > 0)) return '';
+  if(ms < 86400000) return 'Dernières heures';
+
+  const jours = Math.ceil(ms / 86400000);
+
+  if(jours <= 1) return "Plus qu'un jour";
+  if(jours <= 14) return 'Plus que ' + jours + ' jours';
+
+  return "Jusqu'au " + new Date(promo.fin).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' });
+}
+
+// Le prix de l'heure : « dès 28 €/h », ou le prix barré et le prix remisé quand une promotion est en cours.
+function prixStudioHtml(s){
+
+  if(s.tarif_heure == null) return '<span class="st-prix st-prix-vide">Tarifs sur la fiche</span>';
+
   return s.tarif_heure_promo != null
-    ? `<span class="com-studio-tarif">dès <s>${s.tarif_heure}</s> ${s.tarif_heure_promo} €/h</span>`
-    : `<span class="com-studio-tarif">dès ${s.tarif_heure} €/h</span>`;
+    ? `<span class="st-prix"><s>${s.tarif_heure}</s><b>${s.tarif_heure_promo}</b><small>€/h</small></span>`
+    : `<span class="st-prix"><small>dès</small><b>${s.tarif_heure}</b><small>€/h</small></span>`;
 }
 
-function studioCarteHtml(s){
+function studioCarteHtml(s, i){
+
+  const services = s.services || [];
 
   return `
-    <button type="button" class="com-studio${s.promo ? ' com-studio-en-promo' : ''}" data-act="studio-ouvrir" data-id="${attr(s.id)}">
-      <span class="com-studio-haut">
+    <button type="button" class="st-card${s.promo ? ' en-promo' : ''}" data-act="studio-ouvrir" data-id="${attr(s.id)}" style="--i:${Math.min(i || 0, 12)}">
+      <span class="st-card-tete">
         ${logoStudioHtml(s)}
-        <span class="com-studio-titre">
+        <span class="st-card-titre">
           <b>${esc(s.nom)}</b>
-          <span class="com-studio-ville">${esc(s.ville)}</span>
+          <span class="st-ville">${icone('stPin', 13)}${esc(s.ville)}</span>
         </span>
-        ${s.promo ? `<span class="com-studio-promo" title="${attr(promoTexte(s.promo))}">−${s.promo.pct} %</span>` : ''}
-        ${s.statut === 'en_attente' ? '<span class="com-studio-attente">En attente de validation</span>' : ''}
+        ${s.promo ? `<span class="st-badge-promo" title="${attr(promoTexte(s.promo))}">−${s.promo.pct} %</span>` : ''}
       </span>
-      ${s.description ? `<span class="com-studio-desc">${esc(s.description)}</span>` : ''}
-      <span class="com-studio-pied">
-        ${tarifHeureHtml(s)}
-        ${(s.services || []).slice(0, 4).map(x => `<span class="com-puce">${esc(x)}</span>`).join('')}
+      ${s.description ? `<span class="st-desc">${esc(s.description)}</span>` : ''}
+      ${s.statut === 'en_attente' ? '<span class="st-attente">En attente de validation</span>' : ''}
+      <span class="st-card-pied">
+        <span class="st-services">
+          ${services.slice(0, 3).map(x => `<span class="st-puce">${esc(x)}</span>`).join('')}
+          ${services.length > 3 ? `<span class="st-puce st-puce-plus">+${services.length - 3}</span>` : ''}
+        </span>
+        <span class="st-card-bas">${prixStudioHtml(s)}<span class="st-fleche" aria-hidden="true">${icone('chevronDroite', 18)}</span></span>
       </span>
+      ${s.promo ? `<span class="st-promo-ligne">${icone('stEclair', 13)}${esc(s.promo.texte || 'Promotion en cours')}${promoRestant(s.promo) ? ' · ' + esc(promoRestant(s.promo)) : ''}</span>` : ''}
     </button>`;
+}
+
+// ----- Menus flottants (tri, budget, ingénieur du son, ville) -----
+
+let stPop = null;
+
+function fermerPop(){
+
+  if(!stPop) return;
+
+  const p = stPop;
+  stPop = null;
+
+  p.el.classList.remove('ouvert');
+  document.removeEventListener('pointerdown', p.hors, true);
+  document.removeEventListener('keydown', p.touche, true);
+  window.removeEventListener('resize', p.fermer);
+  if(p.bouton) p.bouton.setAttribute('aria-expanded', 'false');
+  setTimeout(() => p.el.remove(), 180);
+}
+
+function ouvrirPop(bouton, html, montage){
+
+  const deja = stPop && stPop.bouton === bouton;
+
+  fermerPop();
+
+  if(deja) return;
+
+  const el = document.createElement('div');
+  el.className = 'st-pop';
+  el.innerHTML = html;
+  document.body.appendChild(el);
+
+  const r = bouton.getBoundingClientRect();
+  const w = el.offsetWidth;
+  const h = el.offsetHeight;
+
+  el.style.left = Math.max(12, Math.min(r.left, window.innerWidth - w - 12)) + 'px';
+  el.style.top = (r.bottom + h + 16 > window.innerHeight && r.top > h + 16 ? r.top - h - 8 : r.bottom + 8) + 'px';
+
+  bouton.setAttribute('aria-expanded', 'true');
+
+  const fermer = () => fermerPop();
+  const hors = (e) => { if(!el.contains(e.target) && !bouton.contains(e.target)) fermerPop(); };
+  const touche = (e) => { if(e.key === 'Escape'){ e.stopPropagation(); fermerPop(); bouton.focus(); } };
+
+  setTimeout(() => document.addEventListener('pointerdown', hors, true), 0);
+  document.addEventListener('keydown', touche, true);
+  window.addEventListener('resize', fermer);
+
+  stPop = { el, bouton, hors, touche, fermer };
+
+  requestAnimationFrame(() => el.classList.add('ouvert'));
+
+  if(montage) montage(el);
+
+  const cible = $('[data-focus]', el);
+  if(cible) cible.focus({ preventScroll: true });
+}
+
+const TRIS_STUDIO = [
+  ['reco',   'Recommandés'],
+  ['prix',   'Moins chers'],
+  ['recent', 'Plus récents'],
+  ['nom',    'Nom (A → Z)']
+];
+
+const INGE_STUDIO = [
+  ['',     'Peu importe'],
+  ['avec', 'Avec ingénieur du son'],
+  ['sans', 'Sans ingénieur du son']
+];
+
+// ----- Leaflet (la carte intégrée), chargé seulement à la première ouverture -----
+
+let stLeafletPromesse = null;
+
+function chargerLeaflet(){
+
+  if(window.L && window.L.map) return Promise.resolve(window.L);
+  if(stLeafletPromesse) return stLeafletPromesse;
+
+  stLeafletPromesse = new Promise((ok, ko) => {
+
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+    document.head.appendChild(css);
+
+    const js = document.createElement('script');
+    js.src = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    js.onload = () => ok(window.L);
+    js.onerror = () => { stLeafletPromesse = null; ko(new Error('La carte ne peut pas être chargée pour le moment.')); };
+    document.head.appendChild(js);
+  });
+
+  return stLeafletPromesse;
 }
 
 VUES.studios = {
@@ -5121,30 +5258,89 @@ VUES.studios = {
 
   creer(V){
 
-    V.etat = { q: '', ville: '' };
-    V.studios = new Map();
+    V.etat = { q: '', services: [], promo: false, inge: '', budget: 0, ville: '', tri: 'reco', vue: 'liste' };
+    V.donnees = [];
+    V.villes = [];
+    V.cartes = new Map();
+    V.positions = null;
+    V.charge = false;
 
     V.el.innerHTML = `
-      <div class="com-collabs-barre">
-        <button type="button" class="com-sujet-bouton" data-act="aller" data-vers="collabs">${icone('retour', 15)}<span>Annonces</span></button>
-        <button type="button" class="com-sujet-bouton" data-act="studio-proposer">${icone('plus', 15)}<span>Proposer un studio</span></button>
-      </div>
-      <header class="com-studios-tete">
-        <h2>Annuaire des studios</h2>
-        <p>Les studios que la communauté recommande : tarifs, services et avis de ceux qui y ont enregistré.</p>
-      </header>
-      <div class="com-studios-filtres">
-        <label class="com-recherche-champ">
-          ${icone('loupe', 18)}
-          <input type="search" data-st="q" placeholder="Chercher un studio ou une ville" autocomplete="off" aria-label="Chercher un studio">
-        </label>
-        <select data-st="ville" aria-label="Filtrer par ville"><option value="">Toutes les villes</option></select>
-      </div>
-      <div data-st-mes></div>
-      <div data-st-avalider></div>
-      <div class="com-studios-liste" data-st-liste>${squeletteMembre(3)}</div>`;
+      <div class="st-page">
 
-    V.hotes = { liste: $('[data-st-liste]', V.el), avalider: $('[data-st-avalider]', V.el), mes: $('[data-st-mes]', V.el), ville: $('select[data-st="ville"]', V.el) };
+        <header class="st-tete">
+          <div class="st-tete-texte">
+            <h2>Studios</h2>
+            <p data-st="sous">Les studios de la communauté : tarifs, services et contact direct.</p>
+          </div>
+          <button type="button" class="com-btn com-btn-plein st-proposer" data-act="studio-proposer">${icone('plus', 16)}<span>Proposer un studio</span></button>
+        </header>
+
+        <div data-st="mes"></div>
+        <div data-st="avalider"></div>
+
+        <div class="st-barre">
+          <label class="st-recherche">
+            ${icone('loupe', 18)}
+            <input type="search" data-st-champ="q" placeholder="Chercher un studio, une ville, un service…" autocomplete="off" aria-label="Chercher un studio">
+          </label>
+          <div class="st-bascule" role="tablist" aria-label="Affichage" data-vue="liste">
+            <span class="st-bascule-fond" aria-hidden="true"></span>
+            <button type="button" role="tab" class="actif" aria-selected="true" data-st-act="vue" data-vue="liste">${icone('stListe', 16)}<span>Liste</span></button>
+            <button type="button" role="tab" aria-selected="false" data-st-act="vue" data-vue="carte">${icone('stCarte', 16)}<span>Carte</span></button>
+          </div>
+        </div>
+
+        <div class="st-filtres" data-st="filtres" role="group" aria-label="Filtres"></div>
+
+        <div class="st-ligne">
+          <span class="st-compte" data-st="compte" aria-live="polite"></span>
+          <span class="st-ligne-actions">
+            <button type="button" class="st-lien" data-st-act="reinit" hidden>Réinitialiser</button>
+            <button type="button" class="st-tri" data-st-act="tri" aria-haspopup="true" aria-expanded="false"><span class="st-tri-lib" data-st="tri-lib">Recommandés</span>${icone('chevronBas', 14)}</button>
+          </span>
+        </div>
+
+        <div class="st-contenu">
+          <div class="st-pane st-liste" data-st="liste">${VUES.studios.squelette()}</div>
+          <div class="st-pane st-carte" data-st="carte" hidden>
+            <div class="st-carte-zone" data-st="carte-zone"></div>
+            <p class="st-carte-note" data-st="carte-note" hidden></p>
+            <div class="st-carte-fiche" data-st="carte-fiche" hidden></div>
+          </div>
+        </div>
+
+      </div>`;
+
+    V.hotes = {
+      sous: $('[data-st="sous"]', V.el), mes: $('[data-st="mes"]', V.el), avalider: $('[data-st="avalider"]', V.el),
+      filtres: $('[data-st="filtres"]', V.el), compte: $('[data-st="compte"]', V.el), reinit: $('[data-st-act="reinit"]', V.el),
+      triLib: $('[data-st="tri-lib"]', V.el), liste: $('[data-st="liste"]', V.el), carte: $('[data-st="carte"]', V.el),
+      zone: $('[data-st="carte-zone"]', V.el), note: $('[data-st="carte-note"]', V.el), fiche: $('[data-st="carte-fiche"]', V.el),
+      bascule: $('.st-bascule', V.el)
+    };
+
+    V.el.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-st-act]');
+      if(b) VUES.studios.agir(V, b);
+    });
+
+    V.el.addEventListener('input', (e) => {
+      if(!e.target.matches('[data-st-champ="q"]')) return;
+      V.etat.q = e.target.value;
+      clearTimeout(V.minuteur);
+      V.minuteur = setTimeout(() => VUES.studios.appliquer(V), 110);
+    });
+
+    VUES.studios.dessinerFiltres(V);
+  },
+
+  squelette(){
+    return Array.from({ length: 6 }, (_, i) => `
+      <div class="st-card st-squelette" style="--i:${i}" aria-hidden="true">
+        <span class="st-card-tete"><span class="st-logo st-sq"></span><span class="st-card-titre"><span class="st-sq st-sq-l"></span><span class="st-sq st-sq-m"></span></span></span>
+        <span class="st-sq st-sq-l"></span><span class="st-sq st-sq-m"></span>
+      </div>`).join('');
   },
 
   montrer(V, route){
@@ -5154,60 +5350,28 @@ VUES.studios = {
     VUES.studios.ouvrirParAdresse(V, route);
   },
 
-  // #community/studios/<identifiant> : la fiche du studio s'ouvre (lien depuis la carte, ou partagé).
+  pause(V){ fermerPop(); },
+
+  // #community/studios/<identifiant> : la fiche du studio s'ouvre (lien depuis la carte du site, ou partagé).
   surMemeCle(V, route){
     VUES.studios.ouvrirParAdresse(V, route);
   },
 
   ouvrirParAdresse(V, route){
+
     const id = route && route.param;
+
     if(!id || V.ouvertParAdresse === id) return;
+
     V.ouvertParAdresse = id;
+
     setTimeout(() => VUES.studios.ouvrir(V, id).finally(() => {
       V.ouvertParAdresse = null;
       if(location.hash === '#community/studios/' + id) history.replaceState(history.state, '', '#community/studios');
     }), 150);
   },
 
-  // Les studios que je gère : un accès direct à la modification de leur page.
-  async chargerMes(V){
-
-    if(!moi()){ V.hotes.mes.innerHTML = ''; return; }
-
-    try{
-
-      const liste = await BD.studiosMes();
-
-      V.hotes.mes.innerHTML = (liste || []).length ? `
-        <section class="com-carte com-studios-mes" aria-label="Mes studios">
-          <h3>Mes studios <span>${liste.length}</span></h3>
-          ${liste.map(s => `
-            <div class="com-studio-mien">
-              ${logoStudioHtml(s, 'petit')}
-              <div>
-                <b>${esc(s.nom)}</b>
-                <small>${esc(s.ville)}${s.statut === 'en_attente' ? ' · <span class="com-studio-attente">En attente de validation</span>' : ''}</small>
-              </div>
-              <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="studio-modifier" data-id="${attr(s.id)}">Modifier ma page</button>
-            </div>`).join('')}
-        </section>` : '';
-
-    }catch(e){
-      V.hotes.mes.innerHTML = '';
-    }
-  },
-
-  saisir(V, c){
-
-    V.etat[c.dataset.st] = c.value.trim();
-
-    if(c.dataset.st === 'q'){
-      clearTimeout(V.attente);
-      V.attente = setTimeout(() => VUES.studios.charger(V), 280);
-    } else {
-      VUES.studios.charger(V);
-    }
-  },
+  // ----- Les données et la liste -----
 
   async charger(V){
 
@@ -5215,30 +5379,511 @@ VUES.studios = {
 
     try{
 
-      const r = await BD.studios({ p_q: V.etat.q || null, p_ville: V.etat.ville || null, p_limite: 60, p_decalage: 0 });
+      const r = await BD.studios({ p_q: null, p_ville: null, p_limite: 100, p_decalage: 0 });
 
       if(id !== V.gen) return;
 
-      // Les villes du filtre se remplissent une fois.
-      const sel = V.hotes.ville;
+      V.donnees = r.studios || [];
+      V.villes = r.villes || [];
+      V.charge = true;
 
-      if(sel && sel.options.length <= 1 && (r.villes || []).length){
-        (r.villes || []).forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
-        sel.value = V.etat.ville || '';
-      }
+      V.hotes.sous.textContent = V.donnees.length
+        ? V.donnees.length + ' studio' + (V.donnees.length > 1 ? 's' : '') + " dans l'annuaire : tarifs, services et contact direct."
+        : 'Les studios de la communauté : tarifs, services et contact direct.';
 
-      (r.studios || []).forEach(s => V.studios.set(s.id, s));
+      // Une carte par studio, gardée : filtrer ne fait que montrer, cacher et réordonner (rien ne clignote).
+      V.cartes = new Map();
+      V.hotes.liste.innerHTML = '';
 
-      V.hotes.liste.innerHTML = (r.studios || []).length
-        ? r.studios.map(studioCarteHtml).join('')
-        : etatVide({
-            icone: 'casque', titre: V.etat.q || V.etat.ville ? 'Aucun studio ne correspond' : 'Pas encore de studio',
-            texte: V.etat.q || V.etat.ville ? 'Essaie une autre ville ou un autre mot.' : 'Propose le premier : ceux qui cherchent où enregistrer te diront merci.',
-            bouton: V.etat.q || V.etat.ville ? null : { libelle: 'Proposer un studio', attrs: 'data-act="studio-proposer"' }
-          });
+      V.donnees.forEach(s => {
+        const t = document.createElement('div');
+        t.innerHTML = studioCarteHtml(s, 0).trim();
+        const el = t.firstElementChild;
+        el.hidden = true;
+        V.cartes.set(s.id, el);
+        V.hotes.liste.appendChild(el);
+      });
+
+      const vide = document.createElement('div');
+      vide.className = 'st-vide-zone';
+      vide.hidden = true;
+      V.hotes.liste.appendChild(vide);
+      V.hotes.vide = vide;
+
+      VUES.studios.dessinerFiltres(V);
+      VUES.studios.appliquer(V, true);
+
+      if(V.etat.vue === 'carte') VUES.studios.dessinerCarte(V);
 
     }catch(e){
-      if(id === V.gen) V.hotes.liste.innerHTML = etatErreur(e, true);
+      if(id === V.gen) V.hotes.liste.innerHTML = `<div class="st-vide-zone">${etatErreur(e, true)}</div>`;
+    }
+  },
+
+  // Les studios qui passent les filtres, dans l'ordre choisi.
+  filtres(V){
+
+    const e = V.etat;
+    const q = stNorm(e.q);
+    const prix = (s) => s.tarif_heure_promo != null ? s.tarif_heure_promo : s.tarif_heure;
+
+    const liste = V.donnees.filter(s => {
+      if(q && !stNorm([s.nom, s.ville, s.description, (s.services || []).join(' ')].join(' ')).includes(q)) return false;
+      if(e.promo && !s.promo) return false;
+      if(e.inge === 'avec' && !s.avec_inge) return false;
+      if(e.inge === 'sans' && !s.sans_inge) return false;
+      if(e.budget && !(prix(s) != null && prix(s) <= e.budget)) return false;
+      if(e.services.length && !e.services.every(x => (s.services || []).includes(x))) return false;
+      if(e.ville && stNorm(s.ville) !== stNorm(e.ville)) return false;
+      return true;
+    });
+
+    if(e.tri === 'prix') liste.sort((a, b) => (prix(a) == null) - (prix(b) == null) || prix(a) - prix(b));
+    else if(e.tri === 'recent') liste.sort((a, b) => String(b.cree_le).localeCompare(String(a.cree_le)));
+    else if(e.tri === 'nom') liste.sort((a, b) => a.nom.localeCompare(b.nom, 'fr'));
+
+    return liste;
+  },
+
+  nbFiltres(V){
+    const e = V.etat;
+    return (e.q ? 1 : 0) + (e.promo ? 1 : 0) + (e.inge ? 1 : 0) + (e.budget ? 1 : 0) + (e.ville ? 1 : 0) + e.services.length;
+  },
+
+  appliquer(V, premier){
+
+    if(!V.charge) return;
+
+    const liste = VUES.studios.filtres(V);
+    const gardees = new Set(liste.map(s => s.id));
+    const animer = !mouvementReduit();
+    let rang = 0;
+
+    // Les cartes qui sortent disparaissent ; celles qui entrent arrivent en douceur, les autres ne bougent pas.
+    V.cartes.forEach((el, id) => {
+      if(!gardees.has(id)) el.hidden = true;
+    });
+
+    liste.forEach(s => {
+      const el = V.cartes.get(s.id);
+      if(!el) return;
+      V.hotes.liste.insertBefore(el, V.hotes.vide);
+      if(el.hidden){
+        el.hidden = false;
+        if(animer){
+          el.style.setProperty('--i', Math.min(rang, 12));
+          el.classList.remove('entree');
+          void el.offsetWidth;
+          el.classList.add('entree');
+        }
+      }
+      rang++;
+    });
+
+    const n = liste.length;
+    const actifs = VUES.studios.nbFiltres(V);
+
+    V.hotes.compte.textContent = V.donnees.length
+      ? (n ? n + ' studio' + (n > 1 ? 's' : '') : 'Aucun studio') + (actifs ? ' · ' + actifs + ' filtre' + (actifs > 1 ? 's' : '') : '')
+      : '';
+
+    V.hotes.reinit.hidden = !actifs;
+
+    if(!n){
+      V.hotes.vide.hidden = false;
+      V.hotes.vide.innerHTML = V.donnees.length
+        ? etatVide({ icone: 'casque', titre: 'Aucun studio ne correspond', texte: 'Essaie avec moins de filtres, ou une autre ville.', bouton: { libelle: 'Réinitialiser les filtres', attrs: 'data-st-act="reinit"' } })
+        : etatVide({ icone: 'casque', titre: 'Pas encore de studio', texte: 'Propose le premier : ceux qui cherchent où enregistrer te diront merci.', bouton: { libelle: 'Proposer un studio', attrs: 'data-act="studio-proposer"' } });
+    } else {
+      V.hotes.vide.hidden = true;
+    }
+
+    V.hotes.triLib.textContent = (TRIS_STUDIO.find(t => t[0] === V.etat.tri) || TRIS_STUDIO[0])[1];
+
+    VUES.studios.majFiltresEtat(V);
+
+    if(V.etat.vue === 'carte' && !premier) VUES.studios.dessinerCarte(V);
+  },
+
+  // ----- Les puces de filtre -----
+
+  dessinerFiltres(V){
+
+    const e = V.etat;
+
+    const puce = (act, libelle, actif, extra) => `
+      <button type="button" class="st-filtre${actif ? ' actif' : ''}" data-st-act="${act}"${extra || ''} aria-pressed="${actif}">${libelle}</button>`;
+
+    const menu = (act, libelle, valeur) => `
+      <button type="button" class="st-filtre st-filtre-menu${valeur ? ' actif' : ''}" data-st-act="${act}" aria-haspopup="true" aria-expanded="false">
+        <span>${libelle}${valeur ? ' · <b>' + esc(valeur) + '</b>' : ''}</span>${icone('chevronBas', 13)}
+      </button>`;
+
+    V.hotes.filtres.innerHTML = `
+      ${puce('promo', icone('stEclair', 14) + '<span>En promo</span>', e.promo)}
+      ${menu('budget', 'Budget', e.budget ? '≤ ' + e.budget + ' €/h' : '')}
+      ${menu('inge', 'Ingé son', e.inge === 'avec' ? 'Avec' : e.inge === 'sans' ? 'Sans' : '')}
+      ${V.villes.length > 1 ? menu('ville', 'Ville', e.ville) : ''}
+      <span class="st-filtres-sep" aria-hidden="true"></span>
+      ${SERVICES_STUDIO.map(x => puce('service', '<span>' + esc(x) + '</span>', e.services.includes(x), ' data-service="' + attr(x) + '"')).join('')}`;
+  },
+
+  // Seul l'état des puces change (pas leur contenu) : pas de redessin à chaque frappe.
+  majFiltresEtat(V){
+    const e = V.etat;
+    $$('.st-filtre', V.hotes.filtres).forEach(b => {
+      const act = b.dataset.stAct;
+      let actif = false;
+      if(act === 'promo') actif = e.promo;
+      else if(act === 'service') actif = e.services.includes(b.dataset.service);
+      else if(act === 'budget') actif = !!e.budget;
+      else if(act === 'inge') actif = !!e.inge;
+      else if(act === 'ville') actif = !!e.ville;
+      b.classList.toggle('actif', actif);
+      if(b.hasAttribute('aria-pressed')) b.setAttribute('aria-pressed', String(actif));
+    });
+  },
+
+  agir(V, b){
+
+    const e = V.etat;
+    const act = b.dataset.stAct;
+
+    if(act === 'promo'){ e.promo = !e.promo; }
+    else if(act === 'service'){
+      const x = b.dataset.service;
+      e.services = e.services.includes(x) ? e.services.filter(y => y !== x) : e.services.concat([x]);
+    }
+    else if(act === 'reinit'){
+      Object.assign(V.etat, { q: '', services: [], promo: false, inge: '', budget: 0, ville: '' });
+      const champ = $('[data-st-champ="q"]', V.el);
+      if(champ) champ.value = '';
+      VUES.studios.dessinerFiltres(V);
+    }
+    else if(act === 'vue'){ VUES.studios.changerVue(V, b.dataset.vue); return; }
+    else if(act === 'tri'){ VUES.studios.menuTri(V, b); return; }
+    else if(act === 'budget'){ VUES.studios.menuBudget(V, b); return; }
+    else if(act === 'inge'){ VUES.studios.menuInge(V, b); return; }
+    else if(act === 'ville'){ VUES.studios.menuVille(V, b); return; }
+    else if(act === 'carte-fermer'){ VUES.studios.fermerFicheCarte(V); return; }
+
+    VUES.studios.appliquer(V);
+  },
+
+  menuTri(V, bouton){
+    ouvrirPop(bouton, `
+      <div class="st-pop-liste" role="menu">
+        ${TRIS_STUDIO.map(([k, lib]) => `<button type="button" role="menuitemradio" aria-checked="${V.etat.tri === k}" class="st-pop-item${V.etat.tri === k ? ' actif' : ''}" data-k="${k}">${esc(lib)}${V.etat.tri === k ? icone('stCheck', 15) : ''}</button>`).join('')}
+      </div>`, (el) => {
+        el.addEventListener('click', (ev) => {
+          const it = ev.target.closest('[data-k]');
+          if(!it) return;
+          V.etat.tri = it.dataset.k;
+          fermerPop();
+          VUES.studios.appliquer(V);
+        });
+      });
+  },
+
+  menuInge(V, bouton){
+    ouvrirPop(bouton, `
+      <div class="st-pop-liste" role="menu">
+        ${INGE_STUDIO.map(([k, lib]) => `<button type="button" role="menuitemradio" aria-checked="${V.etat.inge === k}" class="st-pop-item${V.etat.inge === k ? ' actif' : ''}" data-k="${k}">${esc(lib)}${V.etat.inge === k ? icone('stCheck', 15) : ''}</button>`).join('')}
+      </div>`, (el) => {
+        el.addEventListener('click', (ev) => {
+          const it = ev.target.closest('[data-k]');
+          if(!it) return;
+          V.etat.inge = it.dataset.k;
+          fermerPop();
+          VUES.studios.dessinerFiltres(V);
+          VUES.studios.appliquer(V);
+        });
+      });
+  },
+
+  menuVille(V, bouton){
+    ouvrirPop(bouton, `
+      <div class="st-pop-liste st-pop-defile" role="menu">
+        <button type="button" role="menuitemradio" class="st-pop-item${V.etat.ville ? '' : ' actif'}" data-k="">Toutes les villes${V.etat.ville ? '' : icone('stCheck', 15)}</button>
+        ${V.villes.map(v => `<button type="button" role="menuitemradio" class="st-pop-item${V.etat.ville === v ? ' actif' : ''}" data-k="${attr(v)}">${esc(v)}${V.etat.ville === v ? icone('stCheck', 15) : ''}</button>`).join('')}
+      </div>`, (el) => {
+        el.addEventListener('click', (ev) => {
+          const it = ev.target.closest('[data-k]');
+          if(!it) return;
+          V.etat.ville = it.dataset.k;
+          fermerPop();
+          VUES.studios.dessinerFiltres(V);
+          VUES.studios.appliquer(V);
+        });
+      });
+  },
+
+  menuBudget(V, bouton){
+
+    const maxPrix = 150;
+
+    ouvrirPop(bouton, `
+      <div class="st-pop-budget">
+        <div class="st-pop-titre">Budget maximum</div>
+        <div class="st-budget-valeur" data-valeur></div>
+        <input type="range" class="st-range" min="10" max="${maxPrix}" step="5" value="${V.etat.budget || maxPrix}" aria-label="Budget maximum par heure" data-focus>
+        <div class="st-budget-bornes"><span>10 €</span><span>Sans limite</span></div>
+      </div>`, (el) => {
+
+        const champ = $('input', el);
+        const affiche = $('[data-valeur]', el);
+
+        const maj = () => {
+          const v = Number(champ.value);
+          champ.style.setProperty('--p', ((v - 10) / (maxPrix - 10) * 100) + '%');
+          affiche.innerHTML = v >= maxPrix ? 'Sans limite' : "Jusqu'à <b>" + v + ' €</b> / heure';
+          V.etat.budget = v >= maxPrix ? 0 : v;
+        };
+
+        maj();
+
+        champ.addEventListener('input', () => {
+          maj();
+          cancelAnimationFrame(V.raf);
+          V.raf = requestAnimationFrame(() => {
+            VUES.studios.majFiltresEtat(V);
+            const b = $('[data-st-act="budget"]', V.hotes.filtres);
+            if(b) b.querySelector('span').innerHTML = 'Budget' + (V.etat.budget ? ' · <b>≤ ' + V.etat.budget + ' €/h</b>' : '');
+            VUES.studios.appliquer(V);
+          });
+        });
+      });
+  },
+
+  // ----- La vue carte -----
+
+  changerVue(V, vue){
+
+    if(V.etat.vue === vue) return;
+
+    fermerPop();
+    V.etat.vue = vue;
+
+    V.hotes.bascule.dataset.vue = vue;
+    $$('button', V.hotes.bascule).forEach(b => {
+      const on = b.dataset.vue === vue;
+      b.classList.toggle('actif', on);
+      b.setAttribute('aria-selected', String(on));
+    });
+
+    const entrant = vue === 'carte' ? V.hotes.carte : V.hotes.liste;
+    const sortant = vue === 'carte' ? V.hotes.liste : V.hotes.carte;
+
+    sortant.hidden = true;
+    entrant.hidden = false;
+    entrant.classList.remove('st-pane-entree');
+    void entrant.offsetWidth;
+    entrant.classList.add('st-pane-entree');
+
+    if(vue === 'carte') VUES.studios.dessinerCarte(V);
+  },
+
+  async dessinerCarte(V){
+
+    const jeton = V.jetonCarte = (V.jetonCarte || 0) + 1;
+
+    try{
+
+      const [L, positions] = await Promise.all([
+        chargerLeaflet(),
+        V.positions ? Promise.resolve(V.positions) : BD.studiosCarte()
+      ]);
+
+      if(jeton !== V.jetonCarte || V.etat.vue !== 'carte') return;
+
+      V.positions = positions || [];
+
+      if(!V.carte){
+
+        V.carte = L.map(V.hotes.zone, { zoomControl: false, attributionControl: true, worldCopyJump: true, minZoom: 3 }).setView([46.6, 2.4], 5);
+        L.control.zoom({ position: 'bottomright' }).addTo(V.carte);
+        // Fond OpenStreetMap, assombri par la feuille de style (voir .st-carte .leaflet-tile-pane).
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19, attribution: '© OpenStreetMap'
+        }).addTo(V.carte);
+        V.couche = L.layerGroup().addTo(V.carte);
+        V.carte.on('click', () => VUES.studios.fermerFicheCarte(V));
+      }
+
+      requestAnimationFrame(() => V.carte.invalidateSize());
+
+      const visibles = new Set(VUES.studios.filtres(V).map(s => s.id));
+      const parId = new Map(V.donnees.map(s => [s.id, s]));
+      const points = V.positions.filter(p => visibles.has(p.id));
+
+      V.couche.clearLayers();
+      V.marqueurs = new Map();
+
+      points.forEach(p => {
+
+        const s = parId.get(p.id) || p;
+        const html = `<span class="st-pin${p.promo_pct ? ' promo' : ''}">${s.logo_url ? `<img src="${attr(s.logo_url)}" alt="">` : esc(String(s.nom || '?').trim().charAt(0).toUpperCase())}</span>`;
+        const m = L.marker([p.lat, p.lon], { icon: L.divIcon({ className: 'st-pin-bloc', html, iconSize: [44, 44], iconAnchor: [22, 22] }), keyboard: true, title: s.nom });
+
+        m.on('click', (ev) => {
+          if(ev.originalEvent) L.DomEvent.stopPropagation(ev);
+          VUES.studios.ficheCarte(V, s, p);
+        });
+
+        m.addTo(V.couche);
+        V.marqueurs.set(p.id, m);
+      });
+
+      const sansPosition = visibles.size - points.length;
+
+      V.hotes.note.hidden = !sansPosition;
+      V.hotes.note.textContent = sansPosition > 0
+        ? sansPosition + ' studio' + (sansPosition > 1 ? 's' : '') + ' sans position sur la carte (adresse à renseigner par le gérant).'
+        : '';
+
+      if(points.length){
+        const bornes = L.latLngBounds(points.map(p => [p.lat, p.lon]));
+        V.carte.fitBounds(bornes, { padding: [60, 60], maxZoom: 13, animate: !mouvementReduit() });
+      }
+
+      if(V.ficheCarteId && !visibles.has(V.ficheCarteId)) VUES.studios.fermerFicheCarte(V);
+
+    }catch(e){
+      if(jeton === V.jetonCarte) toastErreur(e);
+    }
+  },
+
+  ficheCarte(V, s, p){
+
+    V.ficheCarteId = s.id;
+
+    V.hotes.fiche.hidden = false;
+    V.hotes.fiche.classList.remove('ouvert');
+    V.hotes.fiche.innerHTML = `
+      <button type="button" class="st-fiche-x" data-st-act="carte-fermer" aria-label="Fermer">${icone('croix', 16)}</button>
+      <div class="st-fiche-corps">
+        ${logoStudioHtml(s, 'moyen')}
+        <div class="st-fiche-texte">
+          <b>${esc(s.nom)}</b>
+          <span class="st-ville">${icone('stPin', 13)}${esc(s.ville)}</span>
+          <span class="st-fiche-ligne">${prixStudioHtml(s)}${s.promo ? `<span class="st-badge-promo">−${s.promo.pct} %</span>` : ''}</span>
+        </div>
+      </div>
+      <button type="button" class="com-btn com-btn-plein com-btn-petit st-fiche-voir" data-act="studio-ouvrir" data-id="${attr(s.id)}">Voir le studio</button>`;
+
+    requestAnimationFrame(() => V.hotes.fiche.classList.add('ouvert'));
+
+    if(V.marqueurs) V.marqueurs.forEach((m, id) => {
+      const el = m.getElement();
+      if(el) el.classList.toggle('actif', id === s.id);
+    });
+
+    if(V.carte) V.carte.panTo([p.lat, p.lon], { animate: !mouvementReduit() });
+  },
+
+  fermerFicheCarte(V){
+    V.ficheCarteId = null;
+    V.hotes.fiche.classList.remove('ouvert');
+    setTimeout(() => { if(!V.ficheCarteId) V.hotes.fiche.hidden = true; }, 220);
+    if(V.marqueurs) V.marqueurs.forEach(m => { const el = m.getElement(); if(el) el.classList.remove('actif'); });
+  },
+
+  // ----- Mes studios et les demandes reçues -----
+
+  async chargerMes(V){
+
+    if(!moi()){ V.hotes.mes.innerHTML = ''; return; }
+
+    try{
+
+      const [liste, demandes] = await Promise.all([BD.studiosMes(), BD.studiosDemandes().catch(() => [])]);
+
+      V.demandes = demandes || [];
+
+      if(!(liste || []).length && !V.demandes.length){ V.hotes.mes.innerHTML = ''; return; }
+
+      const nouvelles = (id) => V.demandes.filter(d => d.studio_id === id && d.statut === 'nouvelle').length;
+
+      V.hotes.mes.innerHTML = `
+        <section class="st-mes" aria-label="Mes studios">
+          ${(liste || []).length ? `
+            <div class="st-section-tete"><h3>Mes studios</h3><span class="st-compteur">${liste.length}</span></div>
+            <div class="st-mes-liste">
+              ${liste.map(s => `
+                <div class="st-mien">
+                  ${logoStudioHtml(s, 'petit')}
+                  <div class="st-mien-texte">
+                    <b>${esc(s.nom)}</b>
+                    <span>${esc(s.ville)}${s.statut === 'en_attente' ? ' · <em class="st-attente-inline">En attente de validation</em>' : ''}</span>
+                  </div>
+                  ${nouvelles(s.id) ? `<span class="st-pastille" title="Nouvelles demandes">${nouvelles(s.id)} nouvelle${nouvelles(s.id) > 1 ? 's' : ''}</span>` : ''}
+                  <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="studio-modifier" data-id="${attr(s.id)}">${icone('crayon', 14)}<span>Modifier</span></button>
+                </div>`).join('')}
+            </div>` : ''}
+          ${V.demandes.length ? VUES.studios.demandesHtml(V) : ''}
+        </section>`;
+
+      V.hotes.mes.querySelectorAll('[data-dem-act]').forEach(b => b.addEventListener('click', () => VUES.studios.actionDemande(V, b)));
+
+    }catch(e){
+      V.hotes.mes.innerHTML = '';
+    }
+  },
+
+  demandesHtml(V){
+
+    const toutes = V.demandes;
+    const montrees = V.demandesTout ? toutes : toutes.slice(0, 3);
+
+    return `
+      <div class="st-section-tete st-section-demandes"><h3>Demandes de réservation</h3><span class="st-compteur">${toutes.length}</span></div>
+      <div class="st-demandes">
+        ${montrees.map(d => `
+          <article class="st-demande${d.statut === 'nouvelle' ? ' nouvelle' : ''}" data-id="${attr(d.id)}">
+            ${avatarHtml(d.auteur || {}, 'm')}
+            <div class="st-demande-corps">
+              <div class="st-demande-haut">
+                <b>${d.auteur ? '@' + esc(d.auteur.pseudo) : 'Un membre'}</b>
+                <span>pour ${esc(d.studio)}</span>
+                <time>${esc(depuis(d.cree_le))}</time>
+              </div>
+              <div class="st-demande-meta">
+                ${d.date ? `<span class="st-puce">${icone('stCalendrier', 12)}${esc(new Date(d.date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }))}</span>` : ''}
+                ${d.duree ? `<span class="st-puce">${d.duree} h</span>` : ''}
+                ${d.besoin ? `<span class="st-puce">${esc(d.besoin)}</span>` : ''}
+              </div>
+              ${d.message ? `<p>${esc(d.message)}</p>` : ''}
+              <div class="st-demande-actions">
+                ${d.auteur ? `<button type="button" class="com-btn com-btn-plein com-btn-petit" data-dem-act="repondre" data-pseudo="${attr(d.auteur.pseudo)}">Répondre</button>` : ''}
+                ${d.statut !== 'traitee' ? `<button type="button" class="com-btn com-btn-fantome com-btn-petit" data-dem-act="traitee" data-id="${attr(d.id)}">Marquer comme traitée</button>` : '<span class="st-fait">Traitée</span>'}
+                ${d.statut === 'nouvelle' ? `<button type="button" class="com-btn com-btn-fantome com-btn-petit" data-dem-act="vue" data-id="${attr(d.id)}">Vue</button>` : ''}
+              </div>
+            </div>
+          </article>`).join('')}
+      </div>
+      ${toutes.length > 3 ? `<button type="button" class="st-lien st-lien-centre" data-dem-act="tout">${V.demandesTout ? 'Réduire' : 'Voir les ' + toutes.length + ' demandes'}</button>` : ''}`;
+  },
+
+  async actionDemande(V, b){
+
+    const act = b.dataset.demAct;
+
+    if(act === 'repondre'){ aller('membre/' + encodeURIComponent(b.dataset.pseudo)); return; }
+
+    if(act === 'tout'){ V.demandesTout = !V.demandesTout; VUES.studios.chargerMes(V); return; }
+
+    const d = V.demandes.find(x => x.id === b.dataset.id);
+    if(!d) return;
+
+    const avant = d.statut;
+    d.statut = act === 'vue' ? 'vue' : 'traitee';
+
+    try{
+      await BD.studioDemandeStatut(d.id, d.statut);
+      VUES.studios.chargerMes(V);
+    }catch(e){
+      d.statut = avant;
+      toastErreur(e);
     }
   },
 
@@ -5253,16 +5898,19 @@ VUES.studios = {
 
       const liste = await BD.studiosAValider();
 
-      V.hotes.avalider.innerHTML = liste.length ? `
-        <section class="com-carte com-studios-valider" aria-label="Studios à valider">
-          <h3>À valider <span>${liste.length}</span></h3>
+      V.hotes.avalider.innerHTML = (liste || []).length ? `
+        <section class="st-valider" aria-label="Studios à valider">
+          <div class="st-section-tete"><h3>À valider</h3><span class="st-compteur st-compteur-orange">${liste.length}</span></div>
           ${liste.map(s => `
-            <div class="com-studio-valider">
-              <div><b>${esc(s.nom)}</b> · ${esc(s.ville)}${s.tarif_heure ? ' · ' + s.tarif_heure + ' €/h' : ''}
-                <small>proposé par ${s.auteur ? '@' + esc(s.auteur.pseudo) : 'un membre'}</small>
+            <div class="st-valider-ligne">
+              <div class="st-valider-texte">
+                <b>${esc(s.nom)}</b><span class="st-ville">${icone('stPin', 13)}${esc(s.ville)}</span>
+                <small>proposé par ${s.auteur ? '@' + esc(s.auteur.pseudo) : 'un membre'}${s.tarif_heure ? ' · dès ' + s.tarif_heure + ' €/h' : ''}</small>
                 ${s.description ? `<p>${esc(s.description)}</p>` : ''}
-                ${s.lien ? `<a href="${attr(s.lien)}" target="_blank" rel="noopener noreferrer">${esc(s.lien)}</a>` : ''}</div>
-              <div class="com-studio-valider-actions">
+                ${s.lien ? `<a href="${attr(s.lien)}" target="_blank" rel="noopener noreferrer">${esc(s.lien)}</a>` : ''}
+              </div>
+              <div class="st-valider-actions">
+                <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="studio-ouvrir" data-id="${attr(s.id)}">Aperçu</button>
                 <button type="button" class="com-btn com-btn-plein com-btn-petit" data-act="studio-traiter" data-action="publier" data-id="${attr(s.id)}">Publier</button>
                 <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-act="studio-traiter" data-action="refuser" data-id="${attr(s.id)}">Refuser</button>
               </div>
@@ -5286,13 +5934,15 @@ VUES.studios = {
     }
   },
 
-  // Proposer un studio : le même formulaire que la modification (logo, photos, tarifs, promotion), vide.
+  // Proposer un studio : le même formulaire que la modification, vide.
   async proposer(V){
 
     if(!exigerConnexion('Connecte-toi pour proposer un studio.')) return;
 
     return VUES.studios.modifier(V, null);
   },
+
+  // ----- La fiche d'un studio -----
 
   async ouvrir(V, id){
 
@@ -5308,57 +5958,162 @@ VUES.studios = {
     if(!s){ toast("Ce studio n'existe plus.", { type: 'erreur' }); return; }
 
     const photos = s.photos || [];
+    const c = s.contact || {};
+    const contacts = [
+      c.instagram ? `<a class="st-contact" href="https://instagram.com/${attr(c.instagram)}" target="_blank" rel="noopener noreferrer">${icone('stInsta', 16)}<span>Instagram</span></a>` : '',
+      c.tel ? `<a class="st-contact" href="tel:${attr(String(c.tel).replace(/[^0-9+]/g, ''))}">${icone('stTel', 16)}<span>${esc(c.tel)}</span></a>` : '',
+      c.email ? `<a class="st-contact" href="mailto:${attr(c.email)}">${icone('stMail', 16)}<span>E-mail</span></a>` : '',
+      s.lien ? `<a class="st-contact" href="${attr(s.lien)}" target="_blank" rel="noopener noreferrer">${icone('lien', 16)}<span>Site</span></a>` : ''
+    ].filter(Boolean);
 
     const tarifsHtml = (s.tarifs || []).length ? `
-      <div class="com-studio-tarifs">
+      <section class="st-bloc">
         <h4>Tarifs</h4>
-        ${s.tarifs.map(t => `
-          <div class="com-studio-un-tarif">
-            <div>
-              <b>${esc(t.libelle)}</b>
-              <small>${t.duree_h > 1 ? 'Séance de ' + t.duree_h + ' h minimum' : 'À l\'heure'} · ${t.ingenieur ? 'avec ingénieur du son' : 'sans ingénieur du son'}${t.note ? ' · ' + esc(t.note) : ''}</small>
-            </div>
-            <span>${t.prix_promo != null ? `<s>${t.prix} €</s> <strong>${t.prix_promo} €</strong>` : `<strong>${t.prix} €</strong>`}</span>
-          </div>`).join('')}
-      </div>` : (s.tarif_heure ? `<p class="com-studio-ville">Dès ${s.tarif_heure_promo != null ? `<s>${s.tarif_heure}</s> ${s.tarif_heure_promo}` : s.tarif_heure} €/h</p>` : '');
+        <div class="st-tarifs">
+          ${s.tarifs.map(t => `
+            <div class="st-tarif">
+              <div>
+                <b>${esc(t.libelle)}</b>
+                <small>${t.duree_h > 1 ? 'Séance de ' + t.duree_h + ' h minimum' : "À l'heure"} · ${t.ingenieur ? 'avec ingénieur du son' : 'sans ingénieur du son'}${t.note ? ' · ' + esc(t.note) : ''}</small>
+              </div>
+              <span class="st-tarif-prix">${t.prix_promo != null ? `<s>${t.prix} €</s><b>${t.prix_promo} €</b>` : `<b>${t.prix} €</b>`}</span>
+            </div>`).join('')}
+        </div>
+      </section>` : (s.tarif_heure != null ? `<section class="st-bloc"><h4>Tarif</h4>${prixStudioHtml(s)}</section>` : '');
+
+    const hero = photos.length
+      ? `<button type="button" class="st-hero" data-hero aria-label="Agrandir la photo"><img src="${attr(photos[0])}" alt=""></button>`
+      : `<div class="st-hero st-hero-vide">${logoStudioHtml(s, 'immense')}</div>`;
 
     const r = await ouvrirDialogue({
       titre: s.nom,
+      classe: 'com-dialogue-large st-dialogue-fiche com-dialogue-sans-pied',
       corps: `
-        <div class="com-studio-entete">
-          ${logoStudioHtml(s, 'grand')}
-          <div>
-            <p class="com-studio-ville">${esc(s.ville)}${s.adresse ? ' · ' + esc(s.adresse) : ''}</p>
-            ${s.statut === 'en_attente' ? '<p><span class="com-studio-attente">En attente de validation</span></p>' : ''}
+        <div class="st-fiche">
+
+          <div class="st-fiche-media">
+            ${hero}
+            ${s.promo ? `<span class="st-hero-promo">${icone('stEclair', 14)}−${s.promo.pct} %</span>` : ''}
+            ${photos.length > 1 ? `<div class="st-miniatures">${photos.map((u, i) => `<button type="button" class="st-mini${i === 0 ? ' actif' : ''}" data-i="${i}" aria-label="Photo ${i + 1}"><img src="${attr(u)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
           </div>
-        </div>
-        ${s.promo ? `<p class="com-studio-bandeau-promo">${esc(promoTexte(s.promo))}</p>` : ''}
-        ${photos.length ? `
-          <div class="com-studio-photos" data-d="photos">
-            ${photos.map((url, i) => `<button type="button" class="com-studio-photo" data-i="${i}" aria-label="Agrandir la photo ${i + 1}"><img src="${attr(url)}" alt="" loading="lazy" decoding="async"></button>`).join('')}
-          </div>` : ''}
-        ${tarifsHtml}
-        ${s.description ? `<p class="com-dialogue-texte">${esc(s.description)}</p>` : ''}
-        ${(s.services || []).length ? `<p class="com-studio-pied">${s.services.map(x => `<span class="com-puce">${esc(x)}</span>`).join('')}</p>` : ''}
-        ${s.lien ? `<p><a class="com-lien-ext" href="${attr(s.lien)}" target="_blank" rel="noopener noreferrer">Site du studio</a></p>` : ''}
-        ${s.peut_modifier ? `<p><button type="button" class="com-btn com-btn-fantome com-btn-petit" data-valeur="modifier">Modifier la page du studio</button></p>` : ''}`,
-      boutons: [
-        { libelle: 'Fermer', valeur: 'non' }
-      ],
+
+          <div class="st-fiche-infos">
+
+            <div class="st-fiche-entete">
+              ${logoStudioHtml(s, 'moyen')}
+              <div>
+                <span class="st-ville">${icone('stPin', 13)}${esc(s.ville)}${s.adresse ? ' · ' + esc(s.adresse) : ''}</span>
+                ${s.statut === 'en_attente' ? '<span class="st-attente">En attente de validation</span>' : ''}
+              </div>
+            </div>
+
+            ${s.promo ? `<div class="st-bandeau-promo">${icone('stEclair', 16)}<div><b>${esc(promoTexte(s.promo))}</b>${promoRestant(s.promo) ? `<span>${esc(promoRestant(s.promo))}</span>` : ''}</div></div>` : ''}
+
+            ${tarifsHtml}
+
+            ${s.description ? `<section class="st-bloc"><h4>Présentation</h4><p class="st-texte">${esc(s.description)}</p></section>` : ''}
+
+            ${(s.services || []).length ? `<section class="st-bloc"><h4>Services</h4><div class="st-services plein">${s.services.map(x => `<span class="st-puce">${esc(x)}</span>`).join('')}</div></section>` : ''}
+
+            ${contacts.length ? `<section class="st-bloc"><h4>Contact</h4><div class="st-contacts">${contacts.join('')}</div></section>` : ''}
+
+            ${(s.artistes || []).length ? `
+              <section class="st-bloc">
+                <h4>Ils y ont enregistré</h4>
+                <div class="st-artistes">
+                  ${s.artistes.map(a => `<button type="button" class="st-artiste" data-valeur="artiste:${attr(a.handle)}">${avatarHtml({ pseudo: a.nom, avatar_url: a.photo }, 's')}<span>${esc(a.nom)}</span></button>`).join('')}
+                </div>
+              </section>` : ''}
+
+            <div class="st-fiche-actions">
+              ${s.statut === 'publie' ? `<button type="button" class="com-btn com-btn-plein st-cta" data-valeur="reserver">${icone('stCalendrier', 16)}<span>Demander une réservation</span></button>` : ''}
+              ${s.peut_modifier ? `<button type="button" class="com-btn com-btn-fantome" data-valeur="modifier">${icone('crayon', 15)}<span>Modifier la page</span></button>` : ''}
+            </div>
+
+          </div>
+        </div>`,
+      boutons: [],
       surOuverture: (boite) => {
-        // Les photos ne se voient qu'ici : un clic les agrandit.
-        $$('.com-studio-photo', boite).forEach(b => b.addEventListener('click', () => {
-          ouvrirVisionneuse(photos, Number(b.dataset.i), $('img', b));
+
+        let courante = 0;
+
+        const hero = $('[data-hero]', boite);
+        const img = hero ? $('img', hero) : null;
+
+        if(hero) hero.addEventListener('click', () => ouvrirVisionneuse(photos, courante, img));
+
+        $$('.st-mini', boite).forEach(m => m.addEventListener('click', () => {
+          courante = Number(m.dataset.i);
+          $$('.st-mini', boite).forEach(x => x.classList.toggle('actif', x === m));
+          if(!img) return;
+          img.classList.add('change');
+          setTimeout(() => { img.src = photos[courante]; img.classList.remove('change'); }, mouvementReduit() ? 0 : 160);
         }));
       },
-      lire: (boite, valeur) => valeur === 'modifier' ? 'modifier' : null
+      lire: (boite, valeur) => valeur === 'non' ? null : valeur
     });
 
     if(r === 'modifier') VUES.studios.modifier(V, s);
+    else if(r === 'reserver') VUES.studios.reserver(V, s);
+    else if(typeof r === 'string' && r.indexOf('artiste:') === 0 && typeof ouvrirPageArtiste === 'function') ouvrirPageArtiste(r.slice(8));
   },
 
-  // La page du studio, modifiable par son gérant (et l'équipe) : logo, photos, tarifs, promotion.
-  // Sans studio (s nul), le même formulaire sert à en proposer un.
+  // ----- Demander une réservation -----
+
+  async reserver(V, s){
+
+    if(!exigerConnexion('Connecte-toi pour contacter un studio.')) return;
+
+    const besoins = (s.services && s.services.length ? s.services : SERVICES_STUDIO).concat(['Autre']);
+    const aujourdhui = new Date().toLocaleDateString('sv-SE');
+
+    const r = await ouvrirDialogue({
+      titre: 'Demander une réservation',
+      classe: 'st-dialogue-demande',
+      corps: `
+        <p class="com-dialogue-texte">Ta demande est envoyée à <b>${esc(s.nom)}</b>. Le gérant te répond par message sur La Wave.</p>
+        <div class="com-champ"><span>Ce dont tu as besoin</span>
+          <div class="st-choix">
+            ${besoins.map((x, i) => `<label class="st-choix-puce"><input type="radio" name="st-besoin" value="${attr(x)}"${i === 0 ? ' checked' : ''}><span>${esc(x)}</span></label>`).join('')}
+          </div></div>
+        <div class="com-grille-champs">
+          <label class="com-champ"><span>Date souhaitée <i>(facultatif)</i></span><input type="date" data-d="date" min="${aujourdhui}"></label>
+          <label class="com-champ"><span>Durée</span>
+            <select data-d="duree">${[1, 2, 3, 4, 5, 6, 8, 10, 12].map(h => `<option value="${h}"${h === 2 ? ' selected' : ''}>${h} h</option>`).join('')}</select></label>
+        </div>
+        <label class="com-champ"><span>Ton message</span><textarea data-d="message" rows="4" maxlength="800" placeholder="Présente ton projet en quelques mots : style, nombre de titres, références…"></textarea></label>
+        <p class="com-dialogue-erreur" data-d="erreur" hidden></p>`,
+      boutons: [
+        { libelle: 'Annuler', valeur: 'non' },
+        { libelle: 'Envoyer la demande', valeur: 'ok', primaire: true }
+      ],
+      focus: '[data-d="message"]',
+      lire: (boite, valeur) => {
+        if(valeur !== 'ok') return null;
+        const message = $('[data-d="message"]', boite).value.trim();
+        if(message.length < 5){
+          const e = $('[data-d="erreur"]', boite);
+          e.textContent = 'Dis en quelques mots ce que tu cherches.';
+          e.hidden = false;
+          return false;
+        }
+        const choisi = $('input[name="st-besoin"]:checked', boite);
+        return { besoin: choisi ? choisi.value : '', date: $('[data-d="date"]', boite).value || null, duree: Number($('[data-d="duree"]', boite).value), message };
+      }
+    });
+
+    if(!r || !r.message) return;
+
+    try{
+      await BD.studioDemander({ p_studio: s.id, p_date: r.date, p_duree: r.duree, p_besoin: r.besoin, p_message: r.message });
+      toast('Demande envoyée', { detail: 'Le gérant te répondra par message.', duree: 3200 });
+    }catch(e){
+      toastErreur(e);
+    }
+  },
+
+  // ----- La page du studio, modifiable par son gérant (et l'équipe) ; sans studio, elle sert à en proposer un -----
+
   async modifier(V, s){
 
     const creation = !s;
@@ -5369,8 +6124,8 @@ VUES.studios = {
 
     if(creation){
       const u0 = moi();
-      s = { id: null, nom: '', ville: '', pays: 'FR', adresse: '', description: '', lien: '', services: [], logo_url: null, photos: [], tarifs: [],
-            promo_reglage: {}, equipe: !!(u0 && u0.isAdmin), gerant: '', peut_modifier: true };
+      s = { id: null, nom: '', ville: '', pays: 'FR', adresse: '', description: '', lien: '', services: [], logo_url: null, photos: [], tarifs: [], artistes: [],
+            contact: {}, promo_reglage: {}, equipe: !!(u0 && u0.isAdmin), gerant: '', peut_modifier: true };
     }
 
     if(!s || !s.peut_modifier){ toast('Tu ne gères pas ce studio.', { type: 'erreur' }); return; }
@@ -5379,59 +6134,98 @@ VUES.studios = {
       logo: s.logo_url || null,
       photos: (s.photos || []).slice(),
       tarifs: (s.tarifs || []).map(t => ({ libelle: t.libelle, prix: t.prix, duree_h: t.duree_h, ingenieur: t.ingenieur, note: t.note || '' })),
+      artistes: (s.artistes || []).map(a => ({ handle: a.handle, nom: a.nom, photo: a.photo })),
       envois: 0
     };
 
     if(!etat.tarifs.length) etat.tarifs.push({ libelle: '', prix: '', duree_h: 1, ingenieur: true, note: '' });
 
     const promo = s.promo_reglage || {};
+    const contact = s.contact || {};
     const dateChamp = (iso) => iso ? new Date(iso).toLocaleDateString('sv-SE') : '';
 
     const r = await ouvrirDialogue({
       titre: creation ? 'Proposer un studio' : 'Page du studio',
-      classe: 'com-dialogue-large',
+      classe: 'com-dialogue-large st-dialogue-form',
       corps: `
         ${creation ? '<p class="com-dialogue-texte">Un studio que tu connais (ou le tien) : l\'équipe le regarde, puis il apparaît dans l\'annuaire. Tu pourras ensuite modifier sa page quand tu veux.</p>' : ''}
-        <div class="com-studio-form">
+        <div class="st-form">
 
-          <div class="com-studio-col">
-            <div class="com-champ"><span>Logo <i>(visible sur l'encadré de l'annonce)</i></span>
-              <div class="com-studio-logo-edition" data-d="logo-zone"></div></div>
-            <div class="com-grille-champs">
-              <label class="com-champ"><span>Nom du studio</span><input type="text" data-d="nom" maxlength="80" value="${attr(s.nom)}"></label>
-              <label class="com-champ"><span>Ville</span><input type="text" data-d="ville" maxlength="60" value="${attr(s.ville)}"></label>
-              <label class="com-champ"><span>Pays</span>
-                <select data-d="pays">${[['FR', 'France'], ['BE', 'Belgique'], ['CH', 'Suisse'], ['GP', 'Guadeloupe'], ['MQ', 'Martinique'], ['RE', 'La Réunion'], ['GF', 'Guyane'], ['YT', 'Mayotte'], ['NC', 'Nouvelle-Calédonie'], ['PF', 'Polynésie française']]
-                  .map(([c, n]) => `<option value="${c}"${s.pays === c ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
-              <label class="com-champ"><span>Adresse <i>(place le studio précisément sur la carte)</i></span><input type="text" data-d="adresse" maxlength="160" placeholder="12 rue de la Paix" value="${attr(s.adresse || '')}"></label>
-            </div>
-            <label class="com-champ"><span>Lien <i>(site, Instagram… facultatif)</i></span><input type="url" data-d="lien" maxlength="300" placeholder="https://…" value="${attr(s.lien || '')}"></label>
-            <label class="com-champ"><span>Présentation</span><textarea data-d="description" rows="4" maxlength="1500">${esc(s.description || '')}</textarea></label>
-            <div class="com-champ"><span>Services</span>
-              <div class="com-services-puces">
-                ${SERVICES_STUDIO.map(x => `<label class="com-service-puce"><input type="checkbox" name="com-service" value="${attr(x)}"${(s.services || []).includes(x) ? ' checked' : ''}><span>${esc(x)}</span></label>`).join('')}
-              </div></div>
+          <div class="st-form-col">
+
+            <section class="st-sec">
+              <h4>Identité</h4>
+              <div class="st-logo-edition" data-d="logo-zone"></div>
+              <div class="com-grille-champs">
+                <label class="com-champ"><span>Nom du studio</span><input type="text" data-d="nom" maxlength="80" value="${attr(s.nom)}"></label>
+                <label class="com-champ"><span>Ville</span><input type="text" data-d="ville" maxlength="60" value="${attr(s.ville)}"></label>
+                <label class="com-champ"><span>Pays</span>
+                  <select data-d="pays">${[['FR', 'France'], ['BE', 'Belgique'], ['CH', 'Suisse'], ['GP', 'Guadeloupe'], ['MQ', 'Martinique'], ['RE', 'La Réunion'], ['GF', 'Guyane'], ['YT', 'Mayotte'], ['NC', 'Nouvelle-Calédonie'], ['PF', 'Polynésie française']]
+                    .map(([c, n]) => `<option value="${c}"${s.pays === c ? ' selected' : ''}>${n}</option>`).join('')}</select></label>
+                <label class="com-champ"><span>Adresse <i>(place le studio sur la carte)</i></span><input type="text" data-d="adresse" maxlength="160" placeholder="12 rue de la Paix" value="${attr(s.adresse || '')}"></label>
+              </div>
+              <label class="com-champ"><span>Présentation</span><textarea data-d="description" rows="4" maxlength="1500" placeholder="Ce que le studio propose, son ambiance, son matériel…">${esc(s.description || '')}</textarea></label>
+            </section>
+
+            <section class="st-sec">
+              <h4>Services</h4>
+              <div class="st-choix st-choix-multi">
+                ${SERVICES_STUDIO.map(x => `<label class="st-choix-puce"><input type="checkbox" name="com-service" value="${attr(x)}"${(s.services || []).includes(x) ? ' checked' : ''}><span>${esc(x)}</span></label>`).join('')}
+              </div>
+            </section>
+
+            <section class="st-sec">
+              <h4>Contact <i>visible par tous</i></h4>
+              <div class="com-grille-champs">
+                <label class="com-champ"><span>Instagram</span><input type="text" data-d="c-instagram" maxlength="80" placeholder="@lestudio" value="${attr(contact.instagram ? '@' + contact.instagram : '')}"></label>
+                <label class="com-champ"><span>Téléphone</span><input type="tel" data-d="c-tel" maxlength="30" placeholder="06 12 34 56 78" value="${attr(contact.tel || '')}"></label>
+                <label class="com-champ"><span>E-mail</span><input type="email" data-d="c-email" maxlength="120" placeholder="contact@studio.fr" value="${attr(contact.email || '')}"></label>
+                <label class="com-champ"><span>Site</span><input type="url" data-d="lien" maxlength="300" placeholder="https://…" value="${attr(s.lien || '')}"></label>
+              </div>
+            </section>
+
           </div>
 
-          <div class="com-studio-col">
-            <div class="com-champ"><span>Photos <i>(visibles quand on ouvre le studio, 8 au plus)</i></span>
-              <div class="com-studio-photos-edition" data-d="photos-zone"></div></div>
+          <div class="st-form-col">
 
-            <div class="com-champ"><span>Tarifs <i>(une ligne par formule : séance de 2 h minimum, avec ou sans ingénieur du son…)</i></span>
-              <div data-d="tarifs-zone" class="com-studio-tarifs-edition"></div>
-              <button type="button" class="com-btn com-btn-fantome com-btn-petit" data-d="tarif-ajout">+ Ajouter un tarif</button></div>
+            <section class="st-sec">
+              <h4>Photos <i>8 au plus, visibles dans la fiche</i></h4>
+              <div class="st-photos-edition" data-d="photos-zone"></div>
+            </section>
 
-            <div class="com-champ"><span>Promotion <i>(le studio passe en haut de la liste pendant la promotion)</i></span>
+            <section class="st-sec">
+              <h4>Tarifs</h4>
+              <p class="st-aide">Une ligne par formule : séance de 2 h minimum, avec ou sans ingénieur du son…</p>
+              <div data-d="tarifs-zone" class="st-tarifs-edition"></div>
+              <button type="button" class="com-btn com-btn-fantome com-btn-petit st-ajout" data-d="tarif-ajout">${icone('plus', 14)}<span>Ajouter un tarif</span></button>
+            </section>
+
+            <section class="st-sec">
+              <h4>Promotion <i>le studio passe en tête de liste</i></h4>
               <div class="com-grille-champs">
-                <label class="com-champ"><span>Remise en %</span><input type="number" data-d="promo-pct" min="1" max="90" inputmode="numeric" value="${attr(promo.pct || '')}"></label>
+                <label class="com-champ"><span>Remise en %</span><input type="number" data-d="promo-pct" min="1" max="90" inputmode="numeric" placeholder="20" value="${attr(promo.pct || '')}"></label>
                 <label class="com-champ"><span>Intitulé <i>(facultatif)</i></span><input type="text" data-d="promo-texte" maxlength="80" placeholder="Offre de rentrée" value="${attr(promo.texte || '')}"></label>
                 <label class="com-champ"><span>Début <i>(facultatif)</i></span><input type="date" data-d="promo-debut" value="${attr(dateChamp(promo.debut))}"></label>
                 <label class="com-champ"><span>Fin</span><input type="date" data-d="promo-fin" value="${attr(dateChamp(promo.fin))}"></label>
               </div>
-              <small>Laisse la remise vide pour ne pas avoir de promotion.</small></div>
+              <p class="st-aide">Laisse la remise vide pour ne pas avoir de promotion.</p>
+            </section>
 
-            ${s.equipe && !creation ? `<label class="com-champ"><span>Gérant du studio <i>(équipe : pseudo du membre qui peut modifier cette page)</i></span>
-              <input type="text" data-d="gerant" maxlength="40" placeholder="pseudo" value="${attr(s.gerant || '')}"></label>` : ''}
+            <section class="st-sec">
+              <h4>Ils y ont enregistré <i>artistes de La Wave, 12 au plus</i></h4>
+              <div class="st-artistes-edition" data-d="artistes-zone"></div>
+              <div class="st-artiste-recherche">
+                <input type="search" data-d="artiste-q" placeholder="Chercher un artiste du site…" autocomplete="off" aria-label="Chercher un artiste">
+                <div class="st-artiste-resultats" data-d="artiste-res" hidden></div>
+              </div>
+            </section>
+
+            ${s.equipe && !creation ? `
+            <section class="st-sec">
+              <h4>Gérant <i>équipe</i></h4>
+              <label class="com-champ"><span>Pseudo du membre qui peut modifier cette page</span><input type="text" data-d="gerant" maxlength="40" placeholder="pseudo" value="${attr(s.gerant || '')}"></label>
+            </section>` : ''}
+
           </div>
 
         </div>
@@ -5454,32 +6248,41 @@ VUES.studios = {
 
         const dessinerLogo = () => {
           $('[data-d="logo-zone"]', boite).innerHTML = `
-            ${etat.logo ? `<img class="com-studio-logo grand" src="${attr(etat.logo)}" alt="">` : '<span class="com-studio-logo grand com-studio-logo-vide">?</span>'}
-            <label class="com-btn com-btn-fantome com-btn-petit">Choisir un logo<input type="file" accept="image/jpeg,image/png,image/webp" data-d="logo-fichier" hidden></label>
-            ${etat.logo ? '<button type="button" class="com-btn com-btn-fantome com-btn-petit" data-d="logo-retirer">Retirer</button>' : ''}`;
+            ${etat.logo ? `<img class="st-logo grand" src="${attr(etat.logo)}" alt="">` : '<span class="st-logo grand st-logo-vide">?</span>'}
+            <div class="st-logo-actions">
+              <label class="com-btn com-btn-fantome com-btn-petit">${icone('image', 14)}<span>${etat.logo ? 'Changer le logo' : 'Ajouter un logo'}</span><input type="file" accept="image/jpeg,image/png,image/webp" data-d="logo-fichier" hidden></label>
+              ${etat.logo ? '<button type="button" class="st-lien" data-d="logo-retirer">Retirer</button>' : ''}
+              <small>Visible sur l'encadré du studio</small>
+            </div>`;
         };
 
         const dessinerPhotos = () => {
           $('[data-d="photos-zone"]', boite).innerHTML = `
-            ${etat.photos.map((u, i) => `<span class="com-studio-photo-edit"><img src="${attr(u)}" alt=""><button type="button" data-retirer="${i}" aria-label="Retirer cette photo">×</button></span>`).join('')}
-            ${etat.photos.length < 8 ? `<label class="com-studio-photo-ajout">+ Ajouter<input type="file" accept="image/jpeg,image/png,image/webp" multiple data-d="photos-fichiers" hidden></label>` : ''}`;
+            ${etat.photos.map((u, i) => `<span class="st-photo-edit"><img src="${attr(u)}" alt=""><button type="button" data-retirer="${i}" aria-label="Retirer cette photo">${icone('croix', 12)}</button></span>`).join('')}
+            ${etat.photos.length < 8 ? `<label class="st-photo-ajout">${icone('plus', 18)}<span>Ajouter</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple data-d="photos-fichiers" hidden></label>` : ''}`;
         };
 
         const dessinerTarifs = () => {
           $('[data-d="tarifs-zone"]', boite).innerHTML = etat.tarifs.map((t, i) => `
-            <div class="com-studio-tarif-edit" data-i="${i}">
+            <div class="st-tarif-edit" data-i="${i}">
               <input type="text" data-t="libelle" maxlength="60" placeholder="Intitulé (ex. Session avec ingé son)" value="${attr(t.libelle)}">
+              <button type="button" class="com-icone-btn" data-retirer-tarif="${i}" aria-label="Retirer ce tarif">${icone('croix', 15)}</button>
               <input type="number" data-t="prix" min="0" max="5000" inputmode="numeric" placeholder="Prix €" value="${attr(t.prix)}">
-              <select data-t="duree_h" aria-label="Durée de la séance">${[1, 2, 3, 4, 5, 6, 8, 10, 12].map(h => `<option value="${h}"${Number(t.duree_h) === h ? ' selected' : ''}>${h} h${h === 1 ? '' : ' minimum'}</option>`).join('')}</select>
+              <select data-t="duree_h" aria-label="Durée de la séance">${[1, 2, 3, 4, 5, 6, 8, 10, 12].map(h => `<option value="${h}"${Number(t.duree_h) === h ? ' selected' : ''}>${h} h${h === 1 ? '' : ' min.'}</option>`).join('')}</select>
               <select data-t="ingenieur" aria-label="Ingénieur du son"><option value="1"${t.ingenieur ? ' selected' : ''}>Avec ingé son</option><option value="0"${!t.ingenieur ? ' selected' : ''}>Sans ingé son</option></select>
-              <button type="button" class="com-icone-btn" data-retirer-tarif="${i}" aria-label="Retirer ce tarif">${icone('croix', 16)}</button>
               <input type="text" data-t="note" maxlength="120" placeholder="Précision (facultatif)" value="${attr(t.note)}">
             </div>`).join('');
         };
 
-        dessinerLogo(); dessinerPhotos(); dessinerTarifs();
+        const dessinerArtistes = () => {
+          $('[data-d="artistes-zone"]', boite).innerHTML = etat.artistes.length
+            ? etat.artistes.map((a, i) => `<span class="st-artiste-chip">${avatarHtml({ pseudo: a.nom, avatar_url: a.photo }, 's')}<span>${esc(a.nom)}</span><button type="button" data-retirer-artiste="${i}" aria-label="Retirer ${attr(a.nom)}">${icone('croix', 12)}</button></span>`).join('')
+            : "<span class=\"st-aide\">Aucun artiste lié pour l'instant.</span>";
+        };
 
-        const lireTarifs = () => $$('.com-studio-tarif-edit', boite).forEach((ligne) => {
+        dessinerLogo(); dessinerPhotos(); dessinerTarifs(); dessinerArtistes();
+
+        const lireTarifs = () => $$('.st-tarif-edit', boite).forEach((ligne) => {
           const t = etat.tarifs[Number(ligne.dataset.i)];
           if(!t) return;
           t.libelle = $('[data-t="libelle"]', ligne).value;
@@ -5489,6 +6292,27 @@ VUES.studios = {
           t.note = $('[data-t="note"]', ligne).value;
         });
         boite._lireTarifs = lireTarifs;
+
+        // Recherche d'un artiste du site à lier.
+        const champArtiste = $('[data-d="artiste-q"]', boite);
+        const resArtiste = $('[data-d="artiste-res"]', boite);
+        let minuteur = null;
+
+        champArtiste.addEventListener('input', () => {
+          clearTimeout(minuteur);
+          const q = champArtiste.value.trim().replace(/[%,()*\\]/g, ' ');
+          if(q.length < 2){ resArtiste.hidden = true; return; }
+          minuteur = setTimeout(async () => {
+            const { data } = await supabaseClient.from('artists').select('instagram_handle, display_name, photo_url')
+              .or('display_name.ilike.%' + q + '%,instagram_handle.ilike.%' + q + '%').limit(6);
+            const deja = new Set(etat.artistes.map(a => a.handle));
+            const liste = (data || []).filter(a => !deja.has(a.instagram_handle));
+            resArtiste.hidden = false;
+            resArtiste.innerHTML = liste.length
+              ? liste.map(a => `<button type="button" class="st-artiste-res" data-h="${attr(a.instagram_handle)}" data-n="${attr(a.display_name || a.instagram_handle)}" data-p="${attr(a.photo_url || '')}">${avatarHtml({ pseudo: a.display_name || a.instagram_handle, avatar_url: a.photo_url }, 's')}<span>${esc(a.display_name || a.instagram_handle)}</span></button>`).join('')
+              : '<span class="st-aide">Aucun artiste trouvé.</span>';
+          }, 240);
+        });
 
         boite.addEventListener('change', async (e) => {
 
@@ -5525,6 +6349,14 @@ VUES.studios = {
             etat.tarifs.push({ libelle: '', prix: '', duree_h: 1, ingenieur: true, note: '' });
             dessinerTarifs();
           }
+          if(b.dataset.retirerArtiste !== undefined){ etat.artistes.splice(Number(b.dataset.retirerArtiste), 1); dessinerArtistes(); }
+          if(b.matches('.st-artiste-res')){
+            if(etat.artistes.length >= 12){ message('Douze artistes au plus.'); return; }
+            etat.artistes.push({ handle: b.dataset.h, nom: b.dataset.n, photo: b.dataset.p || null });
+            champArtiste.value = '';
+            resArtiste.hidden = true;
+            dessinerArtistes();
+          }
         });
       },
       lire: (boite, valeur) => {
@@ -5536,7 +6368,8 @@ VUES.studios = {
 
         if(etat.envois > 0) return message('Une image est encore en cours d\'envoi : attends un instant.');
         if(lire('nom').length < 2 || lire('ville').length < 2) return message('Donne au moins le nom et la ville du studio.');
-        if(lire('lien') && !/^https:\/\//i.test(lire('lien'))) return message('Le lien doit commencer par https://');
+        if(lire('lien') && !/^https:\/\//i.test(lire('lien'))) return message('Le site doit commencer par https://');
+        if(lire('c-email') && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(lire('c-email'))) return message('Cette adresse e-mail n\'est pas valide.');
 
         if(boite._lireTarifs) boite._lireTarifs();
 
@@ -5552,6 +6385,8 @@ VUES.studios = {
             nom: lire('nom'), ville: lire('ville'), pays: lire('pays'), adresse: lire('adresse'), lien: lire('lien'), description: lire('description'),
             services: $$('input[name="com-service"]:checked', boite).map(i => i.value),
             logo_url: etat.logo || '', photos: etat.photos,
+            contact: { instagram: lire('c-instagram'), tel: lire('c-tel'), email: lire('c-email') },
+            artistes: etat.artistes.map(a => a.handle),
             tarifs: tarifs.map(t => ({ libelle: String(t.libelle).trim(), prix: Number(t.prix), duree_h: Number(t.duree_h), ingenieur: !!t.ingenieur, note: String(t.note || '').trim() })),
             promo: pct
               ? { pct: Number(pct), texte: lire('promo-texte'), debut: debut ? new Date(debut + 'T00:00:00').toISOString() : '', fin: new Date(fin + 'T23:59:59').toISOString() }
@@ -5587,14 +6422,13 @@ VUES.studios = {
         { detail: creation && !publie ? "L'équipe le regarde avant de le publier." : '', duree: creation ? 3500 : 2200 });
 
       const V2 = V && V.nom === 'studios' ? V : null;
-      if(V2){ VUES.studios.charger(V2); VUES.studios.chargerMes(V2); }
+      if(V2){ V2.positions = null; VUES.studios.charger(V2); VUES.studios.chargerMes(V2); }
 
     }catch(e){
       toastErreur(e);
     }
   }
 };
-
 
 // ---------------------------------------------------------------------
 // Annonces : qui cherche quoi
@@ -7173,6 +8007,8 @@ function notificationTexte(n){
   const sortie = d.sortie || {};
 
   switch(n.type){
+    case 'studio_demande':
+      return { fort: d.auteur ? '@' + d.auteur : 'Un membre', apres: ` te demande une réservation chez ${d.studio || 'ton studio'}` };
     case 'sortie_artiste':
       return { fort: d.artiste || 'Un artiste', apres: ` vient de sortir « ${d.titre || 'un nouveau projet'} »` };
     case 'sortie_a_ecouter':
@@ -7231,7 +8067,7 @@ function notificationHtml(n){
   const systeme = !n.acteur;
   const pochette = safeUrl(d.cover || (d.sortie && d.sortie.cover) || (d.a && d.a.cover) || '');
   const emoji = (d.evenement && d.evenement.emoji) || (d.chapitre ? '📖' : null)
-    || { resume_semaine: '📊', duel: '⚔️', saison: '🏆', cosmetique: '✨', decouvreur: '💎', rappel_accreditation: '📸' }[n.type] || '🔔';
+    || { resume_semaine: '📊', duel: '⚔️', saison: '🏆', cosmetique: '✨', decouvreur: '💎', rappel_accreditation: '📸', studio_demande: '🎙️' }[n.type] || '🔔';
   const avatar = systeme
     ? `<span class="com-notif-av"><span class="com-notif-sys">${pochette ? `<img src="${attr(pochette)}" alt="" loading="lazy">` : emoji}</span></span>`
     : `<span class="com-notif-av">${avatarHtml(a, 'm')}<span class="com-notif-type t-${attr(n.type)}">${icone(icones[n.type] || 'cloche', 12)}</span></span>`;
@@ -7434,6 +8270,12 @@ VUES.notifications = {
 
     if(n.type === 'suivi' && n.acteur && n.acteur.pseudo){
       aller('membre/' + encodeURIComponent(n.acteur.pseudo));
+      return;
+    }
+
+    // Une demande de réservation : elle se lit dans « Mes studios ».
+    if(n.type === 'studio_demande'){
+      aller('studios');
       return;
     }
 
@@ -9835,99 +10677,338 @@ const FEUILLE = String.raw`
 
 /* ---------- LES STUDIOS ---------- */
 .com-collabs-liens{display:inline-flex; gap:8px; flex-wrap:wrap;}
-.com-studios-tete{margin:4px 0 16px;}
-.com-studios-tete h2{margin:0 0 4px; font-size:24px; letter-spacing:-0.02em;}
-.com-studios-tete p{margin:0; color:var(--ink-soft); font-size:14.5px;}
-.com-studios-filtres{display:flex; flex-wrap:wrap; gap:10px; margin:0 0 16px;}
-.com-studios-filtres .com-recherche-champ{flex:1 1 260px;}
-.com-studios-filtres select{padding:10px 14px; border-radius:99px; border:1px solid var(--line); background:transparent; color:var(--ink-soft); font:inherit; font-size:14px;}
-.com-studios-filtres select option{background:#10141a; color:#F4F5F6;}
-.com-studios-liste{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px;}
-.com-studios-liste > .com-vide, .com-studios-liste > .com-erreur{grid-column:1 / -1;}
-.com-studio{display:flex; flex-direction:column; gap:7px; padding:16px 18px; text-align:left; border:1px solid var(--line); border-radius:18px; background:rgba(255,255,255,0.03); color:var(--ink); font:inherit; cursor:pointer; transition:background .2s, border-color .2s, transform .25s var(--ease);}
-.com-studio:hover{background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.25); transform:translateY(-2px);}
-.com-studio-haut{display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:17px;}
-.com-studio-attente{padding:2px 9px; border-radius:99px; font-size:11px; font-weight:600; background:rgba(255,170,60,0.2); color:#ffb454;}
-.com-studio-ville{display:flex; align-items:center; gap:6px; margin:0; font-size:13.5px; color:var(--ink-soft);}
-.com-studio-note{display:flex; align-items:center; gap:6px; margin:0; font-size:13px; color:var(--ink-soft);}
-.com-studio-note em{font-style:normal; font-weight:700; color:var(--ink);}
-.com-studio-note small{color:var(--muted);}
-.com-etoiles{display:inline-flex; gap:1px; color:rgba(255,255,255,0.18);}
-.com-etoiles i{display:inline-flex; font-style:normal;}
-.com-etoiles i.on{color:#ffb454;}
-.com-studio-desc{font-size:13.5px; line-height:1.45; color:var(--ink-soft); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
-.com-studio-pied{display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:0;}
-.com-studio-tarif{font-size:13px; font-weight:700; color:var(--blue-bright); margin-right:4px;}
-.com-studio-tarif s{color:var(--muted); font-weight:500;}
-.com-studio-haut{align-items:flex-start;}
-.com-studio-titre{display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;}
-.com-studio-logo{width:44px; height:44px; flex:none; border-radius:12px; object-fit:cover; background:rgba(255,255,255,0.06);}
-.com-studio-logo.petit{width:34px; height:34px; border-radius:9px;}
-.com-studio-logo.grand{width:64px; height:64px; border-radius:16px;}
-.com-studio-logo-vide{display:inline-flex; align-items:center; justify-content:center; font-weight:700; color:var(--ink-soft); border:1px solid var(--line);}
-.com-studio-promo{flex:none; padding:2px 9px; border-radius:99px; font-size:11.5px; font-weight:700; background:rgba(90,200,140,0.16); color:#6fd49a; border:1px solid rgba(111,212,154,0.4);}
-.com-studio-en-promo{border-color:rgba(111,212,154,0.3);}
-.com-studio-entete{display:flex; align-items:center; gap:14px;}
-.com-studio-entete p{margin:0;}
-.com-studio-bandeau-promo{margin:0; padding:9px 13px; border-radius:12px; font-size:13.5px; font-weight:600; background:rgba(90,200,140,0.12); color:#6fd49a; border:1px solid rgba(111,212,154,0.3);}
-.com-studio-photos{display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px;}
-.com-studio-photo{padding:0; border:0; border-radius:12px; overflow:hidden; aspect-ratio:4/3; cursor:zoom-in; background:rgba(255,255,255,0.05);}
-.com-studio-photo img{width:100%; height:100%; object-fit:cover; display:block;}
-.com-studio-tarifs h4{margin:4px 0 6px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
-.com-studio-un-tarif{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:12px 16px; margin-top:8px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,0.03);}
-.com-studio-un-tarif small{display:block; margin-top:2px; color:var(--muted); font-size:12.5px;}
-.com-studio-un-tarif strong{font-size:16px; color:var(--ink);}
-.com-studio-un-tarif s{color:var(--muted);}
-.com-services-puces{display:flex; flex-wrap:wrap; gap:8px;}
-.com-service-puce{position:relative; cursor:pointer;}
-.com-service-puce input{position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer;}
-.com-service-puce span{display:inline-flex; align-items:center; gap:8px; padding:9px 15px 9px 11px; border-radius:99px; border:1px solid var(--line); background:rgba(255,255,255,0.03); color:var(--ink-soft); font-size:13.5px; font-weight:500; transition:background .2s, border-color .2s, color .2s;}
-.com-service-puce span::before{content:''; width:16px; height:16px; flex:none; border-radius:50%; border:1.5px solid rgba(255,255,255,0.32); background-position:center; background-repeat:no-repeat; background-size:10px; transition:background-color .2s, border-color .2s;}
-.com-service-puce:hover span{background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.28);}
-.com-service-puce input:checked + span{border-color:var(--blue-bright); background:rgba(20,137,222,0.16); color:var(--ink);}
-.com-service-puce input:checked + span::before{border-color:var(--blue-bright); background-color:var(--blue-bright); background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 5.2l2 2 4-4.4' fill='none' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
-.com-service-puce input:focus-visible + span{outline:2px solid var(--blue-bright); outline-offset:2px;}
-.com-studios-mes{margin-bottom:18px; padding:18px 20px;}
-.com-studios-mes h3{margin:0 0 12px; font-size:15px;}
-.com-studios-mes h3 span{margin-left:6px; padding:1px 8px; border-radius:99px; background:rgba(255,255,255,0.08); color:var(--ink-soft); font-size:12px;}
-.com-studio-mien{display:flex; align-items:center; gap:14px; padding:12px 16px; margin-top:8px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,0.03);}
-.com-studio-mien > div{flex:1; min-width:0;}
-.com-studio-mien b{display:block; font-size:15px; color:var(--ink);}
-.com-studio-mien small{display:block; margin-top:3px; font-size:13px; color:var(--muted);}
-.com-dialogue.com-dialogue-large{width:min(1060px, 100%); max-height:min(92vh, 880px);}
-.com-dialogue-large .com-dialogue-corps{padding:6px 28px 10px;}
-.com-studio-form{display:grid; grid-template-columns:1fr 1fr; gap:22px 32px; align-items:start;}
-.com-studio-col{display:flex; flex-direction:column; gap:18px; min-width:0;}
-@media (max-width:860px){ .com-studio-form{grid-template-columns:1fr;} }
-.com-studio-logo-edition{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
-.com-studio-photos-edition{display:flex; flex-wrap:wrap; gap:8px;}
-.com-studio-photo-edit{position:relative; width:88px; height:66px; border-radius:10px; overflow:hidden;}
-.com-studio-photo-edit img{width:100%; height:100%; object-fit:cover;}
-.com-studio-photo-edit button{position:absolute; top:3px; right:3px; width:22px; height:22px; border:0; border-radius:99px; background:rgba(0,0,0,0.7); color:#fff; cursor:pointer; line-height:1;}
-.com-studio-photo-ajout{display:inline-flex; align-items:center; justify-content:center; width:88px; height:66px; border:1px dashed var(--line); border-radius:10px; font-size:13px; color:var(--ink-soft); cursor:pointer;}
-.com-studio-tarifs-edition{display:flex; flex-direction:column; gap:8px;}
-.com-studio-tarif-edit{display:grid; grid-template-columns:84px 1fr 1fr 34px; gap:8px; align-items:center; padding:12px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,0.02);}
-.com-studio-tarif-edit input[data-t="libelle"], .com-studio-tarif-edit input[data-t="note"]{grid-column:1 / -1;}
-.com-studio-tarif-edit .com-icone-btn{justify-self:end;}
-@media (max-width:520px){ .com-studio-tarif-edit{grid-template-columns:1fr 1fr;} .com-studio-tarif-edit .com-icone-btn{grid-column:1 / -1;} }
-.com-studio-avis h4, .com-studio-noter h4{margin:14px 0 6px; font-size:12px; font-weight:600; letter-spacing:.08em; text-transform:uppercase; color:var(--muted);}
-.com-studio-un-avis{padding:8px 0; border-top:1px solid var(--line); font-size:13.5px;}
-.com-studio-un-avis p{margin:4px 0 0; color:var(--ink-soft); line-height:1.45;}
-.com-studio-un-avis small{color:var(--muted);}
-.com-notes{display:flex; gap:6px; margin:0 0 8px; flex-wrap:wrap;}
-.com-notes label{cursor:pointer;}
-.com-notes input{position:absolute; opacity:0; pointer-events:none;}
-.com-notes span{display:inline-block; padding:7px 13px; border-radius:99px; border:1px solid var(--line); font-size:13.5px;}
-.com-notes input:checked + span{border-color:#ffb454; background:rgba(255,170,60,0.18); color:#ffb454;}
-.com-notes input:focus-visible + span{outline:2px solid var(--blue-bright); outline-offset:2px;}
-.com-studio-noter textarea{width:100%; box-sizing:border-box;}
-.com-studios-valider{padding:14px 18px; margin-bottom:16px; border-color:rgba(255,170,60,0.32);}
-.com-studios-valider h3{margin:0 0 8px; font-size:15px;}
-.com-studios-valider h3 span{margin-left:6px; padding:1px 8px; border-radius:99px; background:rgba(255,170,60,0.2); color:#ffb454; font-size:12px;}
-.com-studio-valider{display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:10px 0; border-top:1px solid var(--line); font-size:14px;}
-.com-studio-valider small{display:block; color:var(--muted);}
-.com-studio-valider p{margin:4px 0; color:var(--ink-soft);}
-.com-studio-valider-actions{display:flex; gap:6px; flex:none;}
+/* ---------- STUDIOS : L'ANNUAIRE ---------- */
+
+.st-page{display:flex; flex-direction:column; gap:18px; padding-bottom:48px;}
+.st-tete{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top:4px;}
+.st-tete h2{margin:0 0 4px; font-size:32px; letter-spacing:-.03em;}
+.st-tete p{margin:0; color:var(--ink-soft); font-size:14.5px;}
+.st-proposer{gap:8px;}
+
+/* Recherche, bascule liste / carte */
+.st-barre{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+.st-recherche{position:relative; display:flex; align-items:center; flex:1 1 280px;}
+.st-recherche > .com-ic{position:absolute; left:17px; color:var(--muted); pointer-events:none;}
+.st-recherche input{
+  width:100%; padding:13px 18px 13px 47px; border-radius:99px; border:1px solid var(--line-strong);
+  background:rgba(255,255,255,0.04); color:var(--ink); font:inherit; font-size:15px;
+  transition:border-color .25s var(--ease), background .25s var(--ease), box-shadow .25s var(--ease);
+}
+.st-recherche input::placeholder{color:var(--muted);}
+.st-recherche input:focus{outline:none; border-color:var(--blue-bright); background:rgba(255,255,255,0.07); box-shadow:0 0 0 4px rgba(79,180,255,0.16);}
+.st-recherche input::-webkit-search-cancel-button{filter:invert(.6);}
+
+.st-bascule{position:relative; display:inline-grid; grid-template-columns:1fr 1fr; padding:4px; border-radius:99px; background:rgba(255,255,255,0.05); border:1px solid var(--line);}
+.st-bascule button{
+  position:relative; z-index:1; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:9px 20px;
+  border:0; border-radius:99px; background:none; color:var(--ink-soft); font:inherit; font-size:14px; font-weight:600; cursor:pointer;
+  transition:color .3s var(--ease);
+}
+.st-bascule button.actif{color:#fff;}
+.st-bascule button:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+.st-bascule-fond{position:absolute; top:4px; bottom:4px; left:4px; width:calc(50% - 4px); border-radius:99px; background:var(--blue); box-shadow:var(--ombre-1); transition:transform .5s var(--ease);}
+.st-bascule[data-vue="carte"] .st-bascule-fond{transform:translateX(100%);}
+
+/* Puces de filtre */
+.st-filtres{
+  display:flex; align-items:center; gap:8px; overflow-x:auto; padding:2px 2px 8px; scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 30px), transparent 100%);
+  mask-image:linear-gradient(90deg, transparent 0, #000 10px, #000 calc(100% - 30px), transparent 100%);
+}
+.st-filtres::-webkit-scrollbar{display:none;}
+.st-filtre{
+  flex:none; display:inline-flex; align-items:center; gap:7px; padding:8px 15px; border-radius:99px; border:1px solid var(--line);
+  background:rgba(255,255,255,0.03); color:var(--ink-soft); font:inherit; font-size:13.5px; font-weight:500; white-space:nowrap; cursor:pointer;
+  transition:background .25s var(--ease), border-color .25s var(--ease), color .25s var(--ease), transform .2s var(--ease);
+}
+.st-filtre:hover{background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.22); color:var(--ink);}
+.st-filtre:active{transform:scale(.95);}
+.st-filtre.actif{background:rgba(79,180,255,0.15); border-color:rgba(79,180,255,0.55); color:#fff;}
+.st-filtre b{font-weight:600; color:var(--blue-bright);}
+.st-filtre:focus-visible{outline:2px solid var(--blue-bright); outline-offset:2px;}
+.st-filtre-menu .com-ic{opacity:.7; transition:transform .3s var(--ease);}
+.st-filtre-menu[aria-expanded="true"] .com-ic{transform:rotate(180deg);}
+.st-filtres-sep{flex:none; width:1px; height:20px; margin:0 4px; background:var(--line);}
+
+.st-ligne{display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:28px;}
+.st-compte{font-size:13.5px; color:var(--muted);}
+.st-ligne-actions{display:flex; align-items:center; gap:16px;}
+.st-lien{padding:0; border:0; background:none; color:var(--blue-bright); font:inherit; font-size:13.5px; cursor:pointer; transition:opacity .2s;}
+.st-lien:hover{opacity:.75;}
+.st-lien-centre{align-self:center; margin-top:4px;}
+.st-tri{display:inline-flex; align-items:center; gap:6px; padding:6px 2px; border:0; background:none; color:var(--ink-soft); font:inherit; font-size:13.5px; font-weight:500; cursor:pointer; transition:color .2s;}
+.st-tri:hover{color:var(--ink);}
+.st-tri-lib::before{content:'Trier : '; color:var(--muted); font-weight:400;}
+.st-tri .com-ic{transition:transform .3s var(--ease);}
+.st-tri[aria-expanded="true"] .com-ic{transform:rotate(180deg);}
+
+/* Liste */
+.st-contenu{position:relative;}
+.st-liste{display:grid; grid-template-columns:repeat(auto-fill, minmax(310px, 1fr)); gap:14px;}
+.st-liste > [hidden]{display:none !important;}
+.st-vide-zone{grid-column:1 / -1;}
+.st-pane-entree{animation:stPane .5s var(--ease) both;}
+@keyframes stPane{from{opacity:0; transform:translateY(12px);} to{opacity:1; transform:none;}}
+
+.st-card{
+  position:relative; display:flex; flex-direction:column; gap:12px; padding:18px; text-align:left; color:var(--ink); font:inherit; cursor:pointer;
+  border-radius:22px; border:1px solid var(--com-bord); box-shadow:var(--reflet-int);
+  background:linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.025));
+  transition:transform .4s var(--ease), border-color .3s var(--ease), background .3s var(--ease), box-shadow .4s var(--ease);
+}
+.st-card:hover{transform:translateY(-4px); border-color:rgba(255,255,255,0.24); background:linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.035)); box-shadow:0 22px 44px -22px rgba(0,0,0,0.75), var(--reflet-int);}
+.st-card:active{transform:translateY(-1px) scale(.992);}
+.st-card:focus-visible{outline:2px solid var(--blue-bright); outline-offset:3px;}
+.st-card.en-promo{border-color:rgba(62,207,142,0.34);}
+.st-card.en-promo::before{content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none; background:radial-gradient(120% 80% at 100% 0%, rgba(62,207,142,0.13), transparent 62%);}
+.st-card.entree{animation:stEntree .6s var(--ease) both; animation-delay:calc(var(--i, 0) * 45ms);}
+@keyframes stEntree{from{opacity:0; transform:translateY(18px) scale(.985);} to{opacity:1; transform:none;}}
+
+.st-card-tete{display:flex; align-items:center; gap:13px;}
+.st-card-titre{display:flex; flex-direction:column; gap:3px; flex:1; min-width:0;}
+.st-card-titre b{font-size:17px; font-weight:600; letter-spacing:-.01em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.st-ville{display:inline-flex; align-items:center; gap:5px; font-size:13px; color:var(--ink-soft);}
+.st-ville .com-ic{color:var(--muted);}
+
+.st-logo{width:48px; height:48px; flex:none; border-radius:14px; object-fit:cover; background:rgba(255,255,255,0.06); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1); transition:transform .45s var(--ease);}
+.st-card:hover .st-logo{transform:scale(1.07) rotate(-2deg);}
+.st-logo.petit{width:40px; height:40px; border-radius:12px;}
+.st-logo.moyen{width:56px; height:56px; border-radius:16px;}
+.st-logo.grand{width:72px; height:72px; border-radius:20px;}
+.st-logo.immense{width:104px; height:104px; border-radius:30px; font-size:42px;}
+.st-logo-vide{display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:20px; color:#fff; background:linear-gradient(145deg, #2074bb, #143a63);}
+
+.st-badge-promo{flex:none; align-self:flex-start; padding:4px 10px; border-radius:99px; font-size:12px; font-weight:700; color:#6fe0ae; background:rgba(62,207,142,0.14); border:1px solid rgba(62,207,142,0.42);}
+.st-desc{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:14px; line-height:1.5; color:var(--ink-soft); font-weight:300;}
+.st-attente, .st-attente-inline{align-self:flex-start; padding:3px 10px; border-radius:99px; font-size:11.5px; font-weight:600; color:#ffb454; background:rgba(255,170,60,0.16); font-style:normal;}
+.st-attente-inline{padding:0; background:none;}
+.st-card-pied{display:flex; flex-direction:column; gap:14px; margin-top:auto;}
+.st-card-bas{display:flex; align-items:center; justify-content:space-between; gap:12px;}
+.st-fleche{display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; color:var(--ink-soft); background:rgba(255,255,255,0.06); transition:background .3s var(--ease), color .3s var(--ease), transform .35s var(--ease);}
+.st-card:hover .st-fleche{background:var(--blue); color:#fff; transform:translateX(3px);}
+.st-prix{display:inline-flex; align-items:baseline; gap:5px; color:var(--ink-soft);}
+.st-prix b{font-size:23px; font-weight:700; letter-spacing:-.02em; color:var(--ink);}
+.st-prix small{font-size:12.5px; color:var(--muted);}
+.st-prix s{font-size:14px; color:var(--muted);}
+.st-card.en-promo .st-prix b, .st-fiche-ligne .st-prix b{color:#6fe0ae;}
+.st-prix-vide{font-size:13px; color:var(--muted);}
+.st-services{display:flex; flex-wrap:wrap; gap:6px;}
+.st-services.plein{justify-content:flex-start;}
+.st-puce{display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:99px; font-size:12px; font-weight:500; color:var(--ink-soft); background:rgba(255,255,255,0.06);}
+.st-puce-plus{color:var(--muted);}
+.st-promo-ligne{display:flex; align-items:center; gap:6px; padding-top:12px; border-top:1px solid rgba(62,207,142,0.22); font-size:12.5px; font-weight:600; color:#6fe0ae;}
+
+.st-squelette{pointer-events:none;}
+.st-sq{display:block; border-radius:8px; background:linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.11), rgba(255,255,255,0.05)); background-size:200% 100%; animation:stBrille 1.4s linear infinite;}
+.st-sq-l{height:14px; width:72%;}
+.st-sq-m{height:12px; width:46%;}
+.st-logo.st-sq{border-radius:14px;}
+@keyframes stBrille{to{background-position:-200% 0;}}
+
+/* Menus flottants */
+.st-pop{
+  position:fixed; z-index:2600; min-width:220px; max-width:min(330px, calc(100vw - 24px)); padding:8px; color-scheme:dark;
+  border-radius:18px; background:rgba(15,20,29,0.97); border:1px solid var(--line-strong); box-shadow:0 26px 64px -14px rgba(0,0,0,0.85);
+  -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
+  opacity:0; transform:translateY(-6px) scale(.97); transform-origin:top left;
+  transition:opacity .2s var(--ease), transform .3s var(--ease);
+}
+.st-pop.ouvert{opacity:1; transform:none;}
+.st-pop-liste{display:flex; flex-direction:column; gap:2px;}
+.st-pop-defile{max-height:300px; overflow-y:auto;}
+.st-pop-item{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:10px 12px; border:0; border-radius:12px; background:none; color:var(--ink-soft); font:inherit; font-size:14px; text-align:left; cursor:pointer; transition:background .2s, color .2s;}
+.st-pop-item:hover{background:rgba(255,255,255,0.07); color:var(--ink);}
+.st-pop-item.actif{color:#fff;}
+.st-pop-item .com-ic{color:var(--blue-bright);}
+.st-pop-budget{width:268px; padding:10px 12px 8px;}
+.st-pop-titre{font-size:12px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--muted);}
+.st-budget-valeur{margin:10px 0 16px; font-size:14.5px; color:var(--ink-soft);}
+.st-budget-valeur b{font-size:24px; font-weight:700; color:var(--ink);}
+.st-range{-webkit-appearance:none; appearance:none; width:100%; height:6px; margin:0; border-radius:99px; outline:none; cursor:pointer; background:linear-gradient(90deg, var(--blue-bright) var(--p, 100%), rgba(255,255,255,0.14) var(--p, 100%));}
+.st-range::-webkit-slider-thumb{-webkit-appearance:none; appearance:none; width:22px; height:22px; border:0; border-radius:50%; background:var(--blue-bright); box-shadow:0 2px 10px rgba(0,0,0,0.5), 0 0 0 5px rgba(79,180,255,0.22); transition:transform .2s var(--ease), box-shadow .2s;}
+.st-range::-webkit-slider-thumb:hover{transform:scale(1.12); box-shadow:0 2px 10px rgba(0,0,0,0.5), 0 0 0 7px rgba(79,180,255,0.28);}
+.st-range::-moz-range-thumb{width:22px; height:22px; border:0; border-radius:50%; background:var(--blue-bright); box-shadow:0 2px 10px rgba(0,0,0,0.5), 0 0 0 5px rgba(79,180,255,0.22);}
+.st-range:focus-visible{outline:2px solid var(--blue-bright); outline-offset:6px;}
+.st-budget-bornes{display:flex; justify-content:space-between; margin-top:12px; font-size:12px; color:var(--muted);}
+
+/* Carte intégrée (Leaflet) */
+.st-carte{position:relative;}
+.st-carte-zone{height:min(66vh, 640px); min-height:380px; border-radius:24px; overflow:hidden; border:1px solid var(--com-bord); background:#0b0f15;}
+.st-carte .leaflet-container{font:inherit; background:#0b0f15; color-scheme:dark;}
+.st-carte .leaflet-control-zoom{display:flex; flex-direction:column; gap:6px; border:0; box-shadow:none;}
+.st-carte .leaflet-control-zoom a{width:38px; height:38px; line-height:36px; border-radius:12px !important; border:1px solid var(--line-strong); background:rgba(15,20,29,0.92); color:var(--ink); transition:background .2s;}
+.st-carte .leaflet-control-zoom a:hover{background:rgba(35,44,60,0.95); color:#fff;}
+.st-carte .leaflet-control-attribution{background:rgba(10,13,18,0.72) !important; color:#838a92 !important; font-size:10px; border-radius:8px 0 0 0;}
+.st-carte .leaflet-control-attribution a{color:#a3acb6 !important;}
+.st-carte .leaflet-tile-pane{filter:invert(1) hue-rotate(205deg) brightness(.8) contrast(.9) saturate(.55);}
+.st-pin-bloc{background:none; border:0;}
+.st-pin{display:flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; overflow:hidden; font-size:17px; font-weight:700; color:#fff; background:linear-gradient(145deg, #2074bb, #143a63); border:2px solid rgba(255,255,255,0.85); box-shadow:0 6px 18px rgba(0,0,0,0.55); transition:transform .3s var(--ease), box-shadow .3s var(--ease);}
+.st-pin img{width:100%; height:100%; object-fit:cover; display:block;}
+.st-pin.promo{border-color:var(--com-vert); box-shadow:0 0 0 4px rgba(62,207,142,0.25), 0 6px 18px rgba(0,0,0,0.55);}
+.st-pin-bloc:hover .st-pin, .st-pin-bloc.actif .st-pin{transform:scale(1.18); box-shadow:0 0 0 5px rgba(79,180,255,0.35), 0 8px 22px rgba(0,0,0,0.6);}
+.st-carte-note{margin:12px 4px 0; font-size:13px; color:var(--muted);}
+.st-carte-fiche{
+  position:absolute; left:16px; bottom:16px; z-index:1100; display:flex; align-items:center; gap:14px; width:min(430px, calc(100% - 32px)); padding:16px 18px;
+  border-radius:20px; background:rgba(15,20,29,0.95); border:1px solid var(--line-strong); box-shadow:0 22px 56px -12px rgba(0,0,0,0.85);
+  -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); opacity:0; transform:translateY(18px);
+  transition:opacity .28s var(--ease), transform .45s var(--ease);
+}
+.st-carte-fiche.ouvert{opacity:1; transform:none;}
+.st-fiche-corps{display:flex; align-items:center; gap:13px; flex:1; min-width:0;}
+.st-fiche-texte{display:flex; flex-direction:column; gap:3px; min-width:0;}
+.st-fiche-texte b{font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.st-fiche-ligne{display:flex; align-items:center; gap:8px;}
+.st-fiche-voir{flex:none;}
+.st-fiche-x{position:absolute; top:6px; right:6px; display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border:0; border-radius:50%; background:none; color:var(--muted); cursor:pointer; transition:background .2s, color .2s;}
+.st-fiche-x:hover{background:rgba(255,255,255,0.1); color:var(--ink);}
+
+/* Mes studios, demandes, à valider */
+.st-mes, .st-valider{display:flex; flex-direction:column; gap:12px; padding:20px; border-radius:24px; border:1px solid var(--com-bord); background:var(--com-carte);}
+.st-valider{border-color:rgba(245,165,36,0.34);}
+.st-section-tete{display:flex; align-items:center; gap:10px;}
+.st-section-tete h3{font-size:16px; letter-spacing:-.01em;}
+.st-section-demandes{margin-top:10px;}
+.st-compteur{padding:2px 10px; border-radius:99px; font-size:12px; font-weight:600; color:var(--ink-soft); background:rgba(255,255,255,0.09);}
+.st-compteur-orange{color:#ffb454; background:rgba(245,165,36,0.18);}
+.st-mes-liste, .st-demandes{display:flex; flex-direction:column; gap:10px;}
+.st-mien{display:flex; align-items:center; gap:14px; padding:13px 15px; border-radius:16px; background:rgba(255,255,255,0.04); border:1px solid var(--line);}
+.st-mien-texte{display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;}
+.st-mien-texte b{font-size:15px;}
+.st-mien-texte span{font-size:13px; color:var(--muted);}
+.st-pastille{flex:none; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:600; color:var(--blue-bright); background:rgba(79,180,255,0.18);}
+.st-demande{display:flex; gap:13px; padding:15px; border-radius:16px; background:rgba(255,255,255,0.035); border:1px solid var(--line); transition:border-color .3s, background .3s;}
+.st-demande.nouvelle{border-color:rgba(79,180,255,0.45); background:rgba(79,180,255,0.06);}
+.st-demande-corps{display:flex; flex-direction:column; gap:8px; flex:1; min-width:0;}
+.st-demande-haut{display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 8px; font-size:14px;}
+.st-demande-haut span, .st-demande-haut time{font-size:13px; color:var(--muted);}
+.st-demande-meta{display:flex; flex-wrap:wrap; gap:6px;}
+.st-demande-corps p{margin:0; font-size:14px; line-height:1.5; color:var(--ink-soft); white-space:pre-line;}
+.st-demande-actions{display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+.st-fait{font-size:13px; font-weight:600; color:var(--com-vert);}
+.st-valider-ligne{display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:15px; border-radius:16px; background:rgba(255,255,255,0.035); border:1px solid var(--line);}
+.st-valider-texte{display:flex; flex-direction:column; gap:4px; min-width:0; font-size:14px;}
+.st-valider-texte small{color:var(--muted);}
+.st-valider-texte p{margin:2px 0 0; color:var(--ink-soft); line-height:1.5;}
+.st-valider-texte a{color:var(--blue-bright); font-size:13px; word-break:break-all;}
+.st-valider-actions{display:flex; flex-wrap:wrap; gap:8px; flex:none;}
+
+/* Fenêtres : fiche, modification, demande */
+.com-dialogue.com-dialogue-large{width:min(1080px, 100%); max-height:min(92vh, 900px);}
+.com-dialogue-large .com-dialogue-corps{padding:6px 28px 26px;}
+.com-dialogue-sans-pied .com-dialogue-pied{display:none;}
+.st-dialogue-fiche, .st-dialogue-form, .st-dialogue-demande{color-scheme:dark;}
+.com-dialogue.st-dialogue-fiche{width:min(1000px, 100%);}
+.st-fiche{display:grid; grid-template-columns:minmax(0, 1.05fr) minmax(0, 1fr); gap:30px; align-items:start;}
+.st-fiche-media{position:sticky; top:0; display:flex; flex-direction:column; gap:10px;}
+.st-hero{position:relative; display:block; width:100%; aspect-ratio:4 / 3; padding:0; border:0; border-radius:22px; overflow:hidden; background:#0d1219; cursor:zoom-in;}
+.st-hero img{display:block; width:100%; height:100%; object-fit:cover; transition:opacity .16s ease, transform .7s var(--ease);}
+.st-hero:hover img{transform:scale(1.04);}
+.st-hero img.change{opacity:0;}
+.st-hero-vide{display:flex; align-items:center; justify-content:center; cursor:default; background:radial-gradient(120% 100% at 30% 0%, #1b3a5c, #0d1219);}
+.st-hero-promo{position:absolute; top:14px; left:14px; display:inline-flex; align-items:center; gap:6px; padding:6px 13px; border-radius:99px; font-size:13px; font-weight:700; color:#6fe0ae; background:rgba(8,14,11,0.78); border:1px solid rgba(62,207,142,0.5); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);}
+.st-miniatures{display:flex; gap:8px; overflow-x:auto; padding:2px 2px 4px; scrollbar-width:none;}
+.st-miniatures::-webkit-scrollbar{display:none;}
+.st-mini{flex:none; width:68px; height:50px; padding:0; border:2px solid transparent; border-radius:12px; overflow:hidden; opacity:.55; cursor:pointer; background:#0d1219; transition:opacity .25s, border-color .25s, transform .25s var(--ease);}
+.st-mini img{width:100%; height:100%; object-fit:cover; display:block;}
+.st-mini:hover{opacity:.9; transform:translateY(-2px);}
+.st-mini.actif{opacity:1; border-color:var(--blue-bright);}
+.st-fiche-infos{display:flex; flex-direction:column; gap:22px; min-width:0;}
+.st-fiche-entete{display:flex; align-items:center; gap:14px;}
+.st-fiche-entete > div{display:flex; flex-direction:column; gap:6px; align-items:flex-start;}
+.st-bandeau-promo{display:flex; align-items:center; gap:12px; padding:13px 16px; border-radius:16px; color:#6fe0ae; background:rgba(62,207,142,0.1); border:1px solid rgba(62,207,142,0.3);}
+.st-bandeau-promo div{display:flex; flex-direction:column; gap:2px;}
+.st-bandeau-promo b{font-size:14.5px;}
+.st-bandeau-promo span{font-size:12.5px; color:rgba(111,224,174,0.82);}
+.st-bloc{padding:0;}
+.st-bloc h4{margin:0 0 10px; font-size:12px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--muted);}
+.st-tarifs{display:flex; flex-direction:column; gap:8px;}
+.st-tarif{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px 16px; border-radius:16px; background:rgba(255,255,255,0.04); border:1px solid var(--line); transition:border-color .25s, background .25s;}
+.st-tarif:hover{border-color:rgba(255,255,255,0.22); background:rgba(255,255,255,0.06);}
+.st-tarif b{font-size:15px; font-weight:600;}
+.st-tarif small{display:block; margin-top:3px; font-size:12.5px; color:var(--muted);}
+.st-tarif-prix{display:inline-flex; align-items:baseline; gap:8px; flex:none;}
+.st-tarif-prix b{font-size:21px; font-weight:700; letter-spacing:-.02em;}
+.st-tarif-prix s{font-size:14px; color:var(--muted);}
+.st-texte{margin:0; font-size:14.5px; line-height:1.65; color:var(--ink-soft); font-weight:300; white-space:pre-line;}
+.st-contacts{display:flex; flex-wrap:wrap; gap:8px;}
+.st-contact{display:inline-flex; align-items:center; gap:8px; padding:9px 16px; border-radius:99px; border:1px solid var(--line-strong); background:rgba(255,255,255,0.05); color:var(--ink); font-size:13.5px; font-weight:500; text-decoration:none; transition:background .25s, border-color .25s, transform .25s var(--ease);}
+.st-contact:hover{background:rgba(255,255,255,0.11); border-color:rgba(255,255,255,0.32); transform:translateY(-2px);}
+.st-artistes{display:flex; flex-wrap:wrap; gap:8px;}
+.st-artiste{display:inline-flex; align-items:center; gap:9px; padding:5px 15px 5px 5px; border-radius:99px; border:1px solid var(--line); background:rgba(255,255,255,0.04); color:var(--ink); font:inherit; font-size:13.5px; cursor:pointer; transition:background .25s, border-color .25s, transform .25s var(--ease);}
+.st-artiste:hover{background:rgba(255,255,255,0.1); border-color:rgba(255,255,255,0.3); transform:translateY(-2px);}
+.st-fiche-actions{display:flex; flex-wrap:wrap; gap:10px; padding-top:2px;}
+.st-cta{flex:1 1 230px; gap:9px;}
+
+/* Formulaire du studio */
+.st-form{display:grid; grid-template-columns:1fr 1fr; gap:20px 28px; align-items:start;}
+.st-form-col{display:flex; flex-direction:column; gap:18px; min-width:0;}
+.st-sec{display:flex; flex-direction:column; gap:13px; padding:18px; border-radius:20px; background:rgba(255,255,255,0.03); border:1px solid var(--line);}
+.st-sec h4{margin:0; font-size:14.5px; font-weight:600; color:var(--ink);}
+.st-sec h4 i{margin-left:7px; font-size:12.5px; font-style:normal; font-weight:300; color:var(--muted);}
+.st-aide{margin:0; font-size:12.5px; color:var(--muted);}
+.st-logo-edition{display:flex; align-items:center; gap:14px;}
+.st-logo-actions{display:flex; flex-direction:column; align-items:flex-start; gap:6px;}
+.st-logo-actions small{font-size:12px; color:var(--muted);}
+.st-photos-edition{display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:10px;}
+.st-photo-edit{position:relative; aspect-ratio:4 / 3; border-radius:14px; overflow:hidden; animation:stPane .4s var(--ease) both;}
+.st-photo-edit img{width:100%; height:100%; object-fit:cover; display:block;}
+.st-photo-edit button{position:absolute; top:5px; right:5px; display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border:0; border-radius:50%; background:rgba(0,0,0,0.72); color:#fff; cursor:pointer; transition:background .2s, transform .2s;}
+.st-photo-edit button:hover{background:var(--danger); transform:scale(1.1);}
+.st-photo-ajout{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; aspect-ratio:4 / 3; border-radius:14px; border:1.5px dashed rgba(255,255,255,0.22); color:var(--ink-soft); font-size:12.5px; cursor:pointer; transition:border-color .25s, color .25s, background .25s;}
+.st-photo-ajout:hover{border-color:var(--blue-bright); color:var(--ink); background:rgba(79,180,255,0.07);}
+.st-tarifs-edition{display:flex; flex-direction:column; gap:10px;}
+.st-tarif-edit{display:grid; grid-template-columns:90px 1fr 1fr; gap:8px; padding:12px; border-radius:16px; background:rgba(255,255,255,0.03); border:1px solid var(--line); animation:stPane .35s var(--ease) both;}
+.st-tarif-edit input[data-t="libelle"]{grid-column:1 / 3;}
+.st-tarif-edit input[data-t="note"]{grid-column:1 / -1;}
+.st-tarif-edit .com-icone-btn{justify-self:end; align-self:center; width:36px; height:36px;}
+.st-tarif-edit input, .st-tarif-edit select, .st-artiste-recherche input{
+  width:100%; padding:11px 13px; border-radius:13px; border:1px solid var(--line-strong); background:rgba(255,255,255,0.05); color:var(--ink); font:inherit; font-size:14.5px;
+  transition:border-color .25s, background .25s, box-shadow .25s;
+}
+.st-tarif-edit select{appearance:none; -webkit-appearance:none; cursor:pointer; padding-right:30px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23838A92' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center;}
+.st-tarif-edit select option{background:#10141b; color:var(--ink);}
+.st-tarif-edit input:focus, .st-tarif-edit select:focus, .st-artiste-recherche input:focus{outline:none; border-color:var(--blue-bright); background:rgba(255,255,255,0.08); box-shadow:0 0 0 3px rgba(79,180,255,0.18);}
+.st-ajout{align-self:flex-start; gap:7px;}
+.st-artistes-edition{display:flex; flex-wrap:wrap; gap:8px;}
+.st-artiste-chip{display:inline-flex; align-items:center; gap:8px; padding:4px 6px 4px 4px; border-radius:99px; font-size:13px; background:rgba(255,255,255,0.06); border:1px solid var(--line); animation:stPane .3s var(--ease) both;}
+.st-artiste-chip button{display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border:0; border-radius:50%; background:none; color:var(--muted); cursor:pointer; transition:background .2s, color .2s;}
+.st-artiste-chip button:hover{background:rgba(255,255,255,0.12); color:var(--ink);}
+.st-artiste-recherche{position:relative;}
+.st-artiste-resultats{display:flex; flex-direction:column; gap:2px; margin-top:8px; padding:6px; border-radius:14px; background:rgba(255,255,255,0.04); border:1px solid var(--line); animation:stPane .25s var(--ease) both;}
+.st-artiste-res{display:flex; align-items:center; gap:10px; padding:8px 10px; border:0; border-radius:10px; background:none; color:var(--ink); font:inherit; font-size:14px; text-align:left; cursor:pointer; transition:background .2s;}
+.st-artiste-res:hover{background:rgba(255,255,255,0.09);}
+.st-dialogue-form input[type="date"], .st-dialogue-demande input[type="date"]{color-scheme:dark;}
+
+/* Choix en puces : services, besoin d'une demande */
+.st-choix{display:flex; flex-wrap:wrap; gap:8px;}
+.st-choix-puce{position:relative; cursor:pointer;}
+.st-choix-puce input{position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0; cursor:pointer;}
+.st-choix-puce span{display:inline-flex; align-items:center; gap:8px; padding:9px 15px 9px 11px; border-radius:99px; border:1px solid var(--line); background:rgba(255,255,255,0.03); color:var(--ink-soft); font-size:13.5px; font-weight:500; transition:background .25s, border-color .25s, color .25s, transform .2s var(--ease);}
+.st-choix-puce span::before{content:''; width:16px; height:16px; flex:none; border-radius:50%; border:1.5px solid rgba(255,255,255,0.32); background-position:center; background-repeat:no-repeat; background-size:10px; transition:background-color .25s, border-color .25s;}
+.st-choix-puce:hover span{background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.28);}
+.st-choix-puce:active span{transform:scale(.96);}
+.st-choix-puce input:checked + span{border-color:var(--blue-bright); background:rgba(79,180,255,0.16); color:var(--ink);}
+.st-choix-puce input:checked + span::before{border-color:var(--blue-bright); background-color:var(--blue-bright); background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 5.2l2 2 4-4.4' fill='none' stroke='white' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");}
+.st-choix-puce input:focus-visible + span{outline:2px solid var(--blue-bright); outline-offset:2px;}
+
+@media (max-width:860px){
+  .st-form{grid-template-columns:1fr;}
+  .st-fiche{grid-template-columns:1fr; gap:20px;}
+  .st-fiche-media{position:static;}
+  .com-dialogue-large .com-dialogue-corps{padding:6px 18px 22px;}
+}
+@media (max-width:640px){
+  .st-tete h2{font-size:26px;}
+  .st-proposer{width:100%;}
+  .st-liste{grid-template-columns:1fr;}
+  .st-valider-ligne, .st-mien{flex-wrap:wrap;}
+  .st-valider-actions{width:100%;}
+  .st-carte-fiche{flex-wrap:wrap;}
+  .st-fiche-voir{width:100%;}
+}
+@media (prefers-reduced-motion:reduce){
+  .st-card, .st-card.entree, .st-pane-entree, .st-pop, .st-carte-fiche, .st-bascule-fond, .st-hero img, .st-sq, .st-photo-edit, .st-tarif-edit, .st-artiste-chip, .st-artiste-resultats, .st-logo, .st-contact, .st-artiste, .st-mini{animation:none !important; transition:none !important;}
+}
 .com-services{display:flex; flex-wrap:wrap; gap:6px;}
 
 .com-ruban{margin:0 0 18px;}
