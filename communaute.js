@@ -5349,7 +5349,10 @@ VUES.studios = {
     VUES.studios.ouvrirParAdresse(V, route);
   },
 
-  pause(V){ fermerPop(); },
+  pause(V){
+    fermerPop();
+    if(window.CarteSite) window.CarteSite.demonter();
+  },
 
   // #community/studios/<identifiant> : la fiche du studio s'ouvre (lien depuis la carte du site, ou partagé).
   surMemeCle(V, route){
@@ -5699,11 +5702,28 @@ VUES.studios = {
     entrant.classList.add('st-pane-entree');
 
     if(vue === 'carte') VUES.studios.dessinerCarte(V);
+    else if(window.CarteSite) window.CarteSite.demonter();
   },
 
   async dessinerCarte(V){
 
     const jeton = V.jetonCarte = (V.jetonCarte || 0) + 1;
+
+    // La carte du site (celle de la page « Carte », avec ses villes, son panneau et ses animations) est reprise telle quelle,
+    // en mode Studios. Si elle n'est pas disponible, l'ancienne carte (Leaflet) prend le relais.
+    if(window.CarteSite){
+
+      V.hotes.zone.classList.add('site');
+      V.hotes.note.hidden = true;
+      fermerPop();
+
+      const ok = await window.CarteSite.monter(V.hotes.zone, VUES.studios.filtres(V).map(s => s.id)).catch(() => false);
+
+      if(jeton !== V.jetonCarte || V.etat.vue !== 'carte') return;
+      if(ok) return;
+
+      V.hotes.zone.classList.remove('site');
+    }
 
     try{
 
@@ -10937,6 +10957,10 @@ const FEUILLE = String.raw`
 
 /* Carte intégrée (Leaflet) */
 .st-carte{position:relative;}
+/* La carte du site, ici : la recherche de l'annuaire (en haut) suffit, et les nombres des pays comptent des artistes. */
+.st-carte-zone.site .carte-recherche, .st-carte-zone.site .carte-pays-compte{display:none;}
+.st-carte-zone.site .carte-barre{justify-content:flex-start;}
+.st-carte-zone.site{height:auto; min-height:0; overflow:visible; border:0; background:none; border-radius:0;}
 .st-carte-zone{height:min(66vh, 640px); min-height:380px; border-radius:24px; overflow:hidden; border:1px solid var(--com-bord); background:#0b0f15;}
 .st-carte .leaflet-container{font:inherit; background:#0b0f15; color-scheme:dark;}
 .st-carte .leaflet-control-zoom{display:flex; flex-direction:column; gap:6px; border:0; box-shadow:none;}
