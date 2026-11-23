@@ -1,15 +1,18 @@
 /* ======================================================================
    L'INTRODUCTION DE LA CARTE
    ----------------------------------------------------------------------
-   À l'ouverture de la carte des artistes : un globe en pointillés blancs,
-   plein écran, tourne vite sur lui-même puis ralentit et se pose sur la
-   France, qui s'allume. Il s'ouvre ensuite sur la page, qui apparaît avec
-   tous ses détails.
+   À l'ouverture de la carte des artistes : un globe en pointillés blancs
+   émerge du noir, tourne vite puis ralentit longuement et se pose sur la
+   France, qui s'allume. La caméra plonge alors sur la France, puis passe
+   trois artistes tirés au hasard : chacun est localisé sur la carte
+   pendant qu'un extrait de l'un de ses morceaux joue 4 à 5 secondes.
+   Enfin le globe s'ouvre sur la page.
 
-   Anime.js (lib/animejs/) conduit le mouvement ; les terres viennent de
-   lib/globe/land-110m.json (Natural Earth, domaine public). Rien ne se joue
-   si la personne a demandé moins d'animation, ou si un élément manque : la
-   carte s'ouvre alors normalement. Un toucher ou une touche passe l'intro.
+   Anime.js (lib/animejs/) conduit les mouvements. Les terres viennent de
+   lib/globe/land-50m.json (Natural Earth, domaine public). Les artistes
+   sont choisis par introArtistes() (index.html). Rien ne se joue si la
+   personne a demandé moins d'animation, ou si un élément manque : la
+   carte s'ouvre alors normalement. Un toucher ou une touche passe tout.
    ====================================================================== */
 (function(){
 
@@ -20,15 +23,39 @@
 
   const { animate } = window.anime;
 
-  const TERRES = 'lib/globe/land-110m.json';
+  const TERRES = 'lib/globe/land-50m.json';
   const FRANCE = { lon: 2.6, lat: 46.4 };
-  const DUREE = 3800;
+  const RAD = Math.PI / 180;
 
-  let points = null;       // les points du globe : { lon, lat, fr } (radians)
+  // La fenêtre de la France : une grille fine y remplace les points du monde, pour que le zoom reste net.
+  const BOITE = { lon0: -6.5, lon1: 10.5, lat0: 40.5, lat1: 52 };
+  const PAS_FIN = 0.1;
+
+  // Un contour approximatif de la France (métropole et Corse) pour la teinter.
+  const CONTOURS_FRANCE = [
+    [[-4.8, 48.4], [-1.6, 48.7], [-1.3, 49.7], [0.2, 49.7], [1.6, 50.9], [2.6, 51.05], [3.3, 50.5], [4.2, 50], [4.85, 49.95], [5.5, 49.5], [6.35, 49.45],
+     [8.2, 48.97], [7.6, 48], [7.55, 47.6], [7, 47.45], [6.9, 47], [6, 46.3], [6.8, 45.9], [7.1, 45.3], [6.9, 44.4], [7.5, 43.8], [6, 43.1], [4, 43.4],
+     [3.2, 42.5], [1.7, 42.5], [0.7, 42.8], [-1.7, 43.35], [-1.2, 44.7], [-1.2, 46], [-2.3, 47], [-4.8, 47.8]],
+    [[8.5, 41.4], [9.6, 41.4], [9.5, 43], [8.6, 42.6]]
+  ];
+
+  let mondes = null;       // les points du monde (hors fenêtre de la France)
+  let fins = null;         // la grille fine de la fenêtre de la France
   let chargement = null;
   let enCours = false;
 
-  // Lit le fichier des terres (TopoJSON), les dessine sur un canvas et en tire une grille de points régulière.
+  function dansFrance(lon, lat){
+    return CONTOURS_FRANCE.some(poly => {
+      let dedans = false;
+      for(let i = 0, j = poly.length - 1; i < poly.length; j = i++){
+        const a = poly[i], b = poly[j];
+        if((a[1] > lat) !== (b[1] > lat) && lon < (b[0] - a[0]) * (lat - a[1]) / (b[1] - a[1]) + a[0]) dedans = !dedans;
+      }
+      return dedans;
+    });
+  }
+
+  // Lit le fichier des terres (TopoJSON) et en tire deux grilles de points : le monde, et la France en détail.
   function charger(){
 
     if(chargement) return chargement;
@@ -53,126 +80,224 @@
         return pts;
       };
 
-      const c = document.createElement('canvas');
-      c.width = 720; c.height = 360;
-      const g = c.getContext('2d', { willReadFrequently: true });
-      g.fillStyle = '#fff';
-
-      const polygone = (anneaux) => {
-        g.beginPath();
-        anneaux.forEach(ring => {
-          anneau(ring).forEach((p, i) => {
-            const x = (p[0] + 180) * 2, y = (90 - p[1]) * 2;
-            if(i) g.lineTo(x, y); else g.moveTo(x, y);
-          });
-          g.closePath();
-        });
-        g.fill('evenodd');
-      };
+      const polygones = [];
 
       Object.keys(topo.objects).forEach(nom => {
         const obj = topo.objects[nom];
         (obj.geometries || [obj]).forEach(geo => {
-          if(geo.type === 'Polygon') polygone(geo.arcs);
-          else if(geo.type === 'MultiPolygon') geo.arcs.forEach(polygone);
+          if(geo.type === 'Polygon') polygones.push(geo.arcs.map(anneau));
+          else if(geo.type === 'MultiPolygon') geo.arcs.forEach(p => polygones.push(p.map(anneau)));
         });
       });
 
-      const pixels = g.getImageData(0, 0, 720, 360).data;
+      // Dessine les terres sur un canvas (en pixels par degré) pour en lire la couverture.
+      const masque = (lon0, lat0, lon1, lat1, ppd) => {
 
-      const terre = (lon, lat) => {
-        const x = Math.min(719, Math.max(0, Math.floor((lon + 180) * 2)));
-        const y = Math.min(359, Math.max(0, Math.floor((90 - lat) * 2)));
-        return pixels[(y * 720 + x) * 4 + 3] > 128;
+        const w = Math.ceil((lon1 - lon0) * ppd), h = Math.ceil((lat1 - lat0) * ppd);
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const g = c.getContext('2d', { willReadFrequently: true });
+        g.fillStyle = '#fff';
+
+        polygones.forEach(rings => {
+          g.beginPath();
+          rings.forEach(ring => {
+            ring.forEach((p, i) => {
+              const x = (p[0] - lon0) * ppd, y = (lat1 - p[1]) * ppd;
+              if(i) g.lineTo(x, y); else g.moveTo(x, y);
+            });
+            g.closePath();
+          });
+          g.fill('evenodd');
+        });
+
+        const d = g.getImageData(0, 0, w, h).data;
+
+        return (lon, lat) => {
+          const x = Math.floor((lon - lon0) * ppd), y = Math.floor((lat1 - lat) * ppd);
+          return x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 128;
+        };
       };
 
-      // Une grille régulière : l'écart en longitude grandit vers les pôles, pour une densité égale partout.
-      const liste = [];
-      const pas = 2.1;
+      const monde = masque(-180, -90, 180, 90, 4);
+      const france = masque(BOITE.lon0, BOITE.lat0, BOITE.lon1, BOITE.lat1, 50);
+
+      // Le monde : une grille de 1°, dont l'écart en longitude grandit vers les pôles (densité égale).
+      const m = [];
       let rang = 0;
 
-      for(let lat = -84; lat <= 84; lat += pas, rang++){
-        const n = Math.max(1, Math.round(360 * Math.cos(lat * Math.PI / 180) / pas));
+      for(let lat = -84; lat <= 84; lat += 1, rang++){
+        const n = Math.max(1, Math.round(360 * Math.cos(lat * RAD)));
         for(let i = 0; i < n; i++){
           const lon = -180 + (i + (rang % 2) * .5) * (360 / n);
-          if(!terre(lon, lat)) continue;
-          liste.push({
-            lon: lon * Math.PI / 180,
-            lat: lat * Math.PI / 180,
-            fr: lon > -5.2 && lon < 9.7 && lat > 41.2 && lat < 51.2
-          });
+          if(lon > BOITE.lon0 && lon < BOITE.lon1 && lat > BOITE.lat0 && lat < BOITE.lat1) continue;
+          if(monde(lon, lat)) m.push({ lon: lon * RAD, lat: lat * RAD, fr: false });
         }
       }
 
-      points = liste;
+      // La France : une grille de 0,1°, avec ses indices pour n'en dessiner qu'une partie selon le zoom.
+      const f = [];
+
+      for(let iy = 0; BOITE.lat0 + iy * PAS_FIN <= BOITE.lat1; iy++){
+        for(let ix = 0; BOITE.lon0 + ix * PAS_FIN <= BOITE.lon1; ix++){
+          const lon = BOITE.lon0 + ix * PAS_FIN, lat = BOITE.lat0 + iy * PAS_FIN;
+          if(france(lon, lat)) f.push({ lon: lon * RAD, lat: lat * RAD, ix, iy, fr: dansFrance(lon, lat) });
+        }
+      }
+
+      mondes = m;
+      fins = f;
     });
 
     return chargement;
   }
 
-  // Dessine le globe vu depuis (etat.lon, etat.inclinaison), en projection orthographique.
-  function dessiner(ctx, w, h, etat){
+  const N = 8;   // les points se dessinent par paquets de même transparence : un seul remplissage par paquet
 
-    const R = Math.min(w, h) / 2 * .86 * etat.echelle;
+  // Dessine le globe vu depuis (e.lon, e.inclinaison), en projection orthographique.
+  function dessiner(ctx, w, h, e){
+
+    const R = Math.min(w, h) / 2 * .86 * e.echelle;
     const cx = w / 2, cy = h / 2;
-    const lon0 = etat.lon * Math.PI / 180, lat0 = etat.inclinaison * Math.PI / 180;
+    const lon0 = e.lon * RAD, lat0 = e.inclinaison * RAD;
     const sinL = Math.sin(lat0), cosL = Math.cos(lat0);
 
     ctx.clearRect(0, 0, w, h);
 
-    // La sphère : un halo discret et un bord fin.
-    const halo = ctx.createRadialGradient(cx, cy, R * .55, cx, cy, R * 1.22);
-    halo.addColorStop(0, 'rgba(32,116,187,0)');
-    halo.addColorStop(.82, 'rgba(32,116,187,.16)');
-    halo.addColorStop(1, 'rgba(32,116,187,0)');
-    ctx.fillStyle = halo;
-    ctx.beginPath(); ctx.arc(cx, cy, R * 1.22, 0, 6.2832); ctx.fill();
+    // La sphère : un halo discret et un bord fin, qui s'effacent quand on s'approche.
+    const bord = Math.max(0, Math.min(1, 1 - (e.echelle - 1.1) / 1.2));
 
-    ctx.strokeStyle = 'rgba(255,255,255,.14)';
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.2832); ctx.stroke();
+    if(bord > 0){
+      const halo = ctx.createRadialGradient(cx, cy, R * .55, cx, cy, R * 1.22);
+      halo.addColorStop(0, 'rgba(32,116,187,0)');
+      halo.addColorStop(.82, 'rgba(32,116,187,' + (.16 * bord * e.apparition).toFixed(3) + ')');
+      halo.addColorStop(1, 'rgba(32,116,187,0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath(); ctx.arc(cx, cy, R * 1.22, 0, 6.2832); ctx.fill();
 
-    const rayon = Math.max(1.1, R / 180);
+      ctx.strokeStyle = 'rgba(255,255,255,' + (.14 * bord * e.apparition).toFixed(3) + ')';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.2832); ctx.stroke();
+    }
 
-    for(let i = 0; i < points.length; i++){
+    const blancs = [], bleus = [];
+    for(let i = 0; i < N; i++){ blancs.push(new Path2D()); bleus.push(new Path2D()); }
 
-      const p = points[i];
+    const poser = (chemin, x, y, r) => {
+      if(r < 1.5) chemin.rect(x - r, y - r, r * 2, r * 2);
+      else { chemin.moveTo(x + r, y); chemin.arc(x, y, r, 0, 6.2832); }
+    };
+
+    // Le monde.
+    const rMonde = R * .0036;
+    const fondu = Math.max(.2, 1 - (e.echelle - 2) / 5);   // en s'approchant, le reste du monde s'efface
+
+    for(let i = 0; i < mondes.length; i++){
+
+      const p = mondes[i];
       const dl = p.lon - lon0;
       const cosLat = Math.cos(p.lat);
       const z = sinL * Math.sin(p.lat) + cosL * cosLat * Math.cos(dl);
 
-      // Face cachée du globe.
       if(z <= 0.02) continue;
 
       const x = cx + R * cosLat * Math.sin(dl);
       const y = cy - R * (cosL * Math.sin(p.lat) - sinL * cosLat * Math.cos(dl));
 
-      const france = p.fr && etat.france > 0;
+      if(x < -8 || x > w + 8 || y < -8 || y > h + 8) continue;
 
-      ctx.fillStyle = france
-        ? 'rgba(' + Math.round(255 - 176 * etat.france) + ',' + Math.round(255 - 75 * etat.france) + ',255,' + (.6 + z * .4).toFixed(2) + ')'
-        : 'rgba(255,255,255,' + (.12 + z * .78).toFixed(2) + ')';
+      const a = e.apparition * fondu * (.12 + z * .78);
 
-      ctx.beginPath();
-      ctx.arc(x, y, rayon * (.55 + z * .6) * (france ? 1 + .55 * etat.france : 1), 0, 6.2832);
-      ctx.fill();
+      poser(blancs[Math.min(N - 1, Math.floor(a * N))], x, y, Math.min(2.2, Math.max(.75, rMonde * (.55 + z * .6))));
+    }
+
+    // La France en détail : plus on s'approche, plus on dessine de points de la grille fine.
+    const pas = e.echelle < 1.6 ? 10 : e.echelle < 3.2 ? 5 : e.echelle < 6 ? 2 : 1;
+    const rFin = Math.min(3.4, Math.max(.7, R * .001745 * pas * .21));
+    const grossi = 1 + .45 * e.france * Math.max(0, 1 - (e.echelle - 1) / 4);
+
+    for(let i = 0; i < fins.length; i++){
+
+      const p = fins[i];
+
+      if(pas > 1 && (p.ix % pas || p.iy % pas)) continue;
+
+      const dl = p.lon - lon0;
+      const cosLat = Math.cos(p.lat);
+      const z = sinL * Math.sin(p.lat) + cosL * cosLat * Math.cos(dl);
+
+      if(z <= 0.02) continue;
+
+      const x = cx + R * cosLat * Math.sin(dl);
+      const y = cy - R * (cosL * Math.sin(p.lat) - sinL * cosLat * Math.cos(dl));
+
+      if(x < -8 || x > w + 8 || y < -8 || y > h + 8) continue;
+
+      const a = e.apparition * (.16 + z * .8);
+      const b = Math.min(N - 1, Math.floor(a * N));
+
+      if(p.fr && e.france > 0) poser(bleus[b], x, y, rFin * grossi * (.6 + z * .5));
+      else poser(blancs[b], x, y, rFin * (.6 + z * .5));
+    }
+
+    const f = e.france;
+    const r = Math.round(255 - 176 * f), g = Math.round(255 - 75 * f);
+
+    for(let i = 0; i < N; i++){
+      const alpha = ((i + .6) / N).toFixed(2);
+      ctx.fillStyle = 'rgba(255,255,255,' + alpha + ')';
+      ctx.fill(blancs[i]);
+      if(f > 0){
+        ctx.fillStyle = 'rgba(' + r + ',' + g + ',255,' + Math.min(1, (i + 1.4) / N).toFixed(2) + ')';
+        ctx.fill(bleus[i]);
+      }
+    }
+
+    // L'emplacement de l'artiste : un point et des cercles qui rayonnent.
+    if(e.marq > 0 && e.cible){
+
+      const dl = e.cible.lon * RAD - lon0;
+      const la = e.cible.lat * RAD;
+      const cosLat = Math.cos(la);
+
+      if(sinL * Math.sin(la) + cosL * cosLat * Math.cos(dl) > 0){
+
+        const x = cx + R * cosLat * Math.sin(dl);
+        const y = cy - R * (cosL * Math.sin(la) - sinL * cosLat * Math.cos(dl));
+        const t = (performance.now() % 1700) / 1700;
+
+        for(let i = 0; i < 2; i++){
+          const u = (t + i * .5) % 1;
+          ctx.strokeStyle = 'rgba(120,200,255,' + ((1 - u) * .8 * e.marq).toFixed(3) + ')';
+          ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(x, y, 8 + u * 46, 0, 6.2832); ctx.stroke();
+        }
+
+        ctx.fillStyle = 'rgba(79,180,255,' + (.35 * e.marq).toFixed(3) + ')';
+        ctx.beginPath(); ctx.arc(x, y, 15 * e.marq, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,' + e.marq.toFixed(3) + ')';
+        ctx.beginPath(); ctx.arc(x, y, 5.5 * e.marq, 0, 6.2832); ctx.fill();
+      }
     }
   }
 
-  function jouer(){
+  const echappe = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = Math.round(Math.min(window.innerWidth, 900));
-    const h = Math.round(Math.min(window.innerHeight, 900));
+  function jouer(choix){
+
+    const dpr0 = Math.min(window.devicePixelRatio || 1, 2);
+    const w = Math.round(window.innerWidth), h = Math.round(window.innerHeight);
+    const dpr = w * h * dpr0 * dpr0 > 4.2e6 ? Math.max(1, Math.sqrt(4.2e6 / (w * h))) : dpr0;
 
     const fond = document.createElement('div');
     fond.className = 'intro-globe';
     fond.setAttribute('aria-hidden', 'true');
-    fond.innerHTML = '<canvas></canvas><p>Toucher pour passer</p>';
+    fond.innerHTML = '<canvas></canvas><h2 class="intro-globe-titre">La carte des artistes</h2><p class="intro-globe-passer">Toucher pour passer</p>';
 
-    const canvas = fond.firstChild;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
+    const canvas = fond.querySelector('canvas');
+    const titre = fond.querySelector('.intro-globe-titre');
+    canvas.width = Math.round(w * dpr);
+    canvas.height = Math.round(h * dpr);
     canvas.style.width = w + 'px';
     canvas.style.height = h + 'px';
 
@@ -180,17 +305,42 @@
     ctx.scale(dpr, dpr);
 
     // Plusieurs tours rapides, qui ralentissent jusqu'à la France.
-    const etat = { lon: FRANCE.lon + 1080 + 70, inclinaison: 14, echelle: .8, france: 0 };
+    const e = { lon: FRANCE.lon + 1260 + 70, inclinaison: 12, echelle: .6, france: 0, apparition: 0, marq: 0, cible: null };
 
-    dessiner(ctx, w, h, etat);
-
+    fond.style.opacity = '0';
     document.body.appendChild(fond);
     document.body.classList.add('intro-globe-actif');
 
     let libere;
     const pret = new Promise(r => { libere = r; });
+    let fini = false;
     let ouvert = false;
-    let rotation = null;
+    let son = null;
+    const vivantes = [];
+
+    const anim = (cible, props, opts) => new Promise(resolve => {
+      const a = animate(cible, Object.assign({}, props, opts, { onComplete: resolve }));
+      vivantes.push(a);
+    });
+
+    const pause = (ms) => new Promise(r => setTimeout(r, ms));
+
+    // La boucle de dessin : une image par image écran, tant que l'introduction vit.
+    let image = 0;
+    const boucle = () => {
+      if(fini) return;
+      dessiner(ctx, w, h, e);
+      image = requestAnimationFrame(boucle);
+    };
+    boucle();
+
+    const silence = (rapide) => {
+      const a = son;
+      son = null;
+      if(!a) return;
+      const volume = { v: a.volume };
+      animate(volume, { v: 0, duration: rapide ? 120 : 450, ease: 'linear', onUpdate: () => { try{ a.volume = Math.max(0, volume.v); }catch(x){} }, onComplete: () => { try{ a.pause(); a.src = ''; }catch(x){} } });
+    };
 
     const rendre = () => {
       document.body.classList.remove('intro-globe-actif');
@@ -199,54 +349,168 @@
       libere();
     };
 
-    const retirer = () => {
-      fond.remove();
-      rendre();
-    };
-
-    // La France s'allume, puis le globe s'ouvre sur la page, qui se met en place derrière.
-    const ouvrir = () => {
+    // Le globe s'ouvre sur la page, qui se met en place derrière.
+    const ouvrir = (rapide) => {
 
       if(ouvert) return;
       ouvert = true;
 
+      silence(true);
       document.removeEventListener('keydown', passer, true);
+      observeur.disconnect();
 
-      animate(etat, { france: [0, 1], duration: 450, ease: 'outQuad', onUpdate: () => dessiner(ctx, w, h, etat) });
-      animate(canvas, { scale: [1, 1.6], duration: 900, delay: 450, ease: 'inCubic' });
+      fond.querySelectorAll('.intro-globe-carte').forEach(c => { c.style.opacity = '0'; });
+      animate(e, { marq: 0, duration: 300 });
+      animate(canvas, { scale: [1, rapide ? 1.05 : 1.35], duration: rapide ? 500 : 1100, ease: 'inCubic' });
 
-      // La page se lance (pastilles, panneau) dès que le globe commence à s'effacer.
-      setTimeout(rendre, 650);
+      setTimeout(rendre, rapide ? 80 : 450);
 
-      animate(fond, { opacity: [1, 0], duration: 700, delay: 650, ease: 'inOutQuad', onComplete: () => fond.remove() });
+      animate(fond, {
+        opacity: [1, 0],
+        duration: rapide ? 500 : 900,
+        delay: rapide ? 0 : 250,
+        ease: 'inOutQuad',
+        onComplete: () => { fini = true; cancelAnimationFrame(image); fond.remove(); }
+      });
     };
 
-    function passer(e){
+    function passer(ev){
       if(ouvert) return;
-      if(e && e.type === 'keydown' && e.key === 'Tab') return;
-      if(rotation && rotation.cancel) rotation.cancel();
-      etat.lon = FRANCE.lon;
-      etat.inclinaison = FRANCE.lat;
-      etat.echelle = 1;
-      dessiner(ctx, w, h, etat);
-      ouvrir();
+      if(ev && ev.type === 'keydown' && (ev.key === 'Tab' || ev.key === 'Shift')) return;
+      vivantes.forEach(a => { try{ a.cancel(); }catch(x){} });
+      fini2 = true;
+      ouvrir(true);
     }
+
+    let fini2 = false;
 
     fond.addEventListener('pointerdown', passer, { once: true });
     document.addEventListener('keydown', passer, true);
 
-    rotation = animate(etat, {
-      lon: FRANCE.lon,
-      inclinaison: FRANCE.lat,
-      echelle: 1,
-      duration: DUREE,
-      ease: 'outQuart',
-      onUpdate: () => dessiner(ctx, w, h, etat),
-      onComplete: ouvrir
+    // Quitter la page pendant l'introduction l'arrête net.
+    const page = document.getElementById('page-carte');
+    const observeur = new MutationObserver(() => {
+      if(page && !page.classList.contains('active')){
+        vivantes.forEach(a => { try{ a.cancel(); }catch(x){} });
+        fini2 = true;
+        silence(true);
+        observeur.disconnect();
+        document.removeEventListener('keydown', passer, true);
+        document.body.classList.remove('intro-globe-actif');
+        fini = true;
+        cancelAnimationFrame(image);
+        fond.remove();
+        enCours = false;
+        window.IntroGlobe.enCours = false;
+        libere();
+      }
     });
+    if(page) observeur.observe(page, { attributes: true, attributeFilter: ['class'] });
 
-    // Filet de sécurité : l'introduction ne retient jamais le site plus de 9 secondes.
-    setTimeout(() => { if(fond.isConnected) retirer(); }, 9000);
+    // Filet de sécurité : l'introduction ne retient jamais le site plus d'une minute.
+    setTimeout(() => { if(!ouvert && !fini) passer(); }, 60000);
+
+    // Une carte d'artiste : photo, nom, ville, titre joué, barre de lecture.
+    const carteArtiste = (a, duree) => {
+
+      const c = document.createElement('div');
+      c.className = 'intro-globe-carte';
+      c.innerHTML =
+        (a.photo ? '<img src="' + echappe(a.photo) + '" alt="">' : '<span class="intro-globe-initiale">' + echappe(String(a.nom || '?').charAt(0).toUpperCase()) + '</span>') +
+        '<div class="intro-globe-texte"><b>' + echappe(a.nom) + '</b>' +
+        '<span>' + echappe(a.ville) + '</span>' +
+        '<em>' + echappe(a.titre) + '</em>' +
+        '<i class="intro-globe-barre"><i></i></i></div>';
+      fond.appendChild(c);
+
+      animate(c, { opacity: [0, 1], translateY: [14, 0], scale: [.96, 1], duration: 650, ease: 'outExpo' });
+      animate(c.querySelector('.intro-globe-barre i'), { scaleX: [0, 1], duration: duree, ease: 'linear' });
+
+      return c;
+    };
+
+    // Le déroulé.
+    (async () => {
+
+      // Le globe émerge du noir.
+      animate(fond, { opacity: [0, 1], duration: 900, ease: 'outQuad' });
+      anim(e, { apparition: 1 }, { duration: 1800, ease: 'outQuad' });
+      anim(e, { echelle: .84 }, { duration: 2400, ease: 'outCubic' });
+      anim(titre, { opacity: [0, 1], translateY: [14, 0] }, { duration: 1300, delay: 500, ease: 'outExpo' });
+
+      // Quelques tours rapides, de plus en plus lents, jusqu'à la France.
+      anim(e, { lon: FRANCE.lon, inclinaison: FRANCE.lat }, { duration: 7600, ease: 'outQuart' });
+
+      await pause(5200);
+      if(fini2) return;
+
+      anim(titre, { opacity: 0, translateY: -10 }, { duration: 700, ease: 'inQuad' });
+      anim(e, { france: 1 }, { duration: 1100, ease: 'inOutQuad' });
+
+      await pause(1700);
+      if(fini2) return;
+
+      // La caméra plonge sur la France.
+      await anim(e, { echelle: 9.6 }, { duration: 3200, ease: 'inOutCubic' });
+      if(fini2) return;
+
+      const artistes = await Promise.race([choix, pause(3000).then(() => [])]).catch(() => []);
+      if(fini2) return;
+
+      const DUREE_EXTRAIT = 4600;
+
+      for(let i = 0; i < artistes.length; i++){
+
+        const a = artistes[i];
+
+        e.cible = { lon: a.lon, lat: a.lat };
+
+        // En vol : un petit recul, puis on plonge sur l'emplacement.
+        if(i > 0){
+          anim(e, { echelle: 7 }, { duration: 650, ease: 'outQuad' });
+          anim(e, { echelle: 13 }, { duration: 750, delay: 650, ease: 'inQuad' });
+        } else {
+          anim(e, { echelle: 13 }, { duration: 1500, ease: 'inOutCubic' });
+        }
+
+        await anim(e, { lon: a.lon, inclinaison: a.lat }, { duration: 1450, ease: 'inOutCubic' });
+        if(fini2) return;
+
+        anim(e, { marq: 1 }, { duration: 500, ease: 'outBack' });
+
+        const c = carteArtiste(a, DUREE_EXTRAIT);
+
+        // L'extrait : un fondu à l'entrée, un fondu à la sortie. Sans accord du navigateur pour le son, la carte reste muette.
+        try{
+          const audio = new Audio(a.apercu);
+          audio.volume = 0;
+          son = audio;
+          const lecture = audio.play();
+          if(lecture && lecture.catch) lecture.catch(() => {});
+          const volume = { v: 0 };
+          animate(volume, { v: .85, duration: 500, ease: 'linear', onUpdate: () => { try{ audio.volume = Math.min(1, volume.v); }catch(x){} } });
+        }catch(x){}
+
+        await pause(DUREE_EXTRAIT - 450);
+        if(fini2) return;
+
+        silence(false);
+        animate(c, { opacity: 0, translateY: -10, duration: 450, ease: 'inQuad', onComplete: () => c.remove() });
+        anim(e, { marq: 0 }, { duration: 450, ease: 'inQuad' });
+
+        await pause(450);
+        if(fini2) return;
+      }
+
+      // Retour sur la France, puis le globe s'ouvre sur la page.
+      if(artistes.length){
+        await anim(e, { lon: FRANCE.lon, inclinaison: FRANCE.lat, echelle: 9.6 }, { duration: 1500, ease: 'inOutCubic' });
+        if(fini2) return;
+      }
+
+      ouvrir(false);
+
+    })();
 
     return pret;
   }
@@ -261,11 +525,16 @@
     lancer(avant){
 
       if(enCours || avant === 'page-artiste' || avant === 'page-carte') return;
-      if(!points) return;
+      if(!mondes) return;
 
       enCours = true;
       this.enCours = true;
-      this.pret = jouer();
+
+      const choix = typeof window.introArtistes === 'function'
+        ? window.introArtistes().catch(() => [])
+        : Promise.resolve([]);
+
+      this.pret = jouer(choix);
     }
   };
 
