@@ -58,6 +58,10 @@
       ease: 'outExpo',
       onComplete: () => nettoyer(liste)
     });
+
+    // Filet de sécurité : quoi qu'il arrive à l'animation (onglet en arrière-plan, élément redessiné), rien ne reste
+    // masqué ou décalé au-delà de ce délai.
+    setTimeout(() => nettoyer(liste), (o.duree || 650) + liste.length * (o.pas || 45) + 600);
   }
 
   // ----- Les pages -----
@@ -66,7 +70,7 @@
 
   function surPage(page){
 
-    if(!demarre) return;
+    if(!demarre || document.hidden) return;
 
     // Communauté et Carte portent des éléments en position fixe (barres, calques) : seul le fondu y est animé, car une
     // transformation sur le parent les décalerait pendant l'animation.
@@ -80,6 +84,8 @@
       ease: 'outCubic',
       onComplete: () => nettoyer(page)
     }, fixe ? {} : { translateY: [14, 0] }));
+
+    setTimeout(() => nettoyer(page), 1400);
   }
 
   const observePages = new MutationObserver((mutations) => {
@@ -100,7 +106,7 @@
   });
 
   // La page d'arrivée a déjà son entrée (logo, blocs) : les suivantes seulement.
-  setTimeout(() => { demarre = true; }, 1200);
+  setTimeout(() => { demarre = true; }, 2500);
 
   // ----- Les cartes -----
 
@@ -123,7 +129,8 @@
 
     lot.forEach(el => vues.add(el));
 
-    if(visibles.length) entrer(visibles, { pas: 40 });
+    // Au chargement du site (et onglet en arrière-plan), les cartes se posent sans animation : rien ne doit tarder à apparaître.
+    if(visibles.length && demarre && !document.hidden) entrer(visibles, { pas: 40 });
   }
 
   function empiler(noeud){
