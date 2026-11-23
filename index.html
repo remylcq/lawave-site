@@ -23039,6 +23039,7 @@ function animerPistes(zone, boite, avant){
   const lignes = zone.querySelectorAll('.piste, .pistes-entete');
 
   // Le style du CSS (fondu seul) laisse la place à ce mouvement.
+  // L'animation CSS d'origine reste coupée ensuite : la rendre ferait rejouer l'entrée (l'encadré disparaîtrait puis reviendrait d'un coup).
   zone.style.animation = 'none';
   boite.style.position = 'relative';
   boite.style.zIndex = '2';
@@ -23046,7 +23047,7 @@ function animerPistes(zone, boite, avant){
 
   const fin = () => {
     [boite, zone].forEach(el => { el.style.removeProperty('transform'); el.style.removeProperty('opacity'); el.style.removeProperty('will-change'); });
-    boite.style.removeProperty('z-index'); boite.style.removeProperty('position'); zone.style.removeProperty('z-index'); zone.style.removeProperty('animation');
+    boite.style.removeProperty('z-index'); boite.style.removeProperty('position'); zone.style.removeProperty('z-index');
     lignes.forEach(l => { l.style.removeProperty('opacity'); l.style.removeProperty('transform'); });
   };
 
