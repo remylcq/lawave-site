@@ -19713,7 +19713,7 @@ window.CarteSite = (function(){
 
 // L'introduction de la carte (globe.js) : trois artistes tirés au hasard, localisés en France, chacun avec un extrait de l'un de
 // ses morceaux (catalogue_pistes, comme la fiche d'une sortie). Renvoie [{ nom, ville, lat, lon, photo, titre, apercu }].
-async function introArtistes(){
+async function introArtistes(surPremier){
 
   if(!Object.keys(artistsByHandle).length){
     await loadArtists();
@@ -19773,6 +19773,9 @@ async function introArtistes(){
     const lot = await Promise.all(pool.slice(i, i + 4).map(x => essayer(x).catch(() => null)));
 
     lot.forEach(r => { if(r && trouves.length < 3) trouves.push(r); });
+
+    // Le premier trouvé est annoncé tout de suite : l'introduction commence sa musique sans attendre les autres.
+    if(trouves.length && surPremier){ surPremier(trouves[0]); surPremier = null; }
   }
 
   return trouves;
