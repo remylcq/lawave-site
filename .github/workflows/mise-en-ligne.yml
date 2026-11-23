@@ -39,6 +39,7 @@ on:
       - partage.php
       - desinscrire.php
       - i18n.js
+      - mouvement.js
       - modeles/**
       - decor/**
       - logos/**
