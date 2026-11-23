@@ -247,12 +247,30 @@
 
           if(z <= 0.02) continue;
 
-          const x = cx + R * cosLa * Math.sin(dl);
-          const y = cy - R * (cosL * sinLa - sinL * cosLa * Math.cos(dl));
-
-          if(x < -8 || x > w + 8 || y < -8 || y > h + 8) continue;
+          const x0 = cx + R * cosLa * Math.sin(dl);
+          const y0 = cy - R * (cosL * sinLa - sinL * cosLa * Math.cos(dl));
 
           if(!terre(lonU, lat)) continue;
+
+          let x = x0, y = y0;
+          let fr = false;
+          let horsFrance = 1;
+
+          // La France se pose sur la carte de la page ; le reste du monde s'efface.
+          if(e.plan > 0 && e.page){
+            if(e.france > 0){
+              const cle = i * 20011 + j;
+              fr = teinte.get(cle);
+              if(fr === undefined){ fr = dansFrance(lonU, lat); teinte.set(cle, fr); }
+            }
+            const q = e.page.projeter(lonU, lat);
+            x = x0 + (q.x - x0) * e.plan;
+            y = y0 + (q.y - y0) * e.plan;
+            horsFrance = fr ? 1 : 1 - e.plan;
+          }
+
+          if(horsFrance <= 0.02) continue;
+          if(x < -8 || x > w + 8 || y < -8 || y > h + 8) continue;
 
           // Un point d'une grille plus grossière que celle voulue s'affiche pleinement ; les plus fins arrivent en fondu.
           let m = 1;
@@ -261,12 +279,10 @@
 
           if(niveau <= 0) continue;
 
-          const a = e.apparition * proche * niveau * (.16 + z * .8);
+          const a = e.apparition * proche * niveau * horsFrance * (.16 + z * .8);
           const b = Math.min(N - 1, Math.floor(a * N));
 
-          let fr = false;
-
-          if(e.france > 0){
+          if(e.france > 0 && !(e.plan > 0 && e.page)){
             const cle = i * 20011 + j;
             fr = teinte.get(cle);
             if(fr === undefined){ fr = dansFrance(lonU, lat); teinte.set(cle, fr); }
@@ -319,6 +335,45 @@
     }
   }
 
+  // Où et comment la carte de la page dessine la France : on pose les points du globe exactement là. Renvoie null si la
+  // carte de la page n'est pas prête (autre pays choisi, données pas encore lues).
+  function lirePage(){
+
+    try{
+
+      if(typeof projeter3D !== 'function' || typeof cadrageCarte !== 'function') return null;
+      if(cartePays !== 'france' || !carteVilles || !carteVilles.length) return null;
+
+      const canvas = document.getElementById('carteCanvas');
+      if(!canvas || !canvas.clientWidth) return null;
+
+      const rect = canvas.getBoundingClientRect();
+      const plan = canvas.closest('.carte-plan');
+
+      // La page attend sous l'introduction, décalée de quelques pixels par son animation d'entrée : on vise sa place finale.
+      let ty = 0;
+      if(plan){
+        const m = getComputedStyle(plan).transform;
+        if(m && m !== 'none'){ const v = m.match(/matrix\(([^)]+)\)/); if(v) ty = parseFloat(v[1].split(',')[5]) || 0; }
+      }
+
+      const cadre = cadrageCarte(canvas.clientWidth, Math.round(canvas.clientHeight));
+      const etat = { angle: 0, cx: cadre.cx + cartePanX, cy: cadre.cy + cartePanY, zoom: cadre.echelle * carteZoom };
+      const ox = rect.left, oy = rect.top - ty;
+
+      return {
+        projeter: (lon, lat) => {
+          const g = projeterSurCarte(lon, lat);
+          const p = projeter3D(g.x, g.y, 0, etat);
+          return { x: ox + p.x, y: oy + p.y };
+        }
+      };
+
+    }catch(x){
+      return null;
+    }
+  }
+
   const echappe = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function jouer(choix, premier){
@@ -343,7 +398,7 @@
     ctx.scale(dpr, dpr);
 
     // Plusieurs tours rapides, qui ralentissent jusqu'à la France.
-    const e = { lon: FRANCE.lon + 1260 + 70, inclinaison: 12, echelle: .6, france: 0, apparition: 0, marq: 0, cible: null };
+    const e = { lon: FRANCE.lon + 1260 + 70, inclinaison: 12, echelle: .6, france: 0, apparition: 0, marq: 0, cible: null, plan: 0, page: null };
 
     fond.style.opacity = '0';
     document.body.appendChild(fond);
@@ -372,12 +427,13 @@
     };
     boucle();
 
-    const silence = (rapide) => {
+    // Coupe le son en fondu (« ms » : la durée du fondu).
+    const silence = (ms) => {
       const a = son;
       son = null;
       if(!a) return;
       const volume = { v: a.volume };
-      animate(volume, { v: 0, duration: rapide ? 120 : 450, ease: 'linear', onUpdate: () => { try{ a.volume = Math.max(0, volume.v); }catch(x){} }, onComplete: () => { try{ a.pause(); a.src = ''; }catch(x){} } });
+      animate(volume, { v: 0, duration: ms, ease: 'inOutQuad', onUpdate: () => { try{ a.volume = Math.max(0, volume.v); }catch(x){} }, onComplete: () => { try{ a.pause(); a.src = ''; }catch(x){} } });
     };
 
     const rendre = () => {
@@ -393,13 +449,13 @@
       if(ouvert) return;
       ouvert = true;
 
-      silence(true);
+      silence(rapide ? 150 : 900);
       document.removeEventListener('keydown', passer, true);
       observeur.disconnect();
 
       fond.querySelectorAll('.intro-globe-carte').forEach(c => { c.style.opacity = '0'; });
       animate(e, { marq: 0, duration: 300 });
-      animate(canvas, { scale: [1, rapide ? 1.05 : 1.35], duration: rapide ? 500 : 1100, ease: 'inCubic' });
+      if(!e.page) animate(canvas, { scale: [1, rapide ? 1.05 : 1.35], duration: rapide ? 500 : 1100, ease: 'inCubic' });
 
       setTimeout(rendre, rapide ? 80 : 450);
 
@@ -431,7 +487,7 @@
       if(page && !page.classList.contains('active')){
         vivantes.forEach(a => { try{ a.cancel(); }catch(x){} });
         fini2 = true;
-        silence(true);
+        silence(150);
         observeur.disconnect();
         document.removeEventListener('keydown', passer, true);
         document.body.classList.remove('intro-globe-actif');
@@ -457,8 +513,14 @@
         const lecture = audio.play();
         if(lecture && lecture.catch) lecture.catch(() => {});
         const volume = { v: 0 };
-        animate(volume, { v: .85, duration: entree || 600, ease: 'linear', onUpdate: () => { try{ audio.volume = Math.min(1, volume.v); }catch(x){} } });
+        animate(volume, { v: .85, duration: entree || 600, ease: 'inOutQuad', onUpdate: () => { try{ audio.volume = Math.min(1, volume.v); }catch(x){} } });
       }catch(x){}
+    };
+
+    // Un fondu enchaîné : le nouvel extrait monte pendant que le précédent s'éteint, sans silence entre les deux.
+    const enchainer = (a, ms) => {
+      silence(ms);
+      jouerSon(a, ms);
     };
 
     // Le premier artiste se fait entendre dès l'ouverture, avant même qu'on le voie.
@@ -540,7 +602,10 @@
         await pause(DUREE_EXTRAIT - 450);
         if(fini2) return;
 
-        silence(false);
+        // Le son suivant arrive avant que celui-ci ne finisse ; après le dernier, la musique s'éteint doucement.
+        if(artistes[i + 1]) enchainer(artistes[i + 1], 1800);
+        else silence(2600);
+
         animate(c, { opacity: 0, translateY: -10, duration: 450, ease: 'inQuad', onComplete: () => c.remove() });
         anim(e, { marq: 0 }, { duration: 450, ease: 'inQuad' });
 
@@ -548,9 +613,21 @@
         if(fini2) return;
       }
 
-      // Retour sur la France, puis le globe s'ouvre sur la page.
+      // Retour sur la France, qui se pose à l'endroit exact où la carte de la page la dessine, puis le globe s'ouvre sur la page.
       if(artistes.length){
-        await anim(e, { lon: FRANCE.lon, inclinaison: FRANCE.lat, echelle: 9.6 }, { duration: 1500, ease: 'inOutCubic' });
+
+        e.page = lirePage();
+
+        const retour = anim(e, { lon: FRANCE.lon, inclinaison: FRANCE.lat, echelle: 9.6 }, { duration: 1500, ease: 'inOutCubic' });
+
+        if(e.page){
+          await retour;
+          if(fini2) return;
+          await anim(e, { plan: 1 }, { duration: 1500, ease: 'inOutCubic' });
+        } else {
+          await retour;
+        }
+
         if(fini2) return;
       }
 
