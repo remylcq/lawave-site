@@ -8880,7 +8880,7 @@ const BD = {
   if(pageId === 'content') renderContentVideos(); else { sceneFermerLecteur(); sceneAutoArreter(); }
   // La carte tourne en boucle d'animation : on la coupe dès qu'on
   // quitte la page, sinon elle consomme du processeur en arrière-plan.
-  if(pageId === 'carte') renderCarte(); else arreterCarte();
+  if(pageId === 'carte'){ if(window.CarteSite) window.CarteSite.reprendre(); renderCarte(); } else arreterCarte();
   if(pageId === 'community') renderCommunity();
   // Le jeu de cartes vit dans la communauté (vue #community/cartes) : il se met en pause en la quittant.
   if(pageId !== 'community' && window.Cartes) window.Cartes.quitter();
@@ -19570,6 +19570,106 @@ async function basculerStudiosCarte(){
     bouton.disabled = false;
   }
 }
+
+// La carte du site peut s'afficher ailleurs que sur sa page : l'annuaire des studios (communauté) la prend telle quelle
+// (même canvas, mêmes villes, même panneau), en mode « Studios ». Ses éléments sont déplacés, puis rendus à la page Carte.
+window.CarteSite = (function(){
+
+  let hote = null;
+  let allume = false;
+  let complete = null;
+  const reperes = [];
+
+  const noeuds = () => [
+    document.querySelector('.carte-barre'),
+    document.querySelector('.carte-zone'),
+    document.getElementById('carteAnnonce')
+  ].filter(Boolean);
+
+  function rendre(){
+
+    if(!hote) return;
+
+    reperes.forEach(r => { r.repere.replaceWith(r.noeud); });
+    reperes.length = 0;
+    hote = null;
+  }
+
+  return {
+
+    // Pose la carte dans « el » ; « ids » limite les studios affichés (les filtres de l'annuaire).
+    async monter(el, ids){
+
+      if(typeof renderCarte !== 'function' || !el) return false;
+
+      if(hote !== el){
+
+        rendre();
+
+        noeuds().forEach(n => {
+          const repere = document.createComment('carte');
+          n.replaceWith(repere);
+          reperes.push({ noeud: n, repere });
+          el.appendChild(n);
+        });
+
+        hote = el;
+      }
+
+      await renderCarte();
+
+      if(!carteStudios){
+        allume = true;
+        await basculerStudiosCarte();
+      }
+
+      if(carteStudios){
+        if(!complete || !allume) complete = carteStudios;
+        const garde = ids ? new Set(ids) : null;
+        carteStudios = garde ? complete.filter(x => garde.has(x.id)) : complete;
+        afficherPaysCarte(false, false);
+      }
+
+      window.dispatchEvent(new Event('resize'));
+
+      return true;
+    },
+
+    // La carte quitte l'annuaire : elle retrouve sa page et son mode d'avant.
+    async demonter(){
+
+      if(!hote) return;
+
+      arreterCarte();
+
+      if(allume && carteStudios){
+        carteStudios = complete;
+        await basculerStudiosCarte();
+      }
+
+      allume = false;
+      complete = null;
+      rendre();
+    },
+
+    reprendre(){
+
+      if(!hote) return;
+
+      arreterCarte();
+
+      if(allume && carteStudios){
+        carteStudios = null;
+        const b = document.getElementById('carteStudiosBtn');
+        if(b){ b.setAttribute('aria-pressed', 'false'); b.classList.remove('on'); }
+      }
+
+      allume = false;
+      complete = null;
+      rendre();
+    }
+  };
+})();
 
 // Depuis la carte : la fiche du studio s'ouvre dans la communauté (annuaire des studios).
 function ouvrirStudioDepuisCarte(id){
