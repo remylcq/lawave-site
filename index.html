@@ -2598,9 +2598,32 @@
     background:radial-gradient(ellipse at 50% 46%, #0b1a2c 0%, #060a11 62%, #04060a 100%);
   }
   .intro-globe canvas{display:block; max-width:100%; max-height:100%;}
-  .intro-globe p{
+  .intro-globe-passer{
     position:absolute; left:0; right:0; bottom:max(22px, env(safe-area-inset-bottom)); margin:0; text-align:center;
-    font-size:12.5px; letter-spacing:.08em; color:rgba(255,255,255,.4); animation:introPasser 1s .8s both;
+    font-size:12.5px; letter-spacing:.08em; color:rgba(255,255,255,.4); animation:introPasser 1s 1.2s both;
+  }
+  .intro-globe-titre{
+    position:absolute; left:0; right:0; top:11%; margin:0; text-align:center; opacity:0;
+    font-size:clamp(15px, 2.4vw, 22px); font-weight:500; letter-spacing:.42em; text-transform:uppercase; color:rgba(255,255,255,.82);
+  }
+  /* La carte de l'artiste choisi : à côté de son emplacement (au centre), sous lui sur petit écran. */
+  .intro-globe-carte{
+    position:absolute; left:calc(50% + 46px); top:50%; margin-top:-46px; display:flex; align-items:center; gap:16px;
+    width:min(360px, calc(50vw - 60px)); padding:14px 18px 14px 14px; box-sizing:border-box; opacity:0;
+    border-radius:22px; border:1px solid rgba(255,255,255,.16);
+    background:rgba(10,15,24,.72); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+    box-shadow:0 24px 60px -20px rgba(0,0,0,.8);
+  }
+  .intro-globe-carte img, .intro-globe-initiale{flex:none; width:64px; height:64px; border-radius:50%; object-fit:cover; box-shadow:0 0 0 2px rgba(79,180,255,.55);}
+  .intro-globe-initiale{display:inline-flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; color:#fff; background:linear-gradient(145deg,#2074bb,#143a63);}
+  .intro-globe-texte{display:flex; flex-direction:column; gap:3px; min-width:0; flex:1;}
+  .intro-globe-texte b{font-size:17px; font-weight:600; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .intro-globe-texte span{font-size:13px; color:rgba(255,255,255,.55);}
+  .intro-globe-texte em{font-size:13.5px; font-style:normal; color:rgba(160,215,255,.95); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .intro-globe-barre{display:block; height:3px; margin-top:8px; border-radius:99px; background:rgba(255,255,255,.14); overflow:hidden;}
+  .intro-globe-barre i{display:block; height:100%; width:100%; transform-origin:left; transform:scaleX(0); background:linear-gradient(90deg,#4fb4ff,#9bd8ff);}
+  @media (max-width:760px){
+    .intro-globe-carte{left:50%; top:calc(50% + 56px); margin:0; margin-left:calc(min(360px, calc(100vw - 40px)) / -2); width:min(360px, calc(100vw - 40px));}
   }
   @keyframes introPasser{from{opacity:0;} to{opacity:1;}}
   #page-carte.active .carte-barre{animation-delay:.07s;}
@@ -19687,6 +19710,73 @@ window.CarteSite = (function(){
     }
   };
 })();
+
+// L'introduction de la carte (globe.js) : trois artistes tirés au hasard, localisés en France, chacun avec un extrait de l'un de
+// ses morceaux (catalogue_pistes, comme la fiche d'une sortie). Renvoie [{ nom, ville, lat, lon, photo, titre, apercu }].
+async function introArtistes(){
+
+  if(!Object.keys(artistsByHandle).length){
+    await loadArtists();
+    carteArtistesLusLe = Date.now();
+  }
+
+  const pool = Object.keys(artistsByHandle).map(h => ({ handle: h, profil: artistsByHandle[h] })).filter(x => {
+    const l = lieuDuProfil(x.profil);
+    return l && paysDuLieu(l.lat, l.lon) === 'france';
+  });
+
+  // Un tirage au sort à chaque ouverture.
+  for(let i = pool.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+
+  const trouves = [];
+
+  const essayer = async (x) => {
+
+    const { data: sorties } = await supabaseClient.from('submissions')
+      .select('id, track_title')
+      .eq('status', 'approved')
+      .eq('artist_handle', x.handle)
+      .limit(12);
+
+    const liste = (sorties || []).slice().sort(() => Math.random() - .5).slice(0, 3);
+
+    for(const sortie of liste){
+
+      const { data: pistes } = await supabaseClient.rpc('catalogue_pistes', { p_release: sortie.id });
+      const jouables = (Array.isArray(pistes) ? pistes : []).filter(p => p.apercu);
+
+      if(!jouables.length) continue;
+
+      const piste = jouables[Math.floor(Math.random() * jouables.length)];
+      const lieu = lieuDuProfil(x.profil);
+
+      return {
+        nom: x.profil.display_name || x.handle,
+        ville: x.profil.ville,
+        lat: lieu.lat,
+        lon: lieu.lon,
+        photo: safeUrl(x.profil.photo_url) || '',
+        titre: piste.titre || sortie.track_title || '',
+        apercu: piste.apercu
+      };
+    }
+
+    return null;
+  };
+
+  // Par paquets de quatre artistes à la fois, jusqu'à en avoir trois qui ont un extrait.
+  for(let i = 0; i < pool.length && trouves.length < 3 && i < 24; i += 4){
+
+    const lot = await Promise.all(pool.slice(i, i + 4).map(x => essayer(x).catch(() => null)));
+
+    lot.forEach(r => { if(r && trouves.length < 3) trouves.push(r); });
+  }
+
+  return trouves;
+}
 
 // Depuis la carte : la fiche du studio s'ouvre dans la communauté (annuaire des studios).
 function ouvrirStudioDepuisCarte(id){
