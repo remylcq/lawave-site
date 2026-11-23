@@ -23024,6 +23024,53 @@ function dureePiste(secondes){
   return m + ':' + String(s).padStart(2, '0');
 }
 
+// L'encadré des titres sort de derrière la fiche pendant que celle-ci glisse vers sa place (un seul mouvement, au même
+// rythme), puis les titres arrivent en cascade. Sans Anime.js ou avec « moins d'animation », tout apparaît simplement.
+function animerPistes(zone, boite, avant){
+
+  const A = window.anime;
+
+  if(!A || !A.animate || !boite) return;
+  if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  const { animate, stagger } = A;
+  const large = window.innerWidth >= 860;
+  const decalage = large ? avant - boite.getBoundingClientRect().left : 0;
+  const lignes = zone.querySelectorAll('.piste, .pistes-entete');
+
+  // Le style du CSS (fondu seul) laisse la place à ce mouvement.
+  zone.style.animation = 'none';
+  boite.style.position = 'relative';
+  boite.style.zIndex = '2';
+  zone.style.zIndex = '1';
+
+  const fin = () => {
+    [boite, zone].forEach(el => { el.style.removeProperty('transform'); el.style.removeProperty('opacity'); el.style.removeProperty('will-change'); });
+    boite.style.removeProperty('z-index'); boite.style.removeProperty('position'); zone.style.removeProperty('z-index'); zone.style.removeProperty('animation');
+    lignes.forEach(l => { l.style.removeProperty('opacity'); l.style.removeProperty('transform'); });
+  };
+
+  const duree = 720;
+  const ease = 'outExpo';
+
+  // La fiche glisse avec la propriété « translate », qui se superpose au « transform » de sa propre ouverture sans le casser.
+  if(large && Math.abs(decalage) > 1 && boite.animate) boite.animate([{ translate: decalage + 'px 0' }, { translate: '0 0' }], { duration: duree, easing: 'cubic-bezier(.16,1,.3,1)' });
+
+  animate(zone, large
+    ? { translateX: [-Math.min(Math.abs(decalage) * .9, 150), 0], opacity: [0, 1], duration: duree, ease }
+    : { translateY: [-18, 0], opacity: [0, 1], duration: 520, ease });
+
+  animate(lignes, {
+    opacity: [0, 1],
+    translateX: large ? [-14, 0] : [0, 0],
+    translateY: large ? [0, 0] : [8, 0],
+    duration: 520,
+    delay: stagger(38, { start: 220 }),
+    ease: 'outCubic',
+    onComplete: fin
+  });
+}
+
 async function chargerPistes(item){
 
   const zone = document.getElementById('modalPistes');
@@ -23096,8 +23143,13 @@ async function chargerPistes(item){
       </ol>
     </div>`;
 
+  const boite = duo.querySelector('.modal-box');
+  const avant = boite ? boite.getBoundingClientRect().left : 0;
+
   zone.hidden = false;
   duo.classList.add('a-pistes');
+
+  animerPistes(zone, boite, avant);
 
   // Le voile du bas n'apparaît que s'il reste des titres à faire défiler.
   const majVoile = () => zone.classList.toggle('plus-bas', zone.scrollHeight - zone.scrollTop - zone.clientHeight > 6);
