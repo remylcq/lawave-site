@@ -19933,9 +19933,6 @@ async function renderCarte(){
     history.replaceState(null, '', adresseCarte(cartePays));
   }
 
-  // L'introduction (globe qui tourne, globe.js) se joue d'abord : la carte démarre quand elle s'ouvre sur la page.
-  if(window.IntroGlobe && window.IntroGlobe.enCours) await window.IntroGlobe.pret;
-
   carteDoigts.clear();
   carteSaisie = null;
   carteGeste = null;
@@ -19945,6 +19942,14 @@ async function renderCarte(){
   afficherPaysCarte(cartePaysAffiche !== cartePays, false);
 
   brancherCarte();
+
+  // L'introduction (globe qui tourne, globe.js) se joue d'abord, sur la carte déjà préparée : elle s'y pose exactement, puis
+  // la carte démarre quand le globe s'ouvre sur la page.
+  if(window.IntroGlobe && window.IntroGlobe.enCours){
+    await window.IntroGlobe.pret;
+    if(!document.getElementById('page-carte').classList.contains('active')) return;
+  }
+
   demarrerCarte();
 
   if(carteAllerA){
