@@ -34,9 +34,9 @@
 
   // Un contour approximatif de la France (métropole et Corse) pour la teinter.
   const CONTOURS_FRANCE = [
-    [[-4.8, 48.4], [-1.6, 48.7], [-1.3, 49.7], [0.2, 49.7], [1.6, 50.9], [2.6, 51.05], [3.3, 50.5], [4.2, 50], [4.85, 49.95], [5.5, 49.5], [6.35, 49.45],
+    [[-5.3, 48.3], [-4.9, 48.75], [-4, 48.95], [-3, 48.95], [-2, 48.85], [-1.4, 48.8], [-1.2, 49.75], [0.2, 49.75], [1.6, 50.9], [2.6, 51.05], [3.3, 50.5], [4.2, 50], [4.85, 49.95], [5.5, 49.5], [6.35, 49.45],
      [8.2, 48.97], [7.6, 48], [7.55, 47.6], [7, 47.45], [6.9, 47], [6, 46.3], [6.8, 45.9], [7.1, 45.3], [6.9, 44.4], [7.5, 43.8], [6, 43.1], [4, 43.4],
-     [3.2, 42.5], [1.7, 42.5], [0.7, 42.8], [-1.7, 43.35], [-1.2, 44.7], [-1.2, 46], [-2.3, 47], [-4.8, 47.8]],
+     [3.2, 42.5], [1.7, 42.5], [0.7, 42.8], [-1.7, 43.35], [-1.3, 44.7], [-1.3, 46], [-2, 46.6], [-2.5, 47.2], [-3.5, 47.6], [-4.6, 47.8], [-5.3, 48.0]],
     [[8.5, 41.4], [9.6, 41.4], [9.5, 43], [8.6, 42.6]]
   ];
 
@@ -256,18 +256,21 @@
           let fr = false;
           let horsFrance = 1;
 
-          // La France se pose sur la carte de la page ; le reste du monde s'efface.
+          if(e.france > 0){
+            const cle = i * 20011 + j;
+            fr = teinte.get(cle);
+            if(fr === undefined){ fr = dansFrance(lonU, lat); teinte.set(cle, fr); }
+          }
+
+          // La France se pose sur la carte de la page ; le reste du monde s'efface vite, pour ne laisser aucun contour de zone.
           if(e.plan > 0 && e.page){
-            if(e.france > 0){
-              const cle = i * 20011 + j;
-              fr = teinte.get(cle);
-              if(fr === undefined){ fr = dansFrance(lonU, lat); teinte.set(cle, fr); }
-            }
             const q = e.page.projeter(lonU, lat);
             x = x0 + (q.x - x0) * e.plan;
             y = y0 + (q.y - y0) * e.plan;
-            horsFrance = fr ? 1 : 1 - e.plan;
           }
+
+          // Juste avant l'atterrissage, le reste du monde s'éteint en entier : aucun contour de zone ne se voit pendant le mouvement.
+          if(!fr) horsFrance *= 1 - e.isole;
 
           if(horsFrance <= 0.02) continue;
           if(x < -8 || x > w + 8 || y < -8 || y > h + 8) continue;
@@ -279,16 +282,15 @@
 
           if(niveau <= 0) continue;
 
-          const a = e.apparition * proche * niveau * horsFrance * (.16 + z * .8);
+          // Quand la France est allumée, les autres points s'assombrissent pour la laisser ressortir.
+          const attenue = fr ? 1 : 1 - .5 * e.france;
+
+          // En se posant, les points de la France s'adoucissent vers ceux de la carte de la page (plus petits, plus discrets).
+          const doux = 1 - .45 * e.plan;
+          const a = e.apparition * proche * niveau * horsFrance * attenue * doux * (.16 + z * .8);
           const b = Math.min(N - 1, Math.floor(a * N));
 
-          if(e.france > 0 && !(e.plan > 0 && e.page)){
-            const cle = i * 20011 + j;
-            fr = teinte.get(cle);
-            if(fr === undefined){ fr = dansFrance(lonU, lat); teinte.set(cle, fr); }
-          }
-
-          if(fr) poser(bleus[b], x, y, rProche * (.6 + z * .5) * (1 + .3 * e.france));
+          if(fr) poser(bleus[b], x, y, rProche * (.6 + z * .5) * (1 + .3 * e.france) * (1 - .45 * e.plan));
           else poser(blancs[b], x, y, rProche * (.6 + z * .5));
         }
       }
@@ -398,7 +400,7 @@
     ctx.scale(dpr, dpr);
 
     // Plusieurs tours rapides, qui ralentissent jusqu'à la France.
-    const e = { lon: FRANCE.lon + 1260 + 70, inclinaison: 12, echelle: .6, france: 0, apparition: 0, marq: 0, cible: null, plan: 0, page: null };
+    const e = { lon: FRANCE.lon + 1260 + 70, inclinaison: 12, echelle: .6, france: 0, apparition: 0, marq: 0, cible: null, plan: 0, isole: 0, page: null };
 
     fond.style.opacity = '0';
     document.body.appendChild(fond);
@@ -619,6 +621,8 @@
         e.page = lirePage();
 
         const retour = anim(e, { lon: FRANCE.lon, inclinaison: FRANCE.lat, echelle: 9.6 }, { duration: 1500, ease: 'inOutCubic' });
+
+        if(e.page) anim(e, { isole: 1 }, { duration: 1100, ease: 'inOutQuad' });
 
         if(e.page){
           await retour;
