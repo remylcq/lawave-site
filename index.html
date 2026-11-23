@@ -2587,6 +2587,22 @@
   #page-carte.active .carte-panneau{
     animation:carteMonte .9s var(--ease) both;
   }
+  /* Pendant l'introduction du globe, la page attend dessous : elle monte quand le globe s'ouvre. */
+  body.intro-globe-actif #page-carte.active .section-head,
+  body.intro-globe-actif #page-carte.active .carte-barre,
+  body.intro-globe-actif #page-carte.active .carte-plan,
+  body.intro-globe-actif #page-carte.active .carte-panneau{animation-play-state:paused;}
+  body.intro-globe-actif{overflow:hidden;}
+  .intro-globe{
+    position:fixed; inset:0; z-index:9000; display:flex; align-items:center; justify-content:center; overflow:hidden;
+    background:radial-gradient(ellipse at 50% 46%, #0b1a2c 0%, #060a11 62%, #04060a 100%);
+  }
+  .intro-globe canvas{display:block; max-width:100%; max-height:100%;}
+  .intro-globe p{
+    position:absolute; left:0; right:0; bottom:max(22px, env(safe-area-inset-bottom)); margin:0; text-align:center;
+    font-size:12.5px; letter-spacing:.08em; color:rgba(255,255,255,.4); animation:introPasser 1s .8s both;
+  }
+  @keyframes introPasser{from{opacity:0;} to{opacity:1;}}
   #page-carte.active .carte-barre{animation-delay:.07s;}
   #page-carte.active .carte-plan{animation-delay:.14s;}
   #page-carte.active .carte-panneau{animation-delay:.21s;}
@@ -8844,6 +8860,7 @@ const BD = {
       onglet = 'waveurs';
     }
 
+    const pageAvant = (document.querySelector('.page.active') || {}).id || '';
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     const page = document.getElementById('page-'+pageId);
     if(!page) return goTo('home');
@@ -8880,7 +8897,7 @@ const BD = {
   if(pageId === 'content') renderContentVideos(); else { sceneFermerLecteur(); sceneAutoArreter(); }
   // La carte tourne en boucle d'animation : on la coupe dès qu'on
   // quitte la page, sinon elle consomme du processeur en arrière-plan.
-  if(pageId === 'carte'){ if(window.CarteSite) window.CarteSite.reprendre(); renderCarte(); } else arreterCarte();
+  if(pageId === 'carte'){ if(window.CarteSite) window.CarteSite.reprendre(); if(window.IntroGlobe) window.IntroGlobe.lancer(pageAvant); renderCarte(); } else arreterCarte();
   if(pageId === 'community') renderCommunity();
   // Le jeu de cartes vit dans la communauté (vue #community/cartes) : il se met en pause en la quittant.
   if(pageId !== 'community' && window.Cartes) window.Cartes.quitter();
@@ -19822,6 +19839,9 @@ async function renderCarte(){
   if(document.getElementById('page-carte').classList.contains('active')){
     history.replaceState(null, '', adresseCarte(cartePays));
   }
+
+  // L'introduction (globe qui tourne, globe.js) se joue d'abord : la carte démarre quand elle s'ouvre sur la page.
+  if(window.IntroGlobe && window.IntroGlobe.enCours) await window.IntroGlobe.pret;
 
   carteDoigts.clear();
   carteSaisie = null;
@@ -33735,6 +33755,7 @@ proposerBienvenue();
 <!-- Anime.js et la couche d'animation du site (mouvement.js) : chargés sans bloquer la page. -->
 <script src="lib/animejs/anime.umd.min.js" defer></script>
 <script src="mouvement.js?v=1" defer></script>
+<script src="globe.js?v=1" defer></script>
 <!-- MISE À JOUR DISPONIBLE : le site relit sa version (version.txt) de temps en temps ; si elle a changé depuis le chargement
      de la page, une petite pastille propose d'actualiser. Rien en essai local (version « dev »). -->
 <script>
