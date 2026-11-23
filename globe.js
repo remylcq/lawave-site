@@ -27,9 +27,10 @@
   const FRANCE = { lon: 2.6, lat: 46.4 };
   const RAD = Math.PI / 180;
 
-  // La fenêtre de la France : une grille fine y remplace les points du monde, pour que le zoom reste net.
-  const BOITE = { lon0: -6.5, lon1: 10.5, lat0: 40.5, lat1: 52 };
-  const PAS_FIN = 0.1;
+  // Près de la France, un masque plus fin des terres (25 pixels par degré) sert à poser les points en zoom ; ailleurs, le masque du monde.
+  const ZONE = { lon0: -25, lon1: 35, lat0: 28, lat1: 66 };
+  const FINESSE = 0.125;     // la grille la plus fine, en degrés ; les autres en sont des multiples (1, 2, 4, 8)
+  const ECART = 10;          // l'écart voulu entre deux points à l'écran, en pixels
 
   // Un contour approximatif de la France (métropole et Corse) pour la teinter.
   const CONTOURS_FRANCE = [
@@ -39,8 +40,9 @@
     [[8.5, 41.4], [9.6, 41.4], [9.5, 43], [8.6, 42.6]]
   ];
 
-  let mondes = null;       // les points du monde (hors fenêtre de la France)
-  let fins = null;         // la grille fine de la fenêtre de la France
+  let mondes = null;       // les points du globe entier (vue éloignée)
+  let terre = null;        // (lon, lat) en degrés -> terre ou mer, pour la vue rapprochée
+  const teinte = new Map();
   let chargement = null;
   let enCours = false;
 
@@ -120,33 +122,23 @@
       };
 
       const monde = masque(-180, -90, 180, 90, 4);
-      const france = masque(BOITE.lon0, BOITE.lat0, BOITE.lon1, BOITE.lat1, 50);
+      const fin = masque(ZONE.lon0, ZONE.lat0, ZONE.lon1, ZONE.lat1, 25);
 
-      // Le monde : une grille de 1°, dont l'écart en longitude grandit vers les pôles (densité égale).
+      terre = (lon, lat) => lon > ZONE.lon0 && lon < ZONE.lon1 && lat > ZONE.lat0 && lat < ZONE.lat1 ? fin(lon, lat) : monde(lon, lat);
+
+      // Le globe entier : une grille de 1,5°, dont l'écart en longitude grandit vers les pôles (densité égale).
       const m = [];
       let rang = 0;
 
-      for(let lat = -84; lat <= 84; lat += 1, rang++){
-        const n = Math.max(1, Math.round(360 * Math.cos(lat * RAD)));
+      for(let lat = -84; lat <= 84; lat += 1.5, rang++){
+        const n = Math.max(1, Math.round(240 * Math.cos(lat * RAD)));
         for(let i = 0; i < n; i++){
           const lon = -180 + (i + (rang % 2) * .5) * (360 / n);
-          if(lon > BOITE.lon0 && lon < BOITE.lon1 && lat > BOITE.lat0 && lat < BOITE.lat1) continue;
-          if(monde(lon, lat)) m.push({ lon: lon * RAD, lat: lat * RAD, fr: false });
-        }
-      }
-
-      // La France : une grille de 0,1°, avec ses indices pour n'en dessiner qu'une partie selon le zoom.
-      const f = [];
-
-      for(let iy = 0; BOITE.lat0 + iy * PAS_FIN <= BOITE.lat1; iy++){
-        for(let ix = 0; BOITE.lon0 + ix * PAS_FIN <= BOITE.lon1; ix++){
-          const lon = BOITE.lon0 + ix * PAS_FIN, lat = BOITE.lat0 + iy * PAS_FIN;
-          if(france(lon, lat)) f.push({ lon: lon * RAD, lat: lat * RAD, ix, iy, fr: dansFrance(lon, lat) });
+          if(monde(lon, lat)) m.push({ lon: lon * RAD, lat: lat * RAD, fr: dansFrance(lon, lat) });
         }
       }
 
       mondes = m;
-      fins = f;
     });
 
     return chargement;
@@ -188,56 +180,102 @@
       else { chemin.moveTo(x + r, y); chemin.arc(x, y, r, 0, 6.2832); }
     };
 
-    // Le monde.
-    const rMonde = R * .0036;
-    const fondu = Math.max(.2, 1 - (e.echelle - 2) / 5);   // en s'approchant, le reste du monde s'efface
-
-    for(let i = 0; i < mondes.length; i++){
-
-      const p = mondes[i];
-      const dl = p.lon - lon0;
-      const cosLat = Math.cos(p.lat);
-      const z = sinL * Math.sin(p.lat) + cosL * cosLat * Math.cos(dl);
-
-      if(z <= 0.02) continue;
-
-      const x = cx + R * cosLat * Math.sin(dl);
-      const y = cy - R * (cosL * Math.sin(p.lat) - sinL * cosLat * Math.cos(dl));
-
-      if(x < -8 || x > w + 8 || y < -8 || y > h + 8) continue;
-
-      const a = e.apparition * fondu * (.12 + z * .78);
-
-      poser(blancs[Math.min(N - 1, Math.floor(a * N))], x, y, Math.min(2.2, Math.max(.75, rMonde * (.55 + z * .6))));
-    }
-
-    // La France en détail : plus on s'approche, plus on dessine de points de la grille fine.
-    const pas = e.echelle < 1.6 ? 10 : e.echelle < 3.2 ? 5 : e.echelle < 6 ? 2 : 1;
-    const rFin = Math.min(3.4, Math.max(.7, R * .001745 * pas * .21));
+    // Le globe entier, vu de loin : il s'efface quand la caméra s'approche.
+    const rMonde = R * .0042;
+    const fondu = Math.max(0, Math.min(1, (2.6 - e.echelle) / 1.0));
     const grossi = 1 + .45 * e.france * Math.max(0, 1 - (e.echelle - 1) / 4);
 
-    for(let i = 0; i < fins.length; i++){
+    if(fondu > 0){
+      for(let i = 0; i < mondes.length; i++){
 
-      const p = fins[i];
+        const p = mondes[i];
+        const dl = p.lon - lon0;
+        const cosLat = Math.cos(p.lat);
+        const z = sinL * Math.sin(p.lat) + cosL * cosLat * Math.cos(dl);
 
-      if(pas > 1 && (p.ix % pas || p.iy % pas)) continue;
+        if(z <= 0.02) continue;
 
-      const dl = p.lon - lon0;
-      const cosLat = Math.cos(p.lat);
-      const z = sinL * Math.sin(p.lat) + cosL * cosLat * Math.cos(dl);
+        const x = cx + R * cosLat * Math.sin(dl);
+        const y = cy - R * (cosL * Math.sin(p.lat) - sinL * cosLat * Math.cos(dl));
 
-      if(z <= 0.02) continue;
+        if(x < -8 || x > w + 8 || y < -8 || y > h + 8) continue;
 
-      const x = cx + R * cosLat * Math.sin(dl);
-      const y = cy - R * (cosL * Math.sin(p.lat) - sinL * cosLat * Math.cos(dl));
+        const a = e.apparition * fondu * (.12 + z * .78);
+        const b = Math.min(N - 1, Math.floor(a * N));
+        const r = Math.min(2.4, Math.max(.8, rMonde * (.55 + z * .6)));
 
-      if(x < -8 || x > w + 8 || y < -8 || y > h + 8) continue;
+        if(p.fr && e.france > 0) poser(bleus[b], x, y, r * grossi);
+        else poser(blancs[b], x, y, r);
+      }
+    }
 
-      const a = e.apparition * (.16 + z * .8);
-      const b = Math.min(N - 1, Math.floor(a * N));
+    // La vue rapprochée : une grille posée à la volée sur ce que l'écran montre (aucun bord carré), dont l'écart reste
+    // d'environ ECART pixels à tous les zooms. Les points d'une grille plus grossière sont aussi ceux de la plus fine : en
+    // zoomant, les nouveaux apparaissent en fondu.
+    const proche = Math.max(0, Math.min(1, (e.echelle - 1.9) / 1.0));
 
-      if(p.fr && e.france > 0) poser(bleus[b], x, y, rFin * grossi * (.6 + z * .5));
-      else poser(blancs[b], x, y, rFin * (.6 + z * .5));
+    if(proche > 0 && terre){
+
+      const voulu = ECART / (R * RAD * FINESSE);        // multiple de FINESSE visé (peut être fractionnaire)
+      let pas = 1;
+      while(pas * 2 <= Math.min(8, voulu * .8)) pas *= 2;
+
+      const ext = Math.min(Math.PI, Math.max(w, h) * .62 / R);         // demi-étendue visible, en radians
+      const extLat = ext / RAD;
+      const extLon = Math.min(180, extLat / Math.max(.2, Math.cos(e.inclinaison * RAD)));
+
+      const i0 = Math.ceil((e.lon - extLon) / FINESSE / pas) * pas, i1 = Math.floor((e.lon + extLon) / FINESSE);
+      const j0 = Math.ceil(Math.max(-85, e.inclinaison - extLat) / FINESSE / pas) * pas, j1 = Math.floor(Math.min(85, e.inclinaison + extLat) / FINESSE);
+
+      const rProche = Math.min(3.4, Math.max(.8, R * RAD * FINESSE * Math.min(voulu, 8) * .2));
+
+      for(let j = j0; j <= j1; j += pas){
+
+        const lat = j * FINESSE;
+        const la = lat * RAD, sinLa = Math.sin(la), cosLa = Math.cos(la);
+
+        for(let i = i0; i <= i1; i += pas){
+
+          const lon = i * FINESSE;
+
+          let lonU = lon;
+          while(lonU > 180) lonU -= 360;
+          while(lonU < -180) lonU += 360;
+
+          const dl = (lon - e.lon) * RAD;
+          const z = sinL * sinLa + cosL * cosLa * Math.cos(dl);
+
+          if(z <= 0.02) continue;
+
+          const x = cx + R * cosLa * Math.sin(dl);
+          const y = cy - R * (cosL * sinLa - sinL * cosLa * Math.cos(dl));
+
+          if(x < -8 || x > w + 8 || y < -8 || y > h + 8) continue;
+
+          if(!terre(lonU, lat)) continue;
+
+          // Un point d'une grille plus grossière que celle voulue s'affiche pleinement ; les plus fins arrivent en fondu.
+          let m = 1;
+          while(m < 8 && (Math.abs(i) % (m * 2) === 0) && (Math.abs(j) % (m * 2) === 0)) m *= 2;
+          const niveau = Math.max(0, Math.min(1, (m / Math.max(1, voulu) - .55) / .4));
+
+          if(niveau <= 0) continue;
+
+          const a = e.apparition * proche * niveau * (.16 + z * .8);
+          const b = Math.min(N - 1, Math.floor(a * N));
+
+          let fr = false;
+
+          if(e.france > 0){
+            const cle = i * 20011 + j;
+            fr = teinte.get(cle);
+            if(fr === undefined){ fr = dansFrance(lonU, lat); teinte.set(cle, fr); }
+          }
+
+          if(fr) poser(bleus[b], x, y, rProche * (.6 + z * .5) * (1 + .3 * e.france));
+          else poser(blancs[b], x, y, rProche * (.6 + z * .5));
+        }
+      }
     }
 
     const f = e.france;
@@ -283,7 +321,7 @@
 
   const echappe = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  function jouer(choix){
+  function jouer(choix, premier){
 
     const dpr0 = Math.min(window.devicePixelRatio || 1, 2);
     const w = Math.round(window.innerWidth), h = Math.round(window.innerHeight);
@@ -410,6 +448,22 @@
     // Filet de sécurité : l'introduction ne retient jamais le site plus d'une minute.
     setTimeout(() => { if(!ouvert && !fini) passer(); }, 60000);
 
+    // L'extrait : un fondu à l'entrée (le son se coupe en fondu avec silence()). Sans accord du navigateur, la carte reste muette.
+    const jouerSon = (a, entree) => {
+      try{
+        const audio = new Audio(a.apercu);
+        audio.volume = 0;
+        son = audio;
+        const lecture = audio.play();
+        if(lecture && lecture.catch) lecture.catch(() => {});
+        const volume = { v: 0 };
+        animate(volume, { v: .85, duration: entree || 600, ease: 'linear', onUpdate: () => { try{ audio.volume = Math.min(1, volume.v); }catch(x){} } });
+      }catch(x){}
+    };
+
+    // Le premier artiste se fait entendre dès l'ouverture, avant même qu'on le voie.
+    premier.then(a => { if(a && !fini2 && !ouvert && !son) jouerSon(a, 2200); });
+
     // Une carte d'artiste : photo, nom, ville, titre joué, barre de lecture.
     const carteArtiste = (a, duree) => {
 
@@ -480,16 +534,8 @@
 
         const c = carteArtiste(a, DUREE_EXTRAIT);
 
-        // L'extrait : un fondu à l'entrée, un fondu à la sortie. Sans accord du navigateur pour le son, la carte reste muette.
-        try{
-          const audio = new Audio(a.apercu);
-          audio.volume = 0;
-          son = audio;
-          const lecture = audio.play();
-          if(lecture && lecture.catch) lecture.catch(() => {});
-          const volume = { v: 0 };
-          animate(volume, { v: .85, duration: 500, ease: 'linear', onUpdate: () => { try{ audio.volume = Math.min(1, volume.v); }catch(x){} } });
-        }catch(x){}
+        // Le premier extrait joue déjà depuis l'ouverture ; les autres démarrent ici.
+        if(!son) jouerSon(a, 500);
 
         await pause(DUREE_EXTRAIT - 450);
         if(fini2) return;
@@ -530,11 +576,14 @@
       enCours = true;
       this.enCours = true;
 
+      let donnerPremier;
+      const premier = new Promise(r => { donnerPremier = r; });
+
       const choix = typeof window.introArtistes === 'function'
-        ? window.introArtistes().catch(() => [])
+        ? window.introArtistes(donnerPremier).catch(() => [])
         : Promise.resolve([]);
 
-      this.pret = jouer(choix);
+      this.pret = jouer(choix, premier);
     }
   };
 
