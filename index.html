@@ -3182,22 +3182,6 @@
   /* Ligne « feat. » de la fiche de sortie : petite, sous le nom de
      l'artiste principal, chaque nom menant à sa page. */
   .modal-feat{font-size:12px; color:var(--muted); margin:6px 0 0;}
-  /* Crédits de la sortie : un rôle, ses noms ; le nom d'un artiste du site est un lien. */
-  .modal-credits{margin:14px 0 0; padding-top:12px; border-top:1px solid var(--line);}
-  .credits-titre{margin:0 0 8px; font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
-  .credit-ligne{display:flex; gap:10px; align-items:baseline; margin:0 0 5px; font-size:13px;}
-  .credit-role{flex:none; min-width:84px; color:var(--muted);}
-  .credit-noms{display:flex; flex-wrap:wrap; gap:2px 10px;}
-  .credit{display:inline-flex; align-items:center; gap:3px;}
-  .credit-nom{color:var(--ink-soft); font-weight:500;}
-  button.credit-nom{background:none; border:0; padding:0; font:inherit; font-weight:500; color:var(--ink); text-decoration:underline; text-decoration-color:rgba(255,255,255,.3); text-underline-offset:3px; cursor:pointer;}
-  button.credit-nom:hover{color:var(--blue-bright);}
-  .credit-x{background:none; border:0; padding:0 3px; color:var(--muted); font-size:16px; line-height:1; cursor:pointer;}
-  .credit-x:hover{color:#ff7b7b;}
-  .credit-vide{margin:0 0 8px; font-size:13px; color:var(--muted);}
-  .credit-ajout{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
-  .credit-ajout select, .credit-ajout input{flex:1 1 130px; min-width:0; padding:8px 10px; border-radius:10px; border:1px solid var(--line-strong); background:var(--bg-alt); color:var(--ink); font:inherit; font-size:13px;}
-  .credit-ajout .btn{padding:8px 14px;}
   .modal-feat button{
     background:none; border:none; padding:0; font:inherit;
     color:var(--ink-soft); text-decoration:underline; cursor:pointer;
@@ -7691,8 +7675,6 @@
         <!-- Featurings de la sortie, quand elle en a. -->
         <p id="modalFeaturing" class="modal-feat"></p>
         <p id="modalReleaseDate" style="color:var(--muted); font-size:12px; margin:8px 0 0;"></p>
-        <!-- Les crédits techniques (beatmaker, mixage...), saisis par l'équipe : chargerCredits. -->
-        <div id="modalCredits" class="modal-credits" hidden></div>
       </div>
     </div>
 
@@ -23195,7 +23177,6 @@ document.getElementById(
 
   renderNoteBloc(item.id);
   chargerPistes(item);
-  chargerCredits(item);
   chargerVersions(item);
   ficheItemCourant = item;
 
@@ -23524,101 +23505,6 @@ function animerPistes(zone, boite, avant){
     ease: 'outCubic',
     onComplete: fin
   });
-}
-
-// ---- Les crédits d'une sortie (sql/credits-sorties.sql) ----
-//
-// Deezer ne donne que les artistes : beatmaker, ingé son, mixage... sont saisis par l'équipe sur la fiche. Un nom qui a une
-// page sur le site en est un lien ; l'équipe voit aussi « + Ajouter » et une croix sur chaque crédit.
-const ROLES_CREDITS = ['Production', 'Beatmaker', 'Composition', 'Écriture', 'Ingé son', 'Mixage', 'Mastering', 'Direction artistique', 'Réalisation clip', 'Photographie', 'Design pochette', 'Autre'];
-var creditsCourants = { release: null, liste: [] };
-
-function creditsHtml(release, liste){
-
-  const parRole = {};
-  liste.forEach(c => { (parRole[c.role] = parRole[c.role] || []).push(c); });
-
-  const nom = (c) => {
-    const lien = c.handle && artistsByHandle[c.handle]
-      ? `<button type="button" class="credit-nom lien" onclick="closeCatalogueModal(true); ouvrirPageArtiste('${handleSain(c.handle)}')">${escapeHtml(c.nom)}</button>`
-      : `<span class="credit-nom">${escapeHtml(c.nom)}</span>`;
-    return lien + (isAdmin ? `<button type="button" class="credit-x" aria-label="Retirer ce crédit" onclick="retirerCredit('${escapeAttribute(c.id)}')">×</button>` : '');
-  };
-
-  const lignes = Object.keys(parRole).map(role => `
-    <div class="credit-ligne"><span class="credit-role">${escapeHtml(role)}</span><span class="credit-noms">${parRole[role].map(c => `<span class="credit">${nom(c)}</span>`).join('')}</span></div>`).join('');
-
-  const ajout = isAdmin ? `
-    <form class="credit-ajout" onsubmit="ajouterCredit(event)" autocomplete="off">
-      <select id="creditRole" aria-label="Rôle">${ROLES_CREDITS.map(r => `<option>${escapeHtml(r)}</option>`).join('')}</select>
-      <input id="creditNom" list="creditsNoms" maxlength="80" placeholder="Nom (un artiste du site devient un lien)" required>
-      <datalist id="creditsNoms">${Object.keys(artistsByHandle).slice(0, 600).map(hd => `<option value="${escapeAttribute(artistsByHandle[hd].display_name || hd)}"></option>`).join('')}</datalist>
-      <button type="submit" class="btn btn-ghost">Ajouter</button>
-    </form>` : '';
-
-  return (lignes || (isAdmin ? '<p class="credit-vide">Aucun crédit pour l\'instant.</p>' : '')) ? `<p class="credits-titre">Crédits</p>${lignes}${ajout}` : '';
-}
-
-async function chargerCredits(item){
-
-  const zone = document.getElementById('modalCredits');
-
-  if(!zone) return;
-
-  zone.hidden = true;
-  zone.innerHTML = '';
-  creditsCourants = { release: null, liste: [] };
-
-  if(!item || !item.id || typeof supabaseClient === 'undefined' || !supabaseClient) return;
-
-  const voulu = item.id;
-
-  try{
-    const { data, error } = await supabaseClient.rpc('sortie_credits', { p_release: voulu });
-    if(error) throw error;
-    if(!document.getElementById('modalCredits') || (creditsCourants.release && creditsCourants.release !== voulu)) return;
-    creditsCourants = { release: voulu, liste: Array.isArray(data) ? data : [] };
-  }catch(e){
-    // La fonction n'est pas encore en base, ou le réseau a manqué : la fiche reste sans crédits.
-    if(!isAdmin) return;
-    creditsCourants = { release: voulu, liste: [] };
-  }
-
-  const html = creditsHtml(voulu, creditsCourants.liste);
-
-  if(!html) return;
-
-  zone.innerHTML = html;
-  zone.hidden = false;
-}
-
-async function ajouterCredit(ev){
-
-  ev.preventDefault();
-
-  const nom = document.getElementById('creditNom').value.trim();
-  const role = document.getElementById('creditRole').value;
-
-  if(!nom || !creditsCourants.release) return;
-
-  // Un nom qui est celui d'un artiste du site devient un lien vers sa page.
-  const bas = nom.toLowerCase();
-  const handle = Object.keys(artistsByHandle).find(hd => String(artistsByHandle[hd].display_name || hd).toLowerCase() === bas) || null;
-
-  const { error } = await supabaseClient.rpc('sortie_credit_ajouter', { p_release: creditsCourants.release, p_role: role, p_nom: nom, p_handle: handle });
-
-  if(error){ notifier('Ajout impossible', { texte: error.message }); return; }
-
-  chargerCredits({ id: creditsCourants.release });
-}
-
-async function retirerCredit(id){
-
-  const { error } = await supabaseClient.rpc('sortie_credit_supprimer', { p_id: id });
-
-  if(error){ notifier('Suppression impossible', { texte: error.message }); return; }
-
-  chargerCredits({ id: creditsCourants.release });
 }
 
 async function chargerPistes(item){
