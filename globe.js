@@ -34,10 +34,12 @@
 
   // Un contour approximatif de la France (métropole et Corse) pour la teinter.
   const CONTOURS_FRANCE = [
-    [[-5.3, 48.3], [-4.9, 48.75], [-4, 48.95], [-3, 48.95], [-2, 48.85], [-1.4, 48.8], [-1.2, 49.75], [0.2, 49.75], [1.6, 50.9], [2.6, 51.05], [3.3, 50.5], [4.2, 50], [4.85, 49.95], [5.5, 49.5], [6.35, 49.45],
-     [8.2, 48.97], [7.6, 48], [7.55, 47.6], [7, 47.45], [6.9, 47], [6, 46.3], [6.8, 45.9], [7.1, 45.3], [6.9, 44.4], [7.5, 43.8], [6, 43.1], [4, 43.4],
-     [3.2, 42.5], [1.7, 42.5], [0.7, 42.8], [-1.7, 43.35], [-1.3, 44.7], [-1.3, 46], [-2, 46.6], [-2.5, 47.2], [-3.5, 47.6], [-4.6, 47.8], [-5.3, 48.0]],
-    [[8.5, 41.4], [9.6, 41.4], [9.5, 43], [8.6, 42.6]]
+    // Les frontières terrestres sont suivies de près ; côté mer, le tracé déborde largement pour que toute la côte (Bretagne,
+    // Normandie, Méditerranée) soit incluse. Les îles Anglo-Normandes, l'Angleterre et l'Espagne restent dehors.
+    [[-6.5, 48.95], [-1.95, 48.95], [-1.95, 49.9], [1.1, 50.1], [1.75, 51.05], [2.55, 51.1], [3.3, 50.5], [4.2, 50], [4.85, 49.95], [5.5, 49.5], [6.35, 49.45],
+     [8.2, 48.97], [7.6, 48], [7.55, 47.6], [7, 47.45], [6.9, 47], [6, 46.3], [6.8, 45.9], [7.1, 45.3], [6.9, 44.4], [7.5, 43.8], [7.5, 42.0],
+     [3.6, 42.0], [3.6, 42.3], [3.17, 42.43], [2, 42.35], [1.4, 42.7], [0.7, 42.8], [0, 42.7], [-1.3, 43.05], [-1.78, 43.37], [-2.3, 43.9], [-6.5, 44.3]],
+    [[8.4, 41.37], [9.65, 41.37], [9.65, 43.1], [8.4, 43.1]]
   ];
 
   let mondes = null;       // les points du globe entier (vue éloignée)
@@ -387,7 +389,7 @@
     const fond = document.createElement('div');
     fond.className = 'intro-globe';
     fond.setAttribute('aria-hidden', 'true');
-    fond.innerHTML = '<canvas></canvas><h2 class="intro-globe-titre">La carte des artistes</h2><p class="intro-globe-passer">Toucher pour passer</p>';
+    fond.innerHTML = '<canvas></canvas><h2 class="intro-globe-titre">La carte des artistes</h2><p class="intro-globe-passer"><span>Maintiens appuyé 3 secondes pour passer</span><i><b></b></i></p>';
 
     const canvas = fond.querySelector('canvas');
     const titre = fond.querySelector('.intro-globe-titre');
@@ -452,7 +454,8 @@
       ouvert = true;
 
       silence(rapide ? 150 : 900);
-      document.removeEventListener('keydown', passer, true);
+      document.removeEventListener('keydown', debutMaintien, true);
+      document.removeEventListener('keyup', finMaintien, true);
       observeur.disconnect();
 
       fond.querySelectorAll('.intro-globe-carte').forEach(c => { c.style.opacity = '0'; });
@@ -470,9 +473,29 @@
       });
     };
 
-    function passer(ev){
+    // Pour quitter, on reste appuyé 3 secondes (doigt, souris ou une touche) : un toucher par erreur ne coupe plus l'introduction.
+    const barre = fond.querySelector('.intro-globe-passer b');
+    let maintien = null;
+
+    function debutMaintien(ev){
+      if(ouvert || maintien) return;
+      if(ev.type === 'keydown' && (ev.repeat || ev.key === 'Tab' || ev.key === 'Shift')) return;
+      const anim = animate(barre, { scaleX: [0, 1], duration: 3000, ease: 'linear', onComplete: () => { maintien = null; passer(); } });
+      maintien = anim;
+      fond.classList.add('maintien');
+    }
+
+    function finMaintien(){
+      if(!maintien) return;
+      const a = maintien;
+      maintien = null;
+      try{ a.cancel(); }catch(x){}
+      fond.classList.remove('maintien');
+      animate(barre, { scaleX: 0, duration: 250, ease: 'outQuad' });
+    }
+
+    function passer(){
       if(ouvert) return;
-      if(ev && ev.type === 'keydown' && (ev.key === 'Tab' || ev.key === 'Shift')) return;
       vivantes.forEach(a => { try{ a.cancel(); }catch(x){} });
       fini2 = true;
       ouvrir(true);
@@ -480,8 +503,12 @@
 
     let fini2 = false;
 
-    fond.addEventListener('pointerdown', passer, { once: true });
-    document.addEventListener('keydown', passer, true);
+    fond.addEventListener('pointerdown', debutMaintien);
+    fond.addEventListener('pointerup', finMaintien);
+    fond.addEventListener('pointercancel', finMaintien);
+    fond.addEventListener('pointerleave', finMaintien);
+    document.addEventListener('keydown', debutMaintien, true);
+    document.addEventListener('keyup', finMaintien, true);
 
     // Quitter la page pendant l'introduction l'arrête net.
     const page = document.getElementById('page-carte');
@@ -491,7 +518,8 @@
         fini2 = true;
         silence(150);
         observeur.disconnect();
-        document.removeEventListener('keydown', passer, true);
+        document.removeEventListener('keydown', debutMaintien, true);
+      document.removeEventListener('keyup', finMaintien, true);
         document.body.classList.remove('intro-globe-actif');
         fini = true;
         cancelAnimationFrame(image);
