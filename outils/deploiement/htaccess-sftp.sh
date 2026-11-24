@@ -71,7 +71,7 @@ awk -v d="$debut" -v f="$fin" '$0==d{skip=1} !skip{print} $0==f{skip=0}' "$trava
 directives(){ grep -vE '^[[:space:]]*(#|$)' "$1" | awk '{print $1}' | sort -u; }
 directives "$depot/.htaccess" > "$travail/nos-directives"
 directives "$travail/sans-bloc" > "$travail/leurs-directives"
-etrangeres=$(grep -vxFf "$travail/nos-directives" "$travail/leurs-directives" | wc -l)
+etrangeres=$( (grep -vxFf "$travail/nos-directives" "$travail/leurs-directives" || true) | wc -l)
 
 if [ "$etrangeres" -eq 0 ]; then
   mode="remplacement"
