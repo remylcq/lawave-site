@@ -32,6 +32,9 @@
   const FINESSE = 0.125;     // la grille la plus fine, en degrés ; les autres en sont des multiples (1, 2, 4, 8)
   const ECART = 10;          // l'écart voulu entre deux points à l'écran, en pixels
 
+  // Un téléphone (écran tactile ou étroit) : moins de points, une résolution plus basse, 30 images par seconde.
+  const LEGER = !!(window.matchMedia && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 760px)').matches));
+
   // Un contour approximatif de la France (métropole et Corse) pour la teinter.
   const CONTOURS_FRANCE = [
     // Les frontières terrestres sont suivies de près ; côté mer, le tracé déborde largement pour que toute la côte (Bretagne,
@@ -132,8 +135,10 @@
       const m = [];
       let rang = 0;
 
-      for(let lat = -84; lat <= 84; lat += 1.5, rang++){
-        const n = Math.max(1, Math.round(240 * Math.cos(lat * RAD)));
+      const pasMonde = LEGER ? 2.2 : 1.5;
+
+      for(let lat = -84; lat <= 84; lat += pasMonde, rang++){
+        const n = Math.max(1, Math.round(360 / pasMonde * Math.cos(lat * RAD)));
         for(let i = 0; i < n; i++){
           const lon = -180 + (i + (rang % 2) * .5) * (360 / n);
           if(monde(lon, lat)) m.push({ lon: lon * RAD, lat: lat * RAD, fr: dansFrance(lon, lat) });
@@ -218,7 +223,7 @@
 
     if(proche > 0 && terre){
 
-      const voulu = ECART / (R * RAD * FINESSE);        // multiple de FINESSE visé (peut être fractionnaire)
+      const voulu = ECART * e.ecart / (R * RAD * FINESSE);        // multiple de FINESSE visé (peut être fractionnaire)
       let pas = 1;
       while(pas * 2 <= Math.min(8, voulu * .8)) pas *= 2;
 
@@ -229,7 +234,7 @@
       const i0 = Math.ceil((e.lon - extLon) / FINESSE / pas) * pas, i1 = Math.floor((e.lon + extLon) / FINESSE);
       const j0 = Math.ceil(Math.max(-85, e.inclinaison - extLat) / FINESSE / pas) * pas, j1 = Math.floor(Math.min(85, e.inclinaison + extLat) / FINESSE);
 
-      const rProche = Math.min(3.4, Math.max(.8, R * RAD * FINESSE * Math.min(voulu, 8) * .2));
+      const rProche = Math.min(3.4 + (e.ecart - 1), Math.max(.8, R * RAD * FINESSE * Math.min(voulu, 8) * .2));
 
       for(let j = j0; j <= j1; j += pas){
 
@@ -380,11 +385,11 @@
 
   const echappe = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  function jouer(choix, premier){
+  function jouer(choix, premier, haut){
 
-    const dpr0 = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr0 = Math.min(window.devicePixelRatio || 1, LEGER ? 1.5 : 2);
     const w = Math.round(window.innerWidth), h = Math.round(window.innerHeight);
-    const dpr = w * h * dpr0 * dpr0 > 4.2e6 ? Math.max(1, Math.sqrt(4.2e6 / (w * h))) : dpr0;
+    const dpr = w * h * dpr0 * dpr0 > (LEGER ? 1.6e6 : 4.2e6) ? Math.max(1, Math.sqrt((LEGER ? 1.6e6 : 4.2e6) / (w * h))) : dpr0;
 
     const fond = document.createElement('div');
     fond.className = 'intro-globe';
@@ -402,7 +407,7 @@
     ctx.scale(dpr, dpr);
 
     // Plusieurs tours rapides, qui ralentissent jusqu'à la France.
-    const e = { lon: FRANCE.lon + 1260 + 70, inclinaison: 12, echelle: .6, france: 0, apparition: 0, marq: 0, cible: null, plan: 0, isole: 0, page: null };
+    const e = { lon: FRANCE.lon + 1260 + 70, inclinaison: 12, echelle: .6, france: 0, apparition: 0, marq: 0, cible: null, plan: 0, isole: 0, page: null, ecart: LEGER ? 1.45 : 1 };
 
     fond.style.opacity = '0';
     document.body.appendChild(fond);
@@ -424,12 +429,20 @@
 
     // La boucle de dessin : une image par image écran, tant que l'introduction vit.
     let image = 0;
-    const boucle = () => {
+    // Sur téléphone : une image sur deux (30 par seconde), et si la cadence reste faible, on allège les points en route.
+    let tour = 0, dernier = 0, lent = 0;
+    const boucle = (t) => {
       if(fini) return;
-      dessiner(ctx, w, h, e);
       image = requestAnimationFrame(boucle);
+      if(LEGER && (++tour % 2)) return;
+      const dt = t - dernier;
+      dernier = t;
+      // Une image qui dépasse nettement son budget (45 ms sur téléphone, 28 ms ailleurs) : on s'allège.
+      if(dt > (LEGER ? 45 : 28) && dt < 400) lent++; else if(lent > 0) lent -= .25;
+      if(lent > 8 && e.ecart < 2.4){ e.ecart *= 1.18; lent = 0; }
+      dessiner(ctx, w, h, e);
     };
-    boucle();
+    boucle(performance.now());
 
     // Coupe le son en fondu (« ms » : la durée du fondu).
     const silence = (ms) => {
@@ -437,7 +450,7 @@
       son = null;
       if(!a) return;
       const volume = { v: a.volume };
-      animate(volume, { v: 0, duration: ms, ease: 'inOutQuad', onUpdate: () => { try{ a.volume = Math.max(0, volume.v); }catch(x){} }, onComplete: () => { try{ a.pause(); a.src = ''; }catch(x){} } });
+      animate(volume, { v: 0, duration: ms, ease: 'inOutQuad', onUpdate: () => { try{ a.volume = Math.max(0, volume.v); }catch(x){} }, onComplete: () => { if(son !== a){ try{ a.pause(); }catch(x){} } } });
     };
 
     const rendre = () => {
@@ -535,9 +548,13 @@
     setTimeout(() => { if(!ouvert && !fini) passer(); }, 60000);
 
     // L'extrait : un fondu à l'entrée (le son se coupe en fondu avec silence()). Sans accord du navigateur, la carte reste muette.
-    const jouerSon = (a, entree) => {
+    const jouerSon = (a, entree, eviter) => {
       try{
-        const audio = new Audio(a.apercu);
+        // Deux lecteurs préparés pendant le geste de la personne (voir lancer) : sur iPhone, un son créé plus tard sans geste est bloqué.
+        const audio = haut.find(x => x !== son && x !== eviter) || haut[0];
+        try{ audio.pause(); }catch(x){}
+        audio.src = a.apercu;
+        audio.currentTime = 0;
         audio.volume = 0;
         son = audio;
         const lecture = audio.play();
@@ -549,8 +566,9 @@
 
     // Un fondu enchaîné : le nouvel extrait monte pendant que le précédent s'éteint, sans silence entre les deux.
     const enchainer = (a, ms) => {
+      const sortant = son;
       silence(ms);
-      jouerSon(a, ms);
+      jouerSon(a, ms, sortant);
     };
 
     // Le premier artiste se fait entendre dès l'ouverture, avant même qu'on le voie.
@@ -692,7 +710,22 @@
         ? window.introArtistes(donnerPremier).catch(() => [])
         : Promise.resolve([]);
 
-      this.pret = jouer(choix, premier);
+      // Les lecteurs sont « débloqués » ici, tant que le geste (le toucher qui ouvre la carte) est actif : un court silence les rend
+      // utilisables ensuite sans autre toucher, ce qui manquait aux 2e et 3e extraits sur téléphone.
+      const SILENCE = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+      const haut = [new Audio(), new Audio()];
+
+      haut.forEach(a => {
+        try{
+          a.src = SILENCE;
+          a.volume = 0;
+          const p = a.play();
+          a.pause();
+          if(p && p.catch) p.catch(() => {});
+        }catch(x){}
+      });
+
+      this.pret = jouer(choix, premier, haut);
     }
   };
 

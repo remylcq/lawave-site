@@ -2617,6 +2617,10 @@
     background:rgba(10,15,24,.72); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
     box-shadow:0 24px 60px -20px rgba(0,0,0,.8);
   }
+  @media (pointer:coarse), (max-width:760px){
+    /* Le flou d'arrière-plan sur un canvas animé coûte cher sur téléphone : un fond plus opaque le remplace. */
+    .intro-globe-carte{-webkit-backdrop-filter:none; backdrop-filter:none; background:rgba(10,15,24,.9);}
+  }
   .intro-globe-carte img, .intro-globe-initiale{flex:none; width:64px; height:64px; border-radius:50%; object-fit:cover; box-shadow:0 0 0 2px rgba(79,180,255,.55);}
   .intro-globe-initiale{display:inline-flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; color:#fff; background:linear-gradient(145deg,#2074bb,#143a63);}
   .intro-globe-texte{display:flex; flex-direction:column; gap:3px; min-width:0; flex:1;}
