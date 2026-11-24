@@ -700,6 +700,9 @@
       if(enCours || avant === 'page-artiste' || avant === 'page-carte') return;
       if(!mondes) return;
 
+      // L'introduction ne se joue qu'une fois par visite : revenir sur la carte, ou la rouvrir, l'affiche directement.
+      try{ if(sessionStorage.getItem('lw-intro-carte')) return; sessionStorage.setItem('lw-intro-carte', '1'); }catch(x){}
+
       enCours = true;
       this.enCours = true;
 

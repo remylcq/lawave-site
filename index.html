@@ -5435,7 +5435,7 @@
           <button type="button" class="cat-puce" data-periode="90" onclick="periodeConcertsCarte('90')">3 mois</button>
           <label class="cat-puce carte-date" data-periode="date">
             <span id="carteDateLib">Une date</span>
-            <input type="date" id="carteDate" aria-label="Choisir une date" onchange="periodeConcertsCarte('date', this.value)">
+            <input type="date" id="carteDate" aria-label="Choisir une date" onclick="try{this.showPicker()}catch(e){}" onchange="periodeConcertsCarte('date', this.value)" oninput="periodeConcertsCarte('date', this.value)">
           </label>
         </span>
         <button type="button" class="cat-puce" id="carteStudiosBtn" aria-pressed="false" onclick="basculerStudiosCarte()">Studios</button>
