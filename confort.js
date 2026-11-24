@@ -329,12 +329,18 @@ window.Confort = (function(){
   // Le tableau de bord de l'équipe
   // ------------------------------------------------------------------
 
-  async function tableauBord(){
+  let tbMinuteur = null;
+
+  async function tableauBord(silencieux){
 
     const corps = document.getElementById('tableauBordCorps');
     if(!corps) return;
 
-    corps.innerHTML = '<p class="art-vide">Chargement…</p>';
+    // Le tableau se remet à jour tout seul chaque minute tant qu'il est visible ; seule la première lecture montre l'attente.
+    clearInterval(tbMinuteur);
+    tbMinuteur = setInterval(() => { const c = document.getElementById('tableauBordCorps'); if(!c || !c.offsetParent || document.hidden) return; tableauBord(true); }, 60000);
+
+    if(silencieux !== true) corps.innerHTML = '<p class="art-vide">Chargement…</p>';
 
     let d;
 
@@ -352,12 +358,17 @@ window.Confort = (function(){
     // Les files à traiter : un pavé par file, qui mène à l'onglet concerné.
     const FILES = [
       ['soumissions', 'Soumissions à valider', "ouvrirAttente('membre')"], ['imports', 'Imports à valider', "ouvrirAttente('auto')"],
-      ['signalements', 'Signalements ouverts', null], ['verifications', 'Profils à vérifier', "switchAdminTab('profils')"],
-      ['pages_artistes', 'Pages d\'artistes demandées', "ouvrirFiltreArtistes('demandes')"], ['studios', 'Studios à publier', null],
-      ['idees', 'Idées nouvelles', null], ['accreditations', 'Inscriptions photo', "switchAdminTab('accreditations')"]
+      ['signalements', 'Signalements ouverts', "switchAdminTab('community')"], ['verifications', 'Profils à vérifier', "switchAdminTab('profils')"],
+      ['pages_artistes', 'Pages d\'artistes demandées', "ouvrirFiltreArtistes('demandes')"], ['studios', 'Studios à publier', "location.hash='#community/studios'"],
+      ['idees', 'Idées nouvelles', "goTo('idees')"], ['accreditations', 'Inscriptions photo', "switchAdminTab('accreditations')"]
     ];
 
     const total = FILES.reduce((n, f) => n + (d.a_traiter[f[0]] || 0), 0);
+
+    // Les files pleines d'abord : ce qui attend l'équipe se lit en haut, sans chercher.
+    FILES.sort((a, b) => (d.a_traiter[b[0]] || 0) - (d.a_traiter[a[0]] || 0));
+
+    const maj = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
     corps.innerHTML = `
       <p class="tb-titre">Aujourd'hui</p>
@@ -367,7 +378,9 @@ window.Confort = (function(){
         ${carte(d.audience.vues_aujourdhui, 'pages vues', d.audience.visites_aujourdhui + ' visites')}
         ${carte(d.activite.actifs_7j, 'membres actifs (7 j)', d.activite.messages_7j + ' messages sur la semaine')}
       </div>
-      <p class="tb-titre">À traiter ${total ? '<span class="tb-total">' + total + '</span>' : ''}</p>
+      <p class="tb-titre">À traiter ${total ? '<span class="tb-total">' + total + '</span>' : ''}
+        <span class="tb-maj">Mis à jour à ${maj}<button type="button" class="tb-rafraichir" aria-label="Actualiser" title="Actualiser" onclick="Confort.tableauBord()">↻</button></span></p>
+      ${total ? '' : '<p class="tb-ok">Tout est à jour : rien n\'attend l\'équipe.</p>'}
       <div class="tb-files">
         ${FILES.map(([cle, lib, onglet]) => {
           const n = d.a_traiter[cle] || 0;

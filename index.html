@@ -2681,6 +2681,13 @@
     background:rgba(255,255,255,0.05); border-radius:var(--radius-pill);
     box-shadow:var(--reflet-int);
   }
+  /* La période des concerts : des puces qui apparaissent à côté du filtre, la date étant un champ natif sous une puce. */
+  .carte-periodes{display:inline-flex; flex-wrap:wrap; gap:8px; align-items:center; animation:periodesEntrent .45s var(--ease) both;}
+  .carte-periodes[hidden]{display:none;}
+  @keyframes periodesEntrent{from{opacity:0; transform:translateX(-8px);} to{opacity:1; transform:none;}}
+  .carte-date{position:relative; overflow:hidden; cursor:pointer;}
+  .carte-date input{position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; font-size:16px;}
+  .carte-date.on{border-color:var(--blue-bright);}
   .carte-pays-fond{
     position:absolute; top:5px; bottom:5px; left:0; width:0; opacity:0;
     border-radius:var(--radius-pill); pointer-events:none;
@@ -3175,6 +3182,22 @@
   /* Ligne « feat. » de la fiche de sortie : petite, sous le nom de
      l'artiste principal, chaque nom menant à sa page. */
   .modal-feat{font-size:12px; color:var(--muted); margin:6px 0 0;}
+  /* Crédits de la sortie : un rôle, ses noms ; le nom d'un artiste du site est un lien. */
+  .modal-credits{margin:14px 0 0; padding-top:12px; border-top:1px solid var(--line);}
+  .credits-titre{margin:0 0 8px; font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
+  .credit-ligne{display:flex; gap:10px; align-items:baseline; margin:0 0 5px; font-size:13px;}
+  .credit-role{flex:none; min-width:84px; color:var(--muted);}
+  .credit-noms{display:flex; flex-wrap:wrap; gap:2px 10px;}
+  .credit{display:inline-flex; align-items:center; gap:3px;}
+  .credit-nom{color:var(--ink-soft); font-weight:500;}
+  button.credit-nom{background:none; border:0; padding:0; font:inherit; font-weight:500; color:var(--ink); text-decoration:underline; text-decoration-color:rgba(255,255,255,.3); text-underline-offset:3px; cursor:pointer;}
+  button.credit-nom:hover{color:var(--blue-bright);}
+  .credit-x{background:none; border:0; padding:0 3px; color:var(--muted); font-size:16px; line-height:1; cursor:pointer;}
+  .credit-x:hover{color:#ff7b7b;}
+  .credit-vide{margin:0 0 8px; font-size:13px; color:var(--muted);}
+  .credit-ajout{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;}
+  .credit-ajout select, .credit-ajout input{flex:1 1 130px; min-width:0; padding:8px 10px; border-radius:10px; border:1px solid var(--line-strong); background:var(--bg-alt); color:var(--ink); font:inherit; font-size:13px;}
+  .credit-ajout .btn{padding:8px 14px;}
   .modal-feat button{
     background:none; border:none; padding:0; font:inherit;
     color:var(--ink-soft); text-decoration:underline; cursor:pointer;
@@ -4601,6 +4624,33 @@
     border:1px dashed var(--eq-trait-2); border-radius:var(--eq-r); background:transparent;
     backdrop-filter:none; -webkit-backdrop-filter:none; box-shadow:none;
   }
+  /* File de modération : une carte à la fois */
+  .tb-maj{margin-left:12px; font-size:12px; font-weight:400; color:var(--muted); letter-spacing:0; text-transform:none;}
+  .tb-rafraichir{margin-left:6px; width:28px; height:28px; border-radius:50%; border:1px solid var(--line); background:transparent; color:var(--ink-soft); cursor:pointer; transition:transform .5s var(--ease);}
+  .tb-rafraichir:hover{transform:rotate(180deg);}
+  .tb-ok{margin:0 0 14px; padding:12px 16px; border-radius:14px; color:#6fe0ae; background:rgba(62,207,142,.1); font-size:14px;}
+  .tb-file.plein{border-color:rgba(255,170,60,.5);}
+  .file-carte{padding:20px 22px; border-radius:18px; border:1px solid var(--eq-trait, var(--line)); background:var(--eq-fond, rgba(255,255,255,.03)); display:flex; flex-direction:column; gap:12px; transition:border-color .25s var(--ease), background .25s var(--ease);}
+  .file-carte.confirme{border-color:rgba(255,110,110,.55); background:rgba(255,80,80,.06);}
+  .file-tete{display:flex; align-items:center; gap:10px;}
+  .file-rang{font-size:12px; color:var(--muted); letter-spacing:.06em;}
+  .file-fois{padding:2px 9px; border-radius:99px; font-size:12px; font-weight:700; color:#ffb454; background:rgba(255,170,60,.16);}
+  .file-nav{margin-left:auto; display:inline-flex; gap:6px;}
+  .file-fleche{width:34px; height:34px; border-radius:50%; border:1px solid var(--line-strong); background:transparent; color:var(--ink-soft); cursor:pointer;}
+  .file-fleche:disabled{opacity:.35; cursor:default;}
+  .file-contenu{margin:0; font-size:16px; line-height:1.55; color:var(--ink); word-break:break-word;}
+  .file-motifs{display:flex; flex-wrap:wrap; gap:6px;}
+  .file-motif{padding:4px 10px; border-radius:99px; font-size:12px; font-weight:600; color:var(--ink-soft); background:rgba(255,255,255,.07);}
+  .file-meta{margin:0; font-size:13px; color:var(--muted);}
+  .file-actions{display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding-top:4px;}
+  .file-question{font-size:14px; color:#ff9a9a; margin-right:4px;}
+  .file-btn{display:inline-flex; align-items:center; gap:9px; padding:11px 18px; border-radius:12px; border:1px solid var(--line-strong); background:rgba(255,255,255,.05); color:var(--ink); font:inherit; font-weight:600; cursor:pointer; transition:background .2s, transform .15s;}
+  .file-btn:hover{background:rgba(255,255,255,.1);} .file-btn:active{transform:scale(.97);}
+  .file-btn.danger{border-color:rgba(255,110,110,.5); color:#ff9a9a;}
+  .file-btn.danger:hover{background:rgba(255,90,90,.14);}
+  .file-btn kbd{padding:1px 6px; border-radius:6px; font:inherit; font-size:11px; color:var(--muted); background:rgba(255,255,255,.08);}
+  .file-vide{display:flex; flex-direction:column; gap:4px;} .file-vide b{color:var(--ink); font-size:16px;}
+  @media (pointer:coarse){ .file-btn kbd{display:none;} }
   #page-admin .empty-state.chargement{
     position:relative; overflow:hidden; border-style:solid; border-color:var(--eq-trait);
     background:var(--eq-fond);
@@ -5010,6 +5060,44 @@
   }
 })();
 </script>
+<style id="etats-doux">
+/* ---------- ÉTATS D'ATTENTE ET ÉTATS VIDES, PLUS DOUX ----------
+   Un chargement ne s'écrit plus en texte sec : une lueur traverse un fond calme, et le message se fond doucement. Un état vide n'est
+   plus une boîte pointillée : il se pose, discret, avec un petit repère. */
+.empty-state{
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; position:relative; overflow:hidden;
+  border:1px solid var(--line); background:linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,.012));
+  border-radius:20px; line-height:1.5; animation:etatEntre .5s var(--ease) both;
+}
+.empty-state::before{
+  content:''; width:38px; height:38px; margin-bottom:6px; border-radius:50%;
+  background:radial-gradient(circle at 35% 30%, rgba(79,180,255,.55), rgba(79,180,255,.06) 70%); opacity:.8;
+}
+.empty-state b{color:var(--ink); font-weight:600;}
+@keyframes etatEntre{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+
+.empty-state.chargement{
+  border-color:var(--line); color:transparent; font-size:0; min-height:132px; gap:12px; animation:none;
+}
+.empty-state.chargement::before{
+  width:64%; max-width:340px; height:12px; margin:0; border-radius:99px; opacity:1;
+  background:linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.14), rgba(255,255,255,.05)); background-size:220% 100%;
+  animation:etatBrille 1.5s ease-in-out infinite;
+}
+.empty-state.chargement::after{
+  content:''; width:42%; max-width:220px; height:12px; border-radius:99px; transform:none; position:static; inset:auto;
+  background:linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.12), rgba(255,255,255,.05)); background-size:220% 100%;
+  animation:etatBrille 1.5s ease-in-out .15s infinite;
+}
+.empty-state.chargement > *{display:none;}
+@keyframes etatBrille{from{background-position:100% 0;} to{background-position:-120% 0;}}
+.art-vide{display:flex; align-items:center; gap:10px;}
+.art-vide::before{content:''; width:10px; height:10px; border-radius:50%; background:var(--blue-bright); opacity:.7; animation:etatPouls 1.2s ease-in-out infinite;}
+@keyframes etatPouls{0%,100%{transform:scale(.7); opacity:.35;} 50%{transform:scale(1); opacity:.9;}}
+@media (prefers-reduced-motion:reduce){
+  .empty-state, .empty-state.chargement::before, .empty-state.chargement::after, .art-vide::before{animation:none;}
+}
+</style>
 <style id="mobile-confort">
 /* ---------- TÉLÉPHONE : zones tactiles, lisibilité, onglets qui tiennent à l'écran ----------
    Les doigts ont besoin de cibles d'au moins 40 px et de textes d'au moins 12 px. Rien ne change sur ordinateur. */
@@ -5339,7 +5427,17 @@
 
       <!-- Deux raccourcis : les artistes qui jouent bientôt, et ceux qui sont près de soi. -->
       <div class="carte-actions" role="group" aria-label="Filtres de la carte">
-        <button type="button" class="cat-puce" id="carteConcertsBtn" aria-pressed="false" onclick="basculerConcertsCarte()">Concerts ce mois-ci</button>
+        <button type="button" class="cat-puce" id="carteConcertsBtn" aria-pressed="false" onclick="basculerConcertsCarte()">Concerts</button>
+        <!-- La période des concerts : apparaît quand le filtre est actif. -->
+        <span class="carte-periodes" id="cartePeriodes" role="group" aria-label="Période des concerts" hidden>
+          <button type="button" class="cat-puce" data-periode="7" onclick="periodeConcertsCarte('7')">Cette semaine</button>
+          <button type="button" class="cat-puce on" data-periode="30" onclick="periodeConcertsCarte('30')">Ce mois-ci</button>
+          <button type="button" class="cat-puce" data-periode="90" onclick="periodeConcertsCarte('90')">3 mois</button>
+          <label class="cat-puce carte-date" data-periode="date">
+            <span id="carteDateLib">Une date</span>
+            <input type="date" id="carteDate" aria-label="Choisir une date" onchange="periodeConcertsCarte('date', this.value)">
+          </label>
+        </span>
         <button type="button" class="cat-puce" id="carteStudiosBtn" aria-pressed="false" onclick="basculerStudiosCarte()">Studios</button>
         <button type="button" class="cat-puce carte-autour" id="carteAutourBtn" onclick="autourDeMoiCarte()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
@@ -7593,6 +7691,8 @@
         <!-- Featurings de la sortie, quand elle en a. -->
         <p id="modalFeaturing" class="modal-feat"></p>
         <p id="modalReleaseDate" style="color:var(--muted); font-size:12px; margin:8px 0 0;"></p>
+        <!-- Les crédits techniques (beatmaker, mixage...), saisis par l'équipe : chargerCredits. -->
+        <div id="modalCredits" class="modal-credits" hidden></div>
       </div>
     </div>
 
@@ -19561,17 +19661,104 @@ function messageActionsCarte(texte){
   if(zone) zone.textContent = texte || '';
 }
 
-// « Concerts ce mois-ci » : seuls les artistes qui jouent dans les 30 prochains jours restent sur la carte.
+// « Concerts » : seuls les artistes qui jouent dans la période choisie (cette semaine, ce mois-ci, 3 mois ou une date)
+// restent sur la carte. Les concerts de l'année sont lus une fois ; la période se filtre ensuite sans nouvel appel.
+var carteConcertsToutes = null;
+var carteConcertsPeriode = '30';
+var carteConcertsDate = '';
+
+function aujourdhuiParis(){
+  return new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Paris' });
+}
+
+function concertsDeLaPeriode(){
+
+  const auj = aujourdhuiParis();
+  const plus = (n) => { const d = new Date(auj + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toLocaleDateString('sv-SE'); };
+
+  let debut = auj, fin = plus(Number(carteConcertsPeriode) || 30);
+
+  if(carteConcertsPeriode === 'date' && carteConcertsDate){ debut = carteConcertsDate; fin = carteConcertsDate; }
+
+  return (carteConcertsToutes || []).filter(c => String(c.date).slice(0, 10) >= debut && String(c.date).slice(0, 10) <= fin);
+}
+
+function libellePeriodeConcerts(n){
+
+  const mot = n + ' concert' + (n > 1 ? 's' : '');
+
+  if(carteConcertsPeriode === 'date' && carteConcertsDate){
+    return mot + ' le ' + new Date(carteConcertsDate + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) + ' : les artistes sont placés là où ils jouent.';
+  }
+
+  const duree = { '7': 'les 7 prochains jours', '30': 'les 30 prochains jours', '90': 'les 3 prochains mois' }[carteConcertsPeriode] || 'la période';
+
+  return mot + ' dans ' + duree + ' : les artistes sont placés là où ils jouent.';
+}
+
+function appliquerConcertsCarte(){
+
+  const liste = concertsDeLaPeriode();
+
+  carteConcerts = null;
+
+  if(!liste.length){
+    messageActionsCarte(carteConcertsPeriode === 'date' ? "Aucun concert annoncé ce jour-là." : 'Aucun concert annoncé sur cette période.');
+    afficherPaysCarte(true, false);
+    return;
+  }
+
+  carteConcerts = new Map();
+
+  liste.forEach(c => {
+    const h = String(c.handle).toLowerCase();
+    if(!carteConcerts.has(h)) carteConcerts.set(h, []);
+    carteConcerts.get(h).push(c);
+  });
+
+  messageActionsCarte(libellePeriodeConcerts(liste.length));
+  afficherPaysCarte(true, false);
+}
+
+function majPuccesPeriodes(){
+
+  document.querySelectorAll('#cartePeriodes [data-periode]').forEach(b => {
+    const on = b.dataset.periode === carteConcertsPeriode;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+
+  const lib = document.getElementById('carteDateLib');
+
+  if(lib) lib.textContent = carteConcertsPeriode === 'date' && carteConcertsDate
+    ? new Date(carteConcertsDate + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+    : 'Une date';
+}
+
+function periodeConcertsCarte(periode, date){
+
+  if(periode === 'date'){
+    if(!date) return;
+    carteConcertsDate = date;
+  }
+
+  carteConcertsPeriode = periode;
+  majPuccesPeriodes();
+  appliquerConcertsCarte();
+}
+
 async function basculerConcertsCarte(){
 
   const bouton = document.getElementById('carteConcertsBtn');
+  const periodes = document.getElementById('cartePeriodes');
 
   if(!bouton || bouton.disabled) return;
 
-  if(carteConcerts){
+  if(carteConcerts || bouton.classList.contains('on')){
     carteConcerts = null;
     bouton.setAttribute('aria-pressed', 'false');
     bouton.classList.remove('on');
+    if(periodes) periodes.hidden = true;
     messageActionsCarte('');
     afficherPaysCarte(true, false);
     return;
@@ -19584,27 +19771,26 @@ async function basculerConcertsCarte(){
 
   try{
 
-    const { data, error } = await supabaseClient.rpc('concerts_carte', { p_jours: 30 });
+    if(!carteConcertsToutes){
+      const { data, error } = await supabaseClient.rpc('concerts_carte', { p_jours: 365 });
+      if(error) throw error;
+      carteConcertsToutes = Array.isArray(data) ? data : [];
+    }
 
-    if(error) throw error;
-
-    const liste = Array.isArray(data) ? data : [];
-
-    if(!liste.length){
-      messageActionsCarte('Aucun concert annoncé dans les 30 prochains jours pour le moment.');
+    if(!carteConcertsToutes.length){
+      messageActionsCarte('Aucun concert annoncé pour le moment.');
       return;
     }
 
-    carteConcerts = new Map();
-    liste.forEach(c => {
-      const h = String(c.handle).toLowerCase();
-      if(!carteConcerts.has(h)) carteConcerts.set(h, []);
-      carteConcerts.get(h).push(c);
-    });
     bouton.setAttribute('aria-pressed', 'true');
     bouton.classList.add('on');
-    messageActionsCarte(liste.length + ' concert' + (liste.length > 1 ? 's' : '') + ' dans les 30 prochains jours : les artistes sont placés là où ils jouent.');
-    afficherPaysCarte(true, false);
+    if(periodes) periodes.hidden = false;
+
+    const date = document.getElementById('carteDate');
+    if(date){ date.min = aujourdhuiParis(); }
+
+    majPuccesPeriodes();
+    appliquerConcertsCarte();
 
   }catch(e){
     messageActionsCarte('Les concerts ne sont pas disponibles pour le moment.');
@@ -19630,7 +19816,7 @@ async function basculerStudiosCarte(){
   }
 
   // Un seul filtre à la fois : les studios remplacent les concerts.
-  if(carteConcerts) await basculerConcertsCarte();
+  if(carteConcerts || document.getElementById('carteConcertsBtn').classList.contains('on')) await basculerConcertsCarte();
 
   bouton.disabled = true;
 
@@ -23009,6 +23195,7 @@ document.getElementById(
 
   renderNoteBloc(item.id);
   chargerPistes(item);
+  chargerCredits(item);
   chargerVersions(item);
   ficheItemCourant = item;
 
@@ -23337,6 +23524,101 @@ function animerPistes(zone, boite, avant){
     ease: 'outCubic',
     onComplete: fin
   });
+}
+
+// ---- Les crédits d'une sortie (sql/credits-sorties.sql) ----
+//
+// Deezer ne donne que les artistes : beatmaker, ingé son, mixage... sont saisis par l'équipe sur la fiche. Un nom qui a une
+// page sur le site en est un lien ; l'équipe voit aussi « + Ajouter » et une croix sur chaque crédit.
+const ROLES_CREDITS = ['Production', 'Beatmaker', 'Composition', 'Écriture', 'Ingé son', 'Mixage', 'Mastering', 'Direction artistique', 'Réalisation clip', 'Photographie', 'Design pochette', 'Autre'];
+var creditsCourants = { release: null, liste: [] };
+
+function creditsHtml(release, liste){
+
+  const parRole = {};
+  liste.forEach(c => { (parRole[c.role] = parRole[c.role] || []).push(c); });
+
+  const nom = (c) => {
+    const lien = c.handle && artistsByHandle[c.handle]
+      ? `<button type="button" class="credit-nom lien" onclick="closeCatalogueModal(true); ouvrirPageArtiste('${handleSain(c.handle)}')">${escapeHtml(c.nom)}</button>`
+      : `<span class="credit-nom">${escapeHtml(c.nom)}</span>`;
+    return lien + (isAdmin ? `<button type="button" class="credit-x" aria-label="Retirer ce crédit" onclick="retirerCredit('${escapeAttribute(c.id)}')">×</button>` : '');
+  };
+
+  const lignes = Object.keys(parRole).map(role => `
+    <div class="credit-ligne"><span class="credit-role">${escapeHtml(role)}</span><span class="credit-noms">${parRole[role].map(c => `<span class="credit">${nom(c)}</span>`).join('')}</span></div>`).join('');
+
+  const ajout = isAdmin ? `
+    <form class="credit-ajout" onsubmit="ajouterCredit(event)" autocomplete="off">
+      <select id="creditRole" aria-label="Rôle">${ROLES_CREDITS.map(r => `<option>${escapeHtml(r)}</option>`).join('')}</select>
+      <input id="creditNom" list="creditsNoms" maxlength="80" placeholder="Nom (un artiste du site devient un lien)" required>
+      <datalist id="creditsNoms">${Object.keys(artistsByHandle).slice(0, 600).map(hd => `<option value="${escapeAttribute(artistsByHandle[hd].display_name || hd)}"></option>`).join('')}</datalist>
+      <button type="submit" class="btn btn-ghost">Ajouter</button>
+    </form>` : '';
+
+  return (lignes || (isAdmin ? '<p class="credit-vide">Aucun crédit pour l\'instant.</p>' : '')) ? `<p class="credits-titre">Crédits</p>${lignes}${ajout}` : '';
+}
+
+async function chargerCredits(item){
+
+  const zone = document.getElementById('modalCredits');
+
+  if(!zone) return;
+
+  zone.hidden = true;
+  zone.innerHTML = '';
+  creditsCourants = { release: null, liste: [] };
+
+  if(!item || !item.id || typeof supabaseClient === 'undefined' || !supabaseClient) return;
+
+  const voulu = item.id;
+
+  try{
+    const { data, error } = await supabaseClient.rpc('sortie_credits', { p_release: voulu });
+    if(error) throw error;
+    if(!document.getElementById('modalCredits') || (creditsCourants.release && creditsCourants.release !== voulu)) return;
+    creditsCourants = { release: voulu, liste: Array.isArray(data) ? data : [] };
+  }catch(e){
+    // La fonction n'est pas encore en base, ou le réseau a manqué : la fiche reste sans crédits.
+    if(!isAdmin) return;
+    creditsCourants = { release: voulu, liste: [] };
+  }
+
+  const html = creditsHtml(voulu, creditsCourants.liste);
+
+  if(!html) return;
+
+  zone.innerHTML = html;
+  zone.hidden = false;
+}
+
+async function ajouterCredit(ev){
+
+  ev.preventDefault();
+
+  const nom = document.getElementById('creditNom').value.trim();
+  const role = document.getElementById('creditRole').value;
+
+  if(!nom || !creditsCourants.release) return;
+
+  // Un nom qui est celui d'un artiste du site devient un lien vers sa page.
+  const bas = nom.toLowerCase();
+  const handle = Object.keys(artistsByHandle).find(hd => String(artistsByHandle[hd].display_name || hd).toLowerCase() === bas) || null;
+
+  const { error } = await supabaseClient.rpc('sortie_credit_ajouter', { p_release: creditsCourants.release, p_role: role, p_nom: nom, p_handle: handle });
+
+  if(error){ notifier('Ajout impossible', { texte: error.message }); return; }
+
+  chargerCredits({ id: creditsCourants.release });
+}
+
+async function retirerCredit(id){
+
+  const { error } = await supabaseClient.rpc('sortie_credit_supprimer', { p_id: id });
+
+  if(error){ notifier('Suppression impossible', { texte: error.message }); return; }
+
+  chargerCredits({ id: creditsCourants.release });
 }
 
 async function chargerPistes(item){
@@ -33157,23 +33439,8 @@ async function renderForumModeration(){
   list.innerHTML = `
     <div class="form-msg" id="forumModMsg"></div>
 
-    <span class="eyebrow mono">Signalements ouverts · ${liste.length}</span>
-    ${liste.length ? liste.map(s => {
-      const id = escapeAttribute(s.id);
-      return `
-      <div class="admin-row" style="flex-wrap:wrap;">
-        <div class="meta">
-          <h4>${escapeHtml(motifs[s.motif] || s.motif)} — signalé par ${escapeHtml(s.auteur ? s.auteur.pseudo : '?')}</h4>
-          <span>${escapeHtml(cibleTexte(s))}${s.details ? ' · « ' + escapeHtml(s.details) + ' »' : ''}</span>
-        </div>
-        <div class="admin-actions">
-          <button class="approve" onclick="traiterSignalementCom('${id}','ignorer')">Ignorer</button>
-          <button class="reject" onclick="openConfirmPanel('com-sig-suppr-${id}')">Supprimer</button>
-        </div>
-        ${confirmation('com-sig-suppr-' + id, 'Supprimer le contenu signalé ? Cette action est définitive.',
-                       "traiterSignalementCom('" + id + "','supprimer')")}
-      </div>`;
-    }).join('') : `<div class="empty-state">Aucun signalement en attente.</div>`}
+    <span class="eyebrow mono">Signalements ouverts · <span id="fileSigNb">${liste.length}</span></span>
+    <div id="fileSignalements"></div>
 
     <span class="eyebrow mono" style="margin-top:28px;">Derniers messages</span>
     ${posts.length ? posts.map(p => {
@@ -33192,7 +33459,127 @@ async function renderForumModeration(){
                        "supprimerPostCom('" + id + "')")}
       </div>`;
     }).join('') : `<div class="empty-state">Aucun message publié pour l'instant.</div>`}`;
+
+  fileSig = { groupes: grouperSignalements(liste), i: 0, confirme: false };
+  rendreFileSignalements();
 }
+
+// La file de modération : les signalements sont regroupés par contenu (un message signalé trois fois = une seule carte, avec
+// ×3), les plus signalés d'abord, et traités un par un : un geste (Ignorer ou Supprimer) fait passer au suivant sans recharger la
+// page. Au clavier : I ignore, S supprime (puis Entrée pour confirmer), les flèches parcourent la file.
+var fileSig = { groupes: [], i: 0, confirme: false };
+
+function grouperSignalements(liste){
+
+  const parCible = new Map();
+
+  liste.forEach(s => {
+    const cle = s.cible_type + ':' + s.cible_id;
+    if(!parCible.has(cle)) parCible.set(cle, { cle, cible_type: s.cible_type, cible: s.cible, ids: [], motifs: {}, auteurs: [], details: [], recent: s.cree_le });
+    const g = parCible.get(cle);
+    g.ids.push(s.id);
+    g.motifs[s.motif] = (g.motifs[s.motif] || 0) + 1;
+    if(s.auteur && s.auteur.pseudo && !g.auteurs.includes(s.auteur.pseudo)) g.auteurs.push(s.auteur.pseudo);
+    if(s.details) g.details.push(s.details);
+    if(s.cree_le > g.recent) g.recent = s.cree_le;
+  });
+
+  return Array.from(parCible.values()).sort((a, b) => b.ids.length - a.ids.length || String(b.recent).localeCompare(String(a.recent)));
+}
+
+function rendreFileSignalements(){
+
+  const zone = document.getElementById('fileSignalements');
+
+  if(!zone) return;
+
+  const nb = document.getElementById('fileSigNb');
+  const total = fileSig.groupes.reduce((n, g) => n + g.ids.length, 0);
+
+  if(nb) nb.textContent = total;
+
+  if(!fileSig.groupes.length){
+    zone.innerHTML = `<div class="empty-state file-vide"><b>Tout est traité</b><span>Aucun signalement en attente.</span></div>`;
+    return;
+  }
+
+  fileSig.i = Math.max(0, Math.min(fileSig.i, fileSig.groupes.length - 1));
+
+  const g = fileSig.groupes[fileSig.i];
+  const motifs = { spam: 'Spam', haine: 'Propos haineux', harcelement: 'Harcèlement', faux: 'Faux profil', autre: 'Autre' };
+  const c = g.cible;
+
+  const cibleTexte = !c ? '(contenu supprimé)'
+    : g.cible_type === 'membre' ? 'Membre : ' + (c.pseudo || '?')
+    : (c.auteur ? c.auteur.pseudo + ' : ' : '') + String(c.extrait || '').slice(0, 280);
+
+  zone.innerHTML = `
+    <article class="file-carte ${fileSig.confirme ? 'confirme' : ''}" aria-live="polite">
+      <header class="file-tete">
+        <span class="file-rang">${fileSig.i + 1} sur ${fileSig.groupes.length}</span>
+        ${g.ids.length > 1 ? `<span class="file-fois">×${g.ids.length}</span>` : ''}
+        <span class="file-nav">
+          <button type="button" class="file-fleche" aria-label="Précédent" onclick="naviguerFileSignalements(-1)" ${fileSig.groupes.length < 2 ? 'disabled' : ''}>←</button>
+          <button type="button" class="file-fleche" aria-label="Suivant" onclick="naviguerFileSignalements(1)" ${fileSig.groupes.length < 2 ? 'disabled' : ''}>→</button>
+        </span>
+      </header>
+      <p class="file-contenu">${escapeHtml(cibleTexte)}</p>
+      <div class="file-motifs">${Object.keys(g.motifs).map(m => `<span class="file-motif">${escapeHtml(motifs[m] || m)}${g.motifs[m] > 1 ? ' ×' + g.motifs[m] : ''}</span>`).join('')}</div>
+      <p class="file-meta">Signalé par ${escapeHtml(g.auteurs.slice(0, 4).join(', ') || '?')}${g.auteurs.length > 4 ? ' et ' + (g.auteurs.length - 4) + ' autre(s)' : ''}${g.details.length ? ' · « ' + escapeHtml(g.details[0]) + ' »' : ''}</p>
+      <div class="file-actions">
+        ${fileSig.confirme
+          ? `<span class="file-question">Supprimer définitivement ?</span>
+             <button type="button" class="file-btn danger" onclick="decisionFileSignalements('supprimer')">Oui, supprimer</button>
+             <button type="button" class="file-btn" onclick="fileSig.confirme=false; rendreFileSignalements()">Annuler</button>`
+          : `<button type="button" class="file-btn" onclick="decisionFileSignalements('ignorer')"><kbd>I</kbd> Ignorer</button>
+             <button type="button" class="file-btn danger" onclick="fileSig.confirme=true; rendreFileSignalements()"><kbd>S</kbd> Supprimer</button>`}
+      </div>
+    </article>`;
+}
+
+function naviguerFileSignalements(sens){
+  if(fileSig.groupes.length < 2) return;
+  fileSig.confirme = false;
+  fileSig.i = (fileSig.i + sens + fileSig.groupes.length) % fileSig.groupes.length;
+  rendreFileSignalements();
+}
+
+async function decisionFileSignalements(action){
+
+  const g = fileSig.groupes[fileSig.i];
+
+  if(!g) return;
+
+  const { error } = await supabaseClient.rpc('com_traiter_signalement', { p_id: g.ids[0], p_action: action });
+
+  if(error){
+    setRowMessage('forumModMsg', 'Action impossible : ' + error.message, 'err');
+    return;
+  }
+
+  fileSig.groupes.splice(fileSig.i, 1);
+  fileSig.confirme = false;
+  rendreFileSignalements();
+}
+
+document.addEventListener('keydown', (e) => {
+
+  if(!fileSig.groupes.length || e.metaKey || e.ctrlKey || e.altKey) return;
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName) || (e.target && e.target.isContentEditable)) return;
+
+  const zone = document.getElementById('fileSignalements');
+
+  if(!zone || !zone.offsetParent) return;
+
+  const k = e.key.toLowerCase();
+
+  if(k === 'arrowright'){ naviguerFileSignalements(1); e.preventDefault(); }
+  else if(k === 'arrowleft'){ naviguerFileSignalements(-1); e.preventDefault(); }
+  else if(k === 'i' && !fileSig.confirme){ decisionFileSignalements('ignorer'); e.preventDefault(); }
+  else if(k === 's' && !fileSig.confirme){ fileSig.confirme = true; rendreFileSignalements(); e.preventDefault(); }
+  else if(k === 'enter' && fileSig.confirme){ decisionFileSignalements('supprimer'); e.preventDefault(); }
+  else if(k === 'escape' && fileSig.confirme){ fileSig.confirme = false; rendreFileSignalements(); e.preventDefault(); }
+});
 
 async function traiterSignalementCom(id, action){
 
