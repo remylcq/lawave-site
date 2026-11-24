@@ -11123,7 +11123,9 @@ const FEUILLE = String.raw`
 }
 @media (max-width:640px){
   .st-tete{align-items:flex-start;}
-  .st-tete h2{font-size:26px;}
+  /* Le titre « Studios » est déjà dans la barre du haut sur téléphone : on ne le répète pas. */
+  .st-tete h2{display:none;}
+  .st-tete-texte p{margin:0; font-size:15px; color:var(--ink-soft);}
   .st-tete-actions{flex-wrap:wrap; justify-content:flex-end;}
   .st-proposer span{display:none;}
   .st-proposer{padding:11px 14px;}
@@ -11971,6 +11973,16 @@ html.com-fige, html.com-fige body{overflow:hidden !important;}
   .com-ruban-carte{width:148px;}
   .com-collab-mini{width:210px;}
   .com-types-rapides .com-type-rapide span{font-size:13px;}
+}
+
+/* ---------- Téléphone : zones tactiles de 40 px minimum ---------- */
+@media (pointer:coarse), (max-width:760px){
+  .com-onglet, .com-seg-btn, .com-vibe, .com-seg-rem .com-seg-btn{min-height:40px;}
+  .com-sujet-lien{display:inline-flex; align-items:center; min-height:36px;}
+  .com-palette{max-width:calc(100vw - 20px);}
+  .com-palette-btn{min-width:40px; min-height:40px;}
+  .com-act, .com-act-reag{min-height:40px;}
+  .com-champ input:not(#_a):not(#_b), .com-champ textarea:not(#_a):not(#_b), .com-champ select:not(#_a):not(#_b), .com-recherche input:not(#_a):not(#_b), [class*="com-"] textarea:not(#_a):not(#_b){font-size:16px;}
 }
 
 `;

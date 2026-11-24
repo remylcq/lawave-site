@@ -5010,6 +5010,48 @@
   }
 })();
 </script>
+<style id="mobile-confort">
+/* ---------- TÉLÉPHONE : zones tactiles, lisibilité, onglets qui tiennent à l'écran ----------
+   Les doigts ont besoin de cibles d'au moins 40 px et de textes d'au moins 12 px. Rien ne change sur ordinateur. */
+@media (pointer:coarse), (max-width:760px){
+
+  /* Les petits boutons ronds gardent leur dessin, mais leur zone sensible grandit. */
+  .tile-plus::before{content:''; position:absolute; inset:-9px;}
+  .sel-point::after{inset:-18px -9px;}
+  .sel-points{gap:16px;}
+
+  /* Textes : le plus petit passe à 12 px. */
+  .eyebrow, .carte-pays-compte, .carte-aide-tactile, .footer-sous, .footer-titre{font-size:12px;}
+
+  /* Pied de page : des liens qu'on atteint du pouce. */
+  .footer-liens a, .footer-prive a, .footer-aide{display:inline-flex; align-items:center; min-height:40px;}
+  .footer-liens{gap:4px 18px;}
+  .taille-texte button{min-width:40px; height:38px;}
+  .langue button{min-width:44px; height:38px;}
+
+  /* Boutons de bascule, onglets, puces : 40 px de haut. */
+  .cat-puce, .cat-seg button, .idees-onglets button, [class*="idees"] button.on, .page.active .tabs button{min-height:40px;}
+  .carte-actions .cat-puce{min-height:40px; padding-top:9px; padding-bottom:9px;}
+  .btn{min-height:44px;}
+  .navlink{min-height:44px;}
+  #ideesCorps button, .cat-seg button, [data-cat-type], [data-vue], .aud-periode button, [data-j]{min-height:40px;}
+  .carte-outils button{width:44px; height:44px;}
+  .modal-close{width:44px; height:44px;}
+  .cover-lecture, .icone-discrete{position:relative;}
+  .cover-lecture::before, .icone-discrete::before{content:''; position:absolute; inset:-8px;}
+  /* 16 px minimum dans les champs : l'iPhone zoome sinon sur la page à chaque saisie. */
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not(#_a):not(#_b), select:not(#_a):not(#_b), textarea:not(#_a):not(#_b){font-size:16px;}
+}
+
+/* La carte : les quatre pays tiennent sur la largeur de l'écran (Outre-mer était caché hors champ). */
+@media (max-width:640px){
+  .carte-barre{gap:14px; margin-bottom:18px;}
+  .carte-pays{display:flex; width:100%; box-sizing:border-box;}
+  .carte-pays button{flex:1 1 auto; justify-content:center; padding:11px 6px; font-size:12.5px; gap:5px; min-height:42px;}
+  .carte-pays-compte{display:none;}
+  .carte-recherche{width:100%;}
+}
+</style>
 </head>
 <body>
 
