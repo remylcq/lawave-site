@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Met à jour le .htaccess du serveur (www/.htaccess) sans écraser ce qui s'y trouve déjà.
 #
-# Le .htaccess du dépôt (page 404, cache, compression, HTTPS, en-têtes de sécurité) est posé dans un bloc délimité par
+# Le .htaccess du dépôt (page 404, cache, compression, HTTPS, en-têtes de sécurité) remplace celui du serveur si celui-ci n en est qu une ancienne copie ; sinon il est posé dans un bloc délimité par
 # deux lignes repères, À LA FIN du .htaccess du serveur. Tout ce qui était là avant (réglages propres à OVH, version de
 # PHP...) est gardé tel quel. Rejoué, le script remplace seulement son propre bloc.
 #
@@ -65,21 +65,35 @@ sftp_lot "$travail/lire" || { echo "Connexion au serveur impossible." >&2; exit 
 existait=false; [ -s "$travail/actuel" ] && existait=true
 
 # 2. Le fichier sans notre ancien bloc, puis avec le nouveau.
+#    Si tout ce que le serveur contient déjà vient d'une ancienne copie de notre fichier (aucune directive d'une autre
+#    origine : pas de version de PHP, de SetEnv...), on le remplace en entier. Sinon, on ajoute notre bloc à la fin.
 awk -v d="$debut" -v f="$fin" '$0==d{skip=1} !skip{print} $0==f{skip=0}' "$travail/actuel" > "$travail/sans-bloc"
-{
-  cat "$travail/sans-bloc"
-  [ -s "$travail/sans-bloc" ] && echo
-  echo "$debut"
-  cat "$depot/.htaccess"
-  echo
-  echo "$fin"
-} > "$travail/nouveau"
+directives(){ grep -vE '^[[:space:]]*(#|$)' "$1" | awk '{print $1}' | sort -u; }
+directives "$depot/.htaccess" > "$travail/nos-directives"
+directives "$travail/sans-bloc" > "$travail/leurs-directives"
+etrangeres=$(grep -vxFf "$travail/nos-directives" "$travail/leurs-directives" | wc -l)
+
+if [ "$etrangeres" -eq 0 ]; then
+  mode="remplacement"
+  cp "$depot/.htaccess" "$travail/nouveau"
+else
+  mode="ajout"
+  {
+    cat "$travail/sans-bloc"
+    [ -s "$travail/sans-bloc" ] && echo
+    echo "$debut"
+    cat "$depot/.htaccess"
+    echo
+    echo "$fin"
+  } > "$travail/nouveau"
+fi
 
 if [ "${ESSAI:-false}" = "true" ]; then
   echo "Essai à blanc : rien n'est envoyé."
   echo "Fichier présent sur le serveur : $existait ($(wc -l < "$travail/actuel") lignes)."
   echo "Directives déjà présentes (noms seulement, sans valeurs) :"
   grep -vE '^[[:space:]]*(#|$)' "$travail/sans-bloc" | awk '{print $1}' | sort | uniq -c | sed 's/^/  /'
+  echo "Directives d'une autre origine que le dépôt : $etrangeres. Mode : $mode."
   echo "Le fichier final ferait $(wc -l < "$travail/nouveau") lignes."
   exit 0
 fi
