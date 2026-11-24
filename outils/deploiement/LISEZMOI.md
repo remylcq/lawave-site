@@ -4,8 +4,9 @@ Chaque fusion sur `main` qui touche un fichier du site (`index.html`, `waveurs.j
 `portail.js`, `verification.js`, `parcours.js`, `profil.js`, `xp.js`, `cartes.js`, `combat.js`, `combat-pve.js`, `combat-pvp.js`, `combat-rivaux.js`, `combat-quete.js`, `marche.js`, `cartes-equipe.js`, `lecteur.js`, `artiste.js`, `outils.js`, `confort.js`, `sw.js`, `partage.php`, `desinscrire.php`, `i18n.js`, `404.html`, `robots.txt`, `sitemap.xml`, `site.webmanifest`, `img/`, `modeles/`, `decor/`, `lib/`) l'envoie sur l'hébergement OVH par SFTP (SSH, chiffré), puis vérifie que `lawave.fr` sert bien
 les fichiers envoyés. Le workflow est `.github/workflows/mise-en-ligne.yml`.
 
-**Jamais envoyés :** `sql/` (à passer dans Supabase), `outils/`, `.github/` et le `.htaccess` de la racine (qui reste sur le
-serveur, à la main : après un changement du `.htaccess` du dépôt — page 404, cache, en-têtes de sécurité —, recopier son contenu dans celui de `www/`). Ce qui est déjà sur le serveur sans être dans le dépôt (par exemple `musique/`) n'est pas touché.
+**Jamais envoyés :** `sql/` (à passer dans Supabase), `outils/`, `.github/` et le `.htaccess` de la racine, qui ne part pas avec les fichiers : `htaccess-sftp.sh` l'ajoute, dans un bloc repéré, à la
+fin du `.htaccess` du serveur (l'ancien contenu est gardé, une sauvegarde `.htaccess.avant-lawave` est faite la première fois, et
+si le site ne répond plus ensuite l'ancien fichier est remis). Ce qui est déjà sur le serveur sans être dans le dépôt (par exemple `musique/`) n'est pas touché.
 
 Les adresses des scripts reçoivent l'empreinte du fichier à l'envoi (`waveurs.js?v=1a2b3c4d`) : plus de
 numéro `?v=` à augmenter. Dans le dépôt, `index.html` garde son numéro ; sur le site, il porte l'empreinte.

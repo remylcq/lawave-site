@@ -46,6 +46,7 @@ on:
       - logos/**
       - lib/**
       - outils/deploiement/**
+      - .htaccess
       - .github/workflows/mise-en-ligne.yml
   workflow_dispatch:
     inputs:
@@ -153,3 +154,16 @@ jobs:
             fi
           done
           exit $echec
+
+      # Le .htaccess du dépôt est ajouté à celui du serveur dans un bloc repéré : l'ancien contenu est gardé, une sauvegarde est
+      # faite la première fois, et si le site ne répond plus ensuite, l'ancien fichier est remis (voir htaccess-sftp.sh).
+      - name: Mettre à jour le .htaccess du serveur
+        if: steps.identifiants.outputs.ok == 'true' && (vars.FTP_PROTOCOL == '' || vars.FTP_PROTOCOL == 'sftp')
+        env:
+          FTP_SERVER: ${{ secrets.FTP_SERVER || secrets.FTP_HOST }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME || secrets.FTP_USER }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_DOSSIER: ${{ vars.FTP_DOSSIER || 'www/' }}
+          ESSAI: ${{ inputs.essai == true }}
+        run: bash outils/deploiement/htaccess-sftp.sh
+
