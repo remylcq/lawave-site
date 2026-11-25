@@ -1389,6 +1389,8 @@
   .ee-tete.joueur{justify-content:flex-start; align-items:center; gap:16px;}
   .ee-titre{margin:30px 0 12px; font-size:12.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted);}
   .ee-titre-ligne{display:flex; align-items:baseline; justify-content:space-between; gap:12px;}
+  .ee-titre-ligne .ct-lien{min-height:32px; padding:0 8px; margin-right:-8px; border-radius:8px;}
+  .ee-titre-ligne .ct-lien:hover{background:rgba(255,255,255,.07);}
   .ee-retour{margin-bottom:14px;}
   .ee-kpis{display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px;}
   .ee-kpi{display:grid; gap:2px; padding:16px; border-radius:16px; border:1px solid var(--ct-trait); background:var(--ct-surface);}

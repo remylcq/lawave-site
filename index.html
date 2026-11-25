@@ -4727,6 +4727,17 @@
   .vis-att-aide{font-size:12px; color:var(--muted,#8b93a1);}
   @media (max-width:700px){ .vis-att-boite{grid-template-columns:1fr; gap:14px; padding:14px;} .vis-att-pochette{max-width:360px; margin:0 auto; width:100%;} }
   #page-admin .attente-case{width:18px; height:18px; margin:2px 12px 0 0; flex:none; accent-color:var(--blue-bright); cursor:pointer;}
+  #page-admin .attente-case-vide{width:18px; height:18px; margin:2px 12px 0 0; flex:none;}
+  /* « Supprimer l'artiste » : la variante rouge, dans la rangée d'actions comme dans la colonne. */
+  #page-admin .admin-actions .att-suppr-artiste{margin-left:auto; color:var(--eq-danger); border:1px solid rgba(229,105,92,0.4); background:rgba(229,105,92,0.06);}
+  #page-admin .admin-actions .att-suppr-artiste:hover{color:#fff; background:var(--eq-danger); border-color:transparent;}
+  /* Grand écran : les trois gestes et « Supprimer l'artiste » forment une colonne à droite de la fiche (une sortie prend deux fois moins de hauteur). */
+  @media (min-width:1100px){
+    #page-admin #artistSubmissionsList .admin-row-main{flex-wrap:nowrap;}
+    #page-admin #artistSubmissionsList .admin-row-main > .admin-actions{flex:0 0 156px !important; flex-direction:column !important; align-items:stretch !important; flex-wrap:nowrap; gap:8px; padding:0 0 0 18px; margin:0; border-top:0; border-left:1px solid var(--eq-trait);}
+    #page-admin #artistSubmissionsList .admin-actions button{justify-content:center;}
+    #page-admin #artistSubmissionsList .admin-actions .att-suppr-artiste{height:32px; margin:6px 0 0; padding:0 10px; font-size:12px;}
+  }
   #page-admin .attente-pager{display:flex; align-items:center; justify-content:center; gap:14px; margin-top:18px; font-size:13px; color:var(--muted);}
   #page-admin .attente-pager:empty{display:none;}
   #page-admin .lien-bouton{color:var(--blue-bright);}
@@ -6311,6 +6322,7 @@
       <symbol id="eq-cle" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M16 7l3 3M14 9l2 2"/></symbol>
       <symbol id="eq-sortie" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></symbol>
       <symbol id="eq-membres" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.6 6-5.6s6 2.3 6 5.6"/><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.6c1.8.7 3 2.6 3 5.4"/></symbol>
+      <symbol id="eq-cadenas" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
       <symbol id="eq-verifie" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.4 3 7.7 7 9 4-1.3 7-4.6 7-9V6z"/><path d="m9 12 2.2 2.2L15.4 10"/></symbol>
       <symbol id="eq-actualiser" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
     </defs>
@@ -6437,7 +6449,7 @@
 
       <button type="button" class="admin-tab" id="adminTab-securite"
         role="tab" onclick="switchAdminTab('securite')" title="Double authentification, alertes et journal d'audit">
-        <svg class="eq-ic" aria-hidden="true"><use href="#eq-verifie"/></svg>
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-cadenas"/></svg>
         <span class="admin-tab-label">Sécurité</span>
         <span class="admin-tab-count" id="adminCount-securite"></span>
       </button>
@@ -28087,7 +28099,7 @@ function sortieEnAttenteHtml(submission){
           ? `<input type="checkbox" class="attente-case" aria-label="Cocher cette sortie"
                     ${attente.choisies.has(id) ? 'checked' : ''}
                     onchange="cocherAttente('${id}', this.checked)">`
-          : ''
+          : '<span class="attente-case-vide" aria-hidden="true"></span>'
       }
 
       <!-- COVER -->
@@ -28213,15 +28225,15 @@ function sortieEnAttenteHtml(submission){
           Refuser
         </button>
 
-      </div>
+        ${
+          submission.artist_handle
+            ? `<button type="button" class="att-suppr-artiste"
+                       title="Supprimer l'artiste et toutes ses sorties"
+                       onclick="openConfirmPanel('artist-del-${id}')">Supprimer l'artiste</button>`
+            : ''
+        }
 
-      ${
-        submission.artist_handle
-          ? `<button type="button" class="att-suppr-artiste"
-                     title="Supprimer l'artiste et toutes ses sorties"
-                     onclick="openConfirmPanel('artist-del-${id}')">Supprimer l'artiste</button>`
-          : ''
-      }
+      </div>
 
      </div>
 
