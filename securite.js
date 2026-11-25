@@ -107,7 +107,7 @@ window.Securite = (function(){
       .sec-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:16px;}
       .sec-boite{padding:20px; border:1px solid var(--line, rgba(255,255,255,0.1)); border-radius:14px; background:var(--bg-alt, #14171c); margin-top:16px;}
       .sec-boite h4{margin:0 0 6px; font-size:15px; font-weight:600; color:var(--ink, #fff);}
-      .sec-boite > p{margin:0 0 14px; font-size:13px; line-height:1.55; color:var(--muted, #9aa3ad);}
+      .sec-boite > p{margin:0 0 14px; font-size:13px; line-height:1.55; color:var(--ink-soft, #cfd6dd);}
       .sec-ligne{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
       .sec-puce{display:inline-block; padding:2px 9px; border-radius:99px; font-size:11px; font-weight:600; letter-spacing:.03em;}
       .sec-puce.on{color:#8fe3ab; background:rgba(46,160,90,0.14); border:1px solid rgba(46,160,90,0.35);}
@@ -124,6 +124,7 @@ window.Securite = (function(){
       .sec-liste li.critique{border-left-color:var(--danger, #e5695c);}
       .sec-journal li{grid-template-columns:auto 1fr auto;}
       .sec-journal .qui{color:var(--muted, #9aa3ad);}
+      #securiteZone .sec-saisie{width:min(100%, 190px) !important; flex:none;}
       .sec-saisie{height:46px; width:150px; padding:0 12px; border-radius:var(--radius-sm, 10px); border:1px solid var(--line-strong, rgba(255,255,255,0.18)); background:rgba(0,0,0,0.34); color:#fff; font-size:18px; letter-spacing:.25em; text-align:center; font-variant-numeric:tabular-nums;}
     `;
     document.head.appendChild(s);
@@ -162,7 +163,7 @@ window.Securite = (function(){
           <div class="form-msg" role="alert"></div>
           <div class="sec-actions">
             <button type="button" class="btn btn-ghost" data-act="annuler">Annuler</button>
-            <button type="button" class="btn" data-act="valider">Valider</button>
+            <button type="button" class="btn btn-primary" data-act="valider">Valider</button>
           </div>
         </div>`;
 
@@ -214,6 +215,8 @@ window.Securite = (function(){
 
   let zoneCourante = null;
   let inscription = null;   // la double authentification en cours d'activation (facteur non confirmé)
+  const depliees = { alertes: false, journal: false };   // « Voir tout » : par défaut, seules les plus récentes sont montrées
+  const COURT = { alertes: 6, journal: 12 };
 
   async function lireMfa(){
 
@@ -248,7 +251,7 @@ window.Securite = (function(){
           <span class="sec-secret">${esc(inscription.secret)}</span>
           <div class="sec-ligne">
             <input class="sec-saisie" id="secCodeActiver" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-label="Code à 6 chiffres">
-            <button type="button" class="btn" data-act="mfa-confirmer">Confirmer</button>
+            <button type="button" class="btn btn-primary" data-act="mfa-confirmer">Confirmer</button>
             <button type="button" class="btn btn-ghost" data-act="mfa-annuler">Annuler</button>
           </div>
           <div class="form-msg" id="secMfaMsg" role="alert"></div>
@@ -260,7 +263,7 @@ window.Securite = (function(){
         <div class="sec-boite" id="secMfa">
           <h4>Double authentification <span class="sec-puce off">Pas activée</span></h4>
           <p>Un mot de passe volé ne suffit alors plus à entrer dans l'espace équipe : il faut aussi le code de ton téléphone. Compte une minute.</p>
-          <button type="button" class="btn" data-act="mfa-activer">Activer sur mon compte</button>
+          <button type="button" class="btn btn-primary" data-act="mfa-activer">Activer sur mon compte</button>
           <div class="form-msg" id="secMfaMsg" role="alert"></div>
         </div>`;
     }
@@ -272,7 +275,7 @@ window.Securite = (function(){
           <p>Tu t'es connecté sans le code. Saisis-le pour valider cette session (obligatoire dès que l'équipe est protégée).</p>
           <div class="sec-ligne">
             <input class="sec-saisie" id="secCodeSession" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" aria-label="Code à 6 chiffres">
-            <button type="button" class="btn" data-act="mfa-valider">Valider la session</button>
+            <button type="button" class="btn btn-primary" data-act="mfa-valider">Valider la session</button>
           </div>
           <div class="form-msg" id="secMfaMsg" role="alert"></div>
         </div>`;
@@ -304,7 +307,7 @@ window.Securite = (function(){
         <p>Quand c'est exigé, un compte de l'équipe qui n'a pas validé son code perd l'accès à l'espace équipe. Active-le seulement quand tous les comptes ci-dessous ont leur 2FA.</p>
         <ul class="sec-equipe">${equipe || '<li>Aucun compte</li>'}</ul>
         ${proprio
-          ? `<button type="button" class="btn ${exigee ? 'btn-ghost' : ''}" data-act="regler" data-cle="mfa_equipe_exigee" data-valeur="${exigee ? 'false' : 'true'}">${exigee ? 'Ne plus l\'exiger' : 'Exiger pour toute l\'équipe'}</button>`
+          ? `<button type="button" class="btn ${exigee ? 'btn-ghost' : 'btn-primary'}" data-act="regler" data-cle="mfa_equipe_exigee" data-valeur="${exigee ? 'false' : 'true'}">${exigee ? 'Ne plus l\'exiger' : 'Exiger pour toute l\'équipe'}</button>`
           : '<p style="margin:0">Seul le propriétaire du site peut changer ce réglage.</p>'}
         <div class="form-msg" id="secReglageMsg" role="alert"></div>
       </div>
@@ -318,12 +321,19 @@ window.Securite = (function(){
       </div>`;
   }
 
+  // Le bouton qui déplie ou replie une longue liste (au-delà de COURT lignes).
+  function plusMoins(cle, total){
+    if(total <= COURT[cle]) return '';
+    return `<div class="sec-ligne" style="margin-top:12px"><button type="button" class="btn btn-ghost" data-act="plier" data-cle="${cle}">${depliees[cle] ? 'Réduire' : 'Voir les ' + (total - COURT[cle]) + ' autres'}</button></div>`;
+  }
+
   function htmlAlertes(etat){
 
     const alertes = etat.alertes || [];
     const nonLues = alertes.filter(a => !a.lue_le).length;
+    const montrees = depliees.alertes ? alertes : alertes.slice(0, COURT.alertes);
 
-    const lignes = alertes.map(a => `
+    const lignes = montrees.map(a => `
       <li class="${a.lue_le ? '' : 'non-lue'} ${a.niveau === 'critique' ? 'critique' : ''}">
         <time datetime="${esc(a.le)}">${esc(quand(a.le))}</time>
         <span>${esc(a.message)}</span>
@@ -334,6 +344,7 @@ window.Securite = (function(){
         <h4>Alertes ${nonLues ? `<span class="sec-puce off">${nonLues} non lue${nonLues > 1 ? 's' : ''}</span>` : ''}</h4>
         <p>Nouvel accès équipe, pic d'inscriptions, trafic bloqué, rafale d'actions. Une notification arrive aussi sur les appareils où tu as activé les alertes.</p>
         ${lignes ? `<ul class="sec-liste">${lignes}</ul>` : '<div class="empty-state">Aucune alerte. Tout est calme.</div>'}
+        ${plusMoins('alertes', alertes.length)}
         ${nonLues ? '<div class="sec-ligne" style="margin-top:12px"><button type="button" class="btn btn-ghost" data-act="alertes-lues">Tout marquer comme lu</button></div>' : ''}
       </div>`;
   }
@@ -341,8 +352,9 @@ window.Securite = (function(){
   function htmlJournal(etat){
 
     const journal = etat.journal || [];
+    const montrees = depliees.journal ? journal : journal.slice(0, COURT.journal);
 
-    const lignes = journal.map(j => `
+    const lignes = montrees.map(j => `
       <li>
         <time datetime="${esc(j.le)}">${esc(quand(j.le))}</time>
         <span>${esc(j.action)}${j.cible ? ' — ' + esc(j.cible) : ''}</span>
@@ -354,6 +366,7 @@ window.Securite = (function(){
         <h4>Journal d'audit</h4>
         <p>Les 100 dernières actions sensibles : accès équipe donnés ou retirés, comptes supprimés, profils vérifiés, artistes bannis ou supprimés, accès testeurs.</p>
         ${lignes ? `<ul class="sec-liste sec-journal">${lignes}</ul>` : '<div class="empty-state">Rien d\'enregistré pour l\'instant.</div>'}
+        ${plusMoins('journal', journal.length)}
       </div>`;
   }
 
@@ -482,6 +495,13 @@ window.Securite = (function(){
         });
         if(error) throw error;
 
+        await rendre();
+        return;
+      }
+
+      if(act === 'plier'){
+
+        depliees[bouton.dataset.cle] = !depliees[bouton.dataset.cle];
         await rendre();
         return;
       }
