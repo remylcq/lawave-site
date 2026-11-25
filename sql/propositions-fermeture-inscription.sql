@@ -1,0 +1,109 @@
+-- =====================================================================
+-- La Wave — propositions pour fermer réellement l'inscription   NON APPLIQUÉ
+--
+-- Faille CRITIQUE du rapport de sécurité du 2026-11-25 : n'importe qui peut
+-- créer un compte Supabase complet en quelques secondes via le vrai
+-- formulaire d'inscription (POST /auth/v1/signup), sans que le portail
+-- d'accès testeurs (portail.js) ne s'y oppose côté serveur — ce n'est qu'un
+-- écran côté navigateur. Avec ce compte, on obtient un jeton "authenticated"
+-- valable pour la quasi-totalité des 329 fonctions RPC réservées aux
+-- membres (communauté, soumission de sorties, jeu de cartes...).
+--
+-- CE FICHIER N'EST PAS APPLIQUÉ. C'est volontaire : la table
+-- acces_testeurs ne contient que 7 entrées actives alors qu'il existe 31
+-- comptes réels déjà créés — fermer l'inscription sans réfléchir risquerait
+-- de bloquer de vrais testeurs invités dont l'adresse n'y figure pas encore.
+-- C'est une décision de produit/accès qui revient à Rémy, pas un correctif
+-- technique à appliquer à l'aveugle pendant un audit de sécurité.
+--
+-- Trois options ci-dessous, indépendantes : Rémy choisit celle(s) qu'il veut,
+-- adapte la liste blanche si besoin, puis les fait passer (lui-même ou via
+-- Claude une fois la décision prise).
+-- =====================================================================
+
+
+-- ---------------------------------------------------------------------
+-- OPTION A — Liste blanche d'e-mails à l'inscription (trigger sur auth.users)
+-- ---------------------------------------------------------------------
+--
+-- Le plus proche de l'intention actuelle ("testeurs invités uniquement") :
+-- un trigger BEFORE INSERT sur auth.users qui refuse toute adresse absente
+-- de acces_testeurs. Honnête avantage : ferme vraiment l'inscription côté
+-- serveur, pas seulement le portail. Inconvénient : il faut d'abord ajouter
+-- dans acces_testeurs les 31 comptes réels déjà créés (sinon un testeur
+-- légitime qui s'était déjà inscrit ne pourrait plus se reconnecter après un
+-- oubli de session), et ajouter chaque nouveau testeur AVANT qu'il ne
+-- s'inscrive (plus seulement après, comme c'est le cas aujourd'hui dans
+-- l'onglet « Accès »).
+--
+-- À adapter avant d'appliquer : vérifier que les 31 comptes réels ont bien
+-- une ligne correspondante dans acces_testeurs (même désactivée/sans mot de
+-- passe de portail, juste pour l'e-mail) avant d'activer le trigger, sans
+-- quoi ces comptes se retrouveraient bloqués à leur prochaine inscription
+-- (pas à leur connexion : le trigger ne porte que sur l'INSERT).
+--
+-- begin;
+--
+-- create or replace function public.acces_verifier_inscription()
+-- returns trigger
+-- language plpgsql
+-- security definer
+-- set search_path to public
+-- as $$
+-- begin
+--   if not exists (
+--     select 1 from public.acces_testeurs t where t.email = lower(btrim(new.email))
+--   ) then
+--     raise exception 'Inscription réservée aux personnes invitées pendant la phase de test.';
+--   end if;
+--   return new;
+-- end;
+-- $$;
+--
+-- create trigger acces_verifier_inscription_trg
+--   before insert on auth.users
+--   for each row execute function public.acces_verifier_inscription();
+--
+-- commit;
+--
+-- Pour retirer (en même temps que le reste du portail, voir
+-- sql/acces-testeurs-retrait.sql) :
+--   drop trigger if exists acces_verifier_inscription_trg on auth.users;
+--   drop function if exists public.acces_verifier_inscription();
+
+
+-- ---------------------------------------------------------------------
+-- OPTION B — CAPTCHA à l'inscription (réglage Supabase Auth, pas du SQL)
+-- ---------------------------------------------------------------------
+--
+-- N'empêche pas un inconnu de s'inscrire s'il a une invitation légitime au
+-- sens large (ou s'il résout le CAPTCHA), mais stoppe net la création
+-- automatisée en masse (script, bot) que l'audit a démontrée en quelques
+-- secondes. Complémentaire à l'option A, pas un remplacement : combinée à
+-- une liste blanche, elle n'a plus grand intérêt ; seule, elle laisse
+-- l'inscription ouverte à qui coche la case.
+--
+-- Se fait dans le Dashboard Supabase, pas ici :
+--   Authentication → Settings → Bot and Abuse Protection → activer
+--   hCaptcha ou Cloudflare Turnstile, puis coller la clé publique
+--   correspondante dans le formulaire d'inscription (openAuthModal /
+--   Auth.inscrire côté index.html) — modification JS à prévoir seulement
+--   si cette option est retenue.
+
+
+-- ---------------------------------------------------------------------
+-- OPTION C — Mot de passe HTTP Apache (Basic Auth) en plus du portail JS
+-- ---------------------------------------------------------------------
+--
+-- La plus simple et déjà évoquée dans le commentaire d'en-tête de
+-- portail.js : un .htpasswd posé sur tout le dossier www/ bloque la
+-- moindre requête (page, API, inscription) avant même que le navigateur
+-- n'exécute une ligne de JavaScript. Aucun SQL : juste .htaccess et
+-- .htpasswd côté OVH, un seul identifiant/mot de passe partagé donné aux
+-- testeurs (en plus de leur compte personnel du portail). Inconvénient :
+-- un identifiant partagé est plus facile à diffuser par erreur que des
+-- invitations nominatives, et il faudra le retirer proprement en même
+-- temps que le reste du portail (sql/acces-testeurs-retrait.sql).
+--
+-- Rien à passer ici : voir outils/deploiement/LISEZMOI.md pour la marche à
+-- suivre .htaccess/.htpasswd si cette option est retenue.

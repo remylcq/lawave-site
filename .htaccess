@@ -61,6 +61,7 @@ AddType font/woff2 .woff2
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  Header always set Content-Security-Policy "frame-ancestors 'self'"
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; img-src 'self' data: blob: https://bqataeghgjyiqrnnesqq.supabase.co https://i.ytimg.com https://*.dzcdn.net https://tile.openstreetmap.org; font-src 'self' data:; connect-src 'self' https://bqataeghgjyiqrnnesqq.supabase.co wss://bqataeghgjyiqrnnesqq.supabase.co https://www.googleapis.com https://api-adresse.data.gouv.fr https://photon.komoot.io; media-src 'self' data: https://bqataeghgjyiqrnnesqq.supabase.co https://*.dzcdn.net; frame-src https://www.youtube-nocookie.com https://widget.deezer.com https://w.soundcloud.com; worker-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+  Header always set Permissions-Policy "geolocation=(self), camera=(), microphone=(self), payment=()"
   Header always set Strict-Transport-Security "max-age=15552000"
 </IfModule>

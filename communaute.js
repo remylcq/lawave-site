@@ -9836,12 +9836,38 @@ async function ouvrirReel(){
 
   if(!racine) return;
 
+  const u = moi();
+
+  // Le fil, l'annuaire, les tendances et les profils sont du contenu social
+  // réel (pseudos, bios, messages) : depuis l'audit de sécurité du 2026-11-25,
+  // les fonctions com_* correspondantes n'acceptent plus le rôle anon côté
+  // Supabase (sql/anon-social-retrait.sql). Un visiteur non connecté voit donc
+  // une invitation claire plutôt qu'une page qui échouerait à charger.
+  if(!u){
+    if(S.racine) reinitialiser();
+    S.racine = racine;
+    S.userId = null;
+    S.coque = null;
+    racine.innerHTML = `
+      <div class="com-installation">
+        <div class="com-vide com-vide-install">
+          <span class="com-vide-icone">${icone('verrou', 30)}</span>
+          <h3>Connecte-toi pour découvrir la Communauté</h3>
+          <p>Le fil, l'annuaire et les messages sont réservés aux membres connectés.</p>
+          <p style="text-align:center">
+            <button type="button" class="com-btn com-btn-plein" onclick="openAuthModal('signup')">Créer un compte</button>
+            <button type="button" class="com-btn com-btn-fantome" onclick="openAuthModal('login')">Se connecter</button>
+          </p>
+        </div>
+      </div>`;
+    return;
+  }
+
   // À chaque retour dans la communauté, la barre du haut est là : elle ne se cache qu'en descendant dans la page.
   const barreHaut = S.coque && $('.com-haut', S.coque);
   if(barreHaut) barreHaut.classList.remove('cache');
 
-  const u = moi();
-  const id = u ? u.id : null;
+  const id = u.id;
 
   // Un autre compte (ou plus de compte) : on repart d'une page neuve.
   if(S.racine && (S.userId !== id || S.racine !== racine)){
