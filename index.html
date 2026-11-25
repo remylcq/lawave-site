@@ -5047,6 +5047,7 @@
   content:''; width:38px; height:38px; margin-bottom:6px; border-radius:50%;
   background:radial-gradient(circle at 35% 30%, rgba(79,180,255,.55), rgba(79,180,255,.06) 70%); opacity:.8;
 }
+.empty-state:not(.chargement)::before{display:none;}  /* plus de pastille au-dessus du message : l'état vide se lit sans décor */
 .empty-state b{color:var(--ink); font-weight:600;}
 @keyframes etatEntre{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
 
