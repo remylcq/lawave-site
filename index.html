@@ -6435,6 +6435,13 @@
         <span class="admin-tab-label">Audience</span>
       </button>
 
+      <button type="button" class="admin-tab" id="adminTab-securite"
+        role="tab" onclick="switchAdminTab('securite')" title="Double authentification, alertes et journal d'audit">
+        <svg class="eq-ic" aria-hidden="true"><use href="#eq-verifie"/></svg>
+        <span class="admin-tab-label">Sécurité</span>
+        <span class="admin-tab-count" id="adminCount-securite"></span>
+      </button>
+
       <button type="button" class="admin-tab" id="adminTab-settings"
         role="tab" onclick="switchAdminTab('settings')" title="Chiffres réseaux">
         <svg class="eq-ic" aria-hidden="true"><use href="#eq-reglages"/></svg>
@@ -6845,6 +6852,26 @@
 
     <div id="audienceCorps"></div>
   </div>
+
+  <div class="admin-section" id="adminSection-securite">
+
+    <div class="section-head">
+      <div>
+        <span class="eyebrow mono">Sécurité</span>
+        <h3>Protéger le site et l'équipe</h3>
+        <p class="desc">
+          La double authentification de ton compte, les alertes (nouvel accès équipe, pic d'inscriptions, trafic bloqué) et le
+          journal de ce que l'équipe a fait.
+        </p>
+      </div>
+
+      <button type="button" class="btn btn-ghost" onclick="switchAdminTab('securite')">Actualiser</button>
+    </div>
+
+    <div id="securiteZone"></div>
+
+  </div>
+
 
   <div class="admin-section" id="adminSection-settings">
 
@@ -7780,6 +7807,35 @@
 // Convention : les méthodes renvoient { data, error } comme Supabase,
 // pour que les appelants restent identiques.
 
+// Clé de SITE Cloudflare Turnstile (publique, comme la clé Supabase) : l'anti-robot de l'inscription et de la connexion.
+// Vide = pas d'anti-robot. À remplir EN MÊME TEMPS que l'activation du CAPTCHA dans Supabase (Authentication -> Attack
+// Protection), jamais avant : Supabase exigerait un jeton que le site ne fournirait pas. `var` : lue avant la fin du script.
+var TURNSTILE_SITE_KEY = '';
+
+async function jetonAntiRobot(){
+
+  if(!TURNSTILE_SITE_KEY) return undefined;
+
+  await chargerSecurite();
+  return window.Securite.jetonCaptcha();
+}
+
+function chargerSecurite(){
+  return chargerModuleSite('securite.js?v=1', 'Securite', 'de la sécurité (securite.js)');
+}
+
+// Ce que la personne lit quand une connexion échoue : seuls les refus qui ne sont pas « mauvais mot de passe » se disent.
+function messageConnexion(erreur){
+
+  const m = String((erreur && erreur.message) || '');
+
+  if(m.includes('Email not confirmed')) return "Adresse pas encore confirmée : clique sur le lien reçu par email.";
+  if(/anti-robot/i.test(m) || m.includes('Code de vérification')) return m;
+  if(/captcha/i.test(m)) return 'Vérification anti-robot refusée : recharge la page, puis réessaie.';
+
+  return 'Email ou mot de passe incorrect.';
+}
+
 const Auth = {
 
   async session(){
@@ -7790,15 +7846,50 @@ const Auth = {
   // `choix` (pseudo, rôle) accompagne le compte : si la confirmation par email est exigée, le profil ne
   // naît qu'à la première connexion, et ce qui a été tapé ici s'y retrouve (voir ensureProfileExists).
   async inscrire(email, motDePasse, choix){
-    return supabaseClient.auth.signUp({
-      email,
-      password: motDePasse,
-      options: choix ? { data: choix } : undefined
-    });
+
+    let captchaToken;
+    try{ captchaToken = await jetonAntiRobot(); }
+    catch(e){ return { data: null, error: { message: e.message } }; }
+
+    const options = {};
+    if(choix) options.data = choix;
+    if(captchaToken) options.captchaToken = captchaToken;
+
+    return supabaseClient.auth.signUp({ email, password: motDePasse, options });
   },
 
   async connecter(email, motDePasse){
-    return supabaseClient.auth.signInWithPassword({ email, password: motDePasse });
+
+    let captchaToken;
+    try{ captchaToken = await jetonAntiRobot(); }
+    catch(e){ return { data: null, error: { message: e.message } }; }
+
+    const reponse = await supabaseClient.auth.signInWithPassword({
+      email,
+      password: motDePasse,
+      options: captchaToken ? { captchaToken } : undefined
+    });
+
+    if(reponse.error) return reponse;
+
+    // Un compte qui a activé la double authentification doit saisir son code avant d'entrer (securite.js).
+    try{
+      const niveau = (await supabaseClient.auth.mfa.getAuthenticatorAssuranceLevel()).data;
+
+      if(niveau && niveau.nextLevel === 'aal2' && niveau.currentLevel !== 'aal2'){
+
+        await chargerSecurite();
+
+        if(!(await window.Securite.demanderCode())){
+          await supabaseClient.auth.signOut();
+          return { data: null, error: { message: 'Code de vérification non saisi.' } };
+        }
+      }
+    }catch(e){
+      // La base reste le juge : une session sans second facteur perd les droits de l'équipe quand la 2FA est exigée.
+    }
+
+    return reponse;
   },
 
   // Connexion par un fournisseur externe. Rien à récupérer ici : la
@@ -13144,9 +13235,7 @@ async function submitLogin(){
   const { data, error } = await Auth.connecter(email, password);
 
   if(error){
-    msg.textContent = error.message.includes('Email not confirmed')
-      ? "Adresse pas encore confirmée : clique sur le lien reçu par email."
-      : 'Email ou mot de passe incorrect.';
+    msg.textContent = messageConnexion(error);
     msg.className = 'form-msg err';
     return;
   }
@@ -25285,6 +25374,7 @@ async function openAdminPanel(){
 
   await loadBugReports();
   chargerCompteVerifications();
+  chargerSecurite().then(() => window.Securite.compter()).catch(() => {});
 }
 
 // `var` : openAdminPanel peut être appelée avant que le script n'atteigne cette ligne.
@@ -25305,11 +25395,7 @@ async function tryAdminLogin(){
   const { data, error } = await Auth.connecter(email, password);
 
   if(error){
-    showAdminError(
-      error.message.includes('Email not confirmed')
-        ? "Adresse pas encore confirmée : clique sur le lien reçu par email."
-        : 'Email ou mot de passe incorrect.'
-    );
+    showAdminError(messageConnexion(error));
     return;
   }
 
@@ -25407,6 +25493,7 @@ const ADMIN_TABS = [
   'selection',
   'membres',
   'audience',
+  'securite',
   'cartes',    // COLLECTIONS DE CARTES
   'acces'   // ACCÈS TESTEURS (TEMPORAIRE)
 ];
@@ -25515,6 +25602,15 @@ function switchAdminTab(nom){
 
   if(nom === 'audience'){
     chargerAudience();
+  }
+
+  if(nom === 'securite'){
+    chargerSecurite()
+      .then(() => window.Securite.rendre(document.getElementById('securiteZone')))
+      .catch(e => {
+        const z = document.getElementById('securiteZone');
+        if(z) z.innerHTML = '<div class="empty-state">' + escapeHtml(e.message) + '</div>';
+      });
   }
 
   // COLLECTIONS DE CARTES
@@ -28842,9 +28938,135 @@ const Fichiers = {
                     this.taille(this.LIMITE_OCTETS) + " au plus) : essaie avec un autre fichier.");
   },
 
+  // Ce que le fichier est vraiment, d'après ses premiers octets : 'image/jpeg', 'image/png' ou 'image/webp'. Autre chose
+  // (un SVG, un exécutable renommé en .jpg…) : refusé.
+  async typeReel(blob){
+
+    const t = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
+    const debute = (...octets) => octets.every((o, i) => t[i] === o);
+
+    if(debute(0xFF, 0xD8, 0xFF)) return 'image/jpeg';
+    if(debute(0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)) return 'image/png';
+    if(debute(0x52, 0x49, 0x46, 0x46) && t[8] === 0x57 && t[9] === 0x45 && t[10] === 0x42 && t[11] === 0x50) return 'image/webp';
+
+    throw new Error("Ce fichier n'est pas une image JPG, PNG ou WEBP.");
+  },
+
+  // Une photo JPEG porte-t-elle sa position GPS (EXIF, étiquette 0x8825) ? Lue dans les 70 premiers Ko.
+  async jpegAGps(blob){
+
+    try{
+
+      const v = new DataView(await blob.slice(0, 70000).arrayBuffer());
+      let p = 2;
+
+      while(p + 4 < v.byteLength){
+
+        if(v.getUint8(p) !== 0xFF) return false;
+
+        const marqueur = v.getUint8(p + 1);
+        if(marqueur === 0xDA || marqueur === 0xD9) return false;
+
+        const longueur = v.getUint16(p + 2);
+
+        if(marqueur === 0xE1 && v.getUint32(p + 4) === 0x45786966){
+
+          const t = p + 10;
+          const petit = v.getUint16(t) === 0x4949;
+          const ifd = v.getUint32(t + 4, petit);
+          const n = v.getUint16(t + ifd, petit);
+
+          for(let i = 0; i < n; i++){
+            if(v.getUint16(t + ifd + 2 + i * 12, petit) === 0x8825) return true;
+          }
+
+          return false;
+        }
+
+        p += 2 + longueur;
+      }
+
+    }catch(e){
+      // Un fichier mal formé : on ne devine pas, on le réencode (voir assainir).
+      return true;
+    }
+
+    return false;
+  },
+
+  // Une photo ne doit jamais partir avec sa position GPS, et une image démesurée (quelques Ko pour des dizaines de
+  // milliers de pixels de côté) ne doit pas faire tomber les navigateurs qui l'affichent. Dans ces deux cas l'image est
+  // redessinée (ce qui efface toutes les métadonnées) ; sinon le fichier part tel quel. Renvoie { blob, type } si
+  // l'image a été redessinée, sinon null.
+  async assainir(blob){
+
+    const type = await this.typeReel(blob);
+
+    let aGps = false;
+
+    if(type === 'image/jpeg'){
+      aGps = await this.jpegAGps(blob);
+    }else{
+      const debut = new TextDecoder('latin1').decode(await blob.slice(0, 70000).arrayBuffer());
+      aGps = debut.includes(type === 'image/png' ? 'eXIf' : 'EXIF');
+    }
+
+    const url = URL.createObjectURL(blob);
+
+    let image;
+    try{
+      image = await new Promise((ok, ko) => {
+        const i = new Image();
+        i.onload = () => ok(i);
+        i.onerror = ko;
+        i.src = url;
+      });
+    }catch(e){
+      throw new Error("Cette image ne peut pas être lue : essaie avec un autre fichier.");
+    }finally{
+      URL.revokeObjectURL(url);
+    }
+
+    const MAX = 6000;
+    const plusGrand = Math.max(image.naturalWidth, image.naturalHeight);
+
+    if(!aGps && plusGrand <= MAX) return null;
+
+    const echelle = Math.min(1, MAX / plusGrand);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * echelle));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * echelle));
+
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    let sortie = await new Promise(ok => canvas.toBlob(ok, type, 0.92));
+    let typeSortie = type;
+
+    // Un navigateur qui ne sait pas écrire ce format (WEBP) : repli en JPEG, avec un fond blanc sous les transparences.
+    if(!sortie || sortie.type !== type){
+
+      const ctx2 = canvas.getContext('2d');
+      ctx2.globalCompositeOperation = 'destination-over';
+      ctx2.fillStyle = '#fff';
+      ctx2.fillRect(0, 0, canvas.width, canvas.height);
+
+      sortie = await new Promise(ok => canvas.toBlob(ok, 'image/jpeg', 0.92));
+      typeSortie = 'image/jpeg';
+    }
+
+    if(!sortie) throw new Error("Cette image n'a pas pu être préparée : essaie avec un autre fichier.");
+
+    return { blob: sortie, type: typeSortie };
+  },
+
   // Prépare une image pour le stockage : au-delà de la limite elle est allégée d'abord (et on le dit), et le type
   // annoncé est celui du fichier (le stockage n'accepte que JPG, PNG et WEBP).
   async preparer(blob, typeMime){
+
+    // Le type annoncé par le navigateur ne prouve rien : on lit les premiers octets du fichier.
+    await this.typeReel(blob);
 
     if(blob.size > this.LIMITE_OCTETS){
 
@@ -28855,6 +29077,15 @@ const Fichiers = {
       notifier('Image allégée', {
         detail: this.taille(avant) + ' → ' + this.taille(blob.size) + ', sans perte visible.'
       });
+
+    }else{
+
+      const propre = await this.assainir(blob);
+
+      if(propre){
+        blob = propre.blob;
+        typeMime = propre.type;
+      }
     }
 
     const type = typeMime || (this.TYPES_ACCEPTES.includes(blob.type) ? blob.type : 'image/jpeg');

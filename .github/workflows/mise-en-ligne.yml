@@ -41,6 +41,7 @@ on:
       - i18n.js
       - mouvement.js
       - globe.js
+      - securite.js
       - modeles/**
       - decor/**
       - logos/**

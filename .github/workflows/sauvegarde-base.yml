@@ -1,0 +1,96 @@
+name: Sauvegarde de la base
+
+# Chaque dimanche à 3 h (UTC) et à la demande : copie complète de la base Supabase, chiffrée, gardée 30 jours comme
+# « artefact » de l'exécution (onglet Actions -> l'exécution -> Artifacts). Ce que contient la copie : toutes les tables
+# de public (structure + données), les comptes (auth.users, auth.identities) et la liste des fichiers des buckets.
+# Les FICHIERS eux-mêmes (images, vocaux) ne sont pas dans la copie : Supabase les garde.
+#
+# Le dépôt est public : la copie est donc chiffrée (AES-256) avant de quitter le serveur, et ne se lit qu'avec le mot de passe.
+#
+# Deux secrets (Settings -> Secrets and variables -> Actions) :
+#   SUPABASE_DB_URL            adresse de connexion de la base : Supabase -> Connect -> « Session pooler », avec le mot de passe de la base
+#   SAUVEGARDE_MOT_DE_PASSE    un mot de passe long de ton choix, à garder AILLEURS aussi (gestionnaire de mots de passe) :
+#                              sans lui, la copie est illisible
+# Tant qu'ils ne sont pas posés, l'exécution se termine sans rien faire.
+#
+# Relire une copie :
+#   gpg --decrypt sauvegarde.tar.gpg > sauvegarde.tar && tar -xf sauvegarde.tar
+#   pg_restore --list public.dump        (le contenu)   |   pg_restore -d <base vide> --no-owner public.dump   (la restauration)
+
+on:
+  schedule:
+    - cron: '23 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sauvegarde-base
+  cancel-in-progress: false
+
+jobs:
+  sauvegarder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SAUVEGARDE_MOT_DE_PASSE: ${{ secrets.SAUVEGARDE_MOT_DE_PASSE }}
+    steps:
+      - name: Les secrets sont-ils posés ?
+        id: secrets
+        run: |
+          if [ -n "$SUPABASE_DB_URL" ] && [ -n "$SAUVEGARDE_MOT_DE_PASSE" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Sauvegarde ignorée::SUPABASE_DB_URL ou SAUVEGARDE_MOT_DE_PASSE n'est pas posé (voir l'en-tête de sauvegarde-base.yml)."
+          fi
+
+      # pg_dump doit être de la même version majeure que la base (17).
+      - name: Installer le client PostgreSQL 17
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -sSfo /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
+
+      - name: Copier la base
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          bin=/usr/lib/postgresql/17/bin
+          mkdir -p copie
+          "$bin/pg_dump" "$SUPABASE_DB_URL" --format=custom --no-owner --no-privileges --schema=public --file=copie/public.dump
+          "$bin/pg_dump" "$SUPABASE_DB_URL" --format=custom --no-owner --no-privileges --data-only \
+            --table=auth.users --table=auth.identities --table=storage.buckets --table=storage.objects --file=copie/comptes-et-fichiers.dump
+          # Une copie vide ou illisible ferait échouer l'exécution ici.
+          for f in copie/public.dump copie/comptes-et-fichiers.dump; do
+            n=$("$bin/pg_restore" --list "$f" | grep -c 'TABLE DATA' || true)
+            echo "$f : $n tables avec données"
+            [ "$n" -gt 0 ]
+          done
+          ls -l copie
+
+      - name: Chiffrer
+        if: steps.secrets.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          tar -cf sauvegarde.tar -C copie .
+          printf '%s' "$SAUVEGARDE_MOT_DE_PASSE" | gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 --output sauvegarde.tar.gpg sauvegarde.tar
+          rm -rf copie sauvegarde.tar
+          ls -l sauvegarde.tar.gpg
+
+      - name: Garder la copie 30 jours
+        if: steps.secrets.outputs.ok == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sauvegarde-base-${{ github.run_id }}
+          path: sauvegarde.tar.gpg
+          retention-days: 30
+          if-no-files-found: error

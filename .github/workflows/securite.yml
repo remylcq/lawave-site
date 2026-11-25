@@ -1,0 +1,60 @@
+name: Contrôle de sécurité
+
+# Cherche des secrets dans tout l'historique du dépôt (gitleaks, réglé par .gitleaks.toml) et vérifie les réglages de
+# sécurité de la base Supabase : RLS partout, search_path figé, fonctions ouvertes aux visiteurs sans compte (liste
+# outils/securite/fonctions-anon.txt), buckets publics (buckets-publics.txt), aucun droit d'écriture de anon.
+# À chaque pull request, à chaque fusion sur main, chaque lundi matin et à la demande.
+#
+# Pour le contrôle de la base (Settings -> Secrets and variables -> Actions), un secret :
+#   SUPABASE_DB_URL   l'adresse de connexion de la base : Supabase -> Connect -> « Session pooler », avec le mot de passe de la base
+# Tant qu'il n'est pas posé, seule la recherche de secrets tourne.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Recherche de secrets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Récupérer le dépôt (tout l'historique)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        run: |
+          set -euo pipefail
+          version=8.30.1
+          archive="gitleaks_${version}_linux_x64.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" "https://github.com/gitleaks/gitleaks/releases/download/v${version}/${archive}"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact --no-banner --config .gitleaks.toml --log-opts="--all" -v
+
+  base:
+    name: Réglages de la base
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Contrôler la base
+        if: env.SUPABASE_DB_URL != ''
+        run: bash outils/securite/controler-base.sh
+
+      - name: Secret absent
+        if: env.SUPABASE_DB_URL == ''
+        run: echo "::notice title=Contrôle de la base ignoré::SUPABASE_DB_URL n'est pas posé (voir l'en-tête de securite.yml)."

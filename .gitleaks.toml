@@ -1,0 +1,23 @@
+title = "La Wave"
+
+[extend]
+useDefault = true
+
+# Les seules valeurs « secrètes » que le dépôt a le droit de contenir : elles sont publiques par conception.
+# Toute AUTRE clé repérée (une clé service_role, un mot de passe, un jeton) fait échouer le contrôle.
+[[allowlists]]
+description = "Clés publiques : clé Supabase anon et publishable (embarquées dans le site), clé YouTube restreinte par référent HTTP."
+regexes = [
+  '''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxYXRhZWdoZ2p5aXFybm5lc3FxIiwicm9sZSI6ImFub24i[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$''',
+  '''^sb_publishable_yPAFW5xjK6gEgLZqQYyojA_D00vMayy$''',
+  '''^AIzaSyAcbUeOVJzxKtKpu3jZf_IQV7b5Frrf2c0$''',
+]
+
+[[allowlists]]
+description = "Ancien workflow de mise en ligne, supprimé : des variables de shell (--user $FTP_USER:$FTP_PASSWORD), pas de secret."
+targetRules = ["curl-auth-user"]
+paths = ['''^\.github/workflows/deploiement-ovh\.yml$''']
+
+[[allowlists]]
+description = "Bibliothèques tierces minifiées."
+paths = ['''^lib/''']
